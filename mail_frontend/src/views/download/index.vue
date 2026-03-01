@@ -6,7 +6,7 @@
       <div class="download-container">
         <div class="header">
           <h1>下载邮件管理客户端</h1>
-          <p class="subtitle">支持 macOS 系统（Apple Silicon / Intel）</p>
+          <p class="subtitle">支持 macOS 和 Windows 系统</p>
         </div>
 
         <div class="download-cards">
@@ -29,17 +29,20 @@
           </div>
 
           <!-- Windows 下载 -->
-          <div class="download-card coming-soon">
+          <div class="download-card">
             <div class="platform-icon">
               <svg viewBox="0 0 24 24" width="64" height="64">
                 <path fill="#0078D4" d="M0,3.4l9.7-1.3v9.4H0V3.4z M10.7,2l12.2-1.7v11.2H10.7V2z M0,12.5h9.7v9.4L0,20.6V12.5z M10.7,12.5h12.2v11.2L10.7,22V12.5z"/>
               </svg>
             </div>
             <h2>Windows</h2>
-            <p class="version">即将推出</p>
-            <span class="download-btn disabled">
-              敬请期待
-            </span>
+            <p class="version">版本 1.2.1</p>
+            <a
+              href="https://zjkdongao.cn/downloads/mail-desktop_1.2.1_x64-setup.exe"
+              class="download-btn"
+            >
+              下载 Windows 版本
+            </a>
             <p class="system-req">Windows 10/11 (64位)</p>
           </div>
         </div>
