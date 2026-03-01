@@ -12,10 +12,6 @@ on:
 
 env:
   APP_NAME: mail-desktop
-  SERVER_HOST: 8.140.27.159
-  SERVER_USER: root
-  DOWNLOAD_PATH: /var/www/html/downloads
-  UPDATE_PATH: /var/www/html/desktop-updates
 
 jobs:
   build:
@@ -100,7 +96,7 @@ jobs:
             mail_desktop/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.nsis.zip
             mail_desktop/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.nsis.zip.sig
 
-  deploy:
+  release:
     needs: build
     runs-on: ubuntu-latest
 
@@ -140,54 +136,6 @@ jobs:
         with:
           name: windows-artifacts
           path: artifacts/windows
-
-      - name: List artifacts
-        run: find artifacts -type f
-
-      - name: Setup SSH
-        uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: ${{ secrets.SERVER_SSH_KEY }}
-
-      - name: Disable SSH host key checking
-        run: |
-          mkdir -p ~/.ssh
-          echo "Host *
-            StrictHostKeyChecking no
-            UserKnownHostsFile /dev/null" >> ~/.ssh/config
-
-      - name: Upload to server
-        run: |
-          VERSION="${{ github.event.inputs.version }}"
-          PREV="${{ github.event.inputs.prev_version }}"
-
-          # 确保更新清单目录存在（仅创建，不改权限）
-          ssh ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }} "mkdir -p ${{ env.UPDATE_PATH }}/darwin-aarch64 ${{ env.UPDATE_PATH }}/darwin-x86_64 ${{ env.UPDATE_PATH }}/windows-x86_64"
-
-          # 上传 macOS 更新包
-          TAR_GZ=$(find artifacts/macos -name "*.app.tar.gz" | head -1)
-          SIG_FILE=$(find artifacts/macos -name "*.app.tar.gz.sig" | head -1)
-          if [ -n "$TAR_GZ" ]; then
-            scp "$TAR_GZ" ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }}:${{ env.DOWNLOAD_PATH }}/mail-desktop.app.tar.gz
-            echo "✅ macOS 更新包已上传"
-          fi
-
-          # 上传 Windows 安装包
-          EXE=$(find artifacts/windows -name "*.exe" | head -1)
-          if [ -n "$EXE" ]; then
-            scp "$EXE" ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }}:${{ env.DOWNLOAD_PATH }}/
-            echo "✅ Windows 安装包已上传"
-          fi
-
-          # 生成 macOS 更新清单
-          if [ -n "$SIG_FILE" ]; then
-            SIGNATURE=$(cat "$SIG_FILE")
-            PUB_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-            MANIFEST="{\"version\":\"${VERSION}\",\"notes\":\"新版本 v${VERSION} 发布\",\"pub_date\":\"${PUB_DATE}\",\"url\":\"https://zjkdongao.cn/downloads/mail-desktop.app.tar.gz\",\"signature\":\"${SIGNATURE}\"}"
-            echo "$MANIFEST" | ssh ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }} "cat > ${{ env.UPDATE_PATH }}/darwin-aarch64/${PREV}"
-            echo "$MANIFEST" | ssh ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }} "cat > ${{ env.UPDATE_PATH }}/darwin-x86_64/${PREV}"
-            echo "✅ macOS 更新清单已生成（${PREV} -> ${VERSION}）"
-          fi
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2

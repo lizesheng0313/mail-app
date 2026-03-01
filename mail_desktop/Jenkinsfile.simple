@@ -2,309 +2,118 @@ pipeline {
     agent any
 
     environment {
-        // 项目配置
-        PROJECT_NAME = 'mail_desktop'
-        VERSION = "${params.DESKTOP_VERSION ?: '0.1.0'}"
-
-        // 服务器配置
         SERVER_HOST = '8.140.27.159'
         SERVER_USER = 'root'
         DOWNLOAD_PATH = '/var/www/html/downloads'
         UPDATE_PATH = '/var/www/html/desktop-updates'
-
-        // 签名密钥配置
-        PRIVATE_KEY_PATH = "${WORKSPACE}/mail_desktop/.tauri-key"
-
-        // 确保 cargo/rust 在 PATH 中
+        REPO = 'lizesheng0313/mail-app'
         PATH = "${HOME}/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:${PATH}"
     }
 
     parameters {
         string(
-            name: 'DESKTOP_VERSION',
-            defaultValue: '0.1.0',
-            description: '桌面应用版本号（例如：0.2.0）'
-        )
-        password(
-            name: 'SIGNING_PASSWORD',
+            name: 'VERSION',
             defaultValue: '',
-            description: '签名私钥密码'
+            description: '要部署的版本号（例如 1.2.0）'
         )
-        booleanParam(
-            name: 'AUTO_DEPLOY',
-            defaultValue: true,
-            description: '自动部署到服务器'
+        string(
+            name: 'PREV_VERSION',
+            defaultValue: '',
+            description: '上一个版本号，用于更新清单（例如 1.1.0）'
         )
     }
 
     stages {
-        stage('准备') {
-            steps {
-                echo "🚀 开始构建桌面应用: ${PROJECT_NAME} v${VERSION}"
-                sh 'node --version'
-                sh 'rustc --version'
-                sh 'cargo --version'
-                sh 'git log -1 --oneline'
-
-                // 确保两个架构的编译目标都装了
-                sh 'rustup target add x86_64-apple-darwin aarch64-apple-darwin 2>/dev/null || true'
-
-                script {
-                    if (!fileExists("${WORKSPACE}/mail_desktop/.tauri-key")) {
-                        error "❌ 找不到签名私钥: ${WORKSPACE}/mail_desktop/.tauri-key"
-                    }
-
-                    if (!params.SIGNING_PASSWORD) {
-                        error "❌ 请提供签名私钥密码"
-                    }
-                }
-            }
-        }
-
-        stage('更新版本号') {
+        stage('从 GitHub Release 下载') {
             steps {
                 sh """
-                    cd mail_desktop/src-tauri
-                    cp tauri.conf.json tauri.conf.json.bak
-                    sed -i '' 's/"version": "[^"]*"/"version": "${VERSION}"/' tauri.conf.json
-                    grep '"version"' tauri.conf.json
-                """
-            }
-        }
+                    rm -rf release_artifacts && mkdir release_artifacts
 
-        stage('安装依赖') {
-            steps {
-                sh """
-                    cd mail_frontend && corepack enable && pnpm install
-                """
-                sh """
-                    cd mail_desktop && pnpm install
-                """
-            }
-        }
+                    echo "📥 下载 v${params.VERSION} 的构建产物..."
 
-        stage('构建前端') {
-            steps {
-                sh """
-                    cd mail_frontend && pnpm run build && ls -lh dist/
-                """
-            }
-        }
+                    gh release download "v${params.VERSION}" -R "${REPO}" -p "*.app.tar.gz" -D release_artifacts || echo "⚠️ macOS tar.gz 未找到"
+                    gh release download "v${params.VERSION}" -R "${REPO}" -p "*.app.tar.gz.sig" -D release_artifacts || echo "⚠️ macOS sig 未找到"
+                    gh release download "v${params.VERSION}" -R "${REPO}" -p "*.exe" -D release_artifacts || echo "⚠️ Windows exe 未找到"
+                    gh release download "v${params.VERSION}" -R "${REPO}" -p "*.nsis.zip" -D release_artifacts || echo "⚠️ Windows nsis.zip 未找到"
+                    gh release download "v${params.VERSION}" -R "${REPO}" -p "*.nsis.zip.sig" -D release_artifacts || echo "⚠️ Windows sig 未找到"
 
-        stage('构建桌面应用') {
-            steps {
-                sh """
-                    export TAURI_SIGNING_PRIVATE_KEY_PATH="${PRIVATE_KEY_PATH}"
-                    export TAURI_SIGNING_PRIVATE_KEY_PASSWORD="${params.SIGNING_PASSWORD}"
-
-                    cd mail_desktop
-
-                    # 编译 universal .app（跳过 DMG，避免中文产品名导致的打包 bug）
-                    pnpm tauri build --target universal-apple-darwin --bundles app,updater
-
-                    BUNDLE_DIR="src-tauri/target/universal-apple-darwin/release/bundle"
-
-                    # 手动打 DMG
-                    echo "📦 手动创建 DMG..."
-                    mkdir -p "\$BUNDLE_DIR/dmg"
-                    TEMP_DIR=\$(mktemp -d)
-                    cp -R "\$BUNDLE_DIR/macos/邮件管理.app" "\$TEMP_DIR/"
-                    ln -s /Applications "\$TEMP_DIR/Applications"
-                    hdiutil create -volname "邮件管理" -srcfolder "\$TEMP_DIR" -ov -format UDZO "\$BUNDLE_DIR/dmg/mail-desktop_${VERSION}_universal.dmg"
-                    rm -rf "\$TEMP_DIR"
-
-                    echo "📦 构建产物："
-                    find "\$BUNDLE_DIR" -type f \\( -name "*.dmg" -o -name "*.app.tar.gz" -o -name "*.sig" \\) 2>/dev/null
+                    echo "📦 下载的文件："
+                    ls -lh release_artifacts/
                 """
             }
         }
 
         stage('上传到服务器') {
-            when {
-                expression { params.AUTO_DEPLOY == true }
-            }
             steps {
                 sshagent(credentials: ['server-ssh-key']) {
                     sh """
-                        ssh -o StrictHostKeyChecking=no ${SERVER_USER}@${SERVER_HOST} \
-                            "mkdir -p ${DOWNLOAD_PATH} ${UPDATE_PATH}/{darwin-aarch64,darwin-x86_64} /tmp/desktop_sigs"
-
-                        BUNDLE_DIR="mail_desktop/src-tauri/target/universal-apple-darwin/release/bundle"
-
-                        # 上传 DMG
-                        echo "📤 上传 DMG..."
-                        scp -o StrictHostKeyChecking=no "\$BUNDLE_DIR/dmg/mail-desktop_${VERSION}_universal.dmg" ${SERVER_USER}@${SERVER_HOST}:${DOWNLOAD_PATH}/
-
-                        # 上传更新包（.app.tar.gz + 签名）
-                        if ls \$BUNDLE_DIR/macos/*.app.tar.gz 1>/dev/null 2>&1; then
-                            echo "📤 上传更新包..."
-                            for f in \$BUNDLE_DIR/macos/*.app.tar.gz; do
-                                scp -o StrictHostKeyChecking=no "\$f" ${SERVER_USER}@${SERVER_HOST}:${DOWNLOAD_PATH}/
-                            done
-                            for f in \$BUNDLE_DIR/macos/*.app.tar.gz.sig; do
-                                [ -f "\$f" ] && scp -o StrictHostKeyChecking=no "\$f" ${SERVER_USER}@${SERVER_HOST}:/tmp/desktop_sigs/
-                            done
+                        # macOS 更新包
+                        TAR_GZ=\$(find release_artifacts -name "*.app.tar.gz" | head -1)
+                        if [ -n "\$TAR_GZ" ]; then
+                            scp -o StrictHostKeyChecking=no "\$TAR_GZ" ${SERVER_USER}@${SERVER_HOST}:${DOWNLOAD_PATH}/mail-desktop.app.tar.gz
+                            echo "✅ macOS 更新包已上传"
                         fi
 
-                        echo "✅ 上传完成"
-                        ssh -o StrictHostKeyChecking=no ${SERVER_USER}@${SERVER_HOST} "ls -lh ${DOWNLOAD_PATH}/"
+                        # Windows 安装包
+                        EXE=\$(find release_artifacts -name "*.exe" | head -1)
+                        if [ -n "\$EXE" ]; then
+                            scp -o StrictHostKeyChecking=no "\$EXE" ${SERVER_USER}@${SERVER_HOST}:${DOWNLOAD_PATH}/
+                            echo "✅ Windows 安装包已上传"
+                        fi
+
+                        # Windows 更新包
+                        NSIS_ZIP=\$(find release_artifacts -name "*.nsis.zip" ! -name "*.sig" | head -1)
+                        if [ -n "\$NSIS_ZIP" ]; then
+                            scp -o StrictHostKeyChecking=no "\$NSIS_ZIP" ${SERVER_USER}@${SERVER_HOST}:${DOWNLOAD_PATH}/
+                            echo "✅ Windows 更新包已上传"
+                        fi
                     """
                 }
             }
         }
 
         stage('生成更新清单') {
-            when {
-                expression { params.AUTO_DEPLOY == true }
-            }
-            steps {
-                script {
-                    def currentVersion = sh(
-                        script: "cd mail_desktop/src-tauri && grep -o '\"version\": \"[^\"]*\"' tauri.conf.json.bak | head -1 | sed 's/\"version\": \"\\(.*\\)\"/\\1/'",
-                        returnStdout: true
-                    ).trim()
-
-                    // 查找实际的 .app.tar.gz 文件名
-                    def tarGzName = sh(
-                        script: "ls mail_desktop/src-tauri/target/universal-apple-darwin/release/bundle/macos/*.app.tar.gz 2>/dev/null | head -1 | xargs basename",
-                        returnStdout: true
-                    ).trim()
-
-                    sshagent(credentials: ['server-ssh-key']) {
-                        sh """
-                            ssh -o StrictHostKeyChecking=no ${SERVER_USER}@${SERVER_HOST} << 'ENDSSH'
-set -e
-
-CURRENT_VERSION="${currentVersion}"
-NEW_VERSION="${VERSION}"
-TAR_GZ_NAME="${tarGzName}"
-PUB_DATE=\$(date -u +%Y-%m-%dT%H:%M:%SZ)
-
-echo "📝 当前版本: \$CURRENT_VERSION -> 新版本: \$NEW_VERSION"
-echo "📝 更新包: \$TAR_GZ_NAME"
-
-# universal 包同时写入两个架构的更新清单
-if [ -f /tmp/desktop_sigs/\${TAR_GZ_NAME}.sig ]; then
-    SIGNATURE=\$(cat /tmp/desktop_sigs/\${TAR_GZ_NAME}.sig)
-
-    # Apple Silicon 更新清单
-    cat > ${UPDATE_PATH}/darwin-aarch64/\${CURRENT_VERSION} << EOF
-{
-  "version": "\${NEW_VERSION}",
-  "notes": "新版本发布，包含功能改进和问题修复",
-  "pub_date": "\${PUB_DATE}",
-  "platforms": {
-    "darwin-aarch64": {
-      "signature": "\${SIGNATURE}",
-      "url": "https://zjkdongao.cn/downloads/\${TAR_GZ_NAME}"
-    }
-  }
-}
-EOF
-    echo "✓ darwin-aarch64 更新清单"
-
-    # Intel 更新清单（同一个 universal 包）
-    cat > ${UPDATE_PATH}/darwin-x86_64/\${CURRENT_VERSION} << EOF
-{
-  "version": "\${NEW_VERSION}",
-  "notes": "新版本发布，包含功能改进和问题修复",
-  "pub_date": "\${PUB_DATE}",
-  "platforms": {
-    "darwin-x86_64": {
-      "signature": "\${SIGNATURE}",
-      "url": "https://zjkdongao.cn/downloads/\${TAR_GZ_NAME}"
-    }
-  }
-}
-EOF
-    echo "✓ darwin-x86_64 更新清单"
-else
-    echo "⚠️  未找到签名文件，跳过更新清单"
-fi
-
-chmod 644 ${DOWNLOAD_PATH}/* 2>/dev/null || true
-chmod 644 ${UPDATE_PATH}/*/* 2>/dev/null || true
-rm -rf /tmp/desktop_sigs
-
-echo "✅ 更新清单已生成"
-ENDSSH
-                        """
-                    }
-                }
-            }
-        }
-
-        stage('更新并部署前端下载页') {
-            when {
-                expression { params.AUTO_DEPLOY == true }
-            }
             steps {
                 sh """
-                    cd mail_frontend/src/views/download
+                    VERSION="${params.VERSION}"
+                    PREV="${params.PREV_VERSION}"
+                    PUB_DATE=\$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
-                    # 更新版本号和下载链接
-                    sed -i '' 's/版本 [0-9.]*[0-9]/版本 ${VERSION}/g' index.vue
-                    sed -i '' 's/mail-desktop_[0-9.]*[0-9]_/mail-desktop_${VERSION}_/g' index.vue
+                    # macOS 更新清单
+                    SIG_FILE=\$(find release_artifacts -name "*.app.tar.gz.sig" | head -1)
+                    if [ -n "\$SIG_FILE" ]; then
+                        SIGNATURE=\$(cat "\$SIG_FILE")
+                        MANIFEST="{\\\"version\\\":\\\"\${VERSION}\\\",\\\"notes\\\":\\\"新版本 v\${VERSION} 发布\\\",\\\"pub_date\\\":\\\"\${PUB_DATE}\\\",\\\"url\\\":\\\"https://zjkdongao.cn/downloads/mail-desktop.app.tar.gz\\\",\\\"signature\\\":\\\"\${SIGNATURE}\\\"}"
+                        echo "\$MANIFEST" | ssh -o StrictHostKeyChecking=no ${SERVER_USER}@${SERVER_HOST} "cat > ${UPDATE_PATH}/darwin-aarch64/\${PREV}"
+                        echo "\$MANIFEST" | ssh -o StrictHostKeyChecking=no ${SERVER_USER}@${SERVER_HOST} "cat > ${UPDATE_PATH}/darwin-x86_64/\${PREV}"
+                        echo "✅ macOS 更新清单（\${PREV} -> \${VERSION}）"
+                    fi
 
-                    grep '${VERSION}' index.vue || echo "⚠️  版本号可能未更新"
+                    # Windows 更新清单
+                    WIN_SIG=\$(find release_artifacts -name "*.nsis.zip.sig" | head -1)
+                    WIN_ZIP=\$(find release_artifacts -name "*.nsis.zip" ! -name "*.sig" | head -1)
+                    if [ -n "\$WIN_SIG" ] && [ -n "\$WIN_ZIP" ]; then
+                        WIN_SIGNATURE=\$(cat "\$WIN_SIG")
+                        WIN_FILENAME=\$(basename "\$WIN_ZIP")
+                        WIN_MANIFEST="{\\\"version\\\":\\\"\${VERSION}\\\",\\\"notes\\\":\\\"新版本 v\${VERSION} 发布\\\",\\\"pub_date\\\":\\\"\${PUB_DATE}\\\",\\\"url\\\":\\\"https://zjkdongao.cn/downloads/\${WIN_FILENAME}\\\",\\\"signature\\\":\\\"\${WIN_SIGNATURE}\\\"}"
+                        ssh -o StrictHostKeyChecking=no ${SERVER_USER}@${SERVER_HOST} "mkdir -p ${UPDATE_PATH}/windows-x86_64"
+                        echo "\$WIN_MANIFEST" | ssh -o StrictHostKeyChecking=no ${SERVER_USER}@${SERVER_HOST} "cat > ${UPDATE_PATH}/windows-x86_64/\${PREV}"
+                        echo "✅ Windows 更新清单（\${PREV} -> \${VERSION}）"
+                    fi
                 """
-
-                // 构建前端
-                sh """
-                    cd mail_frontend
-                    corepack enable
-                    pnpm install
-                    pnpm run build
-                """
-
-                // 部署到服务器
-                sshagent(credentials: ['server-ssh-key']) {
-                    sh """
-                        cd mail_frontend
-                        tar -czf /tmp/dist.tar.gz dist
-
-                        ssh -o StrictHostKeyChecking=no ${SERVER_USER}@${SERVER_HOST} "mkdir -p /tmp/frontend_deploy"
-                        scp -o StrictHostKeyChecking=no /tmp/dist.tar.gz ${SERVER_USER}@${SERVER_HOST}:/tmp/frontend_deploy/
-
-                        ssh -o StrictHostKeyChecking=no ${SERVER_USER}@${SERVER_HOST} << 'ENDSSH'
-mkdir -p /var/web/mail/mail_frontend
-rm -rf /var/web/mail/mail_frontend/*
-cd /tmp/frontend_deploy
-tar -xzf dist.tar.gz
-mv dist/* /var/web/mail/mail_frontend/
-chmod -R 755 /var/web/mail/mail_frontend
-rm -rf /tmp/frontend_deploy
-echo "✅ 前端部署完成"
-ENDSSH
-
-                        rm -f /tmp/dist.tar.gz
-                    """
-                }
-            }
-        }
-
-        stage('部署完成') {
-            when {
-                expression { params.AUTO_DEPLOY == true }
-            }
-            steps {
-                echo "✅ 桌面应用部署完成！"
-                echo "📋 版本: ${VERSION}"
-                echo "🔗 下载: https://zjkdongao.cn/downloads/mail-desktop_${VERSION}_universal.dmg"
-                echo "📄 下载页: https://zjkdongao.cn/download"
             }
         }
     }
 
     post {
         success {
-            echo "✅ 构建成功！版本: ${VERSION}"
+            echo "✅ 部署完成！版本: ${params.VERSION}"
         }
         failure {
-            echo "❌ 构建失败！"
+            echo "❌ 部署失败！"
         }
         always {
-            sh 'rm -f mail_desktop/src-tauri/tauri.conf.json.bak 2>/dev/null || true'
+            sh 'rm -rf release_artifacts'
         }
     }
 }
