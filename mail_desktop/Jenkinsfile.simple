@@ -10,33 +10,38 @@ pipeline {
         PATH = "${HOME}/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:${PATH}"
     }
 
-    parameters {
-        string(
-            name: 'VERSION',
-            defaultValue: '',
-            description: '要部署的版本号（例如 1.2.0）'
-        )
-        string(
-            name: 'PREV_VERSION',
-            defaultValue: '',
-            description: '上一个版本号，用于更新清单（例如 1.1.0）'
-        )
-    }
-
     stages {
+        stage('获取最新版本号') {
+            steps {
+                script {
+                    // 自动获取最新和上一个 release 版本号
+                    def releases = sh(
+                        script: "gh release list -R ${REPO} --limit 2 --json tagName -q '.[].tagName'",
+                        returnStdout: true
+                    ).trim().split('\n')
+
+                    env.VERSION = releases[0].replaceFirst('^v', '')
+                    env.PREV_VERSION = releases.size() > 1 ? releases[1].replaceFirst('^v', '') : ''
+
+                    echo "最新版本: ${env.VERSION}"
+                    echo "上一版本: ${env.PREV_VERSION}"
+                }
+            }
+        }
+
         stage('从 GitHub Release 下载') {
             steps {
                 sh """
                     rm -rf release_artifacts && mkdir release_artifacts
 
-                    echo "📥 下载 v${params.VERSION} 的构建产物..."
+                    echo "📥 下载 v${env.VERSION} 的构建产物..."
 
-                    gh release download "v${params.VERSION}" -R "${REPO}" -p "*.dmg" -D release_artifacts || echo "⚠️ macOS dmg 未找到"
-                    gh release download "v${params.VERSION}" -R "${REPO}" -p "*.app.tar.gz" -D release_artifacts || echo "⚠️ macOS tar.gz 未找到"
-                    gh release download "v${params.VERSION}" -R "${REPO}" -p "*.app.tar.gz.sig" -D release_artifacts || echo "⚠️ macOS sig 未找到"
-                    gh release download "v${params.VERSION}" -R "${REPO}" -p "*.exe" -D release_artifacts || echo "⚠️ Windows exe 未找到"
-                    gh release download "v${params.VERSION}" -R "${REPO}" -p "*.nsis.zip" -D release_artifacts || echo "⚠️ Windows nsis.zip 未找到"
-                    gh release download "v${params.VERSION}" -R "${REPO}" -p "*.nsis.zip.sig" -D release_artifacts || echo "⚠️ Windows sig 未找到"
+                    gh release download "v${env.VERSION}" -R "${REPO}" -p "*.dmg" -D release_artifacts || echo "⚠️ macOS dmg 未找到"
+                    gh release download "v${env.VERSION}" -R "${REPO}" -p "*.app.tar.gz" -D release_artifacts || echo "⚠️ macOS tar.gz 未找到"
+                    gh release download "v${env.VERSION}" -R "${REPO}" -p "*.app.tar.gz.sig" -D release_artifacts || echo "⚠️ macOS sig 未找到"
+                    gh release download "v${env.VERSION}" -R "${REPO}" -p "*.exe" -D release_artifacts || echo "⚠️ Windows exe 未找到"
+                    gh release download "v${env.VERSION}" -R "${REPO}" -p "*.nsis.zip" -D release_artifacts || echo "⚠️ Windows nsis.zip 未找到"
+                    gh release download "v${env.VERSION}" -R "${REPO}" -p "*.nsis.zip.sig" -D release_artifacts || echo "⚠️ Windows sig 未找到"
 
                     echo "📦 下载的文件："
                     ls -lh release_artifacts/
@@ -83,9 +88,14 @@ pipeline {
         stage('生成更新清单') {
             steps {
                 sh """
-                    VERSION="${params.VERSION}"
-                    PREV="${params.PREV_VERSION}"
+                    VERSION="${env.VERSION}"
+                    PREV="${env.PREV_VERSION}"
                     PUB_DATE=\$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+                    if [ -z "\$PREV" ]; then
+                        echo "⚠️ 只有一个版本，跳过更新清单生成"
+                        exit 0
+                    fi
 
                     # macOS 更新清单
                     SIG_FILE=\$(find release_artifacts -name "*.app.tar.gz.sig" | head -1)
@@ -115,7 +125,7 @@ pipeline {
 
     post {
         success {
-            echo "✅ 部署完成！版本: ${params.VERSION}"
+            echo "✅ 部署完成！版本: ${env.VERSION}"
         }
         failure {
             echo "❌ 部署失败！"
