@@ -18,9 +18,9 @@
               </svg>
             </div>
             <h2>macOS</h2>
-            <p class="version">版本 1.2.1</p>
+            <p class="version">版本 1.2.2</p>
             <a
-              href="https://zjkdongao.cn/downloads/mail-desktop_1.2.1_universal.dmg"
+              href="https://zjkdongao.cn/downloads/mail-desktop_1.2.2_universal.dmg"
               class="download-btn"
             >
               下载 macOS 版本
@@ -36,9 +36,9 @@
               </svg>
             </div>
             <h2>Windows</h2>
-            <p class="version">版本 1.2.1</p>
+            <p class="version">版本 1.2.2</p>
             <a
-              href="https://zjkdongao.cn/downloads/mail-desktop_1.2.1_x64-setup.exe"
+              href="https://zjkdongao.cn/downloads/mail-desktop_1.2.2_x64-setup.exe"
               class="download-btn"
             >
               下载 Windows 版本
