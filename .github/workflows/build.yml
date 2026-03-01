@@ -12,6 +12,10 @@ on:
 
 env:
   APP_NAME: mail-desktop
+  SERVER_HOST: 8.140.27.159
+  SERVER_USER: root
+  DOWNLOAD_PATH: /var/www/html/downloads
+  UPDATE_PATH: /var/www/html/desktop-updates
 
 jobs:
   build:
@@ -96,7 +100,7 @@ jobs:
             mail_desktop/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.nsis.zip
             mail_desktop/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.nsis.zip.sig
 
-  release:
+  deploy:
     needs: build
     runs-on: ubuntu-latest
 
@@ -104,10 +108,24 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Update download page
+        run: |
+          sed -i "s/版本 [0-9.]*[0-9]/版本 ${{ github.event.inputs.version }}/g" mail_frontend/src/views/download/index.vue
+          sed -i "s/mail-desktop_[0-9.]*[0-9]_/mail-desktop_${{ github.event.inputs.version }}_/g" mail_frontend/src/views/download/index.vue
+          cat mail_frontend/src/views/download/index.vue | grep -E "版本|mail-desktop_"
+
+      - name: Commit download page changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add mail_frontend/src/views/download/index.vue
+          git commit -m "chore: 更新下载页版本号为 ${{ github.event.inputs.version }}" || echo "No changes"
+          git push
+
       - name: Create and push tag
         run: |
-          git tag v${{ github.event.inputs.version }}
-          git push origin v${{ github.event.inputs.version }}
+          git tag -f v${{ github.event.inputs.version }}
+          git push origin v${{ github.event.inputs.version }} --force
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -122,6 +140,48 @@ jobs:
         with:
           name: windows-artifacts
           path: artifacts/windows
+
+      - name: List artifacts
+        run: find artifacts -type f
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ env.SERVER_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Upload to server
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          PREV="${{ github.event.inputs.prev_version }}"
+
+          ssh ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }} "mkdir -p ${{ env.DOWNLOAD_PATH }} ${{ env.UPDATE_PATH }}/darwin-aarch64 ${{ env.UPDATE_PATH }}/darwin-x86_64"
+
+          # 上传 macOS 更新包
+          TAR_GZ=$(find artifacts/macos -name "*.app.tar.gz" | head -1)
+          SIG_FILE=$(find artifacts/macos -name "*.app.tar.gz.sig" | head -1)
+          if [ -n "$TAR_GZ" ]; then
+            scp "$TAR_GZ" ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }}:${{ env.DOWNLOAD_PATH }}/mail-desktop.app.tar.gz
+            echo "✅ macOS 更新包已上传"
+          fi
+
+          # 上传 Windows 安装包
+          EXE=$(find artifacts/windows -name "*.exe" | head -1)
+          if [ -n "$EXE" ]; then
+            scp "$EXE" ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }}:${{ env.DOWNLOAD_PATH }}/
+            echo "✅ Windows 安装包已上传"
+          fi
+
+          # 生成 macOS 更新清单
+          if [ -n "$SIG_FILE" ]; then
+            SIGNATURE=$(cat "$SIG_FILE")
+            PUB_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+            MANIFEST="{\"version\":\"${VERSION}\",\"notes\":\"新版本 v${VERSION} 发布\",\"pub_date\":\"${PUB_DATE}\",\"url\":\"https://zjkdongao.cn/downloads/mail-desktop.app.tar.gz\",\"signature\":\"${SIGNATURE}\"}"
+            echo "$MANIFEST" | ssh ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }} "cat > ${{ env.UPDATE_PATH }}/darwin-aarch64/${PREV}"
+            echo "$MANIFEST" | ssh ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }} "cat > ${{ env.UPDATE_PATH }}/darwin-x86_64/${PREV}"
+            echo "✅ macOS 更新清单已生成（${PREV} -> ${VERSION}）"
+          fi
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
