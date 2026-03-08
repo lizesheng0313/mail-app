@@ -2,10 +2,9 @@
 set -e
 
 # 从 GitHub Release 下载构建产物并部署到服务器
-# 用法: bash deploy-from-release.sh 1.2.0 1.1.0
+# 用法: bash deploy-from-release.sh 1.2.0
 
-VERSION="${1:?请输入版本号，例如: bash deploy-from-release.sh 1.2.0 1.1.0}"
-PREV_VERSION="${2:?请输入上一个版本号，例如: bash deploy-from-release.sh 1.2.0 1.1.0}"
+VERSION="${1:?请输入版本号，例如: bash deploy-from-release.sh 1.2.0}"
 
 REPO="lizesheng0313/mail-app"
 SERVER_HOST="8.140.27.159"
@@ -71,14 +70,22 @@ fi
 echo ""
 echo "[3/3] 生成更新清单..."
 
+echo "读取 GitHub Release 更新说明..."
+RELEASE_BODY=$(gh release view "v${VERSION}" -R "$REPO" --json body -q .body 2>/dev/null || true)
+if [ -z "$RELEASE_BODY" ]; then
+    RELEASE_BODY="邮件管理客户端 v${VERSION} 发布"
+fi
+
+NOTES=$(printf '%s' "$RELEASE_BODY" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read(), ensure_ascii=False))')
+
 # macOS 更新清单
 if [ -n "$SIG_FILE" ]; then
     SIGNATURE=$(cat "$SIG_FILE")
     PUB_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-    MANIFEST="{\"version\":\"${VERSION}\",\"notes\":\"新版本 v${VERSION} 发布\",\"pub_date\":\"${PUB_DATE}\",\"url\":\"https://zjkdongao.cn/downloads/mail-desktop.app.tar.gz\",\"signature\":\"${SIGNATURE}\"}"
-    echo "$MANIFEST" | ssh ${SERVER_USER}@${SERVER_HOST} "cat > ${UPDATE_PATH}/darwin-aarch64/${PREV_VERSION}"
-    echo "$MANIFEST" | ssh ${SERVER_USER}@${SERVER_HOST} "cat > ${UPDATE_PATH}/darwin-x86_64/${PREV_VERSION}"
-    echo "✅ macOS 更新清单已生成（${PREV_VERSION} -> ${VERSION}）"
+    MANIFEST="{\"version\":\"${VERSION}\",\"notes\":${NOTES},\"pub_date\":\"${PUB_DATE}\",\"url\":\"https://zjkdongao.cn/downloads/mail-desktop.app.tar.gz\",\"signature\":\"${SIGNATURE}\"}"
+    echo "$MANIFEST" | ssh ${SERVER_USER}@${SERVER_HOST} "cat > ${UPDATE_PATH}/darwin-aarch64/latest"
+    echo "$MANIFEST" | ssh ${SERVER_USER}@${SERVER_HOST} "cat > ${UPDATE_PATH}/darwin-x86_64/latest"
+    echo "✅ macOS 更新清单已生成（latest -> ${VERSION}）"
 fi
 
 # Windows 更新清单
@@ -89,9 +96,9 @@ if [ -n "$WIN_SIG" ] && [ -n "$WIN_ZIP" ]; then
     WIN_FILENAME=$(basename "$WIN_ZIP")
     PUB_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
     scp "$WIN_ZIP" ${SERVER_USER}@${SERVER_HOST}:${DOWNLOAD_PATH}/
-    WIN_MANIFEST="{\"version\":\"${VERSION}\",\"notes\":\"新版本 v${VERSION} 发布\",\"pub_date\":\"${PUB_DATE}\",\"url\":\"https://zjkdongao.cn/downloads/${WIN_FILENAME}\",\"signature\":\"${WIN_SIGNATURE}\"}"
-    echo "$WIN_MANIFEST" | ssh ${SERVER_USER}@${SERVER_HOST} "cat > ${UPDATE_PATH}/windows-x86_64/${PREV_VERSION}"
-    echo "✅ Windows 更新清单已生成（${PREV_VERSION} -> ${VERSION}）"
+    WIN_MANIFEST="{\"version\":\"${VERSION}\",\"notes\":${NOTES},\"pub_date\":\"${PUB_DATE}\",\"url\":\"https://zjkdongao.cn/downloads/${WIN_FILENAME}\",\"signature\":\"${WIN_SIGNATURE}\"}"
+    echo "$WIN_MANIFEST" | ssh ${SERVER_USER}@${SERVER_HOST} "cat > ${UPDATE_PATH}/windows-x86_64/latest"
+    echo "✅ Windows 更新清单已生成（latest -> ${VERSION}）"
 fi
 
 # 清理
@@ -100,6 +107,6 @@ rm -rf "$TEMP_DIR"
 echo ""
 echo "============================================"
 echo "  ✅ 全部完成！版本: $VERSION"
-echo "  macOS 更新: ${PREV_VERSION} -> ${VERSION}"
-echo "  Windows 更新: ${PREV_VERSION} -> ${VERSION}"
+echo "  macOS 更新: latest -> ${VERSION}"
+echo "  Windows 更新: latest -> ${VERSION}"
 echo "============================================"

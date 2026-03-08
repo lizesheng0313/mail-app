@@ -3,13 +3,19 @@
     <div class="update-modal">
       <!-- 提示更新 -->
       <template v-if="phase === 'confirm'">
-        <div class="update-icon">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
-          </svg>
+        <div class="update-header">
+          <div class="update-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+            </svg>
+          </div>
+          <h3 class="update-title">发现新版本</h3>
         </div>
-        <h3 class="update-title">发现新版本</h3>
         <p class="update-desc">v{{ version }} 已发布，建议立即更新以获得最佳体验</p>
+        <div v-if="notes.trim()" class="update-notes">
+          <div class="update-notes-title">更新内容</div>
+          <pre class="update-notes-body">{{ notes }}</pre>
+        </div>
         <div class="update-actions">
           <button class="btn-later" @click="dismiss">稍后再说</button>
           <button class="btn-update" @click="startUpdate">立即更新</button>
@@ -53,6 +59,7 @@ import { isTauri } from '@/services/api'
 const showModal = ref(false)
 const phase = ref<'confirm' | 'downloading' | 'error'>('confirm')
 const version = ref('')
+const notes = ref('')
 const percent = ref(0)
 const hint = ref('准备下载...')
 const errorMsg = ref('')
@@ -63,6 +70,7 @@ let updateMode: 'plugin' | 'fallback' = 'plugin'
 function dismiss() {
   showModal.value = false
   pendingUpdate = null
+  notes.value = ''
 }
 
 async function startUpdate() {
@@ -140,6 +148,7 @@ async function checkForUpdates() {
     if (update) {
       pendingUpdate = update
       version.value = update.version
+      notes.value = update.body || update.notes || ''
       updateMode = 'plugin'
       phase.value = 'confirm'
       showModal.value = true
@@ -155,6 +164,7 @@ async function checkForUpdates() {
     const result = await invoke('check_for_update') as { version: string; notes: string } | null
     if (result) {
       version.value = result.version
+      notes.value = result.notes || ''
       updateMode = 'fallback'
       phase.value = 'confirm'
       showModal.value = true
@@ -190,9 +200,18 @@ defineExpose({ checkForUpdates })
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
 }
 
+.update-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  justify-content: center;
+}
+
 .update-icon {
   color: rgb(var(--color-primary-500));
-  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
 }
 
 .update-icon.error {
@@ -203,7 +222,7 @@ defineExpose({ checkForUpdates })
   font-size: 18px;
   font-weight: 600;
   color: #111827;
-  margin: 0 0 8px;
+  margin: 0;
 }
 
 .update-desc {
@@ -285,5 +304,32 @@ defineExpose({ checkForUpdates })
   font-size: 13px;
   color: #9ca3af;
   margin: 0;
+}
+.update-notes {
+  margin: 16px 0 8px;
+  padding: 12px;
+  text-align: left;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+}
+
+.update-notes-title {
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #334155;
+}
+
+.update-notes-body {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #475569;
+  font-family: inherit;
+  max-height: 180px;
+  overflow: auto;
 }
 </style>

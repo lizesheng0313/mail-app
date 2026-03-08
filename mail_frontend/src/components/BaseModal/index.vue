@@ -48,8 +48,8 @@
               v-if="showConfirm"
               @click="handleConfirm"
               class="px-4 py-2 text-sm font-medium text-white bg-primary-600 border border-transparent rounded-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors"
-              :class="{ 'opacity-50 cursor-not-allowed': confirmLoading }"
-              :disabled="confirmLoading"
+              :class="{ 'opacity-50 cursor-not-allowed': confirmLoading || confirmDisabled }"
+              :disabled="confirmLoading || confirmDisabled"
             >
               <span v-if="confirmLoading" class="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></span>
               {{ confirmText }}
@@ -103,6 +103,10 @@ const props = defineProps({
     default: '确定'
   },
   confirmLoading: {
+    type: Boolean,
+    default: false
+  },
+  confirmDisabled: {
     type: Boolean,
     default: false
   },

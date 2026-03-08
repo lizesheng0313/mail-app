@@ -23,14 +23,7 @@
             @click="startBatchMode"
             class="px-2 py-1 text-xs text-primary-600 hover:text-primary-700 hover:bg-primary-50 rounded transition-colors whitespace-nowrap"
           >
-            批量删除
-          </button>
-          <button
-            v-if="batchSelection.isBatchMode.value"
-            @click="batchSelection.cancelBatchMode()"
-            class="px-2 py-1 text-xs text-gray-600 hover:text-gray-700 hover:bg-gray-50 rounded transition-colors whitespace-nowrap"
-          >
-            取消
+            批量操作
           </button>
 
           <slot name="actions"></slot>
@@ -74,6 +67,7 @@
       :isAllSelected="batchSelection.isAllSelected.value"
       @toggle-all="batchSelection.toggleSelectAll"
       @delete-selected="handleBatchDelete"
+      @clear-selection="batchSelection.cancelBatchMode()"
     />
   </div>
 </template>
@@ -128,7 +122,7 @@ const startBatchMode = () => {
   batchSelection.startBatchMode()
 }
 
-// 批量删除
+// 批量操作
 const handleBatchDelete = () => {
   const ids = batchSelection.getSelectedIds()
   emit('batch-delete', ids)

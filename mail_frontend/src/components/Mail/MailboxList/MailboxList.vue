@@ -8,18 +8,11 @@
           <slot name="header-actions"></slot>
           
           <button
-            v-if="!batchSelection.isBatchMode.value && mailboxes.length > 0"
+            v-if="!hideBatchMode && !batchSelection.isBatchMode.value && mailboxes.length > 0"
             @click="startBatchMode"
             class="px-2 py-1 text-xs text-primary-600 hover:text-primary-700 hover:bg-primary-50 rounded transition-colors"
           >
             批量操作
-          </button>
-          <button
-            v-if="batchSelection.isBatchMode.value"
-            @click="batchSelection.cancelBatchMode()"
-            class="px-2 py-1 text-xs text-gray-600 hover:text-gray-700 hover:bg-gray-50 rounded transition-colors"
-          >
-            取消
           </button>
         </div>
       </div>
@@ -62,6 +55,7 @@
       @toggle-all="batchSelection.toggleSelectAll"
       @delete-selected="handleBatchDelete"
       @share-selected="handleBatchShare"
+      @clear-selection="batchSelection.cancelBatchMode()"
     />
   </div>
 </template>
@@ -83,13 +77,15 @@ interface Props {
   selectedId?: number | null
   emptyText?: string
   showPagination?: boolean
+  hideBatchMode?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   title: '我的邮箱',
   selectedId: null,
   emptyText: '暂无邮箱',
-  showPagination: false
+  showPagination: false,
+  hideBatchMode: false
 })
 
 const emit = defineEmits<{
@@ -117,7 +113,7 @@ const startBatchMode = () => {
   console.log('🔵 批量模式已开启，isBatchMode:', batchSelection.isBatchMode.value)
 }
 
-// 批量删除
+// 批量操作
 const handleBatchDelete = () => {
   const ids = batchSelection.getSelectedIds()
   console.log('🔴 MailboxList基础组件 - handleBatchDelete 被调用')
@@ -152,6 +148,9 @@ const cancelBatchMode = () => {
 }
 
 defineExpose({
-  cancelBatchMode
+  cancelBatchMode,
+  isBatchMode: batchSelection.isBatchMode,
+  selectedIds: batchSelection.selectedIds,
+  toggleSelection: batchSelection.toggleSelection
 })
 </script>

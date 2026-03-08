@@ -191,7 +191,12 @@ const cancelBatchMode = () => {
 }
 
 defineExpose({
-  cancelBatchMode
+  cancelBatchMode,
+  toggleSelection: (id: number) => {
+    if (mailboxListRef.value?.toggleSelection) {
+      mailboxListRef.value.toggleSelection(id)
+    }
+  }
 })
 </script>
 

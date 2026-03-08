@@ -3,9 +3,10 @@
   <MailboxList
     ref="mailboxListRef"
     title="第三方邮箱"
-    :mailboxes="accounts"
-    :selectedId="selectedId"
+    :mailboxes="displayAccounts"
+    :selectedId="activeMailboxId ?? selectedId"
     :showPagination="true"
+    :hideBatchMode="isSendEmailView"
     @select="$emit('select', $event)"
     @batch-delete="handleBatchDelete"
     @batch-share="handleBatchShare"
@@ -22,9 +23,9 @@
       <div
         v-for="account in mailboxes"
         :key="account.id"
-        class="group p-3 bg-gray-50 rounded-lg hover:bg-primary-100 cursor-pointer"
-        :class="{ 'bg-primary-100': selectedId === account.id || (batchMode && selectedIds.includes(account.id)) }"
-        @click="batchMode ? toggleSelection(account.id) : onSelect(account)"
+        class="group rounded-lg border border-transparent p-3"
+        :class="[getSendItemClass(account, selectedId, batchMode, selectedIds), isSendEmailView && !hasSmtp(account.email) ? 'cursor-not-allowed' : 'cursor-pointer']"
+        @click="handleItemClick(account, batchMode, toggleSelection, onSelect)"
       >
         <div class="flex items-center justify-between">
           <div class="flex items-center flex-1 min-w-0">
@@ -35,6 +36,23 @@
               @change.stop="toggleSelection(account.id)"
               class="w-4 h-4 mr-3 cursor-pointer flex-shrink-0"
             />
+            <!-- 发件模式下的选中图标 -->
+            <div v-else-if="isSendEmailView" class="w-5 h-5 mr-2 flex-shrink-0 flex items-center justify-center">
+              <svg
+                v-if="(selectedSendIds || []).includes(account.id)"
+                class="w-5 h-5 text-primary-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+              <div
+                v-else
+                class="w-4 h-4 rounded-full border-2"
+                :class="hasSmtp(account.email) ? 'border-gray-300' : 'border-gray-200'"
+              ></div>
+            </div>
             <div class="flex-1">
               <div class="flex items-center gap-2">
                 <span 
@@ -52,13 +70,20 @@
                   class="w-2 h-2 rounded-full flex-shrink-0 bg-gray-400"
                   title="⚪ 已禁用"
                 ></span>
-                <code class="text-sm truncate" :class="account.status === 'failed' ? 'text-red-600' : 'text-black'">
+                <code class="text-sm truncate" :class="[
+                  account.status === 'failed' ? 'text-red-600' : 'text-black',
+                  isSendEmailView && !hasSmtp(account.email) ? 'opacity-50' : ''
+                ]">
                   {{ account.email }}
                 </code>
               </div>
-              <p class="text-xs mt-1" :class="account.status === 'failed' ? 'text-red-500' : 'text-gray-600'">
+              <p
+                v-if="!isSendEmailView || (account.status === 'failed' && account.error_message)"
+                class="text-xs mt-1"
+                :class="account.status === 'failed' ? 'text-red-500' : 'text-gray-600'"
+              >
                 <span v-if="account.status === 'failed' && account.error_message">
-                  ❌ {{ account.error_message }}
+                  {{ account.error_message }}
                 </span>
                 <span v-else>
                   更新：{{ (account.last_sync_at || account.created_at) ? formatDate(account.last_sync_at || account.created_at) : '未收取' }}
@@ -74,6 +99,7 @@
               @click.stop="copy(account.email)"
             />
             <ActionButton
+              v-if="!isSendEmailView"
               icon="share"
               variant="primary"
               tooltip="分享邮箱"
@@ -86,6 +112,7 @@
               @click.stop="handleDelete(account.id)"
             />
             <ActionButton
+              v-if="!isSendEmailView"
               icon="refresh"
               variant="primary"
               :tooltip="fetchingIds.includes(account.id) ? '收取中...' : '收取邮件'"
@@ -110,7 +137,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import MailboxList from '@/components/Mail/MailboxList/MailboxList.vue'
 import Pagination from '@/components/Pagination/index.vue'
 import ActionButton from '@/components/ActionButton/index.vue'
@@ -132,6 +159,50 @@ async function getTauriInvoke() {
   }
 }
 
+const props = defineProps<{
+  isSendEmailView?: boolean
+  activeMailboxId?: number | null
+  selectedSendIds?: number[]
+  smtpAccounts?: any[]
+}>()
+
+// SMTP 状态查询
+const smtpEmailSet = computed(() => {
+  const set = new Set<string>()
+  if (props.smtpAccounts) {
+    for (const a of props.smtpAccounts) {
+      if (a.status === 'active') set.add(a.email)
+    }
+  }
+  return set
+})
+
+const hasSmtp = (email: string) => smtpEmailSet.value.has(email)
+
+const getSendItemClass = (account: any, selectedId: any, batchMode: boolean, selectedIds: any) => {
+  if (props.isSendEmailView) {
+    const selected = (props.selectedSendIds || []).includes(account.id)
+    if (selected) return 'bg-primary-100 border-primary-300'
+    if (!hasSmtp(account.email)) return 'bg-gray-50 opacity-60'
+    return 'bg-gray-50 hover:bg-primary-50'
+  }
+  if (batchMode && selectedIds?.includes?.(account.id)) return 'bg-primary-100 border-primary-200'
+  if (selectedId === account.id) return 'bg-primary-100 border-primary-200'
+  return 'bg-gray-50 hover:bg-primary-100'
+}
+
+const handleItemClick = (account: any, batchMode: boolean, toggleSelection: Function, onSelect: Function) => {
+  if (batchMode) {
+    toggleSelection(account.id)
+    return
+  }
+  // 发件模式下，SMTP未验证的不让选
+  if (props.isSendEmailView && !hasSmtp(account.email)) {
+    return
+  }
+  onSelect(account)
+}
+
 const emit = defineEmits<{
   'select': [id: number]
   'refresh': []
@@ -150,6 +221,21 @@ const mailboxListRef = ref()
 const currentPage = ref(1)
 const totalPages = ref(1)
 const totalAccounts = ref(0)
+
+const displayAccounts = computed(() => {
+  if (!props.isSendEmailView) {
+    return accounts.value
+  }
+
+  return [...accounts.value].sort((first: any, second: any) => {
+    const firstCanSend = hasSmtp(first.email) ? 1 : 0
+    const secondCanSend = hasSmtp(second.email) ? 1 : 0
+    if (firstCanSend !== secondCanSend) {
+      return secondCanSend - firstCanSend
+    }
+    return (second.id || 0) - (first.id || 0)
+  })
+})
 
 const formatDate = (date: string | number) => {
   if (!date) return '未知'
@@ -310,6 +396,13 @@ defineExpose({
     console.log('🔵 外部邮箱组件 - cancelBatchMode 被调用')
     if (mailboxListRef.value?.cancelBatchMode) {
       mailboxListRef.value.cancelBatchMode()
+    }
+  },
+  isBatchMode: computed(() => mailboxListRef.value?.isBatchMode),
+  selectedIds: computed(() => mailboxListRef.value?.selectedIds),
+  toggleSelection: (id: number) => {
+    if (mailboxListRef.value?.toggleSelection) {
+      mailboxListRef.value.toggleSelection(id)
     }
   }
 })

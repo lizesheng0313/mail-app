@@ -1,10 +1,173 @@
 use crate::mail::types::{AttachmentData, EmailData, FetchResult, LoginResult};
 use chrono::Utc;
-use log::{error, info};
+use log::{error, info, warn};
+use native_tls::TlsStream;
 use std::io::{Read, Write};
-use std::net::TcpStream;
+use std::net::{TcpStream, ToSocketAddrs};
+use std::time::Duration;
 
-/// IMAP 登录验证（使用同步方式，在线程池中执行）
+const TCP_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+const IO_TIMEOUT: Duration = Duration::from_secs(30);
+
+// ── 连接错误分类（决定是否回退到其他策略）──────────────────────
+
+enum ConnectError {
+    /// TCP 连接失败（端口不通、DNS 错误）→ 跳到下一个端口
+    Connection(String),
+    /// TLS 握手失败（证书、协议版本）→ 同端口放宽证书再试
+    Tls(String),
+    /// 认证失败（密码错误）→ 直接返回，不再重试
+    Auth(String),
+    /// 其他错误 → 继续尝试
+    Other(String),
+}
+
+impl std::fmt::Display for ConnectError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Connection(s) | Self::Tls(s) | Self::Auth(s) | Self::Other(s) => {
+                write!(f, "{}", s)
+            }
+        }
+    }
+}
+
+// ── 单次连接尝试 ──────────────────────────────────────────────
+
+fn try_connect_and_login(
+    host: &str,
+    port: u16,
+    email: &str,
+    password: &str,
+    accept_invalid_certs: bool,
+) -> Result<(imap::Session<TlsStream<TcpStream>>, u16), ConnectError> {
+    let use_starttls = port != 993;
+    info!(
+        "尝试 IMAP {}:{} ({}{})",
+        host,
+        port,
+        if use_starttls { "STARTTLS" } else { "隐式TLS" },
+        if accept_invalid_certs {
+            ", 放宽证书"
+        } else {
+            ""
+        }
+    );
+
+    let connector = native_tls::TlsConnector::builder()
+        .danger_accept_invalid_certs(accept_invalid_certs)
+        .min_protocol_version(Some(native_tls::Protocol::Tlsv10))
+        .build()
+        .map_err(|e| ConnectError::Tls(format!("TLS 初始化失败: {}", e)))?;
+
+    // DNS 解析
+    let addr = (host, port)
+        .to_socket_addrs()
+        .map_err(|e| ConnectError::Connection(format!("DNS 解析失败 {}: {}", host, e)))?
+        .next()
+        .ok_or_else(|| ConnectError::Connection(format!("DNS 解析无结果: {}", host)))?;
+
+    // TCP 连接（带超时）
+    let tcp = TcpStream::connect_timeout(&addr, TCP_CONNECT_TIMEOUT)
+        .map_err(|e| ConnectError::Connection(format!("TCP 连接失败 {}:{} - {}", host, port, e)))?;
+
+    tcp.set_read_timeout(Some(IO_TIMEOUT)).ok();
+    tcp.set_write_timeout(Some(IO_TIMEOUT)).ok();
+
+    // 建立 IMAP TLS 客户端
+    let client = if use_starttls {
+        // 明文连接 → STARTTLS 升级
+        let plain_client = imap::Client::new(tcp);
+        plain_client.secure(host, &connector).map_err(|e| match &e {
+            imap::Error::TlsHandshake(_) | imap::Error::Tls(_) => {
+                ConnectError::Tls(format!("STARTTLS 握手失败: {}", e))
+            }
+            imap::Error::Io(_) | imap::Error::ConnectionLost => {
+                ConnectError::Connection(format!("STARTTLS 连接错误: {}", e))
+            }
+            _ => ConnectError::Other(format!("STARTTLS 失败: {}", e)),
+        })?
+    } else {
+        // 隐式 TLS（993）
+        let tls = connector
+            .connect(host, tcp)
+            .map_err(|e| ConnectError::Tls(format!("TLS 握手失败: {}", e)))?;
+        imap::Client::new(tls)
+    };
+
+    // 登录
+    match client.login(email, password) {
+        Ok(session) => {
+            info!("✅ IMAP {}:{} 登录成功", host, port);
+            Ok((session, port))
+        }
+        Err((e, _)) => {
+            error!("IMAP 登录失败 {}:{}: {}", host, port, e);
+            Err(match &e {
+                imap::Error::No(_) | imap::Error::Bad(_) => {
+                    ConnectError::Auth("邮箱或授权码错误，请检查后重试".to_string())
+                }
+                _ => {
+                    let s = e.to_string().to_lowercase();
+                    if s.contains("auth") || s.contains("credential") || s.contains("login") {
+                        ConnectError::Auth("邮箱或授权码错误，请检查后重试".to_string())
+                    } else {
+                        ConnectError::Other(format!("登录失败: {}", e))
+                    }
+                }
+            })
+        }
+    }
+}
+
+// ── 多策略连接：主端口 → 放宽证书 → 备用端口 → 放宽证书 ──────
+
+fn connect_and_login(
+    host: &str,
+    port: u16,
+    email: &str,
+    password: &str,
+) -> Result<(imap::Session<TlsStream<TcpStream>>, u16), String> {
+    let alt_port: u16 = if port == 993 { 143 } else { 993 };
+    let ports = [port, alt_port];
+    let mut last_error = String::new();
+
+    for &p in &ports {
+        // 严格 TLS
+        match try_connect_and_login(host, p, email, password, false) {
+            Ok(r) => return Ok(r),
+            Err(ConnectError::Auth(msg)) => return Err(msg),
+            Err(ConnectError::Tls(msg)) => {
+                warn!("{}", msg);
+                // TLS 握手失败 → 放宽证书再试
+                match try_connect_and_login(host, p, email, password, true) {
+                    Ok(r) => {
+                        warn!("⚠️ IMAP 放宽证书验证连接成功 {}:{}", host, p);
+                        return Ok(r);
+                    }
+                    Err(ConnectError::Auth(msg)) => return Err(msg),
+                    Err(e) => {
+                        last_error = e.to_string();
+                        continue;
+                    }
+                }
+            }
+            Err(e) => {
+                last_error = e.to_string();
+                continue;
+            }
+        }
+    }
+
+    Err(format!(
+        "IMAP 连接失败（已尝试 {}:{} 和 {}:{}）: {}",
+        host, port, host, alt_port, last_error
+    ))
+}
+
+// ── 公开接口 ──────────────────────────────────────────────────
+
+/// IMAP 登录验证
 pub async fn verify_login(
     email: &str,
     password: &str,
@@ -17,13 +180,9 @@ pub async fn verify_login(
     let password = password.to_string();
     let host = host.to_string();
 
-    let result = tokio::task::spawn_blocking(move || {
-        imap_login_sync(&email, &password, &host, port)
-    })
-    .await
-    .map_err(|e| format!("任务执行失败: {}", e))?;
-
-    result
+    tokio::task::spawn_blocking(move || imap_login_sync(&email, &password, &host, port))
+        .await
+        .map_err(|e| format!("任务执行失败: {}", e))?
 }
 
 fn imap_login_sync(
@@ -32,56 +191,33 @@ fn imap_login_sync(
     host: &str,
     port: u16,
 ) -> Result<LoginResult, String> {
-    info!("开始连接 IMAP 服务器: {}:{}", host, port);
-    
-    let connector = native_tls::TlsConnector::builder()
-        .danger_accept_invalid_certs(false)
-        .build()
-        .map_err(|e| format!("TLS 初始化失败: {}", e))?;
-    
-    let tcp_stream = TcpStream::connect((host, port))
-        .map_err(|e| format!("TCP 连接失败 {}:{} - {}", host, port, e))?;
-    
-    tcp_stream
-        .set_read_timeout(Some(std::time::Duration::from_secs(10)))
-        .ok();
-    
-    let tls_stream = connector
-        .connect(host, tcp_stream)
-        .map_err(|e| format!("TLS 连接失败: {}", e))?;
-
-    let client = imap::Client::new(tls_stream);
-    
-    let mut session = match client.login(email, password) {
-        Ok(session) => session,
-        Err((e, _)) => {
-            error!("IMAP 登录失败: {}", e);
-            let msg = if e.to_string().contains("authentication") || e.to_string().contains("AUTH") {
-                "邮箱或授权码错误，请检查后重试".to_string()
-            } else {
-                format!("登录失败: {}", e)
-            };
-            return Ok(LoginResult {
-                success: false,
-                message: msg,
+    match connect_and_login(host, port, email, password) {
+        Ok((mut session, actual_port)) => {
+            let _ = session.logout();
+            Ok(LoginResult {
+                success: true,
+                message: "登录验证成功".to_string(),
                 protocol: Some("imap".to_string()),
                 host: Some(host.to_string()),
-                port: Some(port),
-            });
+                port: Some(actual_port),
+                smtp_host: None,
+                smtp_port: None,
+                smtp_verified: false,
+                smtp_error: None,
+            })
         }
-    };
-
-    // 登录成功，退出
-    let _ = session.logout();
-
-    info!("✅ IMAP 登录验证成功: {}", email);
-    Ok(LoginResult {
-        success: true,
-        message: "登录验证成功".to_string(),
-        protocol: Some("imap".to_string()),
-        host: Some(host.to_string()),
-        port: Some(port),
-    })
+        Err(msg) => Ok(LoginResult {
+            success: false,
+            message: msg,
+            protocol: Some("imap".to_string()),
+            host: Some(host.to_string()),
+            port: Some(port),
+            smtp_host: None,
+            smtp_port: None,
+            smtp_verified: false,
+            smtp_error: None,
+        }),
+    }
 }
 
 /// IMAP 收取邮件
@@ -98,13 +234,9 @@ pub async fn fetch_emails(
     let password = password.to_string();
     let host = host.to_string();
 
-    let result = tokio::task::spawn_blocking(move || {
-        imap_fetch_sync(&email, &password, &host, port, limit)
-    })
-    .await
-    .map_err(|e| format!("任务执行失败: {}", e))?;
-
-    result
+    tokio::task::spawn_blocking(move || imap_fetch_sync(&email, &password, &host, port, limit))
+        .await
+        .map_err(|e| format!("任务执行失败: {}", e))?
 }
 
 fn imap_fetch_sync(
@@ -114,27 +246,7 @@ fn imap_fetch_sync(
     port: u16,
     limit: usize,
 ) -> Result<FetchResult, String> {
-    let connector = native_tls::TlsConnector::builder()
-        .danger_accept_invalid_certs(false)
-        .build()
-        .map_err(|e| format!("TLS 初始化失败: {}", e))?;
-    
-    let tcp_stream = TcpStream::connect((host, port))
-        .map_err(|e| format!("TCP 连接失败 {}:{} - {}", host, port, e))?;
-    
-    tcp_stream
-        .set_read_timeout(Some(std::time::Duration::from_secs(15)))
-        .ok();
-    
-    let tls_stream = connector
-        .connect(host, tcp_stream)
-        .map_err(|e| format!("TLS 连接失败: {}", e))?;
-
-    let client = imap::Client::new(tls_stream);
-    
-    let mut session = client
-        .login(email, password)
-        .map_err(|(e, _)| format!("登录失败: {}", e))?;
+    let (mut session, _) = connect_and_login(host, port, email, password)?;
 
     // 选择收件箱
     session
@@ -149,7 +261,7 @@ fn imap_fetch_sync(
     let mut emails: Vec<EmailData> = Vec::new();
     let uids_vec: Vec<u32> = uids.into_iter().collect();
     let total = uids_vec.len();
-    
+
     // 只取最新的 limit 封
     let start = if total > limit { total - limit } else { 0 };
     let uids_to_fetch = &uids_vec[start..];
@@ -174,6 +286,8 @@ fn imap_fetch_sync(
         emails,
     })
 }
+
+// ── 邮件解析（未修改）─────────────────────────────────────────
 
 fn fetch_single_email<T: Read + Write>(
     session: &mut imap::Session<T>,

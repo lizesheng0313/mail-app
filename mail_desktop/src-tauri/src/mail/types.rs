@@ -1,6 +1,8 @@
 use log::info;
 use serde::{Deserialize, Serialize};
+use std::net::TcpStream;
 use std::process::Command;
+use std::time::Duration;
 
 /// 邮箱登录配置
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -12,337 +14,225 @@ pub struct MailboxConfig {
     pub port: Option<u16>,
 }
 
-/// 常见邮箱服务商配置
+/// 邮箱服务器配置（字段改为 String 以支持动态探测）
 #[derive(Debug, Clone)]
 pub struct ServerConfig {
-    pub imap_host: &'static str,
+    pub imap_host: String,
     pub imap_port: u16,
-    pub pop3_host: &'static str,
+    pub pop3_host: String,
     pub pop3_port: u16,
 }
 
-/// 获取邮箱服务商的服务器配置（先查已知列表，再通过 MX 记录自动检测）
-pub fn get_server_config(domain: &str) -> Option<ServerConfig> {
-    // 1. 先查已知域名
+/// 获取邮箱服务商的服务器配置（先查已知列表，再通过 MX + TCP 探测）
+pub async fn get_server_config(domain: &str) -> Option<ServerConfig> {
+    // 1. 先查已知消费者邮箱域名（快速路径）
     if let Some(config) = get_known_server_config(domain) {
         return Some(config);
     }
 
-    // 2. 未知域名，通过 MX 记录自动检测
-    info!("域名 {} 不在已知列表，尝试 MX 记录自动检测", domain);
-    detect_server_config_by_mx(domain)
+    // 2. 未知域名，通过 MX 记录 + TCP 探测通用发现
+    info!("域名 {} 不在已知列表，尝试 MX + TCP 探测", domain);
+    detect_server_config_by_probing(domain).await
 }
 
-/// 已知邮箱域名的服务器配置
+/// 已知消费者邮箱域名的服务器配置（快速路径，无需探测）
 fn get_known_server_config(domain: &str) -> Option<ServerConfig> {
+    let cfg = |i: &'static str, ip: u16, p: &'static str, pp: u16| Some(ServerConfig {
+        imap_host: i.to_string(),
+        imap_port: ip,
+        pop3_host: p.to_string(),
+        pop3_port: pp,
+    });
     match domain {
-        // 腾讯
-        "qq.com" | "foxmail.com" => Some(ServerConfig {
-            imap_host: "imap.qq.com",
-            imap_port: 993,
-            pop3_host: "pop.qq.com",
-            pop3_port: 995,
-        }),
-        // 网易
-        "163.com" => Some(ServerConfig {
-            imap_host: "imap.163.com",
-            imap_port: 993,
-            pop3_host: "pop.163.com",
-            pop3_port: 995,
-        }),
-        "126.com" => Some(ServerConfig {
-            imap_host: "imap.126.com",
-            imap_port: 993,
-            pop3_host: "pop.126.com",
-            pop3_port: 995,
-        }),
-        "yeah.net" => Some(ServerConfig {
-            imap_host: "imap.yeah.net",
-            imap_port: 993,
-            pop3_host: "pop.yeah.net",
-            pop3_port: 995,
-        }),
-        // Google
-        "gmail.com" => Some(ServerConfig {
-            imap_host: "imap.gmail.com",
-            imap_port: 993,
-            pop3_host: "pop.gmail.com",
-            pop3_port: 995,
-        }),
-        // 微软
-        "outlook.com" | "hotmail.com" | "live.com" | "live.cn" => Some(ServerConfig {
-            imap_host: "outlook.office365.com",
-            imap_port: 993,
-            pop3_host: "outlook.office365.com",
-            pop3_port: 995,
-        }),
-        // 雅虎
-        "yahoo.com" | "yahoo.cn" | "yahoo.com.cn" => Some(ServerConfig {
-            imap_host: "imap.mail.yahoo.com",
-            imap_port: 993,
-            pop3_host: "pop.mail.yahoo.com",
-            pop3_port: 995,
-        }),
-        // 新浪
-        "sina.com" | "sina.cn" | "vip.sina.com" => Some(ServerConfig {
-            imap_host: "imap.sina.com",
-            imap_port: 993,
-            pop3_host: "pop.sina.com",
-            pop3_port: 995,
-        }),
-        // 搜狐
-        "sohu.com" => Some(ServerConfig {
-            imap_host: "imap.sohu.com",
-            imap_port: 993,
-            pop3_host: "pop3.sohu.com",
-            pop3_port: 995,
-        }),
-        // 天翼（中国电信）
-        "189.cn" => Some(ServerConfig {
-            imap_host: "imap.189.cn",
-            imap_port: 993,
-            pop3_host: "pop.189.cn",
-            pop3_port: 995,
-        }),
-        // 移动（139邮箱）
-        "139.com" => Some(ServerConfig {
-            imap_host: "imap.139.com",
-            imap_port: 993,
-            pop3_host: "pop.139.com",
-            pop3_port: 995,
-        }),
-        // 阿里个人邮箱
-        "aliyun.com" => Some(ServerConfig {
-            imap_host: "imap.aliyun.com",
-            imap_port: 993,
-            pop3_host: "pop.aliyun.com",
-            pop3_port: 995,
-        }),
-        // Tom 邮箱
-        "tom.com" => Some(ServerConfig {
-            imap_host: "imap.tom.com",
-            imap_port: 993,
-            pop3_host: "pop.tom.com",
-            pop3_port: 995,
-        }),
-        // iCloud
-        "icloud.com" | "me.com" | "mac.com" => Some(ServerConfig {
-            imap_host: "imap.mail.me.com",
-            imap_port: 993,
-            pop3_host: "pop.mail.me.com",
-            pop3_port: 995,
-        }),
+        "qq.com" | "foxmail.com"
+            => cfg("imap.qq.com", 993, "pop.qq.com", 995),
+        "163.com"
+            => cfg("imap.163.com", 993, "pop.163.com", 995),
+        "126.com"
+            => cfg("imap.126.com", 993, "pop.126.com", 995),
+        "yeah.net"
+            => cfg("imap.yeah.net", 993, "pop.yeah.net", 995),
+        "gmail.com"
+            => cfg("imap.gmail.com", 993, "pop.gmail.com", 995),
+        "outlook.com" | "hotmail.com" | "live.com" | "live.cn"
+            => cfg("outlook.office365.com", 993, "outlook.office365.com", 995),
+        "yahoo.com" | "yahoo.cn" | "yahoo.com.cn"
+            => cfg("imap.mail.yahoo.com", 993, "pop.mail.yahoo.com", 995),
+        "sina.com" | "sina.cn" | "vip.sina.com"
+            => cfg("imap.sina.com", 993, "pop.sina.com", 995),
+        "sohu.com"
+            => cfg("imap.sohu.com", 993, "pop3.sohu.com", 995),
+        "189.cn"
+            => cfg("imap.189.cn", 993, "pop.189.cn", 995),
+        "139.com"
+            => cfg("imap.139.com", 993, "pop.139.com", 995),
+        "aliyun.com"
+            => cfg("imap.aliyun.com", 993, "pop.aliyun.com", 995),
+        "tom.com"
+            => cfg("imap.tom.com", 993, "pop.tom.com", 995),
+        "icloud.com" | "me.com" | "mac.com"
+            => cfg("imap.mail.me.com", 993, "pop.mail.me.com", 995),
         _ => None,
     }
 }
 
-/// 通过 DNS MX 记录自动检测邮件服务器配置
-fn detect_server_config_by_mx(domain: &str) -> Option<ServerConfig> {
-    let mx_hosts = lookup_mx_records(domain);
-    if mx_hosts.is_empty() {
-        info!("未查询到 {} 的 MX 记录", domain);
-        return None;
+/// 从完整主机名提取根域名（最后两个标签）
+/// qiye163mx01.mxmail.netease.com  →  netease.com
+fn extract_root_domain(host: &str) -> String {
+    let parts: Vec<&str> = host.split('.').collect();
+    if parts.len() >= 2 {
+        parts[parts.len() - 2..].join(".")
+    } else {
+        host.to_string()
     }
-
-    info!("查询到 MX 记录: {:?}", mx_hosts);
-
-    for mx in &mx_hosts {
-        let mx_lower = mx.to_lowercase();
-
-        // 网易企业邮箱 (MX: qiye163mx01.mxmail.netease.com)
-        if mx_lower.contains("netease.com") {
-            info!("MX 匹配: 网易企业邮箱");
-            return Some(ServerConfig {
-                imap_host: "imap.qiye.163.com",
-                imap_port: 993,
-                pop3_host: "pop.qiye.163.com",
-                pop3_port: 995,
-            });
-        }
-        // 腾讯企业邮箱 (MX: mxbiz1.qq.com / cloudmx.qq.com)
-        if mx_lower.contains("qq.com") || mx_lower.contains("tencent.com") {
-            info!("MX 匹配: 腾讯企业邮箱");
-            return Some(ServerConfig {
-                imap_host: "imap.exmail.qq.com",
-                imap_port: 993,
-                pop3_host: "pop.exmail.qq.com",
-                pop3_port: 995,
-            });
-        }
-        // Google Workspace (MX: aspmx.l.google.com)
-        if mx_lower.contains("google.com") || mx_lower.contains("googlemail.com") {
-            info!("MX 匹配: Google Workspace");
-            return Some(ServerConfig {
-                imap_host: "imap.gmail.com",
-                imap_port: 993,
-                pop3_host: "pop.gmail.com",
-                pop3_port: 995,
-            });
-        }
-        // Microsoft 365 / Exchange Online (MX: *.mail.protection.outlook.com)
-        if mx_lower.contains("outlook") || mx_lower.contains("microsoft.com") || mx_lower.contains("office365") {
-            info!("MX 匹配: Microsoft 365");
-            return Some(ServerConfig {
-                imap_host: "outlook.office365.com",
-                imap_port: 993,
-                pop3_host: "outlook.office365.com",
-                pop3_port: 995,
-            });
-        }
-        // 阿里企业邮箱 / 万网企业邮 (MX: mx1.mxhichina.com / mail.aliyun.com)
-        if mx_lower.contains("mxhichina.com") || mx_lower.contains("aliyun.com") || mx_lower.contains("alibaba-inc.com") {
-            info!("MX 匹配: 阿里企业邮箱");
-            return Some(ServerConfig {
-                imap_host: "imap.mxhichina.com",
-                imap_port: 993,
-                pop3_host: "pop.mxhichina.com",
-                pop3_port: 995,
-            });
-        }
-        // 263企业邮箱 (MX: mx.263.net)
-        if mx_lower.contains("263.net") {
-            info!("MX 匹配: 263企业邮箱");
-            return Some(ServerConfig {
-                imap_host: "imap.263.net",
-                imap_port: 993,
-                pop3_host: "pop.263.net",
-                pop3_port: 995,
-            });
-        }
-        // Zoho 企业邮箱 (MX: mx.zoho.com)
-        if mx_lower.contains("zoho.com") || mx_lower.contains("zohomail.com") {
-            info!("MX 匹配: Zoho 企业邮箱");
-            return Some(ServerConfig {
-                imap_host: "imap.zoho.com",
-                imap_port: 993,
-                pop3_host: "pop.zoho.com",
-                pop3_port: 995,
-            });
-        }
-        // Yandex 企业邮箱 (MX: mx.yandex.ru / mx.yandex.net)
-        if mx_lower.contains("yandex.ru") || mx_lower.contains("yandex.net") {
-            info!("MX 匹配: Yandex 企业邮箱");
-            return Some(ServerConfig {
-                imap_host: "imap.yandex.com",
-                imap_port: 993,
-                pop3_host: "pop.yandex.com",
-                pop3_port: 995,
-            });
-        }
-        // Fastmail (MX: in1-smtp.messagingengine.com)
-        if mx_lower.contains("messagingengine.com") || mx_lower.contains("fastmail") {
-            info!("MX 匹配: Fastmail");
-            return Some(ServerConfig {
-                imap_host: "imap.fastmail.com",
-                imap_port: 993,
-                pop3_host: "pop.fastmail.com",
-                pop3_port: 995,
-            });
-        }
-        // iCloud / Apple (MX: mx01.mail.icloud.com)
-        if mx_lower.contains("icloud.com") || mx_lower.contains("apple.com") {
-            info!("MX 匹配: iCloud");
-            return Some(ServerConfig {
-                imap_host: "imap.mail.me.com",
-                imap_port: 993,
-                pop3_host: "pop.mail.me.com",
-                pop3_port: 995,
-            });
-        }
-        // 35互联 / 云邮 (MX: mx1.yunyou.top)
-        if mx_lower.contains("yunyou.top") || mx_lower.contains("35.cn") || mx_lower.contains("35.com") {
-            info!("MX 匹配: 35互联企业邮箱");
-            return Some(ServerConfig {
-                imap_host: "imap.35.cn",
-                imap_port: 993,
-                pop3_host: "pop.35.cn",
-                pop3_port: 995,
-            });
-        }
-        // GoDaddy / Secureserver (MX: mailstore1.secureserver.net)
-        if mx_lower.contains("secureserver.net") {
-            info!("MX 匹配: GoDaddy 企业邮箱");
-            return Some(ServerConfig {
-                imap_host: "imap.secureserver.net",
-                imap_port: 993,
-                pop3_host: "pop.secureserver.net",
-                pop3_port: 995,
-            });
-        }
-        // Amazon WorkMail (MX: inbound-smtp.*.amazonaws.com)
-        if mx_lower.contains("amazonaws.com") {
-            info!("MX 匹配: Amazon WorkMail");
-            return Some(ServerConfig {
-                imap_host: "imap.mail.us-east-1.awsapps.com",
-                imap_port: 993,
-                pop3_host: "pop.mail.us-east-1.awsapps.com",
-                pop3_port: 995,
-            });
-        }
-    }
-
-    info!("MX 记录无法匹配已知邮件服务商: {:?}", mx_hosts);
-    None
 }
 
-/// 查询域名的 MX 记录
-fn lookup_mx_records(domain: &str) -> Vec<String> {
-    let output = if cfg!(target_os = "windows") {
-        Command::new("nslookup")
-            .args(["-type=MX", domain])
+/// TCP 探测：检查端口是否可达（阻塞，适合在 spawn_blocking 中调用）
+fn probe_tcp_sync(host: &str, port: u16) -> bool {
+    use std::net::ToSocketAddrs;
+    let addr = match (host, port).to_socket_addrs() {
+        Ok(mut a) => match a.next() {
+            Some(a) => a,
+            None => return false,
+        },
+        Err(_) => return false,
+    };
+    TcpStream::connect_timeout(&addr, Duration::from_secs(3)).is_ok()
+}
+
+/// 通过 MX 记录 + TCP 探测，发现任意企业域名的收信服务器配置
+async fn detect_server_config_by_probing(domain: &str) -> Option<ServerConfig> {
+    let domain_owned = domain.to_string();
+
+    // 1. 查询 MX 记录（同步，在 blocking 线程执行）
+    let primary_mx = tokio::task::spawn_blocking(move || -> Option<String> {
+        let output = Command::new("nslookup")
+            .args(["-type=mx", &domain_owned])
             .output()
-    } else {
-        Command::new("dig")
-            .args(["MX", domain, "+short"])
-            .output()
+            .ok()?;
+        let out = String::from_utf8_lossy(&output.stdout).to_string();
+
+        let mut best_mx = String::new();
+        let mut best_pref = i32::MAX;
+
+        for line in out.lines() {
+            if line.to_lowercase().contains("mail exchanger") {
+                let parts: Vec<&str> = line.split("mail exchanger =").collect();
+                if parts.len() > 1 {
+                    let mut pref = 100i32;
+                    if let Some(p) = parts[0].split("preference =").nth(1) {
+                        pref = p.trim().trim_matches(',').parse().unwrap_or(100);
+                    }
+                    let mx = parts[1].trim().trim_end_matches('.').to_string();
+                    if pref < best_pref && !mx.is_empty() {
+                        best_pref = pref;
+                        best_mx = mx;
+                    }
+                }
+            }
+        }
+
+        if best_mx.is_empty() {
+            // macOS dig fallback
+            let output2 = Command::new("dig")
+                .args(["+short", "MX", &domain_owned])
+                .output()
+                .ok()?;
+            let out2 = String::from_utf8_lossy(&output2.stdout).to_string();
+            for line in out2.lines() {
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                if parts.len() >= 2 {
+                    let pref = parts[0].parse::<i32>().unwrap_or(100);
+                    let mx = parts[1].trim_end_matches('.').to_string();
+                    if pref < best_pref && !mx.is_empty() {
+                        best_pref = pref;
+                        best_mx = mx;
+                    }
+                }
+            }
+        }
+
+        if best_mx.is_empty() { None } else { Some(best_mx) }
+    }).await.ok().flatten();
+
+    let primary_mx = match primary_mx {
+        Some(mx) => mx,
+        None => {
+            info!("未找到 {} 的 MX 记录，跳过探测", domain);
+            return None;
+        }
     };
 
-    match output {
-        Ok(output) => {
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            parse_mx_output(&stdout)
+    info!("发现首选 MX 记录: {}", primary_mx);
+    let mx_root = extract_root_domain(&primary_mx);
+
+    // 2. 构建 IMAP / POP3 候选列表（从邮箱域名、MX 根域名、MX 主机三个维度）
+    let mut imap_candidates: Vec<(String, u16)> = vec![
+        (format!("imap.{}", domain), 993),
+        (format!("imap.{}", domain), 143),
+        (format!("mail.{}", domain), 993),
+        (format!("mail.{}", domain), 143),
+    ];
+    let mut pop3_candidates: Vec<(String, u16)> = vec![
+        (format!("pop.{}", domain), 995),
+        (format!("pop.{}", domain), 110),
+        (format!("pop3.{}", domain), 995),
+        (format!("mail.{}", domain), 995),
+    ];
+    if mx_root != domain {
+        imap_candidates.push((format!("imap.{}", mx_root), 993));
+        imap_candidates.push((format!("imap.{}", mx_root), 143));
+        imap_candidates.push((format!("mail.{}", mx_root), 993));
+        pop3_candidates.push((format!("pop.{}", mx_root), 995));
+        pop3_candidates.push((format!("pop.{}", mx_root), 110));
+        pop3_candidates.push((format!("mail.{}", mx_root), 995));
+    }
+    imap_candidates.push((primary_mx.clone(), 993));
+    imap_candidates.push((primary_mx.clone(), 143));
+    pop3_candidates.push((primary_mx.clone(), 995));
+    pop3_candidates.push((primary_mx.clone(), 110));
+
+    // 3. TCP 探测：在 blocking 线程中逐个测试
+    let imap_result = {
+        let candidates = imap_candidates.clone();
+        tokio::task::spawn_blocking(move || {
+            for (host, port) in &candidates {
+                info!("探测 IMAP: {}:{}", host, port);
+                if probe_tcp_sync(host, *port) {
+                    info!("IMAP 可达: {}:{}", host, port);
+                    return Some((host.clone(), *port));
+                }
+            }
+            None
+        }).await.ok().flatten()
+    };
+
+    let pop3_result = {
+        let candidates = pop3_candidates.clone();
+        tokio::task::spawn_blocking(move || {
+            for (host, port) in &candidates {
+                info!("探测 POP3: {}:{}", host, port);
+                if probe_tcp_sync(host, *port) {
+                    info!("POP3 可达: {}:{}", host, port);
+                    return Some((host.clone(), *port));
+                }
+            }
+            None
+        }).await.ok().flatten()
+    };
+
+    // 4. 任意一个协议探测成功就返回配置（缺失的一方用默认端口）
+    match (imap_result, pop3_result) {
+        (None, None) => {
+            info!("IMAP/POP3 均无可达候选，探测失败");
+            None
         }
-        Err(e) => {
-            info!("MX 查询命令执行失败: {}", e);
-            Vec::new()
+        (imap, pop3) => {
+            let (imap_host, imap_port) = imap.unwrap_or_else(|| (format!("imap.{}", domain), 993));
+            let (pop3_host, pop3_port) = pop3.unwrap_or_else(|| (format!("pop.{}", domain), 995));
+            Some(ServerConfig { imap_host, imap_port, pop3_host, pop3_port })
         }
     }
-}
-
-/// 解析 MX 查询输出
-fn parse_mx_output(output: &str) -> Vec<String> {
-    let mut hosts = Vec::new();
-    for line in output.lines() {
-        let line = line.trim();
-        if line.is_empty() {
-            continue;
-        }
-        if let Some(host) = extract_mx_host(line) {
-            hosts.push(host);
-        }
-    }
-    hosts
-}
-
-/// 从单行中提取 MX 主机名
-fn extract_mx_host(line: &str) -> Option<String> {
-    let parts: Vec<&str> = line.split_whitespace().collect();
-
-    // dig +short 格式: "5 qiye163mx01.mxmail.netease.com."
-    if parts.len() == 2 {
-        if parts[0].parse::<u16>().is_ok() {
-            return Some(parts[1].trim_end_matches('.').to_string());
-        }
-    }
-
-    // nslookup 格式: "ysstech.com  mail exchanger = 5 qiye163mx01.mxmail.netease.com."
-    if line.contains("mail exchanger") {
-        if let Some(last) = parts.last() {
-            return Some(last.trim_end_matches('.').to_string());
-        }
-    }
-
-    None
 }
 
 /// 附件数据
@@ -379,6 +269,14 @@ pub struct LoginResult {
     pub protocol: Option<String>,
     pub host: Option<String>,
     pub port: Option<u16>,
+    #[serde(default)]
+    pub smtp_host: Option<String>,
+    #[serde(default)]
+    pub smtp_port: Option<u16>,
+    #[serde(default)]
+    pub smtp_verified: bool,
+    #[serde(default)]
+    pub smtp_error: Option<String>,
 }
 
 /// 收取邮件结果

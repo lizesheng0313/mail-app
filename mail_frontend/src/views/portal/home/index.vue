@@ -51,21 +51,24 @@
             {{ batchLoginLoading ? '登录中...' : '添加邮箱' }}
           </button>
 
-          <!-- Web端第三方邮箱提示 -->
-          <span
-            v-if="mailboxType === 'external' && !isTauri()"
-            class="text-sm text-amber-700 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-lg"
+          <!-- 写邮件 / 返回 切换 -->
+          <button
+            v-if="mailboxType === 'external'"
+            @click="currentView = currentView === 'send-email' ? 'emails' : 'send-email'"
+            :class="[
+              'px-4 py-2 text-sm font-medium rounded-lg transition-colors flex items-center gap-1.5 shadow-sm',
+              currentView === 'send-email'
+                ? 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200'
+                : 'bg-primary-600 text-white hover:bg-primary-700'
+            ]"
           >
-            第三方邮箱建议使用桌面端，减少封号风险 <router-link to="/download" class="text-amber-800 font-semibold underline">立即下载</router-link>
-          </span>
-
-          <!-- 写邮件按钮 - 简洁风格 -->
-          <!-- <router-link
-            to="/send-email"
-            class="px-4 py-2 border border-gray-300 text-gray-700 bg-white text-sm font-medium rounded-lg hover:bg-gray-50 hover:text-primary-600 transition-colors flex items-center gap-2"
-          >
-            写邮件
-          </router-link> -->
+            <!-- 返回图标 -->
+            <svg v-if="currentView === 'send-email'" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+            <!-- 编辑图标 -->
+            <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+            
+            {{ currentView === 'send-email' ? '返回收件箱' : '批量发送邮件' }}
+          </button>
         </div>
       </div>
     </template>
@@ -88,6 +91,10 @@
         <div v-show="mailboxType === 'external'" class="h-full">
           <ExternalMailboxList
             ref="externalMailboxListRef"
+            :is-send-email-view="currentView === 'send-email'"
+            :active-mailbox-id="selectedExternalMailboxId"
+            :selected-send-ids="selectedExternalMailboxIds"
+            :smtp-accounts="smtpAccounts"
             @select="handleSelectExternalMailbox"
             @share="handleShareMailboxes"
             @refresh="handleRefreshExternalEmails"
@@ -98,7 +105,7 @@
     </template>
 
     <!-- 中栏：邮件（两套独立列表）-->
-    <template #middle>
+    <template #middle v-if="currentView === 'emails'">
       <!-- 临时邮箱邮件列表 -->
       <div v-show="mailboxType === 'system'" class="h-full">
         <EmailList
@@ -187,7 +194,7 @@
           
           <template #actions>
             <button
-              v-if="!selectedExternalMailboxId"
+              v-if="isTauri() && !selectedExternalMailboxId"
               @click="fetchAllExternalEmails"
               :disabled="fetchingExternalEmails"
               class="px-3 py-1.5 text-xs bg-primary-600 text-white rounded hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
@@ -234,8 +241,15 @@
     </template>
 
     <!-- 右栏：详情-->
-    <template #right>
+    <template #right v-if="currentView === 'emails'">
       <EmailDetail :email="mailStore.selectedEmail" @expand="openEmailModal" />
+    </template>
+
+    <template #main v-if="currentView === 'send-email'">
+      <SendEmailPanel 
+        ref="sendEmailPanelRef"
+        :selected-mailbox-ids="selectedExternalMailboxIds"
+      />
     </template>
   </ThreeColumnLayout>
 
@@ -267,6 +281,7 @@
   <BatchAddAccountModal
     ref="batchAddModalRef"
     :visible="showBatchAddModal"
+    :loading="batchLoginLoading"
     @close="showBatchAddModal = false"
     @submit="handleBatchAddAccounts"
   />
@@ -296,6 +311,7 @@ import { useUserStore } from '@/stores/user'
 import { useMailboxStore } from '@/stores/auth'
 import { useMailStore } from '@/stores/mail'
 import ThreeColumnLayout from '@/components/Mail/Layout/ThreeColumnLayout.vue'
+import SendEmailPanel from '@/components/Mail/SendEmailPanel.vue'
 import TempMailbox from '@/components/Mail/TempMailbox/TempMailbox.vue'
 import SystemMailboxList from '@/components/Mail/SystemMailbox/MailboxList.vue'
 import ExternalMailboxList from '@/components/Mail/ExternalMailbox/MailboxList.vue'
@@ -305,6 +321,7 @@ import BatchAddAccountModal from '@/components/Mail/BatchAddAccountModal.vue'
 import ShareMailboxModal from '@/components/Mail/ShareMailboxModal.vue'
 import SendEmailModal from '@/components/Mail/SendEmailModal.vue'
 import batchLoginAPI from '@/api/batchLogin'
+import smtpAccountsAPI from '@/api/smtpAccounts'
 import { mailboxAPI } from '@/api/mailbox'
 import EmailDetail from '@/components/Mail/EmailDetail/EmailDetail.vue'
 import EmailContentModal from '@/components/Mail/EmailContentModal.vue'
@@ -338,6 +355,7 @@ const externalMailboxListRef = ref()
 const systemEmailListRef = ref()
 const externalEmailListRef = ref()
 const mailboxType = ref<'system' | 'external'>('system')
+const currentView = ref<'emails' | 'send-email'>('emails')
 const selectedMailboxId = ref<number | null>(null)
 const showOnlyUnread = ref(false)
 const showEmailModal = ref(false)
@@ -359,11 +377,14 @@ const shareMailboxes = ref<any[]>([])
 // 发送邮件相关状态
 const showSendEmailModal = ref(false)
 const externalMailboxList = ref<any[]>([])
+const smtpAccounts = ref<any[]>([])
 
 
 // 外部邮箱相关状态
 const selectedExternalMailboxId = ref<number | null>(null)
+const selectedExternalMailboxIds = ref<number[]>([])
 const selectedExternalEmailId = ref<number | null>(null)
+const sendEmailPanelRef = ref<any>(null)
 const externalEmails = ref<any[]>([])
 const fetchingExternalEmails = ref(false)
 const showOnlyUnreadExternal = ref(false)
@@ -390,6 +411,7 @@ const handleMailboxBatchStart = () => {
 
 // 切换邮箱类型
 const switchMailboxType = (type: 'system' | 'external') => {
+  currentView.value = 'emails'
   // 保存当前Tab的选中邮件
   if (mailboxType.value === 'system') {
     systemSelectedEmail.value = mailStore.selectedEmail
@@ -417,6 +439,7 @@ const switchMailboxType = (type: 'system' | 'external') => {
     if (externalMailboxListRef.value?.loadAccounts) {
       externalMailboxListRef.value.loadAccounts()
     }
+    loadSmtpAccounts()
     
     // 加载所有外部邮件
     loadAllExternalEmails()
@@ -450,6 +473,17 @@ const handleCloseShareModal = () => {
 const handleShareSuccess = (data: any) => {
   console.log('🔵 分享成功', data)
   showMessage('分享创建成功', 'success')
+}
+
+const loadSmtpAccounts = async () => {
+  try {
+    const response = await smtpAccountsAPI.getAccounts()
+    if (response.code === 0) {
+      smtpAccounts.value = response.data?.accounts || []
+    }
+  } catch (error) {
+    console.error('获取 SMTP 账号列表失败:', error)
+  }
 }
 
 // 打开发送邮件弹窗
@@ -534,6 +568,11 @@ const handleBatchAddAccounts = async (accounts: any[]) => {
               port: accountData.protocol === 'imap' ? accountData.imap_port : accountData.pop3_port
             })
 
+            // 检查登录是否真正成功
+            if (!result.success) {
+              throw new Error(result.message || '邮箱验证失败，请检查账号和密码')
+            }
+
             console.log('✅ 本地验证成功:', result)
 
             // 用 Tauri 返回的实际协议和服务器信息更新 accountData
@@ -554,8 +593,31 @@ const handleBatchAddAccounts = async (accounts: any[]) => {
             const response = await batchLoginAPI.addAccount({ ...accountData, skip_verify: true })
             if (response.code === 0) {
               successCount++
+
+              let canSend = false
+              if (result.smtp_verified) {
+                try {
+                  await smtpAccountsAPI.addAccount({
+                    email: accountData.email,
+                    password: accountData.password,
+                    smtp_host: result.smtp_host,
+                    smtp_port: result.smtp_port
+                  })
+                } catch (error) {
+                }
+              }
+
+              try {
+                const smtpAccountsResponse = await smtpAccountsAPI.getAccounts()
+                const smtpAccounts = smtpAccountsResponse.code === 0 ? (smtpAccountsResponse.data?.accounts || []) : []
+                canSend = smtpAccounts.some((item: any) => item.email === accountData.email && item.status === 'active')
+              } catch (error) {
+                canSend = false
+              }
+
+              const smtpStatus = canSend ? '能收能发' : '能收不能发'
               if (batchAddModalRef.value) {
-                batchAddModalRef.value.updateResult(account.email, 'success', '✅ 本地验证成功')
+                batchAddModalRef.value.updateResult(account.email, 'success', `本地验证成功（${smtpStatus}）`)
               }
             } else {
               failCount++
@@ -604,6 +666,12 @@ const handleBatchAddAccounts = async (accounts: any[]) => {
     // 只要有成功的，就刷新列表
     if (successCount > 0 && externalMailboxListRef.value?.loadAccounts) {
       await externalMailboxListRef.value.loadAccounts()
+    }
+    if (successCount > 0) {
+      await loadSmtpAccounts()
+    }
+    if (successCount > 0 && sendEmailPanelRef.value?.loadData) {
+      await sendEmailPanelRef.value.loadData()
     }
   } catch (error) {
     console.error('批量添加账号失败:', error)
@@ -665,6 +733,7 @@ onMounted(async () => {
     await mailboxStore.fetchMailboxes()
     // 同时加载所有邮件（不选择特定邮箱）
     await mailStore.fetchUserEmails()
+    await loadSmtpAccounts()
   }
   // 启动自动刷新（所有用户）
   autoRefresh.start()
@@ -694,9 +763,37 @@ const handleSelectMailbox = async (mailbox: any) => {
 
 // 选择外部邮箱
 const handleSelectExternalMailbox = async (account: any) => {
+  // 写邮件模式下支持多选/反选
+  if (currentView.value === 'send-email') {
+    const idx = selectedExternalMailboxIds.value.indexOf(account.id)
+    if (idx > -1) {
+      selectedExternalMailboxIds.value.splice(idx, 1)
+    } else {
+      selectedExternalMailboxIds.value.push(account.id)
+    }
+    // 同步更新单选 ID（用于左侧高亮等）
+    selectedExternalMailboxId.value = selectedExternalMailboxIds.value.length > 0
+      ? selectedExternalMailboxIds.value[selectedExternalMailboxIds.value.length - 1]
+      : null
+    return
+  }
   selectedExternalMailboxId.value = account.id
   externalEmailPage.value = 1
+  currentView.value = 'emails'
   await loadExternalMailboxEmails()
+}
+
+// 移除 SendEmailPanel 中的账号
+const handleRemoveAccountFromPanel = (id: number) => {
+  if (externalMailboxListRef.value?.isBatchMode) {
+    if (externalMailboxListRef.value?.toggleSelection) {
+      externalMailboxListRef.value.toggleSelection(id)
+    }
+  } else {
+    if (selectedExternalMailboxId.value === id) {
+      selectedExternalMailboxId.value = null
+    }
+  }
 }
 
 // 加载外部邮箱邮件列表（带分页）
@@ -788,7 +885,13 @@ const handleSelectExternalEmail = async (email: any) => {
   mailStore.selectEmail(email)
 
   // 获取完整详情（含附件）
-  await mailStore.fetchEmailDetail(email.id, 'external')
+  const result = await mailStore.fetchEmailDetail(email.id, 'external')
+  if (!result.success) {
+    showMessage(result.error || '邮件不存在或无权访问', 'error')
+    selectedExternalEmailId.value = null
+    mailStore.selectEmail(null)
+    return
+  }
 
   // 标记为已读
   if (!email.is_read) {
@@ -885,7 +988,7 @@ const fetchAllExternalEmails = async () => {
         if (totalNew > 0) {
           showMessage(`收取成功，新增 ${totalNew} 封邮件`, 'success')
         } else {
-          showMessage('收取完成，暂无新邮件', 'info')
+          showMessage('收取完成，暂无新邮件', 'success')
         }
       } else {
         showMessage(`收取完成，新增 ${totalNew} 封，${failCount} 个邮箱失败`, 'warning')

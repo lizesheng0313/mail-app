@@ -21,19 +21,28 @@
           </div>
         </div>
 
-        <!-- 中栏 -->
-        <div class="lg:col-span-1">
-          <div class="panel-container">
-            <slot name="middle"></slot>
+        <!-- 中右合并大块 (可选) -->
+        <div v-if="$slots.main" class="lg:col-span-2">
+          <div class="panel-container h-full">
+            <slot name="main"></slot>
           </div>
         </div>
 
-        <!-- 右栏 -->
-        <div class="lg:col-span-1">
-          <div class="panel-container">
-            <slot name="right"></slot>
+        <template v-else>
+          <!-- 中栏 -->
+          <div class="lg:col-span-1">
+            <div class="panel-container">
+              <slot name="middle"></slot>
+            </div>
           </div>
-        </div>
+
+          <!-- 右栏 -->
+          <div class="lg:col-span-1">
+            <div class="panel-container">
+              <slot name="right"></slot>
+            </div>
+          </div>
+        </template>
       </div>
     </div>
   </div>

@@ -19,7 +19,6 @@ const ExecutionHistory = () => import('@/views/portal/workflows/execution-histor
 const ProxyManagement = () => import('@/views/portal/proxy/index.vue')
 const PaymentPage = () => import('@/views/portal/payment/index.vue')
 const AboutPage = () => import('@/views/portal/about/index.vue')
-const SendEmailPage = () => import('@/views/portal/send-email/index.vue')
 // BatchLogin 已整合到首页，不再需要单独页面
 
 // 管理后台组件 - 只有管理员访问时才加载
@@ -160,15 +159,6 @@ const router = createRouter({
       name: 'about',
       component: AboutPage
     },
-    // 发送邮件页面
-    {
-      path: '/send-email',
-      name: 'send-email',
-      component: SendEmailPage,
-      meta: { requiresAuth: true }
-    },
-    // batch-login 路由已删除，外部邮箱功能已整合到首页
-
     // 工作流市场（无需登录即可浏览，购买时才需要登录）
     {
       path: '/market',

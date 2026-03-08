@@ -1,10 +1,11 @@
 <template>
   <BaseModal
     v-model="localVisible"
-    title="发送邮件"
+    title="批量发送邮件"
     size="lg"
     :confirmLoading="sending"
-    confirmText="发送"
+    :showConfirm="isDesktop"
+    :confirmText="isDesktop ? '发送' : '请在桌面端使用'"
     @confirm="handleSend"
     @close="handleClose"
   >
@@ -107,7 +108,7 @@
       </div>
 
       <!-- 提示信息 -->
-      <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+      <div v-if="isDesktop" class="bg-blue-50 border border-blue-200 rounded-lg p-3">
         <div class="flex items-start">
           <svg class="w-5 h-5 text-blue-500 mt-0.5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
@@ -117,12 +118,23 @@
           </p>
         </div>
       </div>
+      <div v-else class="mt-2 flex items-center text-xs text-amber-600 gap-2">
+        <span>第三方发件功能仅支持桌面端，请下载桌面客户端使用。</span>
+        <button
+          type="button"
+          class="px-2 py-0.5 text-xs rounded border border-primary-500 text-primary-600 hover:bg-primary-50"
+          @click="downloadDesktop"
+        >
+          下载桌面端
+        </button>
+      </div>
     </div>
   </BaseModal>
 </template>
 
 <script setup>
 import { ref, watch, computed } from 'vue'
+import { isTauri } from '@/services/api'
 import BaseModal from '@/components/BaseModal/index.vue'
 import batchLoginAPI from '@/api/batchLogin'
 import { showMessage } from '@/utils/message'
@@ -155,6 +167,9 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['update:visible', 'sent'])
+
+const isDesktop = computed(() => isTauri())
+const sendDisabled = computed(() => !isDesktop.value)
 
 // 本地 visible 值，用于 v-model
 const localVisible = computed({
@@ -203,7 +218,15 @@ const handleClose = () => {
   emit('update:visible', false)
 }
 
+const downloadDesktop = () => {
+  window.location.href = 'https://zjkdongao.cn/download'
+}
+
 const handleSend = async () => {
+  if (!isDesktop.value) {
+    showMessage('第三方发件功能仅支持桌面端，请下载桌面客户端使用', 'warning')
+    return
+  }
   // 验证表单
   if (!form.value.mailboxId) {
     showMessage('请选择发件邮箱', 'error')

@@ -93,9 +93,9 @@ export const useMailStore = defineStore('mail', () => {
     }
   }
 
-  const markAsRead = async (id: number) => {
+  const markAsRead = async (id: number, type: string = 'system') => {
     try {
-      const response: any = await emailAPI.markAsRead(id)
+      const response: any = await emailAPI.markAsRead(id, type)
       if (response.code === 0) {
         const email = emails.value.find(e => e.id === id)
         if (email) {
@@ -139,10 +139,11 @@ export const useMailStore = defineStore('mail', () => {
     }
   }
 
-  const selectEmail = async (email: Email) => {
+  const selectEmail = async (email: any) => {
     selectedEmail.value = email
     if (!email.is_read) {
-      await markAsRead(email.id)
+      const type = email.mailbox_type === 'external' ? 'external' : 'system'
+      await markAsRead(email.id, type)
     }
   }
 

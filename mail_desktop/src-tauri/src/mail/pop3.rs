@@ -1,8 +1,215 @@
 use crate::mail::types::{AttachmentData, EmailData, FetchResult, LoginResult};
 use chrono::Utc;
-use log::{error, info};
+use log::{error, info, warn};
+use native_tls::TlsStream;
 use std::io::{Read, Write};
-use std::net::TcpStream;
+use std::net::{TcpStream, ToSocketAddrs};
+use std::time::Duration;
+
+const TCP_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+const IO_TIMEOUT: Duration = Duration::from_secs(30);
+
+// ── 连接错误分类 ──────────────────────────────────────────────
+
+enum ConnectError {
+    Connection(String),
+    Tls(String),
+    Auth(String),
+    Other(String),
+}
+
+impl std::fmt::Display for ConnectError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Connection(s) | Self::Tls(s) | Self::Auth(s) | Self::Other(s) => {
+                write!(f, "{}", s)
+            }
+        }
+    }
+}
+
+// ── 连接辅助 ──────────────────────────────────────────────────
+
+/// 单次尝试：建立 POP3 TLS 连接（隐式 TLS 或 STLS），读完问候后返回
+fn try_pop3_connect(
+    host: &str,
+    port: u16,
+    accept_invalid_certs: bool,
+) -> Result<(TlsStream<TcpStream>, u16), ConnectError> {
+    let use_stls = port != 995;
+    info!(
+        "尝试 POP3 {}:{} ({}{})",
+        host,
+        port,
+        if use_stls { "STLS" } else { "隐式TLS" },
+        if accept_invalid_certs {
+            ", 放宽证书"
+        } else {
+            ""
+        }
+    );
+
+    let connector = native_tls::TlsConnector::builder()
+        .danger_accept_invalid_certs(accept_invalid_certs)
+        .min_protocol_version(Some(native_tls::Protocol::Tlsv10))
+        .build()
+        .map_err(|e| ConnectError::Tls(format!("TLS 初始化失败: {}", e)))?;
+
+    let addr = (host, port)
+        .to_socket_addrs()
+        .map_err(|e| ConnectError::Connection(format!("DNS 解析失败 {}: {}", host, e)))?
+        .next()
+        .ok_or_else(|| ConnectError::Connection(format!("DNS 解析无结果: {}", host)))?;
+
+    let mut tcp = TcpStream::connect_timeout(&addr, TCP_CONNECT_TIMEOUT)
+        .map_err(|e| {
+            ConnectError::Connection(format!("TCP 连接失败 {}:{} - {}", host, port, e))
+        })?;
+
+    tcp.set_read_timeout(Some(IO_TIMEOUT)).ok();
+    tcp.set_write_timeout(Some(IO_TIMEOUT)).ok();
+
+    if use_stls {
+        // 明文连接 → 读问候 → STLS → TLS 升级
+        let greeting = read_line(&mut tcp)
+            .map_err(|e| ConnectError::Connection(format!("读取问候失败: {}", e)))?;
+        if !greeting.starts_with("+OK") {
+            return Err(ConnectError::Other(format!(
+                "服务器响应错误: {}",
+                greeting.trim()
+            )));
+        }
+
+        tcp.write_all(b"STLS\r\n")
+            .map_err(|e| ConnectError::Connection(format!("发送 STLS 失败: {}", e)))?;
+        let response = read_line(&mut tcp)
+            .map_err(|e| ConnectError::Connection(format!("读取 STLS 响应失败: {}", e)))?;
+        if !response.starts_with("+OK") {
+            return Err(ConnectError::Other(format!(
+                "服务器不支持 STLS: {}",
+                response.trim()
+            )));
+        }
+
+        let tls = connector
+            .connect(host, tcp)
+            .map_err(|e| ConnectError::Tls(format!("STLS TLS 握手失败: {}", e)))?;
+        Ok((tls, port))
+    } else {
+        // 隐式 TLS（995）
+        let mut tls = connector
+            .connect(host, tcp)
+            .map_err(|e| ConnectError::Tls(format!("TLS 握手失败: {}", e)))?;
+
+        let greeting = read_line(&mut tls)
+            .map_err(|e| ConnectError::Connection(format!("读取问候失败: {}", e)))?;
+        if !greeting.starts_with("+OK") {
+            return Err(ConnectError::Other(format!(
+                "服务器响应错误: {}",
+                greeting.trim()
+            )));
+        }
+
+        Ok((tls, port))
+    }
+}
+
+/// POP3 登录（在已连接的 TLS 流上发送 USER / PASS）
+fn pop3_do_login(
+    tls: &mut TlsStream<TcpStream>,
+    email: &str,
+    password: &str,
+) -> Result<(), ConnectError> {
+    // USER
+    tls.write_all(format!("USER {}\r\n", email).as_bytes())
+        .map_err(|e| ConnectError::Connection(format!("发送 USER 失败: {}", e)))?;
+    let response = read_line(tls)
+        .map_err(|e| ConnectError::Connection(format!("读取 USER 响应失败: {}", e)))?;
+    if !response.starts_with("+OK") {
+        return Err(ConnectError::Auth("用户名错误".to_string()));
+    }
+
+    // PASS
+    tls.write_all(format!("PASS {}\r\n", password).as_bytes())
+        .map_err(|e| ConnectError::Connection(format!("发送 PASS 失败: {}", e)))?;
+    let response = read_line(tls)
+        .map_err(|e| ConnectError::Connection(format!("读取 PASS 响应失败: {}", e)))?;
+    if !response.starts_with("+OK") {
+        return Err(ConnectError::Auth(
+            "邮箱或授权码错误，请检查后重试".to_string(),
+        ));
+    }
+
+    Ok(())
+}
+
+/// 多策略连接并登录：主端口 → 放宽证书 → 备用端口 → 放宽证书
+fn connect_and_login(
+    host: &str,
+    port: u16,
+    email: &str,
+    password: &str,
+) -> Result<(TlsStream<TcpStream>, u16), String> {
+    let alt_port: u16 = if port == 995 { 110 } else { 995 };
+    let ports = [port, alt_port];
+    let mut last_error = String::new();
+
+    for &p in &ports {
+        match try_pop3_connect(host, p, false) {
+            Ok((mut tls, actual_port)) => {
+                match pop3_do_login(&mut tls, email, password) {
+                    Ok(()) => {
+                        info!("✅ POP3 {}:{} 登录成功", host, actual_port);
+                        return Ok((tls, actual_port));
+                    }
+                    Err(ConnectError::Auth(msg)) => return Err(msg),
+                    Err(e) => {
+                        last_error = e.to_string();
+                        continue;
+                    }
+                }
+            }
+            Err(ConnectError::Tls(msg)) => {
+                warn!("{}", msg);
+                // TLS 握手失败 → 放宽证书再试
+                match try_pop3_connect(host, p, true) {
+                    Ok((mut tls, actual_port)) => {
+                        match pop3_do_login(&mut tls, email, password) {
+                            Ok(()) => {
+                                warn!(
+                                    "⚠️ POP3 放宽证书验证连接成功 {}:{}",
+                                    host, actual_port
+                                );
+                                return Ok((tls, actual_port));
+                            }
+                            Err(ConnectError::Auth(msg)) => return Err(msg),
+                            Err(e) => {
+                                last_error = e.to_string();
+                                continue;
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        last_error = e.to_string();
+                        continue;
+                    }
+                }
+            }
+            Err(ConnectError::Auth(msg)) => return Err(msg),
+            Err(e) => {
+                last_error = e.to_string();
+                continue;
+            }
+        }
+    }
+
+    Err(format!(
+        "POP3 连接失败（已尝试 {}:{} 和 {}:{}）: {}",
+        host, port, host, alt_port, last_error
+    ))
+}
+
+// ── 公开接口 ──────────────────────────────────────────────────
 
 /// POP3 登录验证
 pub async fn verify_login(
@@ -13,7 +220,6 @@ pub async fn verify_login(
 ) -> Result<LoginResult, String> {
     info!("尝试 POP3 登录验证: {} -> {}:{}", email, host, port);
 
-    // POP3 使用阻塞 IO，需要在线程池中执行
     let email = email.to_string();
     let password = password.to_string();
     let host = host.to_string();
@@ -33,82 +239,33 @@ fn pop3_login_sync(
     host: &str,
     port: u16,
 ) -> Result<LoginResult, String> {
-    info!("开始连接 POP3 服务器: {}:{}", host, port);
-    
-    // 使用 native-tls 连接
-    let connector = native_tls::TlsConnector::builder()
-        .danger_accept_invalid_certs(false)
-        .build()
-        .map_err(|e| format!("TLS 初始化失败: {}", e))?;
-    
-    // 直接连接，让系统处理DNS
-    let tcp_stream = TcpStream::connect((host, port))
-        .map_err(|e| format!("TCP 连接失败 {}:{} - {}", host, port, e))?;
-    
-    tcp_stream
-        .set_read_timeout(Some(std::time::Duration::from_secs(10)))
-        .ok();
-    
-    let mut tls_stream = connector
-        .connect(host, tcp_stream)
-        .map_err(|e| format!("TLS 连接失败: {}", e))?;
-
-    // 读取欢迎消息
-    let mut response = read_line(&mut tls_stream)?;
-    
-    if !response.starts_with("+OK") {
-        return Ok(LoginResult {
+    match connect_and_login(host, port, email, password) {
+        Ok((mut tls, actual_port)) => {
+            let _ = tls.write_all(b"QUIT\r\n");
+            Ok(LoginResult {
+                success: true,
+                message: "登录验证成功".to_string(),
+                protocol: Some("pop3".to_string()),
+                host: Some(host.to_string()),
+                port: Some(actual_port),
+                smtp_host: None,
+                smtp_port: None,
+                smtp_verified: false,
+                smtp_error: None,
+            })
+        }
+        Err(msg) => Ok(LoginResult {
             success: false,
-            message: format!("服务器响应错误: {}", response),
+            message: msg,
             protocol: Some("pop3".to_string()),
             host: Some(host.to_string()),
             port: Some(port),
-        });
+            smtp_host: None,
+            smtp_port: None,
+            smtp_verified: false,
+            smtp_error: None,
+        }),
     }
-
-    // 发送 USER 命令
-    tls_stream
-        .write_all(format!("USER {}\r\n", email).as_bytes())
-        .map_err(|e| format!("发送失败: {}", e))?;
-    response = read_line(&mut tls_stream)?;
-    
-    if !response.starts_with("+OK") {
-        return Ok(LoginResult {
-            success: false,
-            message: "用户名错误".to_string(),
-            protocol: Some("pop3".to_string()),
-            host: Some(host.to_string()),
-            port: Some(port),
-        });
-    }
-
-    // 发送 PASS 命令
-    tls_stream
-        .write_all(format!("PASS {}\r\n", password).as_bytes())
-        .map_err(|e| format!("发送失败: {}", e))?;
-    response = read_line(&mut tls_stream)?;
-    
-    if !response.starts_with("+OK") {
-        return Ok(LoginResult {
-            success: false,
-            message: "邮箱或授权码错误，请检查后重试".to_string(),
-            protocol: Some("pop3".to_string()),
-            host: Some(host.to_string()),
-            port: Some(port),
-        });
-    }
-
-    // 发送 QUIT 命令
-    let _ = tls_stream.write_all(b"QUIT\r\n");
-
-    info!("✅ POP3 登录验证成功: {}", email);
-    Ok(LoginResult {
-        success: true,
-        message: "登录验证成功".to_string(),
-        protocol: Some("pop3".to_string()),
-        host: Some(host.to_string()),
-        port: Some(port),
-    })
 }
 
 /// POP3 收取邮件
@@ -141,49 +298,25 @@ fn pop3_fetch_sync(
     port: u16,
     limit: usize,
 ) -> Result<FetchResult, String> {
-    let connector = native_tls::TlsConnector::builder()
-        .danger_accept_invalid_certs(false)
-        .build()
-        .map_err(|e| format!("TLS 初始化失败: {}", e))?;
-    
-    let tcp_stream = TcpStream::connect((host, port))
-        .map_err(|e| format!("TCP 连接失败 {}:{} - {}", host, port, e))?;
-    
-    tcp_stream
-        .set_read_timeout(Some(std::time::Duration::from_secs(15)))
-        .ok();
-    
-    let mut tls_stream = connector
-        .connect(host, tcp_stream)
-        .map_err(|e| format!("TLS 连接失败: {}", e))?;
-
-    // 读取欢迎消息
-    let _ = read_line(&mut tls_stream)?;
-
-    // 登录
-    tls_stream.write_all(format!("USER {}\r\n", email).as_bytes()).map_err(|e| format!("发送失败: {}", e))?;
-    let _ = read_line(&mut tls_stream)?;
-
-    tls_stream.write_all(format!("PASS {}\r\n", password).as_bytes()).map_err(|e| format!("发送失败: {}", e))?;
-    let response = read_line(&mut tls_stream)?;
-    
-    if !response.starts_with("+OK") {
-        error!("POP3 登录失败，服务器响应: {}", response.trim());
-        return Err(format!("登录失败: {}", response.trim()));
-    }
+    let (mut tls, _) = connect_and_login(host, port, email, password)?;
 
     // 获取邮件数量
-    tls_stream.write_all(b"STAT\r\n").map_err(|e| format!("发送失败: {}", e))?;
-    let response = read_line(&mut tls_stream)?;
-    
+    tls.write_all(b"STAT\r\n")
+        .map_err(|e| format!("发送失败: {}", e))?;
+    let response = read_line(&mut tls)?;
+
     let parts: Vec<&str> = response.split_whitespace().collect();
     let total: usize = parts.get(1).and_then(|s| s.parse().ok()).unwrap_or(0);
 
     let mut emails: Vec<EmailData> = Vec::new();
-    let start = if total > limit { total - limit + 1 } else { 1 };
+    let start = if total > limit {
+        total - limit + 1
+    } else {
+        1
+    };
 
     for i in start..=total {
-        match fetch_single_pop3(&mut tls_stream, i) {
+        match fetch_single_pop3(&mut tls, i) {
             Ok(email_data) => emails.push(email_data),
             Err(e) => {
                 error!("获取邮件 {} 失败: {}", i, e);
@@ -192,7 +325,7 @@ fn pop3_fetch_sync(
         }
     }
 
-    let _ = tls_stream.write_all(b"QUIT\r\n");
+    let _ = tls.write_all(b"QUIT\r\n");
 
     info!("✅ POP3 收取完成，共 {} 封邮件", emails.len());
     Ok(FetchResult {
@@ -203,11 +336,13 @@ fn pop3_fetch_sync(
     })
 }
 
-/// 从 TLS 流中读取一行
+// ── IO 辅助 ───────────────────────────────────────────────────
+
+/// 从流中读取一行（直到 \r\n）
 fn read_line<R: Read>(stream: &mut R) -> Result<String, String> {
     let mut buf = Vec::new();
     let mut byte = [0u8; 1];
-    
+
     loop {
         match stream.read(&mut byte) {
             Ok(0) => break,
@@ -220,21 +355,21 @@ fn read_line<R: Read>(stream: &mut R) -> Result<String, String> {
             Err(e) => return Err(format!("读取失败: {}", e)),
         }
     }
-    
+
     String::from_utf8(buf).map_err(|e| format!("UTF-8 解码失败: {}", e))
 }
 
 /// 读取多行响应直到遇到单独的 '.'
 fn read_multiline<R: Read>(stream: &mut R) -> Result<Vec<u8>, String> {
     let mut content = Vec::new();
-    
+
     loop {
         let line = read_line(stream)?;
-        
+
         if line.trim() == "." {
             break;
         }
-        
+
         // 处理字节填充（以 .. 开头的行）
         if line.starts_with("..") {
             content.extend(line[1..].as_bytes());
@@ -242,9 +377,11 @@ fn read_multiline<R: Read>(stream: &mut R) -> Result<Vec<u8>, String> {
             content.extend(line.as_bytes());
         }
     }
-    
+
     Ok(content)
 }
+
+// ── 邮件解析（未修改）─────────────────────────────────────────
 
 fn fetch_single_pop3<S: Read + Write>(
     stream: &mut S,
@@ -256,7 +393,7 @@ fn fetch_single_pop3<S: Read + Write>(
         .map_err(|e| format!("发送失败: {}", e))?;
 
     let response = read_line(stream)?;
-    
+
     if !response.starts_with("+OK") {
         return Err(format!("获取邮件失败: {}", response));
     }

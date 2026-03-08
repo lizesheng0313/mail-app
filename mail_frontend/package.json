@@ -4,7 +4,7 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "cd ../mail_backend && ./dev.sh & vite",
+    "dev": "(cd ../../mail_backend && ./dev.sh) & vite",
     "dev:front": "vite",
     "build": "vite build",
     "preview": "vite preview",
@@ -35,7 +35,8 @@
     "qrcode": "^1.5.4",
     "vue": "^3.4.0",
     "vue-router": "^4.2.5",
-    "vuedraggable": "^2.24.3"
+    "vuedraggable": "^2.24.3",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^6.10.0",

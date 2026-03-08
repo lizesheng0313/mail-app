@@ -62,3 +62,15 @@ open = "5"
 # 异步工具
 futures = "0.3"
 tauri-plugin-process = "2"
+
+# SMTP 发送
+lettre = { version = "0.11", default-features = false, features = ["smtp-transport", "tokio1-native-tls", "builder"] }
+base64 = "0.22"
+mime = "0.3"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"

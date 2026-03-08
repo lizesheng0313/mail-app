@@ -6,9 +6,9 @@ on:
       version:
         description: '版本号 (例如 1.2.0)'
         required: true
-      prev_version:
-        description: '上一个版本号，用于生成更新清单 (例如 1.1.0)'
-        required: true
+      release_notes:
+        description: '更新内容（支持多行）'
+        required: false
 
 env:
   APP_NAME: mail-desktop
@@ -176,8 +176,11 @@ jobs:
             - **macOS**：下载 `.dmg` 文件
             - **Windows**：下载 `.exe` 文件
 
+            ### 更新内容
+            ${{ github.event.inputs.release_notes || '本次版本优化了桌面端体验并修复了一些已知问题。' }}
+
             ### 更新
-            已安装 v${{ github.event.inputs.prev_version }} 的用户打开客户端会自动提示更新
+            已安装桌面客户端的用户打开应用后会自动提示更新
           draft: false
           prerelease: false
           files: |

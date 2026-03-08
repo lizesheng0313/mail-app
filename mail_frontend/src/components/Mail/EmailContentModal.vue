@@ -48,7 +48,7 @@
               class="w-full border-none"
               style="min-height: 400px;"
             ></iframe>
-            <div v-else-if="hasTextContent" class="whitespace-pre-wrap text-gray-900">{{ email?.content || email?.content_text }}</div>
+            <div v-else-if="hasTextContent" class="whitespace-pre-wrap text-gray-900">{{ textContent }}</div>
             <div v-else class="text-gray-400 text-center py-8">无邮件内容</div>
           </div>
         </div>
@@ -94,6 +94,17 @@ const formatDate = (dateValue?: string | number) => {
   return formatTimestamp(timestamp, 'datetime')
 }
 
+const textContent = computed(() => {
+  if (!props.email) return ''
+  return (
+    props.email.content ||
+    props.email.content_text ||
+    props.email.contentHtml ||
+    props.email.content_html ||
+    ''
+  ).trim()
+})
+
 // 检查是否有HTML内容（判断content字段是否包含HTML标签）
 const hasHtmlContent = computed(() => {
   if (!props.email) return false
@@ -105,9 +116,7 @@ const hasHtmlContent = computed(() => {
 
 // 检查是否有纯文本内容（不包含HTML标签）
 const hasTextContent = computed(() => {
-  if (!props.email) return false
-  const text = props.email.content || props.email.content_text || ''
-  const trimmed = text.trim()
+  const trimmed = textContent.value
   // 如果有内容但不包含HTML标签，则认为是纯文本
   return trimmed.length > 0 && !/<[^>]+>/.test(trimmed)
 })

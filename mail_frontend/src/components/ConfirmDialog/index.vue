@@ -19,13 +19,6 @@
       <div class="flex justify-end space-x-3">
         <button
           type="button"
-          class="px-4 py-2 text-sm font-medium text-black bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-          @click="handleCancel"
-        >
-          {{ cancelText }}
-        </button>
-        <button
-          type="button"
           class="px-4 py-2 text-sm font-medium text-white border border-transparent rounded-md disabled:opacity-50"
           :class="confirmButtonClass"
           @click="handleConfirm"
@@ -33,6 +26,13 @@
         >
           <span v-if="loading">{{ loadingText }}...</span>
           <span v-else>{{ confirmText }}</span>
+        </button>
+        <button
+          type="button"
+          class="px-4 py-2 text-sm font-medium text-black bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+          @click="handleClose"
+        >
+          关闭
         </button>
       </div>
     </div>
@@ -123,6 +123,11 @@ const confirmButtonClass = computed(() => {
 const iconComponent = computed(() => {
   return ExclamationTriangleIcon // 统一使用警告图标
 })
+
+const handleClose = () => {
+  emit('cancel')
+  emit('update:visible', false)
+}
 
 const handleConfirm = () => {
   // 不再自动关闭对话框，由父组件通过 :loading 状态控制
