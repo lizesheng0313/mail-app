@@ -44,34 +44,57 @@ fn get_known_server_config(domain: &str) -> Option<ServerConfig> {
         pop3_port: pp,
     });
     match domain {
+        // 腾讯系
         "qq.com" | "foxmail.com"
             => cfg("imap.qq.com", 993, "pop.qq.com", 995),
-        "163.com"
+        // 网易系
+        "163.com" | "vip.163.com"
             => cfg("imap.163.com", 993, "pop.163.com", 995),
-        "126.com"
+        "126.com" | "vip.126.com"
             => cfg("imap.126.com", 993, "pop.126.com", 995),
         "yeah.net"
             => cfg("imap.yeah.net", 993, "pop.yeah.net", 995),
-        "gmail.com"
+        "163.net"
+            => cfg("imap.163.net", 993, "pop.163.net", 995),
+        // 谷歌
+        "gmail.com" | "googlemail.com"
             => cfg("imap.gmail.com", 993, "pop.gmail.com", 995),
-        "outlook.com" | "hotmail.com" | "live.com" | "live.cn"
+        // 微软系
+        "outlook.com" | "hotmail.com" | "live.com" | "live.cn" | "msn.com"
             => cfg("outlook.office365.com", 993, "outlook.office365.com", 995),
-        "yahoo.com" | "yahoo.cn" | "yahoo.com.cn"
+        // 雅虎
+        "yahoo.com" | "yahoo.cn" | "yahoo.com.cn" | "ymail.com"
             => cfg("imap.mail.yahoo.com", 993, "pop.mail.yahoo.com", 995),
+        // 新浪
         "sina.com" | "sina.cn" | "vip.sina.com"
             => cfg("imap.sina.com", 993, "pop.sina.com", 995),
+        // 搜狐
         "sohu.com"
             => cfg("imap.sohu.com", 993, "pop3.sohu.com", 995),
+        // 中国电信 189
         "189.cn"
             => cfg("imap.189.cn", 993, "pop.189.cn", 995),
+        // 中国移动 139
         "139.com"
             => cfg("imap.139.com", 993, "pop.139.com", 995),
+        // 中国联通 wo
+        "wo.cn"
+            => cfg("imap.wo.cn", 993, "pop.wo.cn", 995),
+        // 阿里云
         "aliyun.com"
             => cfg("imap.aliyun.com", 993, "pop.aliyun.com", 995),
+        // 21cn
+        "21cn.com"
+            => cfg("imap.21cn.com", 993, "pop.21cn.com", 995),
+        // Tom
         "tom.com"
             => cfg("imap.tom.com", 993, "pop.tom.com", 995),
+        // Apple
         "icloud.com" | "me.com" | "mac.com"
             => cfg("imap.mail.me.com", 993, "pop.mail.me.com", 995),
+        // Zoho
+        "zoho.com" | "zohomail.com"
+            => cfg("imap.zoho.com", 993, "pop.zoho.com", 995),
         _ => None,
     }
 }
@@ -164,9 +187,44 @@ async fn detect_server_config_by_probing(domain: &str) -> Option<ServerConfig> {
     };
 
     info!("发现首选 MX 记录: {}", primary_mx);
+    let mx_lower = primary_mx.to_lowercase();
+
+    // 2. 根据 MX 主机识别已知企业邮件托管商，直接返回正确配置
+    let known = if mx_lower.contains("netease.com") {
+        // 网易企业邮箱 (163 企业邮，MX 如 qiye163mx01.mxmail.netease.com)
+        Some(ServerConfig {
+            imap_host: "imap.qiye.163.com".to_string(), imap_port: 993,
+            pop3_host: "pop.qiye.163.com".to_string(),  pop3_port: 995,
+        })
+    } else if mx_lower.contains("exmail.qq.com") || mx_lower.contains("mxbiz.qq.com") {
+        // 腾讯企业邮箱
+        Some(ServerConfig {
+            imap_host: "imap.exmail.qq.com".to_string(), imap_port: 993,
+            pop3_host: "pop.exmail.qq.com".to_string(),  pop3_port: 995,
+        })
+    } else if mx_lower.contains("qiye.aliyun.com") || mx_lower.contains("mxn.qiye.aliyun") {
+        // 阿里云企业邮箱
+        Some(ServerConfig {
+            imap_host: "imap.qiye.aliyun.com".to_string(),  imap_port: 993,
+            pop3_host: "pop3.qiye.aliyun.com".to_string(),  pop3_port: 995,
+        })
+    } else if mx_lower.contains("ym.163.com") || mx_lower.contains("qiye.163.com") {
+        // 163 企业邮旧域名
+        Some(ServerConfig {
+            imap_host: "imap.qiye.163.com".to_string(), imap_port: 993,
+            pop3_host: "pop.qiye.163.com".to_string(),  pop3_port: 995,
+        })
+    } else {
+        None
+    };
+    if let Some(cfg) = known {
+        info!("MX {} 匹配已知企业邮件托管商，直接返回配置", primary_mx);
+        return Some(cfg);
+    }
+
     let mx_root = extract_root_domain(&primary_mx);
 
-    // 2. 构建 IMAP / POP3 候选列表（从邮箱域名、MX 根域名、MX 主机三个维度）
+    // 3. 构建 IMAP / POP3 候选列表（从邮箱域名、MX 根域名、MX 主机三个维度）
     let mut imap_candidates: Vec<(String, u16)> = vec![
         (format!("imap.{}", domain), 993),
         (format!("imap.{}", domain), 143),

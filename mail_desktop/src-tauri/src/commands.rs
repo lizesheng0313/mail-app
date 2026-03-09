@@ -680,7 +680,90 @@ fn extract_root_domain(host: &str) -> String {
 }
 
 /// 根据域名查询 MX 记录，返回候选 SMTP 列表（不探测，由调用方逐一尝试）
+/// 已知消费者 / 企业邮箱的 SMTP 服务器（直接返回，无需 DNS）
+fn get_known_smtp(domain: &str) -> Option<Vec<(String, u16)>> {
+    let s = |h: &'static str, p: u16| Some(vec![(h.to_string(), p)]);
+    match domain {
+        // 腾讯系
+        "qq.com" | "foxmail.com"
+            => s("smtp.qq.com", 465),
+        // 网易系
+        "163.com" | "vip.163.com"
+            => s("smtp.163.com", 465),
+        "126.com" | "vip.126.com"
+            => s("smtp.126.com", 465),
+        "yeah.net"
+            => s("smtp.yeah.net", 465),
+        // 谷歌
+        "gmail.com" | "googlemail.com"
+            => s("smtp.gmail.com", 465),
+        // 微软系
+        "outlook.com" | "hotmail.com" | "live.com" | "live.cn" | "msn.com"
+            => Some(vec![("smtp.office365.com".to_string(), 587)]),
+        // 阿里云
+        "aliyun.com"
+            => s("smtp.aliyun.com", 465),
+        // 新浪
+        "sina.com" | "sina.cn" | "vip.sina.com"
+            => s("smtp.sina.com", 465),
+        // 搜狐
+        "sohu.com"
+            => s("smtp.sohu.com", 465),
+        // 中国电信 189
+        "189.cn"
+            => s("smtp.189.cn", 465),
+        // 中国移动 139
+        "139.com"
+            => s("smtp.139.com", 465),
+        // 中国联通 wo
+        "wo.cn"
+            => s("smtp.wo.cn", 465),
+        // 21cn
+        "21cn.com"
+            => s("smtp.21cn.com", 465),
+        // Tom
+        "tom.com"
+            => s("smtp.tom.com", 465),
+        // Apple
+        "icloud.com" | "me.com" | "mac.com"
+            => s("smtp.mail.me.com", 587),
+        // Zoho
+        "zoho.com" | "zohomail.com"
+            => s("smtp.zoho.com", 465),
+        // 雅虎
+        "yahoo.com" | "yahoo.cn" | "yahoo.com.cn" | "ymail.com"
+            => s("smtp.mail.yahoo.com", 465),
+        _ => None,
+    }
+}
+
+/// 根据 MX 主机识别企业邮件托管商，返回正确 SMTP 候选
+fn get_smtp_from_mx(mx_host: &str) -> Option<Vec<(String, u16)>> {
+    let mx = mx_host.to_lowercase();
+    if mx.contains("netease.com") || mx.contains("ym.163.com") || mx.contains("qiye.163.com") {
+        // 网易企业邮箱
+        Some(vec![
+            ("smtp.qiye.163.com".to_string(), 994),
+            ("smtp.qiye.163.com".to_string(), 465),
+        ])
+    } else if mx.contains("exmail.qq.com") || mx.contains("mxbiz.qq.com") {
+        // 腾讯企业邮箱
+        Some(vec![("smtp.exmail.qq.com".to_string(), 465)])
+    } else if mx.contains("qiye.aliyun.com") || mx.contains("mxn.qiye.aliyun") {
+        // 阿里云企业邮箱
+        Some(vec![("smtp.qiye.aliyun.com".to_string(), 465)])
+    } else {
+        None
+    }
+}
+
 async fn get_smtp_candidates(domain: &str) -> Result<Vec<(String, u16)>, String> {
+    // 1. 已知消费者邮箱，直接返回（无需 DNS）
+    if let Some(known) = get_known_smtp(domain) {
+        log::info!("SMTP 快速路径命中: {}", domain);
+        return Ok(known);
+    }
+
     let domain_owned = domain.to_string();
 
     let primary_mx = tokio::task::spawn_blocking(move || -> Result<String, String> {
@@ -740,6 +823,12 @@ async fn get_smtp_candidates(domain: &str) -> Result<Vec<(String, u16)>, String>
     }).await.map_err(|e| format!("任务执行失败: {}", e))??;
 
     log::info!("发现首选 MX 记录: {}", primary_mx);
+
+    // 2. 根据 MX 识别企业邮件托管商
+    if let Some(known) = get_smtp_from_mx(&primary_mx) {
+        log::info!("SMTP MX 模式匹配命中: {}", primary_mx);
+        return Ok(known);
+    }
 
     let mx_root = extract_root_domain(&primary_mx);
     let mut candidates: Vec<(String, u16)> = vec![
