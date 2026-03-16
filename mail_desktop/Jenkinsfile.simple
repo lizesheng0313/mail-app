@@ -105,7 +105,7 @@ pipeline {
                         SIGNATURE=\$(cat "\$SIG_FILE")
                         MANIFEST="{\\\"version\\\":\\\"\${VERSION}\\\",\\\"notes\\\":\${NOTES},\\\"pub_date\\\":\\\"\${PUB_DATE}\\\",\\\"url\\\":\\\"https://zjkdongao.cn/downloads/mail-desktop.app.tar.gz\\\",\\\"signature\\\":\\\"\${SIGNATURE}\\\"}"
                         ssh -o StrictHostKeyChecking=no ${SERVER_USER}@${SERVER_HOST} "mkdir -p ${UPDATE_PATH}/universal-apple-darwin"
-                        echo "\$MANIFEST" | ssh -o StrictHostKeyChecking=no ${SERVER_USER}@${SERVER_HOST} "cat > ${UPDATE_PATH}/universal-apple-darwin/latest"
+                        printf '%s' "\$MANIFEST" | ssh -o StrictHostKeyChecking=no ${SERVER_USER}@${SERVER_HOST} "cat > ${UPDATE_PATH}/universal-apple-darwin/latest"
                         echo "✅ macOS 更新清单（latest -> v\${VERSION}）"
                     fi
 
@@ -117,7 +117,7 @@ pipeline {
                         WIN_FILENAME=\$(basename "\$WIN_ZIP")
                         WIN_MANIFEST="{\\\"version\\\":\\\"\${VERSION}\\\",\\\"notes\\\":\${NOTES},\\\"pub_date\\\":\\\"\${PUB_DATE}\\\",\\\"url\\\":\\\"https://zjkdongao.cn/downloads/\${WIN_FILENAME}\\\",\\\"signature\\\":\\\"\${WIN_SIGNATURE}\\\"}"
                         ssh -o StrictHostKeyChecking=no ${SERVER_USER}@${SERVER_HOST} "mkdir -p ${UPDATE_PATH}/x86_64-pc-windows-msvc"
-                        echo "\$WIN_MANIFEST" | ssh -o StrictHostKeyChecking=no ${SERVER_USER}@${SERVER_HOST} "cat > ${UPDATE_PATH}/x86_64-pc-windows-msvc/latest"
+                        printf '%s' "\$WIN_MANIFEST" | ssh -o StrictHostKeyChecking=no ${SERVER_USER}@${SERVER_HOST} "cat > ${UPDATE_PATH}/x86_64-pc-windows-msvc/latest"
                         echo "✅ Windows 更新清单（latest -> v\${VERSION}）"
                     fi
                 """

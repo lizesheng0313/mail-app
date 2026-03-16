@@ -139,12 +139,15 @@ async function startUpdate() {
 }
 
 async function checkForUpdates() {
+  console.log('[Updater] 开始检查更新, isTauri:', isTauri())
   if (!isTauri()) return
 
   // 1. 优先用 updater 插件
   try {
+    console.log('[Updater] 尝试使用 updater 插件...')
     const { check } = await import('@tauri-apps/plugin-updater')
     const update = await check()
+    console.log('[Updater] 插件返回:', update)
     if (update) {
       pendingUpdate = update
       version.value = update.version
@@ -154,14 +157,17 @@ async function checkForUpdates() {
       showModal.value = true
       return // 插件检测到更新了，不用再查
     }
+    console.log('[Updater] 插件返回 null，尝试保底检查')
   } catch (e: any) {
     console.error('[Updater] 插件检查失败:', e?.message || e)
   }
 
   // 2. 插件没检测到更新（返回null或报错），用 reqwest 再确认一次
   try {
+    console.log('[Updater] 开始保底检查...')
     const { invoke } = await import('@tauri-apps/api/core')
     const result = await invoke('check_for_update') as { version: string; notes: string } | null
+    console.log('[Updater] 保底检查返回:', result)
     if (result) {
       version.value = result.version
       notes.value = result.notes || ''
