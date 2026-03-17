@@ -18,18 +18,6 @@
         </div>
 
         <div class="flex items-center gap-1.5 flex-shrink-0">
-          <!-- 搜索按钮 -->
-          <button
-            v-if="searchable && !showSearch"
-            @click="showSearch = true"
-            class="px-2 py-1 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded transition-colors"
-            title="搜索邮件"
-          >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-            </svg>
-          </button>
-
           <button
             v-if="!batchSelection.isBatchMode.value && emails.length > 0"
             @click="startBatchMode"
@@ -44,7 +32,7 @@
     </div>
     
     <!-- 搜索框 -->
-    <div v-if="searchable && showSearch" class="pb-3 mb-1">
+    <div v-if="searchable" class="pb-3 mb-1">
       <div class="relative flex items-center">
         <svg class="absolute left-2.5 w-3.5 h-3.5 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
@@ -56,7 +44,6 @@
           class="w-full pl-8 pr-8 py-1.5 text-sm border border-gray-200 rounded-lg outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-100 transition-colors"
           @input="handleSearch"
           @keyup.escape="clearSearch"
-          autofocus
         />
         <button
           v-if="searchText"
@@ -165,7 +152,6 @@ const handleSearch = () => {
 const clearSearch = () => {
   searchText.value = ''
   emit('search', '')
-  showSearch.value = false
 }
 
 // 批量选择逻辑 - 使用 toRef 保持响应式
