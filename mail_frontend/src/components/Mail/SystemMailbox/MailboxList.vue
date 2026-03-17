@@ -44,6 +44,17 @@
                   过期：{{ formatDate(mailbox.expires_at) }}
                 </span>
               </div>
+              <!-- 站点和标签 -->
+              <MailboxTags
+                v-if="mailbox.id in tagsData"
+                :mailbox-id="mailbox.id"
+                mailbox-type="system"
+                :editable="!batchMode"
+                :show-add-button="!batchMode"
+                :max-display="3"
+                :initial-sites="tagsData[mailbox.id]?.sites || []"
+                :initial-tags="tagsData[mailbox.id]?.tags || []"
+              />
             </div>
           </div>
           <div v-if="!batchMode" class="opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex gap-1 flex-shrink-0">
@@ -91,14 +102,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import { useMailboxStore } from '@/stores/auth'
 import MailboxList from '@/components/Mail/MailboxList/MailboxList.vue'
 import Pagination from '@/components/Pagination/index.vue'
 import ActionButton from '@/components/ActionButton/index.vue'
 import ConfirmDialog from '@/components/ConfirmDialog/index.vue'
+import MailboxTags from '@/components/MailboxTags/index.vue'
 import { showMessage } from '@/utils/message'
 import { unifiedAPI } from '@/api/unified'
+import { mailboxTagsAPI } from '@/api/mailboxTags'
 import { formatTimestamp } from '@/utils/timeUtils'
 
 const emit = defineEmits(['select', 'batch-mode-start', 'share'])
@@ -109,12 +122,35 @@ const showConfirm = ref(false)
 const deleting = ref(false)
 const isDeleting = ref({ batch: false, ids: [] as number[] })
 const selectedId = ref<number | null>(null)
+const tagsData = ref<Record<number, { sites: any[], tags: any[] }>>({})
 
 const isExpired = (mailbox: any) => {
   if (!mailbox.expires_at) return false
   // expires_at 是毫秒时间戳
   return mailbox.expires_at < Date.now()
 }
+
+// 批量加载邮箱标签数据
+const loadTagsData = async () => {
+  try {
+    const ids = mailboxStore.mailboxes.map((m: any) => Number(m.id))
+    if (ids.length === 0) return
+    
+    const res = await mailboxTagsAPI.getBatchMailboxTags('system', ids)
+    if (res.data) {
+      tagsData.value = res.data
+    }
+  } catch (e) {
+    console.error('加载标签数据失败:', e)
+  }
+}
+
+// 监听邮箱列表变化，加载标签
+watch(() => mailboxStore.mailboxes, (newMailboxes) => {
+  if (newMailboxes.length > 0) {
+    loadTagsData()
+  }
+}, { immediate: true })
 
 const formatDate = (date: string | number) => {
   if (!date) return ''
@@ -157,6 +193,7 @@ const handleMailboxClick = (mailbox: any, batchMode: boolean, toggleSelection: F
   if (batchMode) {
     toggleSelection(mailbox.id)
   } else {
+    selectedId.value = mailbox.id
     onSelect(mailbox)
   }
 }
@@ -192,6 +229,7 @@ const cancelBatchMode = () => {
 
 defineExpose({
   cancelBatchMode,
+  loadTagsData,
   toggleSelection: (id: number) => {
     if (mailboxListRef.value?.toggleSelection) {
       mailboxListRef.value.toggleSelection(id)

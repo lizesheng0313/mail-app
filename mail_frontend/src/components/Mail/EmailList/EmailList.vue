@@ -21,7 +21,7 @@
           <button
             v-if="!batchSelection.isBatchMode.value && emails.length > 0"
             @click="startBatchMode"
-            class="px-2 py-1 text-xs text-primary-600 hover:text-primary-700 hover:bg-primary-50 rounded transition-colors whitespace-nowrap"
+            class="px-2 py-1 text-sm text-primary-600 hover:text-primary-700 hover:bg-primary-50 rounded transition-colors whitespace-nowrap"
           >
             批量操作
           </button>

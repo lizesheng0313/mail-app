@@ -10,7 +10,7 @@
           <button
             v-if="!hideBatchMode && !batchSelection.isBatchMode.value && mailboxes.length > 0"
             @click="startBatchMode"
-            class="px-2 py-1 text-xs text-primary-600 hover:text-primary-700 hover:bg-primary-50 rounded transition-colors"
+            class="px-2 py-1 text-sm text-primary-600 hover:text-primary-700 hover:bg-primary-50 rounded transition-colors"
           >
             批量操作
           </button>

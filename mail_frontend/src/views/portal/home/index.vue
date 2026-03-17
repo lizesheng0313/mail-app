@@ -254,7 +254,7 @@
   </ThreeColumnLayout>
 
   <!-- Web端小程序二维码 -->
-  <div v-if="!isTauri() && showQrPromo" class="fixed right-5 top-1/2 -translate-y-1/2 bg-white rounded-xl shadow-lg border border-gray-100 p-5 z-50 flex flex-col items-center">
+  <div v-if="!isTauri() && showQrPromo" class="fixed right-5 top-1/2 -translate-y-1/2 bg-white rounded-xl shadow-lg border border-gray-100 p-5 z-30 flex flex-col items-center">
     <button @click="showQrPromo = false" class="absolute top-1 right-2 text-gray-400 hover:text-gray-600 text-lg leading-none">&times;</button>
     <img :src="wxProgramImg" class="w-28 h-28 rounded-lg" alt="小程序二维码" />
     <p class="text-xs text-gray-500 mt-2">扫码使用小程序版</p>
@@ -733,6 +733,9 @@ const autoRefresh = useAutoRefresh(async () => {
       // 静默失败
     }
   }
+
+  // 刷新邮箱标签（可能有新邮件触发了新站点识别）
+  systemMailboxListRef.value?.loadTagsData?.()
 }, 10)
 
 // 第三方邮箱自动收取（10分钟）
@@ -743,6 +746,7 @@ const externalAutoFetch = useAutoRefresh(async () => {
   if (currentView.value === 'send-email') return
 
   await fetchAllExternalEmails()
+  externalMailboxListRef.value?.loadTagsData?.()
 }, 600)
 
 // 页面加载时获取数据并启动自动刷新

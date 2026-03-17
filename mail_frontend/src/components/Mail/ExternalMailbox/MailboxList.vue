@@ -89,6 +89,17 @@
                   更新：{{ (account.last_sync_at || account.created_at) ? formatDate(account.last_sync_at || account.created_at) : '未收取' }}
                 </span>
               </p>
+              <!-- 站点和标签 -->
+              <MailboxTags
+                v-if="!isSendEmailView && account.id in tagsData"
+                :mailbox-id="account.id"
+                mailbox-type="external"
+                :editable="!batchMode"
+                :show-add-button="!batchMode"
+                :max-display="3"
+                :initial-sites="tagsData[account.id]?.sites || []"
+                :initial-tags="tagsData[account.id]?.tags || []"
+              />
             </div>
           </div>
           <div v-if="!batchMode" class="ml-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex gap-1 flex-shrink-0">
@@ -137,13 +148,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import MailboxList from '@/components/Mail/MailboxList/MailboxList.vue'
 import Pagination from '@/components/Pagination/index.vue'
 import ActionButton from '@/components/ActionButton/index.vue'
 import ConfirmDialog from '@/components/ConfirmDialog/index.vue'
+import MailboxTags from '@/components/MailboxTags/index.vue'
 import { batchLoginAPI } from '@/api/batchLogin'
 import { unifiedAPI } from '@/api/unified'
+import { mailboxTagsAPI } from '@/api/mailboxTags'
 import { showMessage } from '@/utils/message'
 import { formatTimestamp } from '@/utils/timeUtils'
 import { isTauri, getServerUrl } from '@/services/api'
@@ -200,6 +213,7 @@ const handleItemClick = (account: any, batchMode: boolean, toggleSelection: Func
   if (props.isSendEmailView && !hasSmtp(account.email)) {
     return
   }
+  selectedId.value = account.id
   onSelect(account)
 }
 
@@ -216,6 +230,7 @@ const isDeleting = ref({ batch: false, ids: [] as number[] })
 const selectedId = ref<number | null>(null)
 const fetchingIds = ref<number[]>([])
 const mailboxListRef = ref()
+const tagsData = ref<Record<number, { sites: any[], tags: any[] }>>({})
 
 // 分页数据
 const currentPage = ref(1)
@@ -267,11 +282,31 @@ const loadAccounts = async (page = 1) => {
         totalPages.value = 1
         currentPage.value = 1
       }
+      
+      // 批量加载标签数据
+      if (accounts.value.length > 0) {
+        loadTagsData()
+      }
     } else {
       console.error('❌ API返回错误:', res.message)
     }
   } catch (e) {
     console.error('❌ 加载外部邮箱失败', e)
+  }
+}
+
+// 批量加载邮箱标签数据
+const loadTagsData = async () => {
+  try {
+    const ids = accounts.value.map((a: any) => Number(a.id))
+    if (ids.length === 0) return
+    
+    const res = await mailboxTagsAPI.getBatchMailboxTags('external', ids)
+    if (res.data) {
+      tagsData.value = res.data
+    }
+  } catch (e) {
+    console.error('加载标签数据失败:', e)
   }
 }
 
@@ -392,6 +427,7 @@ const fetchSingleMailbox = async (accountId: number) => {
 // 暴露加载方法给父组件调用（不要在onMounted自动加载）
 defineExpose({
   loadAccounts,
+  loadTagsData,
   cancelBatchMode: () => {
     console.log('🔵 外部邮箱组件 - cancelBatchMode 被调用')
     if (mailboxListRef.value?.cancelBatchMode) {
