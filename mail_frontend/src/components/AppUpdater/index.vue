@@ -133,6 +133,14 @@ async function startUpdate() {
     const { relaunch } = await import('@tauri-apps/plugin-process')
     await relaunch()
   } catch (e: any) {
+    // 插件模式失败，自动切到保底模式重试
+    if (updateMode === 'plugin') {
+      console.warn('[Updater] 插件模式下载失败，切换到保底模式:', e?.message || e)
+      updateMode = 'fallback'
+      pendingUpdate = null
+      await startUpdate()
+      return
+    }
     phase.value = 'error'
     errorMsg.value = String(e)
   }

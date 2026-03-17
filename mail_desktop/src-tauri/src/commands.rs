@@ -437,9 +437,26 @@ fn is_newer_version(remote: &str, current: &str) -> bool {
 pub async fn download_and_install_update(app: tauri::AppHandle) -> Result<(), String> {
     use tauri::Emitter;
 
-    info!("保底更新：通过 UpdaterExt 触发下载安装");
+    info!("保底更新：触发下载安装");
 
-    let updater = app.updater()
+    let target = if cfg!(target_os = "macos") {
+        "universal-apple-darwin"
+    } else if cfg!(target_os = "windows") {
+        "x86_64-pc-windows-msvc"
+    } else {
+        "x86_64-unknown-linux-gnu"
+    };
+
+    let endpoint = format!("https://zjkdongao.cn/desktop-updates/{}/latest", target);
+    info!("使用更新端点: {}", endpoint);
+
+    let url = endpoint.parse::<url::Url>()
+        .map_err(|e| format!("URL解析失败: {}", e))?;
+
+    let updater = app.updater_builder()
+        .endpoints(vec![url])
+        .map_err(|e| format!("设置端点失败: {}", e))?
+        .build()
         .map_err(|e| format!("创建 updater 失败: {}", e))?;
 
     let update = updater.check().await
