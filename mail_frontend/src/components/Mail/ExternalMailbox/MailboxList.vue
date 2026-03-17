@@ -123,7 +123,7 @@
               @click.stop="handleDelete(account.id)"
             />
             <ActionButton
-              v-if="!isSendEmailView"
+              v-if="!isSendEmailView && isDesktop"
               icon="refresh"
               variant="primary"
               :tooltip="fetchingIds.includes(account.id) ? '收取中...' : '收取邮件'"
@@ -160,6 +160,7 @@ import { mailboxTagsAPI } from '@/api/mailboxTags'
 import { showMessage } from '@/utils/message'
 import { formatTimestamp } from '@/utils/timeUtils'
 import { isTauri, getServerUrl } from '@/services/api'
+const isDesktop = isTauri()
 
 // 获取 Tauri invoke（按需加载，避免竞态）
 async function getTauriInvoke() {

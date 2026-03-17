@@ -176,20 +176,33 @@ const downloadAttachment = async (att: { id: number; filename: string }) => {
       responseType: 'blob'
     })
 
-    // 创建下载链接
     const blob = new Blob([response as any])
-    const url = window.URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = att.filename
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    window.URL.revokeObjectURL(url)
-    showMessage('下载完成', 'success')
+
+    if (isTauri()) {
+      // 桌面端：弹出保存对话框让用户选择位置
+      const { save } = await import('@tauri-apps/plugin-dialog')
+      const { writeFile } = await import('@tauri-apps/plugin-fs')
+      const savePath = await save({ defaultPath: att.filename })
+      if (savePath) {
+        const arrayBuffer = await blob.arrayBuffer()
+        await writeFile(savePath, new Uint8Array(arrayBuffer))
+        showMessage(`附件已保存至: ${savePath}`, 'success')
+      }
+    } else {
+      // Web端：触发浏览器下载
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = att.filename
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+      showMessage('下载完成，文件在浏览器下载文件夹', 'success')
+    }
   } catch (e: any) {
     console.error('下载附件失败:', e)
-    const msg = e.response?.data?.detail || e.response?.data?.message || '下载失败'
+    const msg = e?.message || e?.response?.data?.detail || e?.response?.data?.message || String(e) || '下载失败'
     showMessage(msg, 'error')
   }
 }

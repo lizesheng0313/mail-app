@@ -288,9 +288,6 @@ pub async fn fetch_emails(
     };
 
     if result.success && !result.emails.is_empty() {
-        // 保存附件到本地
-        save_attachments_locally(&result.emails);
-
         // 同步到远程服务器（附件 data 字段会被 serde(skip) 跳过，只发元数据）
         match sync_emails_to_server(&server_url, &token, mailbox_id, &result.emails).await {
             Ok(new_count) => {

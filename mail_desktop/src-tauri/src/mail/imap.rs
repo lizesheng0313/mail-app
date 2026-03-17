@@ -253,10 +253,15 @@ fn imap_fetch_sync(
         .select("INBOX")
         .map_err(|e| format!("选择收件箱失败: {}", e))?;
 
-    // 搜索所有邮件
-    let uids = session
-        .uid_search("ALL")
-        .map_err(|e| format!("搜索邮件失败: {}", e))?;
+    // 搜索所有邮件（部分服务器如163/189在select后可能踢回AUTH状态，重试一次）
+    let search_result = session.uid_search("ALL");
+    let uids = if let Err(_) = search_result {
+        // 状态异常，重新 SELECT 再试
+        session.select("INBOX").ok();
+        session.uid_search("ALL").map_err(|e| format!("搜索邮件失败: {}", e))?
+    } else {
+        search_result.unwrap()
+    };
 
     let mut emails: Vec<EmailData> = Vec::new();
     let uids_vec: Vec<u32> = uids.into_iter().collect();

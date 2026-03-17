@@ -126,13 +126,16 @@ api.interceptors.request.use(
 // 响应拦截器
 api.interceptors.response.use(
   (response) => {
+    // blob/arraybuffer 类型直接返回，不做业务层处理
+    if (response.config.responseType === 'blob' || response.config.responseType === 'arraybuffer') {
+      resetErrorCount()
+      return response.data
+    }
+
     const data = response.data
 
     // 请求成功，重置错误计数
     resetErrorCount()
-
-    // 不再处理业务层面的 401，让各个页面自己处理
-    // 这样可以避免误判导致退出登录
 
     // 统一处理业务错误：只要 code !== 0 就显示错误消息
     if (data.code !== 0) {

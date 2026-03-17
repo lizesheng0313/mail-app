@@ -44,7 +44,7 @@
             </div>
           </div>
           
-          <p class="text-xs text-gray-400 mt-1 truncate">{{ formatDate(email.received_at) }}</p>
+          <p class="text-xs text-gray-400 mt-1 truncate">{{ formatDate(email.email_date || email.received_at) }}</p>
         </div>
       </div>
       <div class="ml-2 flex items-center space-x-2 flex-shrink-0">

@@ -71,7 +71,15 @@ export const batchLoginAPI = {
 
   // 验证已有账号的 SMTP
   verifySmtp: (accountId) =>
-    api.post(`/unified-emails/external-mailboxes/${accountId}/verify-smtp`)
+    api.post(`/unified-emails/external-mailboxes/${accountId}/verify-smtp`),
+
+  // 更新邮箱状态（桌面端收取后调用）
+  updateMailboxStatus: (mailboxId, status, errorMessage = null) =>
+    api.post('/unified-emails/external-emails/update-status', {
+      mailbox_id: mailboxId,
+      status,
+      error_message: errorMessage
+    })
 }
 
 export default batchLoginAPI

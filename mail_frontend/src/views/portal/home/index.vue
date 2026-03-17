@@ -362,6 +362,7 @@ const externalEmailListRef = ref()
 const mailboxType = ref<'system' | 'external'>('system')
 const currentView = ref<'emails' | 'send-email'>('emails')
 const selectedMailboxId = ref<number | null>(null)
+const externalInitialFetched = ref(false)
 const showOnlyUnread = ref(false)
 const showEmailModal = ref(false)
 const modalEmail = ref<any>(null)
@@ -453,8 +454,9 @@ const switchMailboxType = (type: 'system' | 'external') => {
     // 加载所有外部邮件
     loadAllExternalEmails()
 
-    // 切换过来时立即收取一次
-    if (isTauri() && !fetchingExternalEmails.value) {
+    // 只有第一次切换过来时收取一次，之后切换不再触发
+    if (isTauri() && !fetchingExternalEmails.value && !externalInitialFetched.value) {
+      externalInitialFetched.value = true
       fetchAllExternalEmails()
     }
   }
@@ -782,7 +784,8 @@ const allocateMailbox = async () => {
 // 选择系统邮箱
 const handleSelectMailbox = async (mailbox: any) => {
   selectedMailboxId.value = mailbox.id
-  mailStore.currentPage = 1 // 重置页码
+  mailStore.selectedEmail = null
+  mailStore.currentPage = 1
   const params = {
     page: 1,
     page_size: 20,
@@ -810,6 +813,7 @@ const handleSelectExternalMailbox = async (account: any) => {
   selectedExternalMailboxId.value = account.id
   externalEmailPage.value = 1
   currentView.value = 'emails'
+  mailStore.selectedEmail = null
   await loadExternalMailboxEmails()
 }
 
@@ -989,6 +993,16 @@ const fetchAllExternalEmails = async () => {
 
       let totalNew = 0
       let failCount = 0
+
+      const friendlyError = (msg: string) => {
+        if (!msg) return '收取失败'
+        if (msg.includes('Unsafe Login') || msg.includes('unsafe login')) return '登录被拒绝，请检查授权码或邮箱IMAP设置'
+        if (msg.includes('auth') || msg.includes('AUTH') || msg.includes('password') || msg.includes('授权')) return '授权码错误或已失效'
+        if (msg.includes('Connection') || msg.includes('connect') || msg.includes('timeout')) return '连接超时，请检查网络'
+        if (msg.includes('Unable to parse')) return '服务器响应异常，请稍后重试'
+        if (msg.length > 30) return msg.substring(0, 30) + '...'
+        return msg
+      }
       const token = localStorage.getItem('token') || ''
       const serverUrl = getServerUrl()
 
@@ -1008,9 +1022,14 @@ const fetchAllExternalEmails = async () => {
             serverUrl
           })
           totalNew += result.count || 0
+          // 更新邮箱状态为正常
+          await batchLoginAPI.updateMailboxStatus(account.id, 'active')
         } catch (e: any) {
           console.error(`收取 ${account.email} 失败:`, e)
           failCount++
+          // 更新邮箱状态为失败，左侧显示红点
+          const rawMsg = typeof e === 'string' ? e : (e?.message || '收取失败')
+          await batchLoginAPI.updateMailboxStatus(account.id, 'failed', friendlyError(rawMsg))
         }
       }
 
