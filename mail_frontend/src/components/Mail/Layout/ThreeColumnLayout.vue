@@ -6,14 +6,14 @@
     </slot>
 
     <!-- 主要内容区域 -->
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex-1 flex flex-col overflow-y-auto md:overflow-hidden">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex-1 min-h-0 flex flex-col overflow-hidden">
       <!-- 顶部工具栏 -->
       <div class="mb-4">
         <slot name="toolbar"></slot>
       </div>
 
       <!-- 三栏布局 -->
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 md:overflow-hidden">
+      <div class="grid min-h-0 grid-cols-1 lg:grid-cols-3 gap-6 flex-1 overflow-hidden">
         <!-- 左栏 -->
         <div class="lg:col-span-1 relative z-0">
           <div class="panel-container">
@@ -55,10 +55,11 @@ import PageHeader from '@/components/PageHeader/index.vue'
 <style scoped>
 /* 三栏布局样式 */
 .panel-container {
-  height: 75vh;
-  min-height: 400px;
+  height: 100%;
+  min-height: 0;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
   background: white;
   border-radius: 0.5rem;
   box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
