@@ -1,42 +1,48 @@
 <template>
-  <div v-if="visible" class="fixed inset-0 z-50 flex items-center justify-center">
-    <!-- 弹窗内容 -->
-    <div class="relative bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
-      <div class="flex items-center mb-4">
-        <div class="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full"
-             :class="iconBgClass">
-          <component :is="iconComponent" class="h-6 w-6" :class="iconColor" />
+  <Teleport to="body">
+    <div
+      v-if="visible"
+      class="fixed inset-0 z-[80] flex items-center justify-center px-4"
+      :class="mask ? 'bg-black/45' : 'pointer-events-none bg-transparent'"
+    >
+      <!-- 弹窗内容 -->
+      <div class="relative pointer-events-auto bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+        <div class="flex items-center mb-4">
+          <div class="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full"
+               :class="iconBgClass">
+            <component :is="iconComponent" class="h-6 w-6" :class="iconColor" />
+          </div>
+          <div class="ml-4">
+            <h3 class="text-lg font-medium text-black">{{ title }}</h3>
+            <p class="text-sm text-black mt-1">
+              {{ message }}
+              <span v-if="showWarning" class="block text-red-600 mt-1">此操作无法撤销。</span>
+            </p>
+          </div>
         </div>
-        <div class="ml-4">
-          <h3 class="text-lg font-medium text-black">{{ title }}</h3>
-          <p class="text-sm text-black mt-1">
-            {{ message }}
-            <span v-if="showWarning" class="block text-red-600 mt-1">此操作无法撤销。</span>
-          </p>
-        </div>
-      </div>
 
-      <div class="flex justify-end space-x-3">
-        <button
-          type="button"
-          class="px-4 py-2 text-sm font-medium text-white border border-transparent rounded-md disabled:opacity-50"
-          :class="confirmButtonClass"
-          @click="handleConfirm"
-          :disabled="loading"
-        >
-          <span v-if="loading">{{ loadingText }}...</span>
-          <span v-else>{{ confirmText }}</span>
-        </button>
-        <button
-          type="button"
-          class="px-4 py-2 text-sm font-medium text-black bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-          @click="handleClose"
-        >
-          关闭
-        </button>
+        <div class="flex justify-end space-x-3">
+          <button
+            type="button"
+            class="px-4 py-2 text-sm font-medium text-white border border-transparent rounded-md disabled:opacity-50"
+            :class="confirmButtonClass"
+            @click="handleConfirm"
+            :disabled="loading"
+          >
+            <span v-if="loading">{{ loadingText }}...</span>
+            <span v-else>{{ confirmText }}</span>
+          </button>
+          <button
+            type="button"
+            class="px-4 py-2 text-sm font-medium text-black bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+            @click="handleClose"
+          >
+            {{ cancelText }}
+          </button>
+        </div>
       </div>
     </div>
-  </div>
+  </Teleport>
 </template>
 
 <script setup>
@@ -78,6 +84,10 @@ const props = defineProps({
     default: '处理中'
   },
   showWarning: {
+    type: Boolean,
+    default: true
+  },
+  mask: {
     type: Boolean,
     default: true
   },

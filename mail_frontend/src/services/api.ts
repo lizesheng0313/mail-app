@@ -1,6 +1,8 @@
 import axios from 'axios'
 import { showMessage } from '@/utils/message'
 
+const shouldSuppressErrorMessage = (config: any) => Boolean(config?.suppressErrorMessage)
+
 // 检测是否在 Tauri 环境
 const isTauri = () => {
   // Tauri v2: 检查 __TAURI_INTERNALS__ 或 __TAURI__
@@ -138,7 +140,7 @@ api.interceptors.response.use(
     resetErrorCount()
 
     // 统一处理业务错误：只要 code !== 0 就显示错误消息
-    if (data.code !== 0) {
+    if (data.code !== 0 && !shouldSuppressErrorMessage(response.config)) {
       showMessage(data.message || '操作失败', 'error')
     }
 
@@ -197,7 +199,9 @@ api.interceptors.response.use(
     const errorMessage = error.response?.data?.message || error.response?.data?.detail || '网络错误，请稍后重试'
 
     // 显示网络错误
-    showMessage(errorMessage, 'error')
+    if (!shouldSuppressErrorMessage(error.config)) {
+      showMessage(errorMessage, 'error')
+    }
 
     return Promise.reject({
       response: {

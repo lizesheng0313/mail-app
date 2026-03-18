@@ -139,8 +139,12 @@ export const useUserStore = defineStore('user', () => {
       isAuthenticated.value = true
       // 验证token是否有效，通过调用/users/me接口
       try {
-        await updateUserProfile()
-        return true
+        const result = await updateUserProfile()
+        if (result?.success) {
+          return true
+        }
+        logout()
+        return false
       } catch (error) {
         // token无效，清除认证状态
         logout()
@@ -167,7 +171,9 @@ export const useUserStore = defineStore('user', () => {
   }
 
   const updateUserProfile = async () => {
-    if (!isAuthenticated.value) return
+    if (!isAuthenticated.value) {
+      return { success: false, error: '未登录' }
+    }
 
     try {
       const response: any = await userAPI.getProfile()

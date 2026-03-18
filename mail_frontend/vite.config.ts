@@ -12,6 +12,7 @@ export default defineConfig({
   },
   server: {
     port: 9998,
+    strictPort: true,
     host: true,
     proxy: {
       '/mail-api': {  // 更新代理路径

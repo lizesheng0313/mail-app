@@ -355,11 +355,12 @@
   <!-- 下载桌面端提示弹窗 -->
   <ConfirmDialog
     :visible="showDownloadDialog"
+    :mask="false"
     title="需要桌面端"
     message="普通邮箱（163/QQ等）需要桌面端验证登录，是否下载桌面客户端？"
     confirm-text="下载桌面端"
     cancel-text="取消"
-    @confirm="window.location.href = 'https://zjkdongao.cn/download'; showDownloadDialog = false"
+    @confirm="openDownloadDesktop"
     @cancel="showDownloadDialog = false"
   />
 
@@ -451,6 +452,27 @@ const deletingIds = ref<number[]>([])
 const deletingBatch = ref(false)
 const batchLoginLoading = ref(false)
 const showQrPromo = ref(true)
+
+const openDownloadDesktop = () => {
+  showDownloadDialog.value = false
+
+  const userAgent = globalThis.navigator?.userAgent || ''
+  const platform = globalThis.navigator?.platform || ''
+  const isMac = /Mac|Macintosh|MacIntel/i.test(`${platform} ${userAgent}`)
+  const isWindows = /Win/i.test(`${platform} ${userAgent}`)
+
+  if (isMac) {
+    globalThis.location.href = 'https://zjkdongao.cn/downloads/mail-desktop_2.11.0_universal.dmg'
+    return
+  }
+
+  if (isWindows) {
+    globalThis.location.href = 'https://zjkdongao.cn/downloads/mail-desktop_2.11.0_x64-setup.exe'
+    return
+  }
+
+  globalThis.location.href = 'https://zjkdongao.cn/download'
+}
 
 // 分享相关状态
 const showShareModal = ref(false)
@@ -651,6 +673,33 @@ const handleBatchAddAccounts = async (accounts: any[]) => {
     let successCount = 0
     let failCount = 0
     let needDesktopDownload = false
+    const pendingOAuthSet = new Set<string>()
+
+    const normalizeEmail = (email: string) => (email || '').trim().toLowerCase()
+
+    const isAlreadyAddedMessage = (message: string) => {
+      const text = (message || '').toLowerCase()
+      return text.includes('已添加过') || text.includes('无需重复添加') || text.includes('already added') || text.includes('already exists')
+    }
+
+    const resolveErrorMessage = (error: any) =>
+      error?.response?.data?.message ||
+      error?.message ||
+      String(error || '')
+
+    const markNoNeedOAuth = (email: string) => {
+      successCount++
+      if (batchAddModalRef.value) {
+        batchAddModalRef.value.updateResult(email, 'success', '无需授权（已存在）')
+      }
+    }
+
+    const enqueueOAuthPending = (email: string, provider: string) => {
+      const key = `${provider}:${normalizeEmail(email)}`
+      if (pendingOAuthSet.has(key)) return
+      pendingOAuthSet.add(key)
+      pendingOAuthAccounts.value.push({ email, provider })
+    }
 
     // 所有邮箱都先尝试密码登录
     for (const account of accounts) {
@@ -748,34 +797,68 @@ const handleBatchAddAccounts = async (accounts: any[]) => {
                 batchAddModalRef.value.updateResult(account.email, 'success', `本地验证成功（${smtpStatus}）`)
               }
             } else {
-              failCount++
-              if (batchAddModalRef.value) {
-                batchAddModalRef.value.updateResult(account.email, 'error', response.message)
+              const responseMessage = response.message || ''
+              if (isAlreadyAddedMessage(responseMessage)) {
+                markNoNeedOAuth(account.email)
+              } else {
+                failCount++
+                if (batchAddModalRef.value) {
+                  batchAddModalRef.value.updateResult(account.email, 'error', response.message)
+                }
               }
             }
           } catch (error: any) {
             console.error('❌ 桌面端验证失败:', error)
             // 如果是 OAuth2 邮箱，加入待授权列表
             if (oauthProvider) {
-              pendingOAuthAccounts.value.push({ email: account.email, provider: oauthProvider })
-              if (batchAddModalRef.value) {
-                batchAddModalRef.value.updateResult(account.email, 'error', '密码登录失败，需要OAuth2授权')
+              const errorMessage = resolveErrorMessage(error)
+              if (isAlreadyAddedMessage(errorMessage)) {
+                markNoNeedOAuth(account.email)
+              } else {
+                enqueueOAuthPending(account.email, oauthProvider)
+                if (batchAddModalRef.value) {
+                  batchAddModalRef.value.updateResult(account.email, 'error', '密码登录失败，需要OAuth2授权')
+                }
               }
             } else {
               failCount++
               if (batchAddModalRef.value) {
-                batchAddModalRef.value.updateResult(account.email, 'error', error.message || error.toString())
+                batchAddModalRef.value.updateResult(account.email, 'error', resolveErrorMessage(error))
               }
             }
           }
         } else {
           // Web 端
           if (oauthProvider) {
-            // OAuth2 邮箱：直接加入待授权列表，不尝试密码登录
-            console.log('🔵 Web 端：OAuth2 邮箱直接走授权流程')
-            pendingOAuthAccounts.value.push({ email: account.email, provider: oauthProvider })
-            if (batchAddModalRef.value) {
-              batchAddModalRef.value.updateResult(account.email, 'error', '需要 OAuth2 授权')
+            // 先交给后端判断；后端判定为“已添加过”则无需授权
+            console.log('🔵 Web 端：先由后端判断是否需要OAuth2授权')
+            try {
+              const response = await batchLoginAPI.addAccount(accountData, {
+                suppressErrorMessage: true
+              })
+              if (response.code === 0) {
+                successCount++
+                if (batchAddModalRef.value) {
+                  batchAddModalRef.value.updateResult(account.email, 'success', '密码登录成功（无需OAuth2）')
+                }
+              } else if (isAlreadyAddedMessage(response.message || '')) {
+                markNoNeedOAuth(account.email)
+              } else {
+                enqueueOAuthPending(account.email, oauthProvider)
+                if (batchAddModalRef.value) {
+                  batchAddModalRef.value.updateResult(account.email, 'error', '需要 OAuth2 授权')
+                }
+              }
+            } catch (error: any) {
+              const errorMessage = resolveErrorMessage(error)
+              if (isAlreadyAddedMessage(errorMessage)) {
+                markNoNeedOAuth(account.email)
+              } else {
+                enqueueOAuthPending(account.email, oauthProvider)
+                if (batchAddModalRef.value) {
+                  batchAddModalRef.value.updateResult(account.email, 'error', '需要 OAuth2 授权')
+                }
+              }
             }
           } else {
             // 普通邮箱：Web 端不支持，提示下载桌面端
@@ -791,14 +874,19 @@ const handleBatchAddAccounts = async (accounts: any[]) => {
         console.error(`添加账号 ${account.email} 失败:`, error)
         // 如果是 OAuth2 邮箱，加入待授权列表
         if (oauthProvider) {
-          pendingOAuthAccounts.value.push({ email: account.email, provider: oauthProvider })
-          if (batchAddModalRef.value) {
-            batchAddModalRef.value.updateResult(account.email, 'error', '密码登录失败，需要OAuth2授权')
+          const errorMessage = resolveErrorMessage(error)
+          if (isAlreadyAddedMessage(errorMessage)) {
+            markNoNeedOAuth(account.email)
+          } else {
+            enqueueOAuthPending(account.email, oauthProvider)
+            if (batchAddModalRef.value) {
+              batchAddModalRef.value.updateResult(account.email, 'error', '密码登录失败，需要OAuth2授权')
+            }
           }
         } else {
           failCount++
           if (batchAddModalRef.value) {
-            batchAddModalRef.value.updateResult(account.email, 'error', error.response?.data?.message || error.message)
+            batchAddModalRef.value.updateResult(account.email, 'error', resolveErrorMessage(error))
           }
         }
       }
@@ -806,7 +894,6 @@ const handleBatchAddAccounts = async (accounts: any[]) => {
 
     // 如果有需要 OAuth2 授权的邮箱，弹出授权组件
     if (pendingOAuthAccounts.value.length > 0) {
-      showMessage(`${pendingOAuthAccounts.value.length} 个邮箱需要OAuth2授权`, 'warning')
       showOAuth2Modal.value = true
     }
 

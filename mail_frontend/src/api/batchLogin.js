@@ -6,8 +6,8 @@ import api from '@/services/api'
 
 export const batchLoginAPI = {
   // 添加邮箱账号
-  addAccount: (accountData) =>
-    api.post('/unified-emails/external-mailboxes', accountData),
+  addAccount: (accountData, requestConfig = {}) =>
+    api.post('/unified-emails/external-mailboxes', accountData, requestConfig),
 
   // 获取邮箱账号列表
   getAccounts: (page = 1, pageSize = 20) =>
@@ -101,5 +101,4 @@ export const batchLoginAPI = {
 }
 
 export default batchLoginAPI
-
 

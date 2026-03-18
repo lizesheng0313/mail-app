@@ -26,29 +26,25 @@ const userStore = useUserStore()
 onMounted(async () => {
   // 从URL参数获取token和用户信息
   const token = route.query.token as string
-  const userId = route.query.user_id as string
-  const username = route.query.username as string
-  const email = route.query.email as string
   
   if (token) {
     // 保存token和认证状态到localStorage（和login方法一致）
     localStorage.setItem('token', token)
     localStorage.setItem('isAuthenticated', 'true')
-    
-    // 更新store状态
-    userStore.user = {
-      id: parseInt(userId),
-      username: username,
-      email: email
+
+    const ok = await userStore.checkAuth()
+
+    if (ok) {
+      console.log('Google登录成功，用户信息:', userStore.user)
+
+      setTimeout(() => {
+        router.push('/')
+      }, 1000)
+      return
     }
-    userStore.isAuthenticated = true
-    
-    console.log('Google登录成功，用户信息:', userStore.user)
-    
-    // 跳转到首页
-    setTimeout(() => {
-      router.push('/')
-    }, 1000)
+
+    console.error('Google登录后获取完整用户信息失败')
+    router.push('/login?error=获取用户信息失败')
   } else {
     // 没有token，返回登录页
     console.error('未获取到token')
