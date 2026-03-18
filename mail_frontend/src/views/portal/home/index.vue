@@ -73,46 +73,55 @@
       </div>
       <section
         v-else
-        class="rounded-2xl border border-gray-100 bg-white px-5 py-4 shadow-sm"
+        class="rounded-2xl border border-gray-100 bg-white px-6 py-6 shadow-sm"
       >
-        <div>
-          <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary-600">
-            邮箱管理 · 第三方邮箱接入 · 邮件自动化
-          </p>
-          <div class="mt-2 flex items-end justify-between gap-4">
-            <div class="min-w-0">
-              <h1 class="text-2xl font-bold tracking-tight text-gray-900 sm:text-[2rem]">
-                肥猫猫：邮箱管理与邮件自动化平台
-              </h1>
-              <p class="mt-2 max-w-4xl text-sm leading-6 text-gray-600">
-                统一处理系统邮箱与第三方邮箱，支持验证码提取、批量收发、工作流市场和桌面端协同。
-              </p>
-            </div>
-            <div class="hidden lg:flex shrink-0 flex-wrap justify-end gap-2">
-              <span class="rounded-full bg-primary-50 px-3 py-1 text-xs font-medium text-primary-700">多邮箱管理</span>
-              <span class="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">第三方邮箱支持</span>
-              <span class="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">邮件自动化</span>
+        <div class="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:items-start">
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-[0.24em] text-primary-600">
+              邮箱管理 · 第三方邮箱接入 · 邮件自动化
+            </p>
+            <h1 class="mt-3 text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
+              肥猫猫：邮箱管理与邮件自动化平台
+            </h1>
+            <p class="mt-4 max-w-3xl text-base leading-7 text-gray-600">
+              提供邮箱管理、第三方邮箱接入、邮件验证码提取、批量收发、工作流市场和桌面端管理能力，
+              帮助个人与团队统一处理多邮箱、收件箱协作和邮件自动化任务。
+            </p>
+            <div class="mt-5 flex flex-wrap gap-3">
+              <a
+                href="/market"
+                class="inline-flex items-center rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-700"
+              >
+                浏览工作流市场
+              </a>
+              <a
+                href="/download"
+                class="inline-flex items-center rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:border-gray-400 hover:bg-gray-50"
+              >
+                下载桌面端
+              </a>
+              <a
+                href="/about"
+                class="inline-flex items-center rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:border-gray-400 hover:bg-gray-50"
+              >
+                了解产品
+              </a>
             </div>
           </div>
-          <div class="mt-3 flex flex-wrap gap-2.5">
-            <a
-              href="/market"
-              class="inline-flex items-center rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-700"
-            >
-              浏览工作流市场
-            </a>
-            <a
-              href="/download"
-              class="inline-flex items-center rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:border-gray-400 hover:bg-gray-50"
-            >
-              下载桌面端
-            </a>
-            <a
-              href="/about"
-              class="inline-flex items-center rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:border-gray-400 hover:bg-gray-50"
-            >
-              了解产品
-            </a>
+
+          <div class="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
+            <div class="rounded-xl bg-primary-50 px-4 py-3">
+              <div class="text-xs font-semibold uppercase tracking-wide text-primary-700">多邮箱管理</div>
+              <p class="mt-2 text-sm text-primary-900">统一查看和处理系统邮箱与业务邮箱，减少多端切换成本。</p>
+            </div>
+            <div class="rounded-xl bg-gray-50 px-4 py-3">
+              <div class="text-xs font-semibold uppercase tracking-wide text-gray-700">第三方邮箱支持</div>
+              <p class="mt-2 text-sm text-gray-700">支持接入常见第三方邮箱账号，集中收件、发件和状态管理。</p>
+            </div>
+            <div class="rounded-xl bg-gray-50 px-4 py-3">
+              <div class="text-xs font-semibold uppercase tracking-wide text-gray-700">自动化与工作流</div>
+              <p class="mt-2 text-sm text-gray-700">结合工作流市场与桌面端能力，把重复邮件任务变成可复用流程。</p>
+            </div>
           </div>
         </div>
       </section>
