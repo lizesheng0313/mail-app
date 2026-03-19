@@ -894,6 +894,7 @@ const handleBatchAddAccounts = async (accounts: any[]) => {
 
     // 如果有需要 OAuth2 授权的邮箱，弹出授权组件
     if (pendingOAuthAccounts.value.length > 0) {
+      showBatchAddModal.value = false
       showOAuth2Modal.value = true
     }
 

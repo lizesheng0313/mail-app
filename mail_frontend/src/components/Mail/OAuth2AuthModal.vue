@@ -338,6 +338,7 @@ const getStatusText = (status: string) => {
 
 const errorMessage = ref('')
 let activePopupWindow: Window | null = null
+const normalizeEmail = (value: string) => (value || '').trim().toLowerCase()
 
 const closeActivePopupWindow = () => {
   if (!activePopupWindow) return
@@ -352,49 +353,8 @@ const closeActivePopupWindow = () => {
   }
 }
 
-const waitForMailboxAuthorized = async (
-  email: string,
-  options: { maxWait?: number, interval?: number, popupWindow?: Window | null } = {}
-): Promise<WaitResult> => {
-  const maxWait = options.maxWait ?? 10000
-  const interval = options.interval ?? 1000
-  const popupWindow = options.popupWindow ?? null
-  const startTime = Date.now()
-
-  while (Date.now() - startTime < maxWait) {
-    if (stopRequested.value) {
-      return 'cancelled'
-    }
-
-    if (popupWindow && popupWindow.closed) {
-      return 'popup_closed'
-    }
-
-    const accountsRes = await batchLoginAPI.getAccounts(1, 100)
-    const existingAccount = accountsRes.data?.accounts?.find((a: any) =>
-      a.email === email && a.auth_type === 'oauth2'
-    )
-
-    if (existingAccount) {
-      return 'authorized'
-    }
-
-    await new Promise(resolve => setTimeout(resolve, interval))
-  }
-
-  if (stopRequested.value) {
-    return 'cancelled'
-  }
-
-  if (popupWindow && popupWindow.closed) {
-    return 'popup_closed'
-  }
-
-  return 'timeout'
-}
-
-const waitForDesktopOAuthCallback = (expectedEmail: string, timeoutMs: number) =>
-  new Promise<{ success: boolean, error?: string } | null>((resolve) => {
+const waitForDesktopOAuthCallback = (timeoutMs: number) =>
+  new Promise<{ success: boolean, email?: string, error?: string } | null>((resolve) => {
     const stopWatcher = window.setInterval(() => {
       if (stopRequested.value) {
         cleanup()
@@ -406,14 +366,8 @@ const waitForDesktopOAuthCallback = (expectedEmail: string, timeoutMs: number) =
       const detail = (event as CustomEvent).detail || {}
 
       if (detail.oauth2_success === '1') {
-        if (detail.email && detail.email !== expectedEmail) {
-          cleanup()
-          resolve({ success: false, error: `授权返回的邮箱与当前账号不一致: ${detail.email}` })
-          return
-        }
-
         cleanup()
-        resolve({ success: true })
+        resolve({ success: true, email: (detail.email || '').trim() })
         return
       }
 
@@ -438,11 +392,10 @@ const waitForDesktopOAuthCallback = (expectedEmail: string, timeoutMs: number) =
   })
 
 const waitForWebOAuthCallback = (
-  expectedEmail: string,
   timeoutMs: number,
   popupWindow: Window | null
 ) =>
-  new Promise<{ success: boolean, error?: string, popupClosed?: boolean } | null>((resolve) => {
+  new Promise<{ success: boolean, email?: string, error?: string, popupClosed?: boolean } | null>((resolve) => {
     const stopWatcher = window.setInterval(() => {
       if (stopRequested.value) {
         cleanup()
@@ -463,14 +416,8 @@ const waitForWebOAuthCallback = (
       if (detail.source !== 'oauth2-callback') return
 
       if (detail.oauth2_success === '1') {
-        if (detail.email && detail.email !== expectedEmail) {
-          cleanup()
-          resolve({ success: false, error: `授权返回的邮箱与当前账号不一致: ${detail.email}` })
-          return
-        }
-
         cleanup()
-        resolve({ success: true })
+        resolve({ success: true, email: (detail.email || '').trim() })
         return
       }
 
@@ -493,6 +440,30 @@ const waitForWebOAuthCallback = (
 
     window.addEventListener('message', handler)
   })
+
+const markAuthorizedByEmail = (returnedEmail: string, fallbackIndex: number) => {
+  const normalized = normalizeEmail(returnedEmail)
+  const targetIndex = accounts.value.findIndex((item) => normalizeEmail(item.email) === normalized)
+
+  if (targetIndex === -1) {
+    const fallback = accounts.value[fallbackIndex]
+    if (fallback) {
+      fallback.status = 'error'
+    }
+    errorMessage.value = `授权成功，但邮箱不在列表: ${returnedEmail}`
+    return
+  }
+
+  if (targetIndex !== fallbackIndex) {
+    const current = accounts.value[fallbackIndex]
+    if (current && current.status === 'authorizing') {
+      current.status = 'pending'
+    }
+  }
+
+  accounts.value[targetIndex].status = 'success'
+  errorMessage.value = ''
+}
 
 const startAuthorization = async () => {
   if (isAuthorizing.value) return
@@ -554,10 +525,11 @@ const startAuthorization = async () => {
       
       const maxWait = 5 * 60 * 1000
       let waitResult: WaitResult = 'timeout'
+      let callbackEmail = ''
       authPhase.value = 'waiting'
 
       if (isDesktop) {
-        const callbackResult = await waitForDesktopOAuthCallback(account.email, maxWait)
+        const callbackResult = await waitForDesktopOAuthCallback(maxWait)
         if (callbackResult?.success === false) {
           account.status = 'error'
           errorMessage.value = callbackResult.error || '授权失败'
@@ -567,12 +539,13 @@ const startAuthorization = async () => {
         }
 
         if (callbackResult?.success) {
-          waitResult = await waitForMailboxAuthorized(account.email, { maxWait: 15000, interval: 1000 })
+          callbackEmail = (callbackResult.email || '').trim()
+          waitResult = 'authorized'
         } else {
           waitResult = stopRequested.value ? 'cancelled' : 'timeout'
         }
       } else {
-        const callbackResult = await waitForWebOAuthCallback(account.email, maxWait, activePopupWindow)
+        const callbackResult = await waitForWebOAuthCallback(maxWait, activePopupWindow)
         if (callbackResult?.success === false) {
           if (callbackResult.popupClosed) {
             waitResult = 'popup_closed'
@@ -584,7 +557,8 @@ const startAuthorization = async () => {
             break
           }
         } else if (callbackResult?.success) {
-          waitResult = await waitForMailboxAuthorized(account.email, { maxWait: 15000, interval: 1000 })
+          callbackEmail = (callbackResult.email || '').trim()
+          waitResult = 'authorized'
         } else {
           waitResult = stopRequested.value ? 'cancelled' : 'timeout'
         }
@@ -593,7 +567,8 @@ const startAuthorization = async () => {
       closeActivePopupWindow()
       
       if (waitResult === 'authorized') {
-        account.status = 'success'
+        const authorizedEmail = callbackEmail || account.email
+        markAuthorizedByEmail(authorizedEmail, i)
       } else if (waitResult === 'popup_closed') {
         account.status = 'error'
         errorMessage.value = '检测到授权窗口已关闭，已停止后续授权，请重试'
