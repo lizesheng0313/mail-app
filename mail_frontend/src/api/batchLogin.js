@@ -88,8 +88,13 @@ export const batchLoginAPI = {
     api.get('/oauth2/providers'),
 
   // 获取 OAuth2 授权 URL
-  getOAuth2AuthUrl: (provider, isDesktop = false) =>
-    api.get(`/oauth2/${provider}/auth-url`, { params: { is_desktop: isDesktop } }),
+  getOAuth2AuthUrl: (provider, isDesktop = false, email = null) => {
+    const params = { is_desktop: isDesktop }
+    if (email) {
+      params.email = email
+    }
+    return api.get(`/oauth2/${provider}/auth-url`, { params })
+  },
 
   // 手动刷新 OAuth2 token
   refreshOAuth2Token: (mailboxId) =>
@@ -101,4 +106,3 @@ export const batchLoginAPI = {
 }
 
 export default batchLoginAPI
-

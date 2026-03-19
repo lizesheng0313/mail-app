@@ -524,7 +524,7 @@ const startAuthorization = async () => {
       authPhase.value = 'preparing'
       activePopupWindow = isDesktop ? null : openPreparingPopup(account.provider)
       console.log('[OAuth2] 获取授权 URL:', account.provider, 'isDesktop:', isDesktop)
-      const res = await batchLoginAPI.getOAuth2AuthUrl(account.provider, isDesktop)
+      const res = await batchLoginAPI.getOAuth2AuthUrl(account.provider, isDesktop, account.email)
       console.log('[OAuth2] API 返回:', res)
       
       // 处理不同的返回格式
