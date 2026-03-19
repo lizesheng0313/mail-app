@@ -16,7 +16,7 @@
         <div class="p-5 overflow-y-auto">
           <!-- 说明 -->
           <div class="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 leading-relaxed">
-            <p>以下邮箱需要 OAuth2 授权。点击"开始授权"后将逐个打开授权窗口，请在新窗口中完成登录。</p>
+            <p>以下邮箱需要 OAuth2 授权。点击"开始授权"后将逐个打开浏览器新标签页，请在新标签页中完成登录。</p>
           </div>
 
           <!-- 邮箱列表 -->
@@ -112,112 +112,8 @@ interface OpenExternalResult {
 type WaitResult = 'authorized' | 'timeout' | 'popup_closed' | 'cancelled'
 type AuthPhase = 'idle' | 'preparing' | 'waiting'
 
-const buildPopupFeatures = () => {
-  const popupWidth = 720
-  const popupHeight = 720
-  const screenLeft = typeof window.screenLeft === 'number' ? window.screenLeft : window.screenX
-  const screenTop = typeof window.screenTop === 'number' ? window.screenTop : window.screenY
-  const viewportWidth = window.innerWidth || document.documentElement.clientWidth || screen.width
-  const viewportHeight = window.innerHeight || document.documentElement.clientHeight || screen.height
-  const left = Math.max(0, screenLeft + Math.round((viewportWidth - popupWidth) / 2))
-  const top = Math.max(0, screenTop + Math.round((viewportHeight - popupHeight) / 2))
-
-  return [
-    'popup=yes',
-    `width=${popupWidth}`,
-    `height=${popupHeight}`,
-    `left=${left}`,
-    `top=${top}`,
-    'resizable=yes',
-    'scrollbars=yes'
-  ].join(',')
-}
-
-const getProviderLabel = (provider: 'google' | 'microsoft') =>
-  provider === 'google' ? 'Google' : 'Microsoft'
-
-const renderPreparingPopup = (popup: Window | null, provider: 'google' | 'microsoft') => {
-  if (!popup) return
-
-  try {
-    popup.document.open()
-    popup.document.write(`
-      <!doctype html>
-      <html lang="zh-CN">
-        <head>
-          <meta charset="UTF-8" />
-          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-          <title>正在打开授权页面</title>
-          <style>
-            body {
-              margin: 0;
-              min-height: 100vh;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
-              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-              color: #1f2937;
-            }
-            .card {
-              width: min(420px, calc(100vw - 48px));
-              padding: 32px 28px;
-              background: rgba(255, 255, 255, 0.96);
-              border: 1px solid #dbeafe;
-              border-radius: 18px;
-              box-shadow: 0 18px 60px rgba(15, 23, 42, 0.12);
-              text-align: center;
-            }
-            .spinner {
-              width: 38px;
-              height: 38px;
-              margin: 0 auto 18px;
-              border-radius: 9999px;
-              border: 3px solid #bfdbfe;
-              border-top-color: #2563eb;
-              animation: spin 0.9s linear infinite;
-            }
-            h1 {
-              margin: 0 0 10px;
-              font-size: 20px;
-              color: #111827;
-            }
-            p {
-              margin: 0;
-              font-size: 14px;
-              line-height: 1.7;
-              color: #4b5563;
-            }
-            @keyframes spin {
-              from { transform: rotate(0deg); }
-              to { transform: rotate(360deg); }
-            }
-          </style>
-        </head>
-        <body>
-          <div class="card">
-            <div class="spinner"></div>
-            <h1>正在打开 ${getProviderLabel(provider)} 授权页面</h1>
-            <p>授权链接已获取中，请稍候，不要关闭当前窗口。</p>
-          </div>
-        </body>
-      </html>
-    `)
-    popup.document.close()
-    popup.focus()
-  } catch (e) {
-    console.warn('[OAuth2] 渲染授权准备页失败:', e)
-  }
-}
-
-const openPreparingPopup = (provider: 'google' | 'microsoft') => {
-  const popup = window.open('', 'oauth2_authorize_window', buildPopupFeatures())
-  renderPreparingPopup(popup, provider)
-  return popup
-}
-
 // 动态获取 Tauri shell API
-async function openExternal(url: string, popupWindow: Window | null = null): Promise<OpenExternalResult> {
+async function openExternal(url: string): Promise<OpenExternalResult> {
   if (isTauri()) {
     try {
       const { open } = await import('@tauri-apps/plugin-shell')
@@ -230,20 +126,8 @@ async function openExternal(url: string, popupWindow: Window | null = null): Pro
       return { opened: !!win, popup: win ?? null }
     }
   } else {
-    const win = popupWindow && !popupWindow.closed
-      ? popupWindow
-      : window.open('', 'oauth2_authorize_window', buildPopupFeatures())
-
-    if (win) {
-      try {
-        win.location.href = url
-        win.focus()
-      } catch (e) {
-        console.warn('[OAuth2] 复用授权窗口失败，尝试重新打开:', e)
-        const fallbackWin = window.open(url, 'oauth2_authorize_window', buildPopupFeatures())
-        return { opened: !!fallbackWin, popup: fallbackWin ?? null }
-      }
-    }
+    const win = window.open(url, '_blank')
+    if (win) win.focus()
     return { opened: !!win, popup: win ?? null }
   }
 }
@@ -285,14 +169,14 @@ const progressText = computed(() => {
 })
 const progressHint = computed(() => {
   if (authPhase.value === 'preparing') {
-    return '正在获取授权链接并打开新窗口，请稍候，不要关闭即将打开的窗口。'
+    return '正在获取授权链接并打开新标签页，请稍候。'
   }
-  return '请在弹出的窗口中完成授权。若手动关闭授权窗口，本次批量授权会停止。'
+  return '请在新标签页中完成授权。若手动关闭授权页，本次批量授权会停止。'
 })
 const primaryButtonText = computed(() => {
   if (!isAuthorizing.value) return '开始授权'
   if (authPhase.value === 'preparing') return '正在打开授权页...'
-  return '授权中，请在弹窗中完成'
+  return '授权中，请在浏览器完成'
 })
 const isFinished = computed(() => {
   return accounts.value.length > 0 && accounts.value.every(a => a.status === 'success' || a.status === 'error')
@@ -493,7 +377,7 @@ const startAuthorization = async () => {
       // 获取授权 URL（桌面端传 isDesktop=true）
       const isDesktop = isTauri()
       authPhase.value = 'preparing'
-      activePopupWindow = isDesktop ? null : openPreparingPopup(account.provider)
+      activePopupWindow = null
       console.log('[OAuth2] 获取授权 URL:', account.provider, 'isDesktop:', isDesktop)
       const res = await batchLoginAPI.getOAuth2AuthUrl(account.provider, isDesktop, account.email)
       console.log('[OAuth2] API 返回:', res)
@@ -511,8 +395,8 @@ const startAuthorization = async () => {
       
       console.log('[OAuth2] 打开授权页面:', authUrl)
       
-      // 打开授权页面（桌面端用系统浏览器，Web端用弹窗）
-      const openResult = await openExternal(authUrl, activePopupWindow)
+      // 打开授权页面（桌面端/WEB 均使用浏览器新标签）
+      const openResult = await openExternal(authUrl)
       activePopupWindow = openResult.popup
       
       if (!openResult.opened) {

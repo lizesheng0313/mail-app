@@ -571,8 +571,17 @@ const handleOAuth2Login = async (provider: string) => {
   try {
     const res = await batchLoginAPI.getOAuth2AuthUrl(provider)
     if (res.code === 0 && res.data?.auth_url) {
-      // 打开授权页面
-      window.open(res.data.auth_url, '_blank')
+      // 打开授权页面（桌面端优先系统浏览器）
+      if (isTauri()) {
+        try {
+          const { open } = await import('@tauri-apps/plugin-shell')
+          await open(res.data.auth_url)
+        } catch {
+          window.open(res.data.auth_url, '_blank')
+        }
+      } else {
+        window.open(res.data.auth_url, '_blank')
+      }
       showMessage(`正在打开${provider === 'microsoft' ? 'Outlook' : 'Gmail'}授权页面...`, 'success')
     } else {
       showMessage(res.message || '获取授权链接失败', 'error')

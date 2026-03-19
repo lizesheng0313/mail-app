@@ -112,6 +112,7 @@ fn parse_path_and_query(target: &str) -> (String, HashMap<String, String>) {
 }
 
 fn build_response_page(path: &str, query: &HashMap<String, String>) -> String {
+    let should_auto_close = query.contains_key("oauth2_success") || query.contains_key("google_bind_success");
     let (title, description) = if query.contains_key("oauth2_success") {
         ("邮箱授权成功", "桌面端已收到邮箱授权结果，请回到应用继续。")
     } else if query.contains_key("oauth2_error") {
@@ -174,7 +175,21 @@ fn build_response_page(path: &str, query: &HashMap<String, String>) -> String {
   <main class="card">
     <h1>{title}</h1>
     <p>{description}</p>
+    <p id="close-tip" style="display:none;margin-top:12px;font-size:12px;color:#64748b;">窗口未自动关闭，可手动关闭此页。</p>
   </main>
+  <script>
+    (function () {{
+      var shouldClose = {should_auto_close};
+      if (!shouldClose) return;
+      setTimeout(function () {{
+        try {{ window.close(); }} catch (e) {{}}
+      }}, 900);
+      setTimeout(function () {{
+        var tip = document.getElementById('close-tip');
+        if (tip) tip.style.display = 'block';
+      }}, 1600);
+    }})();
+  </script>
 </body>
 </html>"#
     )
