@@ -562,7 +562,8 @@ const startAuthorization = async () => {
           account.status = 'error'
           errorMessage.value = callbackResult.error || '授权失败'
           closeActivePopupWindow()
-          continue
+          stopRequested.value = true
+          break
         }
 
         if (callbackResult?.success) {
@@ -579,7 +580,8 @@ const startAuthorization = async () => {
             account.status = 'error'
             errorMessage.value = callbackResult.error || '授权失败'
             closeActivePopupWindow()
-            continue
+            stopRequested.value = true
+            break
           }
         } else if (callbackResult?.success) {
           waitResult = await waitForMailboxAuthorized(account.email, { maxWait: 15000, interval: 1000 })
@@ -611,6 +613,8 @@ const startAuthorization = async () => {
       console.error('[OAuth2] 授权失败:', e)
       errorMessage.value = e.message || '授权失败'
       account.status = 'error'
+      stopRequested.value = true
+      break
     }
   }
   
