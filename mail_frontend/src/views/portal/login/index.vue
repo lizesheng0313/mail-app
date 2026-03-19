@@ -230,6 +230,17 @@
             </span>
             <span v-else>{{ isResetMode ? '重置密码' : (isLoginMode ? '登录' : '完成注册') }}</span>
           </button>
+
+          <p class="text-center text-xs leading-6 text-gray-500">
+            继续操作即表示您同意
+            <a href="/terms-of-service" target="_blank" rel="noopener noreferrer" class="text-primary-600 hover:text-primary-700">
+              《服务条款》
+            </a>
+            和
+            <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" class="text-primary-600 hover:text-primary-700">
+              《隐私权政策》
+            </a>
+          </p>
         </form>
         
         <!-- Google 登录分隔线 -->

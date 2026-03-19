@@ -18,6 +18,8 @@ const ExecutionHistory = () => import('@/views/portal/workflows/execution-histor
 const ProxyManagement = () => import('@/views/portal/proxy/index.vue')
 const PaymentPage = () => import('@/views/portal/payment/index.vue')
 const AboutPage = () => import('@/views/portal/about/index.vue')
+const PrivacyPolicyPage = () => import('@/views/portal/legal/PrivacyPolicy.vue')
+const TermsOfServicePage = () => import('@/views/portal/legal/TermsOfService.vue')
 // BatchLogin 已整合到首页，不再需要单独页面
 
 // 管理后台组件 - 只有管理员访问时才加载
@@ -176,6 +178,34 @@ const router = createRouter({
             '了解肥猫猫的产品定位与服务能力。我们提供邮箱管理、第三方邮箱接入、工作流市场和邮件自动化解决方案。',
           keywords: '关于我们, 邮箱管理, 第三方邮箱, 邮件自动化, 工作流市场, 肥猫猫',
           canonicalPath: '/about'
+        }
+      }
+    },
+    {
+      path: '/privacy-policy',
+      name: 'privacy-policy',
+      component: PrivacyPolicyPage,
+      meta: {
+        seo: {
+          title: '隐私权政策 - 肥猫猫',
+          description:
+            '查看肥猫猫平台隐私权政策，了解个人信息收集、使用、存储和保护方式。',
+          keywords: '隐私权政策, 隐私政策, 邮箱管理, 肥猫猫',
+          canonicalPath: '/privacy-policy'
+        }
+      }
+    },
+    {
+      path: '/terms-of-service',
+      name: 'terms-of-service',
+      component: TermsOfServicePage,
+      meta: {
+        seo: {
+          title: '服务条款 - 肥猫猫',
+          description:
+            '查看肥猫猫平台服务条款，了解账号使用规范、服务边界与责任说明。',
+          keywords: '服务条款, 用户协议, 邮箱管理, 肥猫猫',
+          canonicalPath: '/terms-of-service'
         }
       }
     },
