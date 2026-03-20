@@ -214,7 +214,7 @@ async fn try_smtp_verify(result: &mut LoginResult, email: &str, password: &str, 
 /// 根据服务端已同步数量决定本次收取窗口：
 /// - 首次/数据很少：历史回补窗口（2000）
 /// - 否则：增量窗口（200）
-async fn resolve_fetch_limit(server_url: &str, token: &str, mailbox_id: i64) -> usize {
+async fn resolve_fetch_policy(server_url: &str, token: &str, mailbox_id: i64) -> (usize, bool) {
     let client = reqwest::Client::new();
     let url = format!(
         "{}/unified-emails/external-emails",
@@ -236,7 +236,7 @@ async fn resolve_fetch_limit(server_url: &str, token: &str, mailbox_id: i64) -> 
         Ok(resp) => resp,
         Err(e) => {
             info!("获取历史同步数量失败，使用增量窗口: {}", e);
-            return INCREMENTAL_FETCH_LIMIT;
+            return (INCREMENTAL_FETCH_LIMIT, false);
         }
     };
 
@@ -245,20 +245,20 @@ async fn resolve_fetch_limit(server_url: &str, token: &str, mailbox_id: i64) -> 
             "查询历史同步数量失败(status={})，使用增量窗口",
             response.status()
         );
-        return INCREMENTAL_FETCH_LIMIT;
+        return (INCREMENTAL_FETCH_LIMIT, false);
     }
 
     let body: serde_json::Value = match response.json().await {
         Ok(v) => v,
         Err(e) => {
             info!("解析历史同步数量响应失败，使用增量窗口: {}", e);
-            return INCREMENTAL_FETCH_LIMIT;
+            return (INCREMENTAL_FETCH_LIMIT, false);
         }
     };
 
     if body.get("code").and_then(|v| v.as_i64()) != Some(0) {
         info!("历史同步数量接口返回失败，使用增量窗口: {}", body);
-        return INCREMENTAL_FETCH_LIMIT;
+        return (INCREMENTAL_FETCH_LIMIT, false);
     }
 
     let total = body
@@ -270,21 +270,21 @@ async fn resolve_fetch_limit(server_url: &str, token: &str, mailbox_id: i64) -> 
 
     if total <= HISTORY_BACKFILL_THRESHOLD {
         info!(
-            "启用历史回补窗口: mailbox_id={}, total={}, limit={}",
+            "启用历史回补策略: mailbox_id={}, total={}, limit={}, oldest_first=true",
             mailbox_id, total, INITIAL_HISTORY_FETCH_LIMIT
         );
-        INITIAL_HISTORY_FETCH_LIMIT
+        (INITIAL_HISTORY_FETCH_LIMIT, true)
     } else {
         info!(
-            "启用增量窗口: mailbox_id={}, total={}, limit={}",
+            "启用增量策略: mailbox_id={}, total={}, limit={}, oldest_first=false",
             mailbox_id, total, INCREMENTAL_FETCH_LIMIT
         );
-        INCREMENTAL_FETCH_LIMIT
+        (INCREMENTAL_FETCH_LIMIT, false)
     }
 }
 
 /// 收取邮件
-/// 前端调用：invoke('fetch_emails', { mailboxId, email, password, protocol, host?, port?, token, serverUrl })
+/// 前端调用：invoke('fetch_emails', { mailboxId, email, password, protocol, host?, port?, token, serverUrl, authType?, accessToken? })
 #[tauri::command]
 pub async fn fetch_emails(
     mailbox_id: i64,
@@ -295,31 +295,69 @@ pub async fn fetch_emails(
     port: Option<u16>,
     token: String,
     server_url: String,
+    auth_type: Option<String>,
+    access_token: Option<String>,
 ) -> Result<FetchResult, String> {
+    // 判断是否走 OAuth2 XOAUTH2
+    let is_oauth2 = auth_type.as_deref() == Some("oauth2");
+
     // 自动检测服务器配置（当 host/port 缺失时）
     let (final_host, final_port, final_protocol) = if let (Some(h), Some(p)) = (host.as_deref().filter(|s| !s.is_empty()), port) {
-        (h.to_string(), p, protocol.clone())
+        (h.to_string(), p, if is_oauth2 { "imap".to_string() } else { protocol.clone() })
     } else {
         let domain = email.split('@').nth(1).ok_or("无效的邮箱地址")?;
         let config = get_server_config(domain).await
             .ok_or(format!("无法识别邮箱 {} 的服务器配置", domain))?;
 
-        if protocol.to_lowercase() == "imap" || protocol.to_lowercase() == "auto" {
+        if is_oauth2 || protocol.to_lowercase() == "imap" || protocol.to_lowercase() == "auto" {
             (config.imap_host, config.imap_port, "imap".to_string())
         } else {
             (config.pop3_host, config.pop3_port, "pop3".to_string())
         }
     };
 
-    info!("收到收取邮件请求: {} ({}) -> {}:{}", email, final_protocol, final_host, final_port);
+    info!("收到收取邮件请求: {} ({}{}) -> {}:{}", email, final_protocol, if is_oauth2 { " XOAUTH2" } else { "" }, final_host, final_port);
     info!("密码长度: {}, token长度: {}, serverUrl: {}", password.len(), token.len(), server_url);
 
-    let fetch_limit = resolve_fetch_limit(&server_url, &token, mailbox_id).await;
-    info!("本次本地收取窗口: mailbox_id={}, limit={}", mailbox_id, fetch_limit);
+    let (fetch_limit, fetch_oldest) = resolve_fetch_policy(&server_url, &token, mailbox_id).await;
+    info!(
+        "本次本地收取策略: mailbox_id={}, limit={}, oldest_first={}",
+        mailbox_id,
+        fetch_limit,
+        fetch_oldest
+    );
 
     // 本地收取邮件
-    let result = if final_protocol.to_lowercase() == "imap" {
-        match mail::imap::fetch_emails(&email, &password, &final_host, final_port, fetch_limit).await {
+    let result = if is_oauth2 {
+        // OAuth2 XOAUTH2 认证
+        let oauth_token = access_token.ok_or("OAuth2 模式需要 access_token")?;
+        match mail::imap::fetch_emails_oauth2(
+            &email,
+            &oauth_token,
+            &final_host,
+            final_port,
+            fetch_limit,
+            fetch_oldest,
+        )
+        .await
+        {
+            Ok(r) => r,
+            Err(e) => {
+                error!("IMAP XOAUTH2 收取失败: {}", e);
+                return Err(e);
+            }
+        }
+    } else if final_protocol.to_lowercase() == "imap" {
+        match mail::imap::fetch_emails(
+            &email,
+            &password,
+            &final_host,
+            final_port,
+            fetch_limit,
+            fetch_oldest,
+        )
+        .await
+        {
             Ok(r) => r,
             Err(e) => {
                 error!("IMAP 收取失败: {}", e);
@@ -327,7 +365,16 @@ pub async fn fetch_emails(
             }
         }
     } else {
-        match mail::pop3::fetch_emails(&email, &password, &final_host, final_port, fetch_limit).await {
+        match mail::pop3::fetch_emails(
+            &email,
+            &password,
+            &final_host,
+            final_port,
+            fetch_limit,
+            fetch_oldest,
+        )
+        .await
+        {
             Ok(r) => r,
             Err(e) => {
                 error!("POP3 收取失败: {}", e);
@@ -337,8 +384,6 @@ pub async fn fetch_emails(
     };
 
     if result.success && !result.emails.is_empty() {
-        save_attachments_locally(&result.emails);
-
         // 同步到远程服务器（附件 data 字段会被 serde(skip) 跳过，只发元数据）
         match sync_emails_to_server(&server_url, &token, mailbox_id, &result.emails).await {
             Ok(new_count) => {

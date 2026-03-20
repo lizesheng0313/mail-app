@@ -83,6 +83,10 @@ export const batchLoginAPI = {
 
   // ========== OAuth2 相关 ==========
 
+  // 批量导入 OAuth2 账号（通过 refresh_token + 自定义 client_id）
+  batchImportOAuth2: (accounts) =>
+    api.post('/oauth2/batch-import', { accounts }),
+
   // 获取支持的 OAuth2 平台列表
   getOAuth2Providers: () =>
     api.get('/oauth2/providers'),
@@ -100,9 +104,9 @@ export const batchLoginAPI = {
   refreshOAuth2Token: (mailboxId) =>
     api.post(`/oauth2/mailboxes/${mailboxId}/refresh`),
 
-  // 用 OAuth2 拉取邮件
-  fetchOAuth2Emails: (mailboxId) =>
-    api.post(`/oauth2/mailboxes/${mailboxId}/fetch`)
+  // 获取 OAuth2 access_token（桌面端本地 IMAP XOAUTH2 用）
+  getOAuth2AccessToken: (mailboxId) =>
+    api.post(`/oauth2/mailboxes/${mailboxId}/access-token`),
 }
 
 export default batchLoginAPI

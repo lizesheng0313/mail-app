@@ -275,6 +275,7 @@ pub async fn fetch_emails(
     host: &str,
     port: u16,
     limit: usize,
+    fetch_oldest: bool,
 ) -> Result<FetchResult, String> {
     info!("开始 POP3 收取邮件: {} -> {}:{}", email, host, port);
 
@@ -283,7 +284,7 @@ pub async fn fetch_emails(
     let host = host.to_string();
 
     let result = tokio::task::spawn_blocking(move || {
-        pop3_fetch_sync(&email, &password, &host, port, limit)
+        pop3_fetch_sync(&email, &password, &host, port, limit, fetch_oldest)
     })
     .await
     .map_err(|e| format!("任务执行失败: {}", e))?;
@@ -297,6 +298,7 @@ fn pop3_fetch_sync(
     host: &str,
     port: u16,
     limit: usize,
+    fetch_oldest: bool,
 ) -> Result<FetchResult, String> {
     let (mut tls, _) = connect_and_login(host, port, email, password)?;
 
@@ -309,13 +311,19 @@ fn pop3_fetch_sync(
     let total: usize = parts.get(1).and_then(|s| s.parse().ok()).unwrap_or(0);
 
     let mut emails: Vec<EmailData> = Vec::new();
-    let start = if total > limit {
-        total - limit + 1
+    let (start, end) = if total == 0 {
+        (1, 0)
+    } else if fetch_oldest {
+        // 历史回补：优先抓最早的邮件
+        (1, std::cmp::min(total, limit))
+    } else if total > limit {
+        // 增量同步：抓最新邮件
+        (total - limit + 1, total)
     } else {
-        1
+        (1, total)
     };
 
-    for i in start..=total {
+    for i in start..=end {
         match fetch_single_pop3(&mut tls, i) {
             Ok(email_data) => emails.push(email_data),
             Err(e) => {

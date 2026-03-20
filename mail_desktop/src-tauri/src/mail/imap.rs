@@ -1,5 +1,6 @@
 use crate::mail::types::{AttachmentData, EmailData, FetchResult, LoginResult};
 use chrono::Utc;
+use imap::Authenticator;
 use log::{error, info, warn};
 use native_tls::TlsStream;
 use std::io::{Read, Write};
@@ -165,6 +166,149 @@ fn connect_and_login(
     ))
 }
 
+// ── XOAUTH2 认证 ─────────────────────────────────────────────
+
+struct OAuth2Authenticator {
+    user: String,
+    access_token: String,
+}
+
+impl Authenticator for OAuth2Authenticator {
+    type Response = String;
+    fn process(&self, _data: &[u8]) -> Self::Response {
+        format!(
+            "user={}\x01auth=Bearer {}\x01\x01",
+            self.user, self.access_token
+        )
+    }
+}
+
+fn try_connect_and_xoauth2(
+    host: &str,
+    port: u16,
+    email: &str,
+    access_token: &str,
+    accept_invalid_certs: bool,
+) -> Result<(imap::Session<TlsStream<TcpStream>>, u16), ConnectError> {
+    let use_starttls = port != 993;
+    info!(
+        "尝试 IMAP XOAUTH2 {}:{} ({}{})",
+        host,
+        port,
+        if use_starttls { "STARTTLS" } else { "隐式TLS" },
+        if accept_invalid_certs {
+            ", 放宽证书"
+        } else {
+            ""
+        }
+    );
+
+    let connector = native_tls::TlsConnector::builder()
+        .danger_accept_invalid_certs(accept_invalid_certs)
+        .min_protocol_version(Some(native_tls::Protocol::Tlsv10))
+        .build()
+        .map_err(|e| ConnectError::Tls(format!("TLS 初始化失败: {}", e)))?;
+
+    let addr = (host, port)
+        .to_socket_addrs()
+        .map_err(|e| ConnectError::Connection(format!("DNS 解析失败 {}: {}", host, e)))?
+        .next()
+        .ok_or_else(|| ConnectError::Connection(format!("DNS 解析无结果: {}", host)))?;
+
+    let tcp = TcpStream::connect_timeout(&addr, TCP_CONNECT_TIMEOUT)
+        .map_err(|e| ConnectError::Connection(format!("TCP 连接失败 {}:{} - {}", host, port, e)))?;
+
+    tcp.set_read_timeout(Some(IO_TIMEOUT)).ok();
+    tcp.set_write_timeout(Some(IO_TIMEOUT)).ok();
+
+    let client = if use_starttls {
+        let plain_client = imap::Client::new(tcp);
+        plain_client.secure(host, &connector).map_err(|e| match &e {
+            imap::Error::TlsHandshake(_) | imap::Error::Tls(_) => {
+                ConnectError::Tls(format!("STARTTLS 握手失败: {}", e))
+            }
+            imap::Error::Io(_) | imap::Error::ConnectionLost => {
+                ConnectError::Connection(format!("STARTTLS 连接错误: {}", e))
+            }
+            _ => ConnectError::Other(format!("STARTTLS 失败: {}", e)),
+        })?
+    } else {
+        let tls = connector
+            .connect(host, tcp)
+            .map_err(|e| ConnectError::Tls(format!("TLS 握手失败: {}", e)))?;
+        imap::Client::new(tls)
+    };
+
+    let auth = OAuth2Authenticator {
+        user: email.to_string(),
+        access_token: access_token.to_string(),
+    };
+
+    match client.authenticate("XOAUTH2", &auth) {
+        Ok(session) => {
+            info!("✅ IMAP XOAUTH2 {}:{} 认证成功", host, port);
+            Ok((session, port))
+        }
+        Err((e, _)) => {
+            error!("IMAP XOAUTH2 认证失败 {}:{}: {}", host, port, e);
+            Err(match &e {
+                imap::Error::No(_) | imap::Error::Bad(_) => {
+                    ConnectError::Auth("OAuth2 认证失败，请重新授权".to_string())
+                }
+                _ => {
+                    let s = e.to_string().to_lowercase();
+                    if s.contains("auth") || s.contains("credential") || s.contains("login") {
+                        ConnectError::Auth("OAuth2 认证失败，请重新授权".to_string())
+                    } else {
+                        ConnectError::Other(format!("XOAUTH2 认证失败: {}", e))
+                    }
+                }
+            })
+        }
+    }
+}
+
+fn connect_and_xoauth2(
+    host: &str,
+    port: u16,
+    email: &str,
+    access_token: &str,
+) -> Result<(imap::Session<TlsStream<TcpStream>>, u16), String> {
+    let alt_port: u16 = if port == 993 { 143 } else { 993 };
+    let ports = [port, alt_port];
+    let mut last_error = String::new();
+
+    for &p in &ports {
+        match try_connect_and_xoauth2(host, p, email, access_token, false) {
+            Ok(r) => return Ok(r),
+            Err(ConnectError::Auth(msg)) => return Err(msg),
+            Err(ConnectError::Tls(msg)) => {
+                warn!("{}", msg);
+                match try_connect_and_xoauth2(host, p, email, access_token, true) {
+                    Ok(r) => {
+                        warn!("⚠️ IMAP XOAUTH2 放宽证书验证连接成功 {}:{}", host, p);
+                        return Ok(r);
+                    }
+                    Err(ConnectError::Auth(msg)) => return Err(msg),
+                    Err(e) => {
+                        last_error = e.to_string();
+                        continue;
+                    }
+                }
+            }
+            Err(e) => {
+                last_error = e.to_string();
+                continue;
+            }
+        }
+    }
+
+    Err(format!(
+        "IMAP XOAUTH2 连接失败（已尝试 {}:{} 和 {}:{}）: {}",
+        host, port, host, alt_port, last_error
+    ))
+}
+
 // ── 公开接口 ──────────────────────────────────────────────────
 
 /// IMAP 登录验证
@@ -227,6 +371,7 @@ pub async fn fetch_emails(
     host: &str,
     port: u16,
     limit: usize,
+    fetch_oldest: bool,
 ) -> Result<FetchResult, String> {
     info!("开始 IMAP 收取邮件: {} -> {}:{}", email, host, port);
 
@@ -234,9 +379,88 @@ pub async fn fetch_emails(
     let password = password.to_string();
     let host = host.to_string();
 
-    tokio::task::spawn_blocking(move || imap_fetch_sync(&email, &password, &host, port, limit))
-        .await
-        .map_err(|e| format!("任务执行失败: {}", e))?
+    tokio::task::spawn_blocking(move || {
+        imap_fetch_sync(&email, &password, &host, port, limit, fetch_oldest)
+    })
+    .await
+    .map_err(|e| format!("任务执行失败: {}", e))?
+}
+
+/// IMAP XOAUTH2 收取邮件
+pub async fn fetch_emails_oauth2(
+    email: &str,
+    access_token: &str,
+    host: &str,
+    port: u16,
+    limit: usize,
+    fetch_oldest: bool,
+) -> Result<FetchResult, String> {
+    info!("开始 IMAP XOAUTH2 收取邮件: {} -> {}:{}", email, host, port);
+
+    let email = email.to_string();
+    let access_token = access_token.to_string();
+    let host = host.to_string();
+
+    tokio::task::spawn_blocking(move || {
+        imap_fetch_oauth2_sync(&email, &access_token, &host, port, limit, fetch_oldest)
+    })
+    .await
+    .map_err(|e| format!("任务执行失败: {}", e))?
+}
+
+fn imap_fetch_oauth2_sync(
+    email: &str,
+    access_token: &str,
+    host: &str,
+    port: u16,
+    limit: usize,
+    fetch_oldest: bool,
+) -> Result<FetchResult, String> {
+    let (mut session, _) = connect_and_xoauth2(host, port, email, access_token)?;
+
+    // 选择收件箱
+    session
+        .select("INBOX")
+        .map_err(|e| format!("选择收件箱失败: {}", e))?;
+
+    let search_result = session.uid_search("ALL");
+    let uids = if let Err(_) = search_result {
+        session.select("INBOX").ok();
+        session.uid_search("ALL").map_err(|e| format!("搜索邮件失败: {}", e))?
+    } else {
+        search_result.unwrap()
+    };
+
+    let mut emails: Vec<EmailData> = Vec::new();
+    let uids_vec: Vec<u32> = uids.into_iter().collect();
+    let total = uids_vec.len();
+
+    let uids_to_fetch: Vec<u32> = if fetch_oldest {
+        uids_vec.iter().take(limit).copied().collect()
+    } else {
+        let start = if total > limit { total - limit } else { 0 };
+        uids_vec[start..].to_vec()
+    };
+
+    for uid in uids_to_fetch {
+        match fetch_single_email(&mut session, uid) {
+            Ok(email_data) => emails.push(email_data),
+            Err(e) => {
+                error!("获取邮件 {} 失败: {}", uid, e);
+                continue;
+            }
+        }
+    }
+
+    let _ = session.logout();
+
+    info!("✅ IMAP XOAUTH2 收取完成，共 {} 封邮件", emails.len());
+    Ok(FetchResult {
+        success: true,
+        message: format!("收取成功，共 {} 封邮件", emails.len()),
+        count: emails.len(),
+        emails,
+    })
 }
 
 fn imap_fetch_sync(
@@ -245,6 +469,7 @@ fn imap_fetch_sync(
     host: &str,
     port: u16,
     limit: usize,
+    fetch_oldest: bool,
 ) -> Result<FetchResult, String> {
     let (mut session, _) = connect_and_login(host, port, email, password)?;
 
@@ -267,12 +492,17 @@ fn imap_fetch_sync(
     let uids_vec: Vec<u32> = uids.into_iter().collect();
     let total = uids_vec.len();
 
-    // 只取最新的 limit 封
-    let start = if total > limit { total - limit } else { 0 };
-    let uids_to_fetch = &uids_vec[start..];
+    let uids_to_fetch: Vec<u32> = if fetch_oldest {
+        // 历史回补：优先抓最早的邮件，便于补齐老历史
+        uids_vec.iter().take(limit).copied().collect()
+    } else {
+        // 增量同步：优先抓最新邮件
+        let start = if total > limit { total - limit } else { 0 };
+        uids_vec[start..].to_vec()
+    };
 
     for uid in uids_to_fetch {
-        match fetch_single_email(&mut session, *uid) {
+        match fetch_single_email(&mut session, uid) {
             Ok(email_data) => emails.push(email_data),
             Err(e) => {
                 error!("获取邮件 {} 失败: {}", uid, e);

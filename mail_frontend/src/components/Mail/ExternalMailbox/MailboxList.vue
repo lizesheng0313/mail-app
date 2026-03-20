@@ -160,7 +160,7 @@ import { unifiedAPI } from '@/api/unified'
 import { mailboxTagsAPI } from '@/api/mailboxTags'
 import { showMessage } from '@/utils/message'
 import { formatTimestamp } from '@/utils/timeUtils'
-import { isTauri } from '@/services/api'
+import { isTauri, getServerUrl } from '@/services/api'
 
 const props = defineProps<{
   isSendEmailView?: boolean
@@ -374,13 +374,42 @@ const fetchSingleMailbox = async (accountId: number) => {
       return
     }
 
-    const res = account.auth_type === 'oauth2'
-      ? await batchLoginAPI.fetchOAuth2Emails(account.id)
-      : await batchLoginAPI.fetchEmails(account.id)
-    if (res.code === 0) {
-      showMessage(res.message || '收取成功', 'success')
+    if (account.auth_type === 'oauth2' && isDesktop) {
+      // OAuth2 邮箱 + 桌面端：先获取 token，再走本地 IMAP XOAUTH2
+      try {
+        const tokenRes = await batchLoginAPI.getOAuth2AccessToken(account.id)
+        if (tokenRes.code !== 0) {
+          throw new Error(tokenRes.message || '获取 token 失败')
+        }
+
+        const { access_token: oauthAccessToken, imap_host, imap_port, email: oauthEmail } = tokenRes.data
+        const { invoke } = await import('@tauri-apps/api/core')
+        const token = localStorage.getItem('token') || ''
+        const serverUrl = getServerUrl()
+
+        await invoke('fetch_emails', {
+          mailboxId: account.id,
+          email: oauthEmail,
+          password: '',
+          protocol: 'imap',
+          host: imap_host,
+          port: imap_port,
+          token,
+          serverUrl,
+          authType: 'oauth2',
+          accessToken: oauthAccessToken,
+        })
+        showMessage('收取成功', 'success')
+      } catch (e: any) {
+        showMessage(typeof e === 'string' ? e : (e.message || '收取失败'), 'error')
+      }
     } else {
-      showMessage(res.message || '收取失败', 'error')
+      const res = await batchLoginAPI.fetchEmails(account.id)
+      if (res.code === 0) {
+        showMessage(res.message || '收取成功', 'success')
+      } else {
+        showMessage(res.message || '收取失败', 'error')
+      }
     }
     await loadAccounts()
     emit('refresh')
