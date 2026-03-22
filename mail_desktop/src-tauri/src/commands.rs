@@ -4,7 +4,7 @@ use crate::mail::provider_constants::{find_hosted_provider_by_mx, find_known_pro
 use crate::mail::types::{get_server_config, EmailData, FetchResult, LoginResult};
 use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::{Mutex, OnceLock};
 use tauri_plugin_updater::UpdaterExt;
@@ -98,6 +98,179 @@ fn finalize_recovery_failure(mailbox_id: i64, message: String) -> String {
         return format!("{}{}", AUTO_RECOVERY_LIMIT_MARKER, message);
     }
     message
+}
+
+#[derive(Debug, Clone)]
+struct FetchCandidate {
+    protocol: String,
+    host: String,
+    port: u16,
+}
+
+fn push_fetch_candidate(candidates: &mut Vec<FetchCandidate>, candidate: FetchCandidate) {
+    let exists = candidates.iter().any(|item| {
+        item.protocol == candidate.protocol && item.host == candidate.host && item.port == candidate.port
+    });
+    if !exists {
+        candidates.push(candidate);
+    }
+}
+
+fn build_email_dedupe_key(email: &EmailData) -> String {
+    let message_id = email.message_id.trim();
+    if !message_id.is_empty() {
+        return format!("mid:{}", message_id.to_lowercase());
+    }
+
+    format!(
+        "fp:{}|{}|{}|{}",
+        email.from_addr.trim().to_lowercase(),
+        email.to_addr.trim().to_lowercase(),
+        email.subject.trim().to_lowercase(),
+        email.email_date_ms
+    )
+}
+
+fn merge_fetched_emails(results: Vec<FetchResult>, limit: usize, fetch_oldest: bool) -> FetchResult {
+    let mut merged = Vec::new();
+    let mut seen = HashSet::new();
+
+    for result in results {
+        for email in result.emails {
+            let key = build_email_dedupe_key(&email);
+            if seen.insert(key) {
+                merged.push(email);
+            }
+        }
+    }
+
+    if fetch_oldest {
+        merged.sort_by_key(|email| email.email_date_ms);
+    } else {
+        merged.sort_by(|a, b| b.email_date_ms.cmp(&a.email_date_ms));
+    }
+
+    if merged.len() > limit {
+        merged.truncate(limit);
+    }
+
+    FetchResult {
+        success: true,
+        message: format!("收取成功，共 {} 封邮件", merged.len()),
+        count: merged.len(),
+        emails: merged,
+    }
+}
+
+async fn fetch_with_candidate(
+    candidate: &FetchCandidate,
+    email: &str,
+    password: &str,
+    limit: usize,
+    fetch_oldest: bool,
+) -> Result<FetchResult, String> {
+    if candidate.protocol == "imap" {
+        mail::imap::fetch_emails(
+            email,
+            password,
+            &candidate.host,
+            candidate.port,
+            limit,
+            fetch_oldest,
+        )
+        .await
+    } else {
+        mail::pop3::fetch_emails(
+            email,
+            password,
+            &candidate.host,
+            candidate.port,
+            limit,
+            fetch_oldest,
+        )
+        .await
+    }
+}
+
+async fn fetch_password_mailbox_with_merge(
+    email: &str,
+    password: &str,
+    primary_protocol: &str,
+    primary_host: &str,
+    primary_port: u16,
+    discovered_config: Option<&crate::mail::types::ServerConfig>,
+    limit: usize,
+    fetch_oldest: bool,
+) -> Result<FetchResult, String> {
+    let mut candidates = Vec::new();
+    push_fetch_candidate(
+        &mut candidates,
+        FetchCandidate {
+            protocol: primary_protocol.to_lowercase(),
+            host: primary_host.to_string(),
+            port: primary_port,
+        },
+    );
+
+    if let Some(config) = discovered_config {
+        push_fetch_candidate(
+            &mut candidates,
+            FetchCandidate {
+                protocol: "imap".to_string(),
+                host: config.imap_host.clone(),
+                port: config.imap_port,
+            },
+        );
+        push_fetch_candidate(
+            &mut candidates,
+            FetchCandidate {
+                protocol: "pop3".to_string(),
+                host: config.pop3_host.clone(),
+                port: config.pop3_port,
+            },
+        );
+    }
+
+    let mut success_results = Vec::new();
+    let mut error_messages = Vec::new();
+
+    for candidate in candidates {
+        info!(
+            "尝试协议补抓: email={} protocol={} host={}:{}",
+            email, candidate.protocol, candidate.host, candidate.port
+        );
+        match fetch_with_candidate(&candidate, email, password, limit, fetch_oldest).await {
+            Ok(result) => {
+                info!(
+                    "协议补抓成功: email={} protocol={} fetched={}",
+                    email, candidate.protocol, result.count
+                );
+                success_results.push(result);
+            }
+            Err(err) => {
+                warn!(
+                    "协议补抓失败: email={} protocol={} host={}:{} error={}",
+                    email, candidate.protocol, candidate.host, candidate.port, err
+                );
+                error_messages.push(format!("{}: {}", candidate.protocol, err));
+            }
+        }
+    }
+
+    if success_results.is_empty() {
+        return Err(error_messages.join("；"));
+    }
+
+    if success_results.len() == 1 {
+        return Ok(success_results.remove(0));
+    }
+
+    let merged = merge_fetched_emails(success_results, limit, fetch_oldest);
+    info!(
+        "协议补抓合并完成: email={} merged_count={}",
+        email, merged.count
+    );
+    Ok(merged)
 }
 
 /// 同步邮件请求（发送到远程服务器）
@@ -600,6 +773,7 @@ pub async fn recover_and_fetch_external_mailbox(
             }
             Err(e) => {
                 error!("自动恢复后同步邮件到服务器失败: {}", e);
+                return Err(format!("本地收取成功，但同步到服务器失败: {}", e));
             }
         }
     }
@@ -627,13 +801,18 @@ pub async fn fetch_emails(
 ) -> Result<FetchResult, String> {
     // 判断是否走 OAuth2 XOAUTH2
     let is_oauth2 = auth_type.as_deref() == Some("oauth2");
+    let domain = email.split('@').nth(1).ok_or("无效的邮箱地址")?;
+    let discovered_config = if is_oauth2 {
+        None
+    } else {
+        get_server_config(domain).await
+    };
 
     // 自动检测服务器配置（当 host/port 缺失时）
     let (final_host, final_port, final_protocol) = if let (Some(h), Some(p)) = (host.as_deref().filter(|s| !s.is_empty()), port) {
         (h.to_string(), p, if is_oauth2 { "imap".to_string() } else { protocol.clone() })
     } else {
-        let domain = email.split('@').nth(1).ok_or("无效的邮箱地址")?;
-        let config = get_server_config(domain).await
+        let config = discovered_config.clone()
             .ok_or(format!("无法识别邮箱 {} 的服务器配置", domain))?;
 
         if is_oauth2 || protocol.to_lowercase() == "imap" || protocol.to_lowercase() == "auto" {
@@ -691,29 +870,14 @@ pub async fn fetch_emails(
                 }
             }
         }
-    } else if final_protocol.to_lowercase() == "imap" {
-        match mail::imap::fetch_emails(
-            &email,
-            &password,
-            &final_host,
-            final_port,
-            fetch_limit,
-            fetch_oldest,
-        )
-        .await
-        {
-            Ok(r) => r,
-            Err(e) => {
-                error!("IMAP 收取失败: {}", e);
-                return Err(e);
-            }
-        }
     } else {
-        match mail::pop3::fetch_emails(
+        match fetch_password_mailbox_with_merge(
             &email,
             &password,
+            &final_protocol,
             &final_host,
             final_port,
+            discovered_config.as_ref(),
             fetch_limit,
             fetch_oldest,
         )
@@ -721,7 +885,7 @@ pub async fn fetch_emails(
         {
             Ok(r) => r,
             Err(e) => {
-                error!("POP3 收取失败: {}", e);
+                error!("密码邮箱收取失败: {}", e);
                 return Err(e);
             }
         }
@@ -741,7 +905,7 @@ pub async fn fetch_emails(
             }
             Err(e) => {
                 error!("同步邮件到服务器失败: {}", e);
-                // 同步失败仍返回收取结果
+                return Err(format!("本地收取成功，但同步到服务器失败: {}", e));
             }
         }
     }

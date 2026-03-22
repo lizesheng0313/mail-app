@@ -1698,6 +1698,7 @@ const fetchExternalMailboxEmails = async () => {
 
     // 桌面端：统一走本地 Tauri 收取；OAuth2 只向后端拿 token
     const mailboxId = selectedExternalMailboxId.value
+    let newCount = 0
     setExternalMailboxFetchingIds([mailboxId])
 
     if (selectedExternalAuthType.value === 'oauth2') {
@@ -1710,7 +1711,7 @@ const fetchExternalMailboxEmails = async () => {
 
       try {
         const account = await loadExternalMailboxAccountById(mailboxId)
-        await fetchOAuthMailboxOnceById(tauriInvoke, mailboxId, {
+        newCount = await fetchOAuthMailboxOnceById(tauriInvoke, mailboxId, {
           account,
           allowInteractiveReauth: true
         })
@@ -1751,7 +1752,7 @@ const fetchExternalMailboxEmails = async () => {
       const serverUrl = getServerUrl()
 
       try {
-        await tauriInvoke('fetch_emails', {
+        const result = await tauriInvoke('fetch_emails', {
           mailboxId: account.id,
           email: account.email,
           password: account.password,
@@ -1761,6 +1762,7 @@ const fetchExternalMailboxEmails = async () => {
           token,
           serverUrl
         })
+        newCount = Number(result?.count || 0)
         await batchLoginAPI.updateMailboxStatus(mailboxId, 'active')
       } catch (e: any) {
         const rawMsg = typeof e === 'string' ? e : e?.message || '收取失败'
@@ -1777,7 +1779,7 @@ const fetchExternalMailboxEmails = async () => {
     await new Promise((resolve) => setTimeout(resolve, 500))
     externalEmailPage.value = 1
     await loadExternalMailboxEmails()
-    showMessage(`收取成功，共 ${externalEmails.value.length} 封邮件`, 'success')
+    showMessage(`收取成功，新增 ${newCount} 封邮件`, 'success')
     if (externalMailboxListRef.value?.loadAccounts) {
       externalMailboxListRef.value.loadAccounts()
     }

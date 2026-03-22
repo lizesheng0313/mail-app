@@ -418,40 +418,7 @@ fn imap_fetch_oauth2_sync(
     fetch_oldest: bool,
 ) -> Result<FetchResult, String> {
     let (mut session, _) = connect_and_xoauth2(host, port, email, access_token)?;
-
-    // 选择收件箱
-    session
-        .select("INBOX")
-        .map_err(|e| format!("选择收件箱失败: {}", e))?;
-
-    let search_result = session.uid_search("ALL");
-    let uids = if let Err(_) = search_result {
-        session.select("INBOX").ok();
-        session.uid_search("ALL").map_err(|e| format!("搜索邮件失败: {}", e))?
-    } else {
-        search_result.unwrap()
-    };
-
-    let mut emails: Vec<EmailData> = Vec::new();
-    let uids_vec: Vec<u32> = uids.into_iter().collect();
-    let total = uids_vec.len();
-
-    let uids_to_fetch: Vec<u32> = if fetch_oldest {
-        uids_vec.iter().take(limit).copied().collect()
-    } else {
-        let start = if total > limit { total - limit } else { 0 };
-        uids_vec[start..].to_vec()
-    };
-
-    for uid in uids_to_fetch {
-        match fetch_single_email(&mut session, uid) {
-            Ok(email_data) => emails.push(email_data),
-            Err(e) => {
-                error!("获取邮件 {} 失败: {}", uid, e);
-                continue;
-            }
-        }
-    }
+    let emails = fetch_from_candidate_mailboxes(&mut session, limit, fetch_oldest)?;
 
     let _ = session.logout();
 
@@ -619,6 +586,150 @@ fn list_selectable_mailboxes<T: Read + Write>(session: &mut imap::Session<T>) ->
     mailboxes
 }
 
+fn should_skip_sync_mailbox(name: &str) -> bool {
+    let normalized = name.trim().to_lowercase();
+    [
+        "sent",
+        "sent items",
+        "sent messages",
+        "draft",
+        "drafts",
+        "outbox",
+        "已发送",
+        "发件箱",
+        "发件",
+        "草稿",
+        "草稿箱",
+    ]
+    .iter()
+    .any(|keyword| normalized.contains(keyword))
+}
+
+fn list_sync_candidate_mailboxes<T: Read + Write>(session: &mut imap::Session<T>) -> Vec<String> {
+    let mut mailboxes: Vec<String> = list_selectable_mailboxes(session)
+        .into_iter()
+        .filter(|name| !should_skip_sync_mailbox(name))
+        .collect();
+
+    if mailboxes.is_empty() {
+        mailboxes.push("INBOX".to_string());
+    }
+
+    mailboxes
+}
+
+fn select_and_search_all_uids<T: Read + Write>(
+    session: &mut imap::Session<T>,
+    mailbox: &str,
+) -> Result<Vec<u32>, String> {
+    session
+        .select(mailbox)
+        .map_err(|e| format!("选择文件夹 {} 失败: {}", mailbox, e))?;
+
+    let search_result = session.uid_search("ALL");
+    let uids = if let Err(_) = search_result {
+        session.select(mailbox).ok();
+        session
+            .uid_search("ALL")
+            .map_err(|e| format!("搜索文件夹 {} 失败: {}", mailbox, e))?
+    } else {
+        search_result.unwrap()
+    };
+
+    let mut uids_vec: Vec<u32> = uids.into_iter().collect();
+    uids_vec.sort_unstable();
+    Ok(uids_vec)
+}
+
+fn pick_uids_to_fetch(uids: &[u32], limit: usize, fetch_oldest: bool) -> Vec<u32> {
+    if uids.is_empty() || limit == 0 {
+        return Vec::new();
+    }
+
+    if fetch_oldest {
+        uids.iter().take(limit).copied().collect()
+    } else {
+        let start = if uids.len() > limit { uids.len() - limit } else { 0 };
+        uids[start..].to_vec()
+    }
+}
+
+fn fetch_from_candidate_mailboxes<T: Read + Write>(
+    session: &mut imap::Session<T>,
+    limit: usize,
+    fetch_oldest: bool,
+) -> Result<Vec<EmailData>, String> {
+    let mailboxes = list_sync_candidate_mailboxes(session);
+    let mailbox_count = mailboxes.len().max(1);
+    let per_mailbox_limit = if mailbox_count == 1 {
+        limit
+    } else {
+        std::cmp::min(limit, std::cmp::max(20, limit.div_ceil(mailbox_count)))
+    };
+
+    let mut emails: Vec<EmailData> = Vec::new();
+    let mut seen_ids: HashSet<String> = HashSet::new();
+    let mut scanned_any_mailbox = false;
+    let mut last_error: Option<String> = None;
+
+    info!(
+        "开始扫描 IMAP 文件夹: count={}, limit={}, fetch_oldest={}, per_mailbox_limit={}",
+        mailbox_count, limit, fetch_oldest, per_mailbox_limit
+    );
+
+    for mailbox in mailboxes {
+        if emails.len() >= limit {
+            break;
+        }
+
+        match select_and_search_all_uids(session, &mailbox) {
+            Ok(uids_vec) => {
+                scanned_any_mailbox = true;
+                let uids_to_fetch = pick_uids_to_fetch(&uids_vec, per_mailbox_limit, fetch_oldest);
+                info!(
+                    "扫描文件夹成功: mailbox={} total_uids={} fetch_uids={}",
+                    mailbox,
+                    uids_vec.len(),
+                    uids_to_fetch.len()
+                );
+
+                for uid in uids_to_fetch {
+                    if emails.len() >= limit {
+                        break;
+                    }
+
+                    match fetch_single_email(session, uid) {
+                        Ok(email_data) => {
+                            let dedupe_key = if email_data.message_id.trim().is_empty() {
+                                format!("{}#{}", mailbox, uid)
+                            } else {
+                                email_data.message_id.trim().to_string()
+                            };
+
+                            if seen_ids.insert(dedupe_key) {
+                                emails.push(email_data);
+                            }
+                        }
+                        Err(e) => {
+                            error!("获取邮件失败 mailbox={} uid={}: {}", mailbox, uid, e);
+                        }
+                    }
+                }
+            }
+            Err(e) => {
+                warn!("{}", e);
+                last_error = Some(e);
+            }
+        }
+    }
+
+    if !scanned_any_mailbox {
+        return Err(last_error.unwrap_or_else(|| "没有可用的收件文件夹".to_string()));
+    }
+
+    Ok(emails)
+}
+
 fn find_message_uid_in_selected_mailbox<T: Read + Write>(
     session: &mut imap::Session<T>,
     message_id: &str,
@@ -664,44 +775,7 @@ fn imap_fetch_sync(
     fetch_oldest: bool,
 ) -> Result<FetchResult, String> {
     let (mut session, _) = connect_and_login(host, port, email, password)?;
-
-    // 选择收件箱
-    session
-        .select("INBOX")
-        .map_err(|e| format!("选择收件箱失败: {}", e))?;
-
-    // 搜索所有邮件（部分服务器如163/189在select后可能踢回AUTH状态，重试一次）
-    let search_result = session.uid_search("ALL");
-    let uids = if let Err(_) = search_result {
-        // 状态异常，重新 SELECT 再试
-        session.select("INBOX").ok();
-        session.uid_search("ALL").map_err(|e| format!("搜索邮件失败: {}", e))?
-    } else {
-        search_result.unwrap()
-    };
-
-    let mut emails: Vec<EmailData> = Vec::new();
-    let uids_vec: Vec<u32> = uids.into_iter().collect();
-    let total = uids_vec.len();
-
-    let uids_to_fetch: Vec<u32> = if fetch_oldest {
-        // 历史回补：优先抓最早的邮件，便于补齐老历史
-        uids_vec.iter().take(limit).copied().collect()
-    } else {
-        // 增量同步：优先抓最新邮件
-        let start = if total > limit { total - limit } else { 0 };
-        uids_vec[start..].to_vec()
-    };
-
-    for uid in uids_to_fetch {
-        match fetch_single_email(&mut session, uid) {
-            Ok(email_data) => emails.push(email_data),
-            Err(e) => {
-                error!("获取邮件 {} 失败: {}", uid, e);
-                continue;
-            }
-        }
-    }
+    let emails = fetch_from_candidate_mailboxes(&mut session, limit, fetch_oldest)?;
 
     let _ = session.logout();
 
