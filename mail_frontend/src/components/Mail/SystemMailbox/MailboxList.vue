@@ -1,10 +1,10 @@
 <template>
   <MailboxList
     ref="mailboxListRef"
-    title="临时邮箱"
-    :mailboxes="mailboxStore.mailboxes"
+    :title="title"
+    :mailboxes="resolvedMailboxes"
     :selectedId="selectedId"
-    :showPagination="true"
+    :showPagination="showPagination"
     @select="$emit('select', $event)"
     @batch-delete="handleBatchDelete"
     @batch-share="handleBatchShare"
@@ -40,9 +40,9 @@
           </span>
         </div>
         <MailboxTags
-          v-if="mailbox.id in tagsData"
+          v-if="enableTags && mailbox.id in tagsData"
           :mailbox-id="mailbox.id"
-          mailbox-type="system"
+          :mailbox-type="mailboxType"
           :editable="!batchMode"
           :max-display="3"
           :initial-sites="tagsData[mailbox.id]?.sites || []"
@@ -93,10 +93,10 @@
 
     <template #pagination>
       <Pagination
-        :current-page="mailboxStore.currentPage"
-        :total-pages="mailboxStore.totalPages"
-        :total="mailboxStore.totalMailboxes"
-        @page-change="mailboxStore.fetchMailboxes"
+        :current-page="resolvedPagination.page"
+        :total-pages="resolvedPagination.total_pages"
+        :total="resolvedPagination.total"
+        @page-change="handlePageChange"
       />
     </template>
   </MailboxList>
@@ -113,7 +113,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
+import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useMailboxStore } from '@/stores/auth'
 import MailboxList from '@/components/Mail/MailboxList/MailboxList.vue'
 import MailboxCard from '@/components/Mail/MailboxList/MailboxCard.vue'
@@ -126,7 +126,25 @@ import { unifiedAPI } from '@/api/unified'
 import { mailboxTagsAPI } from '@/api/mailboxTags'
 import { formatTimestamp } from '@/utils/timeUtils'
 
-const emit = defineEmits(['select', 'batch-mode-start', 'share', 'deleted'])
+const props = withDefaults(defineProps<{
+  mailboxType?: 'system' | 'hosted'
+  title?: string
+  mailboxes?: any[] | null
+  showPagination?: boolean
+  enableTags?: boolean
+  pagination?: Record<string, any> | null
+  onPageChange?: ((page: number) => void | Promise<void>) | null
+}>(), {
+  mailboxType: 'system',
+  title: '临时邮箱',
+  mailboxes: null,
+  showPagination: true,
+  enableTags: true,
+  pagination: null,
+  onPageChange: null
+})
+
+const emit = defineEmits(['select', 'batch-mode-start', 'share', 'deleted', 'refresh'])
 
 const mailboxStore = useMailboxStore()
 const mailboxListRef = ref()
@@ -136,6 +154,21 @@ const isDeleting = ref({ batch: false, ids: [] as number[] })
 const selectedId = ref<number | null>(null)
 const tagsData = ref<Record<number, { sites: any[], tags: any[] }>>({})
 const openMenuId = ref<number | null>(null)
+const resolvedMailboxes = computed(() => props.mailboxes || mailboxStore.mailboxes)
+const resolvedPagination = computed(() => {
+  if (props.pagination) {
+    return {
+      page: Number(props.pagination.page || 1),
+      total_pages: Number(props.pagination.total_pages || 1),
+      total: Number(props.pagination.total || 0)
+    }
+  }
+  return {
+    page: Number(mailboxStore.currentPage || 1),
+    total_pages: Number(mailboxStore.totalPages || 1),
+    total: Number(mailboxStore.totalMailboxes || 0)
+  }
+})
 
 const isExpired = (mailbox: any) => {
   if (!mailbox.expires_at) return false
@@ -145,11 +178,15 @@ const isExpired = (mailbox: any) => {
 
 // 批量加载邮箱标签数据
 const loadTagsData = async () => {
+  if (!props.enableTags) {
+    tagsData.value = {}
+    return
+  }
   try {
-    const ids = mailboxStore.mailboxes.map((m: any) => Number(m.id))
+    const ids = resolvedMailboxes.value.map((m: any) => Number(m.id))
     if (ids.length === 0) return
     
-    const res = await mailboxTagsAPI.getBatchMailboxTags('system', ids)
+    const res = await mailboxTagsAPI.getBatchMailboxTags(props.mailboxType, ids)
     if (res.data) {
       tagsData.value = res.data
     }
@@ -159,9 +196,11 @@ const loadTagsData = async () => {
 }
 
 // 监听邮箱列表变化，加载标签
-watch(() => mailboxStore.mailboxes, (newMailboxes) => {
-  if (newMailboxes.length > 0) {
+watch(resolvedMailboxes, (newMailboxes) => {
+  if (props.enableTags && newMailboxes.length > 0) {
     loadTagsData()
+  } else if (!newMailboxes.length) {
+    tagsData.value = {}
   }
 }, { immediate: true })
 
@@ -220,8 +259,16 @@ const handleBatchDelete = (ids: number[]) => {
 const handleBatchShare = (ids: number[]) => {
   console.log('🟢 系统邮箱 - 批量分享，ids:', ids)
   // 获取选中的邮箱对象
-  const selectedMailboxes = mailboxStore.mailboxes.filter(m => ids.includes(m.id))
+  const selectedMailboxes = resolvedMailboxes.value.filter((m: any) => ids.includes(m.id))
   emit('share', selectedMailboxes)
+}
+
+const handlePageChange = async (page: number) => {
+  if (props.onPageChange) {
+    await props.onPageChange(page)
+    return
+  }
+  await mailboxStore.fetchMailboxes(page)
 }
 
 // 处理邮箱点击
@@ -246,7 +293,7 @@ const confirmDelete = async () => {
     const deletedIds = [...isDeleting.value.ids]
     if (isDeleting.value.batch) {
       // 使用批量删除接口
-      await unifiedAPI.batchDeleteMailboxes(deletedIds, 'system')
+      await unifiedAPI.batchDeleteMailboxes(deletedIds, props.mailboxType)
       showMessage(`已删除 ${deletedIds.length} 个邮箱`)
       emit('deleted', deletedIds)
       // 批量删除成功后，退出批量模式
@@ -254,13 +301,21 @@ const confirmDelete = async () => {
         mailboxListRef.value.cancelBatchMode()
       }
     } else {
-      const result = await mailboxStore.deleteMailbox(deletedIds[0])
-      showMessage(result.success ? '删除成功' : result.error || '删除失败', result.success ? 'success' : 'error')
-      if (result.success) {
+      const result: any = props.mailboxType === 'system'
+        ? await mailboxStore.deleteMailbox(deletedIds[0])
+        : await unifiedAPI.deleteMailbox(deletedIds[0], props.mailboxType)
+      const success = Boolean(result?.success || result?.code === 0 || result?.data?.code === 0)
+      const errorText = result?.error || result?.message || result?.data?.message || '删除失败'
+      showMessage(success ? '删除成功' : errorText, success ? 'success' : 'error')
+      if (success) {
         emit('deleted', deletedIds)
       }
     }
-    await mailboxStore.fetchMailboxes()
+    if (!props.mailboxes && props.mailboxType === 'system') {
+      await mailboxStore.fetchMailboxes()
+    } else {
+      emit('refresh')
+    }
   } finally {
     deleting.value = false
     showConfirm.value = false

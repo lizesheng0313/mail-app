@@ -132,13 +132,15 @@ export const useMailboxStore = defineStore('mailbox', () => {
     }
   }
 
-  const allocateMailbox = async () => {
+  const allocateMailbox = async (payload: Record<string, any> = {}) => {
     loading.value = true
     try {
-      const response: any = await mailboxAPI.allocateMailbox()
+      const response: any = await mailboxAPI.allocateMailbox(payload)
       if (response.code === 0 && response.data) {
         // 申请成功后重新获取邮箱列表，确保数据同步
-        await fetchMailboxes()
+        if (!payload.mailbox_type || payload.mailbox_type === 'system') {
+          await fetchMailboxes()
+        }
         return { success: true, data: response.data }
       }
       return { success: false, error: response.message }

@@ -76,5 +76,7 @@ export const extractMailboxType = (item: AIToolTraceItem | undefined) => {
       item?.arguments?.type ||
       'system'
   ).toLowerCase()
-  return mailboxType === 'external' ? 'external' : 'system'
+  if (mailboxType === 'external') return 'external'
+  if (mailboxType === 'hosted') return 'hosted'
+  return 'system'
 }

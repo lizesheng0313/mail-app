@@ -43,8 +43,10 @@ const UserIcon = {
   ])
 }
 
+const isAdmin = computed(() => Boolean(userStore.user?.is_admin))
+
 // 菜单配置
-const menuSections = [
+const menuSections = computed(() => [
   {
     name: '开发接入',
     items: [
@@ -59,6 +61,20 @@ const menuSections = [
       }
     ]
   },
+  ...(isAdmin.value ? [{
+    name: '域名邮箱',
+    items: [
+      {
+        path: '/user/domains',
+        label: '我的域名',
+        icon: {
+          render: () => h('svg', { fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' }, [
+            h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'stroke-width': '2', d: 'M21 12a9 9 0 11-18 0 9 9 0 0118 0zM3.6 9h16.8M3.6 15h16.8M12 3.6a14.2 14.2 0 010 16.8M12 3.6a14.2 14.2 0 000 16.8' })
+          ])
+        }
+      }
+    ]
+  }] : []),
   {
     name: '财务管理',
     items: [
@@ -134,13 +150,14 @@ const menuSections = [
       }
     ]
   }
-]
+])
 
 // 当前页面标题
 const currentPageTitle = computed(() => {
   if (route.path.startsWith('/user/developer/api-keys')) return '访问密钥'
 
   const titles = {
+    '/user/domains': '我的域名',
     '/user/purchases': '交易记录',
     '/user/finance': '财务中心',
     '/user/settings': '个人设置',
@@ -155,6 +172,7 @@ const pageDescription = computed(() => {
   if (route.path.startsWith('/user/developer/api-keys')) return '像其它列表页一样直接管理访问密钥；新建通过弹窗完成'
 
   const descriptions = {
+    '/user/domains': '接入自有域名，完成 DNS 验证并创建收件邮箱地址',
     '/user/purchases': '查看所有奶片交易记录',
     '/user/finance': '管理奶片充值、提现和交易记录',
     '/user/settings': '管理个人信息和账户设置',

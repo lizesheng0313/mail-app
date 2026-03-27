@@ -29,7 +29,6 @@ const DomainManage = () => import('@/views/admin/domain/index.vue')
 const FeedbackManage = () => import('@/views/admin/feedbackManage/index.vue')
 const MonitoringDashboard = () => import('@/views/admin/monitoring/index.vue')
 const AdminProxyManagement = () => import('@/views/admin/proxy-management/index.vue')
-const AIModelManagement = () => import('@/views/admin/ai-model-management/index.vue')
 const AdminUserManagement = () => import('@/views/admin/user-management/index.vue')
 const WorkflowReview = () => import('@/views/admin/workflow-review/index.vue')
 const FinanceSettlement = () => import('@/views/admin/finance-settlement/index.vue')
@@ -46,6 +45,7 @@ const UserFinance = () => import('@/views/user/finance/index.vue')
 const UserSettings = () => import('@/views/user/settings/index.vue')
 const UserAnnouncements = () => import('@/views/user/announcements/index.vue')
 const UserDeveloper = () => import('@/views/user/developer/index.vue')
+const UserDomains = () => import('@/views/user/domains/index.vue')
 
 // 工作流市场组件
 const WorkflowMarket = () => import('@/views/market/index.vue')
@@ -296,6 +296,12 @@ const router = createRouter({
           component: UserFinance
         },
         {
+          path: 'domains',
+          name: 'user-domains',
+          component: UserDomains,
+          meta: { requiresAdmin: true }
+        },
+        {
           path: 'settings',
           name: 'user-settings',
           component: UserSettings
@@ -346,11 +352,6 @@ const router = createRouter({
           path: 'proxy',
           name: 'admin-proxy',
           component: AdminProxyManagement
-        },
-        {
-          path: 'ai-models',
-          name: 'admin-ai-models',
-          component: AIModelManagement
         },
         {
           path: 'users',

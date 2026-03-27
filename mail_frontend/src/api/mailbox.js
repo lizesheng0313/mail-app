@@ -12,7 +12,7 @@ export const mailboxAPI = {
   getTempMailboxEmails: (mailboxId, params = {}) => api.get(`/mailboxes/temp/${mailboxId}/emails`, { params }),
 
   // 创建邮箱（注册用户）
-  allocateMailbox: () => api.post('/mailboxes/'),
+  allocateMailbox: (data = {}) => api.post('/mailboxes/', data),
 
   // 获取用户邮箱列表
   getMailboxes: (params = {}) => api.get('/mailboxes/', { params }),

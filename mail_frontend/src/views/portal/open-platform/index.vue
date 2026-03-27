@@ -428,7 +428,6 @@ const fallbackDocGroups: EndpointGroup[] = [
 
 const docGroupLabelMap: Record<string, string> = {
   'api-keys': '访问密钥',
-  'advanced-apps': '高级模式',
   logs: '调用日志',
   mailboxes: '系统邮箱',
   'external-mailboxes': '第三方邮箱',
@@ -484,7 +483,7 @@ const docEndpointGroups = computed<EndpointGroup[]>(() => {
         return true
       })
     }))
-    .filter((group) => group.items.length > 0 && !['api-keys', 'logs', 'advanced-apps'].includes(group.name))
+    .filter((group) => group.items.length > 0 && !['api-keys', 'logs'].includes(group.name))
 })
 
 const errorGroups = computed<ErrorGroup[]>(() => {

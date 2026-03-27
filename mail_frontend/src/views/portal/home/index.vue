@@ -17,6 +17,18 @@
             临时邮箱
           </button>
           <button
+            v-if="isAdmin"
+            @click="switchMailboxType('hosted')"
+            :class="[
+              'px-6 py-2 text-sm font-medium border-b-2 transition-colors',
+              mailboxType === 'hosted'
+                ? 'text-primary-600 border-primary-600'
+                : 'text-gray-500 border-transparent hover:text-gray-700 hover:border-gray-300'
+            ]"
+          >
+            域名邮箱
+          </button>
+          <button
             @click="switchMailboxType('external')"
             :class="[
               'px-6 py-2 text-sm font-medium border-b-2 transition-colors',
@@ -31,14 +43,31 @@
 
         <!-- 操作按钮 -->
         <div class="flex items-center gap-3">
-          <!-- 申请免费邮箱按钮（临时邮箱） -->
+          <!-- 生成系统邮箱按钮 -->
           <button
             v-if="mailboxType === 'system'"
             @click="allocateMailbox"
             :disabled="mailboxStore.loading"
             class="px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {{ mailboxStore.loading ? '申请中' : '免费邮箱' }}
+            {{ mailboxStore.loading ? '生成中' : '生成邮箱' }}
+          </button>
+
+          <button
+            v-if="isAdmin && mailboxType === 'hosted'"
+            @click="generateHostedMailbox"
+            :disabled="mailboxStore.loading"
+            class="px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 transition-colors"
+          >
+            {{ mailboxStore.loading ? '生成中' : '生成邮箱' }}
+          </button>
+
+          <button
+            v-if="isAdmin && mailboxType === 'hosted'"
+            @click="goToDomainWorkbench()"
+            class="px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            管理域名
           </button>
 
           <!-- 添加邮箱按钮（第三方邮箱） -->
@@ -136,6 +165,27 @@
             @select="handleSelectMailbox"
             @share="handleShareMailboxes"
             @deleted="handleSystemMailboxesDeleted"
+            @batch-mode-start="handleMailboxBatchStart"
+          />
+        </div>
+
+        <div v-if="isAdmin" v-show="mailboxType === 'hosted'" class="h-full">
+          <SystemMailboxList
+            ref="hostedMailboxListRef"
+            mailbox-type="hosted"
+            title="域名邮箱"
+            :mailboxes="hostedMailboxItems"
+            :pagination="{
+              page: hostedMailboxPage,
+              total_pages: hostedMailboxTotalPages,
+              total: hostedMailboxTotal
+            }"
+            :on-page-change="handleHostedMailboxPageChange"
+            :enable-tags="false"
+            @select="handleSelectHostedMailbox"
+            @share="handleShareMailboxes"
+            @deleted="handleHostedMailboxesDeleted"
+            @refresh="loadHostedDomainSummary"
             @batch-mode-start="handleMailboxBatchStart"
           />
         </div>
@@ -242,6 +292,72 @@
               :total-pages="mailStore.totalPages"
               :total="mailStore.totalEmails"
               @page-change="handlePageChange"
+            />
+          </template>
+        </EmailList>
+      </div>
+
+      <div v-show="mailboxType === 'hosted'" class="h-full">
+        <EmailList
+          ref="hostedEmailListRef"
+          :title="selectedHostedMailboxId ? '收件箱' : '全部邮件'"
+          :emails="hostedEmails"
+          :selected-id="selectedHostedEmailId"
+          :show-pagination="true"
+          :searchable="true"
+          :auto-refresh="autoRefresh"
+          @select="handleSelectHostedEmail"
+          @batch-delete="handleBatchDeleteHostedEmails"
+          @batch-mode-start="handleEmailBatchStart"
+          @search="handleSearchHostedEmails"
+        >
+          <template #title-extra>
+            <button
+              v-if="selectedHostedMailboxId"
+              @click="backToAllHostedEmails"
+              class="px-2 py-1 text-xs text-primary-600 hover:text-primary-700 hover:bg-primary-50 rounded transition-colors"
+            >
+              查看全部
+            </button>
+          </template>
+
+          <template #actions>
+            <button
+              @click="toggleHostedUnread"
+              :class="[
+                'px-2 py-1 text-xs rounded transition-colors whitespace-nowrap',
+                showOnlyUnreadHosted
+                  ? 'bg-green-500 text-white hover:bg-green-600'
+                  : 'text-gray-600 hover:text-gray-700 hover:bg-gray-50'
+              ]"
+            >
+              仅未读
+            </button>
+          </template>
+
+          <template
+            #content="{ emails, selectedId, batchMode, selectedIds, toggleSelection, onSelect }"
+          >
+            <EmailItem
+              v-for="email in emails"
+              :key="email.id"
+              :email="email"
+              :is-selected="selectedId === email.id"
+              :is-checked="(selectedIds?.value || []).includes(email.id)"
+              :batch-mode="batchMode"
+              @click="onSelect(email)"
+              @toggle="toggleSelection(email.id)"
+              @delete="handleDeleteEmail(email.id)"
+              @copy-code="copyVerificationCode"
+            />
+          </template>
+
+          <template #pagination>
+            <Pagination
+              :current-page="hostedEmailPage"
+              :total-pages="Math.ceil(hostedEmailTotal / hostedEmailPageSize) || 1"
+              :total="hostedEmailTotal"
+              @page-change="handleHostedEmailPageChange"
             />
           </template>
         </EmailList>
@@ -440,6 +556,7 @@
 
 <script setup lang="ts">
 import { computed, ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { useMailboxStore } from '@/stores/auth'
 import { useMailStore } from '@/stores/mail'
@@ -470,6 +587,7 @@ import { normalizeOAuthRecoveryErrorMessage } from '@/utils/oauthRecovery'
 import { runPromisePool } from '@/utils/promisePool'
 import { canDesktopSmtpSend, normalizeSmtpEmail } from '@/utils/smtpCapability'
 import { AI_UI_SYNC_EVENT, extractMailboxType, extractToolIds, normalizeAIToolTrace } from '@/utils/aiUiSync'
+import { hostedDomainAPI } from '@/api/hostedDomain'
 import wxProgramImg from '@/assets/img/wx_program.jpg'
 
 // 获取 Tauri invoke（按需加载，避免竞态）
@@ -508,12 +626,16 @@ const resolveOAuthProviderByEmail = (email: string, fallback = '') => {
 const userStore = useUserStore()
 const mailboxStore = useMailboxStore()
 const mailStore = useMailStore()
+const router = useRouter()
+const isAdmin = computed(() => Boolean((userStore.user as any)?.is_admin))
 
 const systemMailboxListRef = ref()
+const hostedMailboxListRef = ref()
 const externalMailboxListRef = ref()
 const systemEmailListRef = ref()
 const externalEmailListRef = ref()
-const mailboxType = ref<'system' | 'external'>('system')
+const hostedEmailListRef = ref()
+const mailboxType = ref<'system' | 'hosted' | 'external'>('system')
 const currentView = ref<'emails' | 'send-email'>('emails')
 const selectedMailboxId = ref<number | null>(null)
 const externalInitialFetched = ref(false)
@@ -578,6 +700,22 @@ const showSendEmailModal = ref(false)
 const externalMailboxList = ref<any[]>([])
 const smtpAccounts = ref<any[]>([])
 
+// 域名邮箱相关状态
+const hostedDomains = ref<any[]>([])
+const hostedDomainMailboxes = ref<any[]>([])
+const hostedMailboxPage = ref(1)
+const hostedMailboxPageSize = ref(50)
+const hostedMailboxTotal = ref(0)
+const hostedMailboxTotalPages = ref(0)
+const selectedHostedMailboxId = ref<number | null>(null)
+const selectedHostedEmailId = ref<number | null>(null)
+const hostedEmails = ref<any[]>([])
+const showOnlyUnreadHosted = ref(false)
+const hostedEmailPage = ref(1)
+const hostedEmailPageSize = ref(20)
+const hostedEmailTotal = ref(0)
+const hostedSearchKeyword = ref('')
+
 // 外部邮箱相关状态
 const selectedExternalMailboxId = ref<number | null>(null)
 const selectedExternalMailboxIds = ref<number[]>([])
@@ -601,6 +739,19 @@ const canShowExternalFetchButton = computed(() => {
   // 只有桌面端才显示收取按钮（Web 端所有用户共用服务器 IP 连 IMAP，量大会被风控）
   return isTauri()
 })
+
+const hostedDomainNameMap = computed(() =>
+  Object.fromEntries(
+    hostedDomains.value.map((item: any) => [Number(item.id), item.domain_name || ''])
+  )
+)
+
+const hostedMailboxItems = computed(() =>
+  hostedDomainMailboxes.value.map((item: any) => ({
+    ...item,
+    domain_name: hostedDomainNameMap.value[Number(item.domain_id)] || ''
+  }))
+)
 
 const syncMailboxAuthTypeMap = (items: any[]) => {
   for (const item of items || []) {
@@ -755,15 +906,15 @@ const loadExternalMailboxAuthTypes = async () => {
 }
 
 const MAILBOX_TYPE_STORAGE_KEY = 'portal_home_mailbox_type'
-const getSavedMailboxType = (): 'system' | 'external' | null => {
+const getSavedMailboxType = (): 'system' | 'hosted' | 'external' | null => {
   try {
     const value = localStorage.getItem(MAILBOX_TYPE_STORAGE_KEY)
-    return value === 'system' || value === 'external' ? value : null
+    return value === 'system' || value === 'hosted' || value === 'external' ? value : null
   } catch {
     return null
   }
 }
-const saveMailboxType = (type: 'system' | 'external') => {
+const saveMailboxType = (type: 'system' | 'hosted' | 'external') => {
   try {
     localStorage.setItem(MAILBOX_TYPE_STORAGE_KEY, type)
   } catch {
@@ -773,6 +924,7 @@ const saveMailboxType = (type: 'system' | 'external') => {
 
 // 保存每个Tab的选中邮件
 const systemSelectedEmail = ref<any>(null)
+const hostedSelectedEmail = ref<any>(null)
 const externalSelectedEmail = ref<any>(null)
 
 const normalizeIds = (ids: number[] = []) =>
@@ -785,11 +937,18 @@ const normalizeIds = (ids: number[] = []) =>
 const isExternalEmailRecord = (email: any) =>
   Boolean(email) && String(email?.mailbox_type || '') === 'external'
 
-const isSystemEmailRecord = (email: any) => Boolean(email) && !isExternalEmailRecord(email)
+const isHostedEmailRecord = (email: any) =>
+  Boolean(email) && String(email?.mailbox_type || '') === 'hosted'
+
+const isSystemEmailRecord = (email: any) =>
+  Boolean(email) && !isExternalEmailRecord(email) && !isHostedEmailRecord(email)
 
 const clearSavedSelectedEmails = (matcher: (email: any) => boolean) => {
   if (matcher(systemSelectedEmail.value)) {
     systemSelectedEmail.value = null
+  }
+  if (matcher(hostedSelectedEmail.value)) {
+    hostedSelectedEmail.value = null
   }
   if (matcher(externalSelectedEmail.value)) {
     externalSelectedEmail.value = null
@@ -797,6 +956,116 @@ const clearSavedSelectedEmails = (matcher: (email: any) => boolean) => {
   if (matcher(mailStore.selectedEmail)) {
     mailStore.selectedEmail = null
   }
+}
+
+const goToDomainWorkbench = (domainId?: number | null) => {
+  if (domainId) {
+    router.push({ path: '/user/domains', query: { domainId: String(domainId) } })
+    return
+  }
+  router.push('/user/domains')
+}
+
+const normalizeHostedEmailRows = (items: any[] = []) =>
+  items.map((item: any) => ({
+    ...item,
+    mailbox_type: 'hosted'
+  }))
+
+const loadHostedDomainSummary = async (page = hostedMailboxPage.value) => {
+  try {
+    const [domainsResponse, mailboxesResponse] = await Promise.all([
+      hostedDomainAPI.listDomains(),
+      mailboxAPI.getMailboxes({
+        mailbox_type: 'hosted',
+        page,
+        page_size: hostedMailboxPageSize.value
+      })
+    ])
+
+    if (domainsResponse.code === 0 && domainsResponse.data) {
+      hostedDomains.value = domainsResponse.data.items || []
+    }
+
+    if (mailboxesResponse.code === 0 && mailboxesResponse.data) {
+      hostedDomainMailboxes.value = mailboxesResponse.data.mailboxes || []
+      hostedMailboxPage.value = Number(mailboxesResponse.data.pagination?.page || page)
+      hostedMailboxTotal.value = Number(
+        mailboxesResponse.data.pagination?.total || hostedDomainMailboxes.value.length
+      )
+      hostedMailboxTotalPages.value = Number(
+        mailboxesResponse.data.pagination?.total_pages || 1
+      )
+      if (
+        selectedHostedMailboxId.value &&
+        !hostedDomainMailboxes.value.some(
+          (item: any) => Number(item.id) === Number(selectedHostedMailboxId.value)
+        )
+      ) {
+        selectedHostedMailboxId.value = null
+      }
+    }
+  } catch (error) {
+    console.error('加载域名邮箱概览失败:', error)
+  }
+}
+
+const handleHostedMailboxPageChange = async (page: number) => {
+  hostedMailboxPage.value = page
+  await loadHostedDomainSummary(page)
+}
+
+const resolvePreferredHostedDomainId = () => {
+  if (selectedHostedMailboxId.value) {
+    const selectedMailbox = hostedDomainMailboxes.value.find(
+      (item: any) => Number(item.id) === Number(selectedHostedMailboxId.value)
+    )
+    const selectedDomainId = Number(selectedMailbox?.domain_id || 0)
+    if (selectedDomainId) {
+      return selectedDomainId
+    }
+  }
+
+  const verifiedDomains = hostedDomains.value.filter(
+    (item: any) => Boolean(item?.is_active) && String(item?.verification_status || '') === 'verified'
+  )
+  if (!verifiedDomains.length) {
+    return null
+  }
+  const randomDomain = verifiedDomains[Math.floor(Math.random() * verifiedDomains.length)]
+  const verifiedDomainId = Number(randomDomain?.id || 0)
+  return verifiedDomainId || null
+}
+
+const generateHostedMailbox = async () => {
+  if (!hostedDomains.value.length) {
+    showMessage('请先到我的工作台添加域名', 'warning')
+    return
+  }
+
+  const preferredDomainId = resolvePreferredHostedDomainId()
+  if (!preferredDomainId) {
+    showMessage('请先到我的工作台完成域名验证', 'warning')
+    return
+  }
+
+  const result = await mailboxStore.allocateMailbox({
+    mailbox_type: 'hosted',
+    domain_id: preferredDomainId,
+    auto_local_part: true
+  })
+
+  if (!result.success) {
+    showMessage(result.error || '生成邮箱失败', 'error')
+    return
+  }
+
+  showMessage('域名邮箱生成成功', 'success')
+  await loadHostedDomainSummary()
+  selectedHostedMailboxId.value = null
+  selectedHostedEmailId.value = null
+  hostedEmailPage.value = 1
+  await loadHostedEmails(1)
 }
 
 const handleSystemEmailsDeleted = (ids: number[] = []) => {
@@ -818,6 +1087,17 @@ const handleExternalEmailsDeleted = (ids: number[] = []) => {
   removeExternalEmailsByIds(normalizedIds)
   clearSavedSelectedEmails(
     (email) => isExternalEmailRecord(email) && idSet.has(Number(email?.id))
+  )
+}
+
+const handleHostedEmailsDeleted = (ids: number[] = []) => {
+  const normalizedIds = normalizeIds(ids)
+  if (!normalizedIds.length) return
+
+  const idSet = new Set(normalizedIds)
+  removeHostedEmailsByIds(normalizedIds)
+  clearSavedSelectedEmails(
+    (email) => isHostedEmailRecord(email) && idSet.has(Number(email?.id))
   )
 }
 
@@ -851,11 +1131,31 @@ const handleExternalMailboxesDeleted = (ids: number[] = []) => {
   )
 }
 
+const handleHostedMailboxesDeleted = (ids: number[] = []) => {
+  const normalizedIds = normalizeIds(ids)
+  if (!normalizedIds.length) return
+
+  const idSet = new Set(normalizedIds)
+  hostedDomainMailboxes.value = hostedDomainMailboxes.value.filter(
+    (item: any) => !idSet.has(Number(item.id))
+  )
+  removeHostedEmailsByMailboxIds(normalizedIds)
+  if (selectedHostedMailboxId.value && idSet.has(Number(selectedHostedMailboxId.value))) {
+    selectedHostedMailboxId.value = null
+  }
+  clearSavedSelectedEmails(
+    (email) => isHostedEmailRecord(email) && idSet.has(Number(email?.mailbox_id))
+  )
+}
+
 // 批量模式互斥：邮箱批量开启时，关闭邮件批量
 const handleMailboxBatchStart = () => {
   console.log('🔵 邮箱批量模式开启，关闭邮件批量模式')
   if (systemMailboxListRef.value?.cancelBatchMode) {
     systemMailboxListRef.value.cancelBatchMode()
+  }
+  if (hostedMailboxListRef.value?.cancelBatchMode) {
+    hostedMailboxListRef.value.cancelBatchMode()
   }
   if (externalMailboxListRef.value?.cancelBatchMode) {
     externalMailboxListRef.value.cancelBatchMode()
@@ -864,6 +1164,9 @@ const handleMailboxBatchStart = () => {
   if (systemEmailListRef.value?.cancelBatchMode) {
     systemEmailListRef.value.cancelBatchMode()
   }
+  if (hostedEmailListRef.value?.cancelBatchMode) {
+    hostedEmailListRef.value.cancelBatchMode()
+  }
   // 关闭外部邮件列表的批量模式
   if (externalEmailListRef.value?.cancelBatchMode) {
     externalEmailListRef.value.cancelBatchMode()
@@ -871,11 +1174,16 @@ const handleMailboxBatchStart = () => {
 }
 
 // 切换邮箱类型
-const switchMailboxType = (type: 'system' | 'external') => {
+const switchMailboxType = (type: 'system' | 'hosted' | 'external') => {
+  if (type === 'hosted' && !isAdmin.value) {
+    return
+  }
   currentView.value = 'emails'
   // 保存当前Tab的选中邮件
   if (mailboxType.value === 'system') {
     systemSelectedEmail.value = mailStore.selectedEmail
+  } else if (mailboxType.value === 'hosted') {
+    hostedSelectedEmail.value = mailStore.selectedEmail
   } else {
     externalSelectedEmail.value = mailStore.selectedEmail
   }
@@ -892,6 +1200,14 @@ const switchMailboxType = (type: 'system' | 'external') => {
       autoRefresh.start()
     }
     externalAutoFetch.stop()
+  } else if (type === 'hosted') {
+    mailStore.selectedEmail = hostedSelectedEmail.value
+    externalAutoFetch.stop()
+    if (!autoRefresh.isRunning.value) {
+      autoRefresh.start()
+    }
+    void loadHostedDomainSummary()
+    void loadHostedEmails()
   } else {
     mailStore.selectedEmail = externalSelectedEmail.value
 
@@ -1468,12 +1784,18 @@ const handleEmailBatchStart = () => {
   if (systemEmailListRef.value?.cancelBatchMode) {
     systemEmailListRef.value.cancelBatchMode()
   }
+  if (hostedEmailListRef.value?.cancelBatchMode) {
+    hostedEmailListRef.value.cancelBatchMode()
+  }
   if (externalEmailListRef.value?.cancelBatchMode) {
     externalEmailListRef.value.cancelBatchMode()
   }
   // 关闭系统邮箱列表的批量模式
   if (systemMailboxListRef.value?.cancelBatchMode) {
     systemMailboxListRef.value.cancelBatchMode()
+  }
+  if (hostedMailboxListRef.value?.cancelBatchMode) {
+    hostedMailboxListRef.value.cancelBatchMode()
   }
   // 关闭外部邮箱列表的批量模式
   if (externalMailboxListRef.value?.cancelBatchMode) {
@@ -1541,6 +1863,42 @@ const refreshSystemEmails = async (options?: { minSpinMs?: number }) => {
   }
 }
 
+const loadHostedEmails = async (page = hostedEmailPage.value) => {
+  try {
+    const params: any = {
+      page,
+      page_size: hostedEmailPageSize.value,
+      type: 'hosted'
+    }
+    if (selectedHostedMailboxId.value) {
+      params.mailbox_id = selectedHostedMailboxId.value
+    }
+    if (showOnlyUnreadHosted.value) {
+      params.unread = true
+    }
+    if (hostedSearchKeyword.value) {
+      params.search = hostedSearchKeyword.value
+    }
+
+    const response: any = await emailAPI.getUserEmails(params)
+    if (response.code === 0 && response.data) {
+      hostedEmails.value = normalizeHostedEmailRows(response.data.emails || [])
+      hostedEmailPage.value = response.data.pagination?.page || page
+      hostedEmailPageSize.value = response.data.pagination?.page_size || hostedEmailPageSize.value
+      hostedEmailTotal.value = response.data.pagination?.total || 0
+    }
+  } catch (error) {
+    console.error('加载域名邮箱邮件失败:', error)
+  }
+}
+
+const refreshHostedEmails = async () => {
+  if (mailboxType.value !== 'hosted') {
+    return
+  }
+  await loadHostedEmails(hostedEmailPage.value || 1)
+}
+
 const handleImmediateRefreshSystemEmails = async () => {
   hideRefreshTooltip()
   autoRefresh.restart()
@@ -1587,6 +1945,28 @@ const removeExternalEmailsByIds = (ids: number[] = []) => {
   }
 }
 
+const removeHostedEmailsByIds = (ids: number[] = []) => {
+  const idSet = new Set(
+    ids.map((item) => Number(item)).filter((item) => Number.isFinite(item) && item > 0)
+  )
+  if (!idSet.size) return
+
+  const originalCount = hostedEmails.value.length
+  hostedEmails.value = hostedEmails.value.filter((email: any) => !idSet.has(Number(email?.id)))
+  const removedCount = originalCount - hostedEmails.value.length
+
+  if (selectedHostedEmailId.value && idSet.has(Number(selectedHostedEmailId.value))) {
+    selectedHostedEmailId.value = null
+  }
+  if (mailStore.selectedEmail && idSet.has(Number(mailStore.selectedEmail.id))) {
+    mailStore.selectedEmail = null
+  }
+
+  if (removedCount > 0) {
+    hostedEmailTotal.value = Math.max(0, hostedEmailTotal.value - removedCount)
+  }
+}
+
 const removeExternalEmailsByMailboxIds = (mailboxIds: number[] = []) => {
   const idSet = new Set(
     mailboxIds.map((item) => Number(item)).filter((item) => Number.isFinite(item) && item > 0)
@@ -1622,8 +2002,46 @@ const removeExternalEmailsByMailboxIds = (mailboxIds: number[] = []) => {
   }
 }
 
+const removeHostedEmailsByMailboxIds = (mailboxIds: number[] = []) => {
+  const idSet = new Set(
+    mailboxIds.map((item) => Number(item)).filter((item) => Number.isFinite(item) && item > 0)
+  )
+  if (!idSet.size) return
+
+  const originalCount = hostedEmails.value.length
+  hostedEmails.value = hostedEmails.value.filter(
+    (email: any) => !idSet.has(Number(email?.mailbox_id))
+  )
+  const removedCount = originalCount - hostedEmails.value.length
+
+  if (selectedHostedMailboxId.value && idSet.has(Number(selectedHostedMailboxId.value))) {
+    selectedHostedMailboxId.value = null
+  }
+  if (
+    mailStore.selectedEmail &&
+    String(mailStore.selectedEmail.mailbox_type || '') === 'hosted' &&
+    idSet.has(Number(mailStore.selectedEmail.mailbox_id))
+  ) {
+    mailStore.selectedEmail = null
+  }
+  if (
+    selectedHostedEmailId.value &&
+    !hostedEmails.value.some((email: any) => Number(email?.id) === Number(selectedHostedEmailId.value))
+  ) {
+    selectedHostedEmailId.value = null
+  }
+
+  if (removedCount > 0) {
+    hostedEmailTotal.value = Math.max(0, hostedEmailTotal.value - removedCount)
+  }
+}
+
 const applySystemMailboxListResult = (result: any) => {
   mailboxStore.replaceMailboxes(result?.items || [], result?.pagination)
+}
+
+const applyHostedMailboxListResult = (result: any) => {
+  hostedDomainMailboxes.value = result?.items || []
 }
 
 const applyExternalMailboxListResult = (result: any) => {
@@ -1636,6 +2054,20 @@ const applySystemEmailListResult = (result: any, mailboxId?: number | null) => {
     selectedMailboxId.value = mailboxId || null
   }
   mailboxType.value = 'system'
+  currentView.value = 'emails'
+}
+
+const applyHostedEmailListResult = (result: any, mailboxId?: number | null) => {
+  hostedEmails.value = normalizeHostedEmailRows(Array.isArray(result?.items) ? result.items : [])
+  hostedEmailPage.value = Number(result?.pagination?.page || 1)
+  hostedEmailPageSize.value = Number(
+    result?.pagination?.page_size || hostedEmailPageSize.value || 20
+  )
+  hostedEmailTotal.value = Number(result?.pagination?.total || hostedEmails.value.length)
+  if (mailboxId !== undefined) {
+    selectedHostedMailboxId.value = mailboxId || null
+  }
+  mailboxType.value = 'hosted'
   currentView.value = 'emails'
 }
 
@@ -1656,11 +2088,20 @@ const applyExternalEmailListResult = (result: any, mailboxId?: number | null) =>
   currentView.value = 'emails'
 }
 
-const applyEmailDetailResult = (result: any, mailboxTypeValue: 'system' | 'external') => {
+const applyEmailDetailResult = (result: any, mailboxTypeValue: 'system' | 'hosted' | 'external') => {
   if (!result?.id) return
 
   mailStore.selectedEmail = result
   currentView.value = 'emails'
+
+  if (mailboxTypeValue === 'hosted') {
+    mailboxType.value = 'hosted'
+    selectedHostedEmailId.value = Number(result.id)
+    if (result.mailbox_id) {
+      selectedHostedMailboxId.value = Number(result.mailbox_id)
+    }
+    return
+  }
 
   if (mailboxTypeValue === 'external') {
     mailboxType.value = 'external'
@@ -1686,12 +2127,22 @@ const aiToolUiHandlers: Record<string, (item: any) => void> = {
     }
   },
   'mailboxes.list': (item) => {
+    if (extractMailboxType(item) === 'hosted') {
+      applyHostedMailboxListResult(item?.result)
+      mailboxType.value = 'hosted'
+      currentView.value = 'emails'
+      return
+    }
     applySystemMailboxListResult(item?.result)
     mailboxType.value = 'system'
     currentView.value = 'emails'
   },
   'mailboxes.delete': (item) => {
     const mailboxIds = extractToolIds(item, 'mailbox_id', 'mailbox_ids')
+    if (extractMailboxType(item) === 'hosted') {
+      handleHostedMailboxesDeleted(mailboxIds)
+      return
+    }
     handleSystemMailboxesDeleted(mailboxIds)
   },
   'external_mailboxes.list': (item) => {
@@ -1710,6 +2161,10 @@ const aiToolUiHandlers: Record<string, (item: any) => void> = {
       applyExternalEmailListResult(item?.result, mailboxId)
       return
     }
+    if (mailboxTypeValue === 'hosted') {
+      applyHostedEmailListResult(item?.result, mailboxId)
+      return
+    }
     applySystemEmailListResult(item?.result, mailboxId)
   },
   'emails.detail': (item) => {
@@ -1719,6 +2174,10 @@ const aiToolUiHandlers: Record<string, (item: any) => void> = {
     const emailIds = extractToolIds(item, 'email_id', 'email_ids')
     if (extractMailboxType(item) === 'external') {
       handleExternalEmailsDeleted(emailIds)
+      return
+    }
+    if (extractMailboxType(item) === 'hosted') {
+      handleHostedEmailsDeleted(emailIds)
       return
     }
     handleSystemEmailsDeleted(emailIds)
@@ -1752,6 +2211,10 @@ const handleAIUiSyncEvent = (event: Event) => {
 
 // 自动刷新（10秒）- 只在系统邮箱Tab时才刷新
 const autoRefresh = useAutoRefresh(async () => {
+  if (mailboxType.value === 'hosted') {
+    await refreshHostedEmails()
+    return
+  }
   await refreshSystemEmails()
 }, SYSTEM_EMAIL_REFRESH_INTERVAL)
 
@@ -1777,13 +2240,17 @@ onMounted(async () => {
     await mailboxStore.fetchMailboxes()
     // 同时加载所有邮件（不选择特定邮箱）
     await mailStore.fetchUserEmails()
+    await loadHostedDomainSummary()
     await loadSmtpAccounts()
 
-    // 恢复上次使用的 Tab（临时邮箱 / 第三方邮箱）
+    // 恢复上次使用的 Tab（临时邮箱 / 域名邮箱 / 第三方邮箱）
     const savedMailboxType = getSavedMailboxType()
-    if (savedMailboxType) {
+    if (savedMailboxType && (savedMailboxType !== 'hosted' || isAdmin.value)) {
       switchMailboxType(savedMailboxType)
     } else {
+      if (mailboxType.value === 'hosted' && !isAdmin.value) {
+        mailboxType.value = 'system'
+      }
       saveMailboxType(mailboxType.value)
     }
   } else {
@@ -1813,7 +2280,7 @@ onBeforeUnmount(() => {
   window.removeEventListener(AI_UI_SYNC_EVENT, handleAIUiSyncEvent as EventListener)
 })
 
-// 申请免费邮箱
+// 生成系统邮箱
 const allocateMailbox = async () => {
   const result = await mailboxStore.allocateMailbox()
   if (result.success) {
@@ -1837,6 +2304,14 @@ const handleSelectMailbox = async (mailbox: any) => {
     ...(showOnlyUnread.value ? { unread: true } : {})
   }
   await mailStore.fetchMailboxEmails(mailbox.id, params)
+}
+
+const handleSelectHostedMailbox = async (mailbox: any) => {
+  selectedHostedMailboxId.value = Number(mailbox.id)
+  selectedHostedEmailId.value = null
+  hostedEmailPage.value = 1
+  mailStore.selectedEmail = null
+  await loadHostedEmails(1)
 }
 
 // 选择外部邮箱
@@ -1867,6 +2342,28 @@ const handleSelectExternalMailbox = async (account: any) => {
   mailStore.selectedEmail = null
   await loadExternalMailboxEmails()
   externalEmailListRef.value?.scrollToTop?.()
+}
+
+const handleSelectHostedEmail = async (email: any) => {
+  selectedHostedEmailId.value = Number(email.id)
+  mailStore.selectedEmail = email
+
+  const result = await mailStore.fetchEmailDetail(email.id, 'hosted')
+  if (!result.success) {
+    showMessage(result.error || '邮件不存在或无权访问', 'error')
+    selectedHostedEmailId.value = null
+    mailStore.selectedEmail = null
+    return
+  }
+
+  if (!email.is_read) {
+    try {
+      await unifiedAPI.markEmailRead(email.id, 'hosted')
+      email.is_read = true
+    } catch (error) {
+      console.error('标记域名邮箱邮件已读失败:', error)
+    }
+  }
 }
 
 const handleRecoveredMailboxEvent = (event: Event) => {
@@ -2304,6 +2801,13 @@ const backToAllExternalEmails = async () => {
   externalEmailListRef.value?.scrollToTop?.()
 }
 
+const backToAllHostedEmails = async () => {
+  selectedHostedMailboxId.value = null
+  hostedEmailPage.value = 1
+  await loadHostedEmails(1)
+  hostedEmailListRef.value?.scrollToTop?.()
+}
+
 // 处理外部邮件刷新（单个邮箱收取成功后调用）
 const handleRefreshExternalEmails = async () => {
   // 如果选中了特定邮箱，刷新该邮箱的邮件列表
@@ -2340,6 +2844,12 @@ const toggleUnreadFilter = async () => {
   }
 }
 
+const toggleHostedUnread = async () => {
+  showOnlyUnreadHosted.value = !showOnlyUnreadHosted.value
+  hostedEmailPage.value = 1
+  await loadHostedEmails(1)
+}
+
 // 打开邮件内容弹窗
 const openEmailModal = (email: any) => {
   modalEmail.value = email
@@ -2368,6 +2878,12 @@ const handleSearchEmails = async (keyword: string) => {
       keyword || undefined
     )
   }
+}
+
+const handleSearchHostedEmails = async (keyword: string) => {
+  hostedSearchKeyword.value = keyword
+  hostedEmailPage.value = 1
+  await loadHostedEmails(1)
 }
 
 // 搜索外部邮件
@@ -2406,6 +2922,11 @@ const handlePageChange = async (page: number) => {
   }
 }
 
+const handleHostedEmailPageChange = async (page: number) => {
+  hostedEmailPage.value = page
+  await loadHostedEmails(page)
+}
+
 // 删除单个邮件
 const handleDeleteEmail = (id: number) => {
   deletingIds.value = [id]
@@ -2429,11 +2950,23 @@ const handleBatchDeleteExternalEmails = (ids: number[]) => {
   showDeleteConfirm.value = true
 }
 
+const handleBatchDeleteHostedEmails = (ids: number[]) => {
+  console.log('🟢 域名邮箱邮件批量删除，ids:', ids)
+  deletingIds.value = ids
+  deletingBatch.value = true
+  showDeleteConfirm.value = true
+}
+
 // 确认删除
 const confirmDeleteEmails = async () => {
   deleting.value = true
   try {
-    const emailType = mailboxType.value === 'system' ? 'system' : 'external'
+    const emailType =
+      mailboxType.value === 'system'
+        ? 'system'
+        : mailboxType.value === 'hosted'
+          ? 'hosted'
+          : 'external'
 
     if (deletingBatch.value) {
       // 使用批量删除接口
@@ -2450,6 +2983,8 @@ const confirmDeleteEmails = async () => {
 
     if (emailType === 'external') {
       handleExternalEmailsDeleted(deletingIds.value)
+    } else if (emailType === 'hosted') {
+      handleHostedEmailsDeleted(deletingIds.value)
     } else {
       handleSystemEmailsDeleted(deletingIds.value)
     }
@@ -2471,6 +3006,8 @@ const confirmDeleteEmails = async () => {
           showOnlyUnread.value || undefined
         )
       }
+    } else if (emailType === 'hosted') {
+      await loadHostedEmails(hostedEmailPage.value || 1)
     } else {
       // 外部邮件：根据是否选中邮箱决定加载方式
       if (selectedExternalMailboxId.value) {
@@ -2485,6 +3022,10 @@ const confirmDeleteEmails = async () => {
       if (mailboxType.value === 'system') {
         if (systemEmailListRef.value?.cancelBatchMode) {
           systemEmailListRef.value.cancelBatchMode()
+        }
+      } else if (mailboxType.value === 'hosted') {
+        if (hostedEmailListRef.value?.cancelBatchMode) {
+          hostedEmailListRef.value.cancelBatchMode()
         }
       } else {
         if (externalEmailListRef.value?.cancelBatchMode) {

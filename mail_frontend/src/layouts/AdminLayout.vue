@@ -50,13 +50,6 @@
                 代理管理
               </router-link>
               <router-link
-                to="/admin/ai-models"
-                class="block px-3 py-2 text-sm rounded-md hover:bg-gray-50 transition-colors"
-                :class="$route.path === '/admin/ai-models' ? 'bg-primary-50 text-primary-700 font-medium' : 'text-gray-600 hover:text-gray-900'"
-              >
-                模型管理
-              </router-link>
-              <router-link
                 to="/admin/announcements"
                 class="block px-3 py-2 text-sm rounded-md hover:bg-gray-50 transition-colors"
                 :class="$route.path === '/admin/announcements' ? 'bg-primary-50 text-primary-700 font-medium' : 'text-gray-600 hover:text-gray-900'"
