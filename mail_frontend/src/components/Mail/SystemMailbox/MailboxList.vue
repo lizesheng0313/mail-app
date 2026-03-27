@@ -44,7 +44,6 @@
           :mailbox-id="mailbox.id"
           mailbox-type="system"
           :editable="!batchMode"
-          :show-add-button="false"
           :max-display="3"
           :initial-sites="tagsData[mailbox.id]?.sites || []"
           :initial-tags="tagsData[mailbox.id]?.tags || []"

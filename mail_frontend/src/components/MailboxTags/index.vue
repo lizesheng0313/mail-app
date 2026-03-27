@@ -1,5 +1,5 @@
 <template>
-  <div class="mailbox-tags" v-if="sites.length > 0 || tags.length > 0 || showAddButton">
+  <div class="mailbox-tags" v-if="sites.length > 0 || tags.length > 0 || editable">
     <div class="tags-wrap">
       <!-- 站点标签 -->
       <span
@@ -41,7 +41,7 @@
       </span>
 
       <!-- 添加按钮 -->
-      <button v-if="showAddButton && editable" class="add-btn" @click.stop="showAddModal = true">
+      <button v-if="editable" class="add-btn" @click.stop="showAddModal = true">
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
           <path d="M12 4v16m8-8H4"/>
         </svg>
@@ -164,7 +164,6 @@ const props = defineProps({
   mailboxId: { type: Number, required: true },
   mailboxType: { type: String, default: 'system' },
   editable: { type: Boolean, default: true },
-  showAddButton: { type: Boolean, default: true },
   maxDisplay: { type: Number, default: 3 },
   initialSites: { type: Array, default: () => [] },
   initialTags: { type: Array, default: () => [] }

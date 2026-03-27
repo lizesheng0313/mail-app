@@ -110,7 +110,6 @@
           :mailbox-id="account.id"
           mailbox-type="external"
           :editable="!batchMode"
-          :show-add-button="false"
           :max-display="3"
           :initial-sites="tagsData[account.id]?.sites || []"
           :initial-tags="tagsData[account.id]?.tags || []"
