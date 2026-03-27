@@ -27,6 +27,7 @@
 
       <!-- 输入框 -->
       <input
+        ref="inputRef"
         :id="inputId"
         :type="type"
         :value="modelValue"
@@ -42,6 +43,7 @@
         @input="handleInput"
         @blur="handleBlur"
         @focus="handleFocus"
+        @click="handleClick"
         @keyup.enter="$emit('enter')"
         v-bind="$attrs"
       />
@@ -79,11 +81,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, useAttrs, useSlots } from 'vue'
+import { computed, ref, useAttrs, useSlots } from 'vue'
 
 interface Props {
   modelValue?: string | number
-  type?: 'text' | 'email' | 'password' | 'number' | 'tel' | 'url' | 'search'
+  type?: 'text' | 'email' | 'password' | 'number' | 'tel' | 'url' | 'search' | 'date' | 'time' | 'datetime-local'
   label?: string
   placeholder?: string
   required?: boolean
@@ -96,6 +98,7 @@ interface Props {
   leftIcon?: any
   rightIcon?: any
   showClear?: boolean
+  autoShowPicker?: boolean
   helpText?: string
   errorMessage?: string
   size?: 'sm' | 'md' | 'lg'
@@ -104,13 +107,15 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   type: 'text',
   size: 'md',
-  showClear: false
+  showClear: false,
+  autoShowPicker: false
 })
 
 const emit = defineEmits<{
   'update:modelValue': [value: string | number]
   'blur': [event: FocusEvent]
   'focus': [event: FocusEvent]
+  'click': [event: MouseEvent]
   'enter': []
   'clear': []
 }>()
@@ -122,6 +127,7 @@ defineOptions({
 
 const attrs = useAttrs()
 const slots = useSlots()
+const inputRef = ref<HTMLInputElement | null>(null)
 
 // 生成唯一ID
 const inputId = computed(() => {
@@ -181,6 +187,22 @@ const handleBlur = (event: FocusEvent) => {
 
 const handleFocus = (event: FocusEvent) => {
   emit('focus', event)
+}
+
+const handleClick = (event: MouseEvent) => {
+  emit('click', event)
+
+  if (!props.autoShowPicker || !inputRef.value) return
+  if (!['date', 'time', 'datetime-local'].includes(props.type)) return
+
+  const picker = inputRef.value as HTMLInputElement & { showPicker?: () => void }
+  if (typeof picker.showPicker === 'function') {
+    try {
+      picker.showPicker()
+    } catch {
+      // 部分浏览器不支持或有限制，保留原生行为即可
+    }
+  }
 }
 
 const handleClear = () => {

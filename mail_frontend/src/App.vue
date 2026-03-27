@@ -1,7 +1,7 @@
 <template>
   <div id="app">
     <RouterView />
-    <FloatingFeedback />
+    <FloatingAI />
     <SystemMaintenance ref="maintenanceRef" />
     <AppUpdater ref="updaterRef" />
   </div>
@@ -13,7 +13,7 @@ import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useUserStore } from '@/stores/user'
 import { usePageTracking } from '@/composables/usePageTracking'
 import { useDesktopOAuthKeepAlive } from '@/composables/useDesktopOAuthKeepAlive'
-import FloatingFeedback from '@/components/FloatingFeedback/index.vue'
+import FloatingAI from '@/components/FloatingAI/index.vue'
 import SystemMaintenance from '@/components/SystemMaintenance/index.vue'
 import AppUpdater from '@/components/AppUpdater/index.vue'
 import { registerMaintenanceCallback, isTauri } from '@/services/api'

@@ -618,6 +618,66 @@ fn list_sync_candidate_mailboxes<T: Read + Write>(session: &mut imap::Session<T>
     mailboxes
 }
 
+fn find_header_value_ci(parsed: &mailparse::ParsedMail, key: &str) -> Option<String> {
+    parsed
+        .headers
+        .iter()
+        .find(|h| h.get_key_ref().eq_ignore_ascii_case(key))
+        .map(|h| h.get_value())
+}
+
+fn normalize_text_for_dedupe(value: &str) -> String {
+    value
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .trim()
+        .to_ascii_lowercase()
+}
+
+fn normalize_message_id_for_dedupe(message_id: &str) -> String {
+    let normalized = message_id
+        .split_whitespace()
+        .collect::<String>()
+        .trim_matches(|ch| ch == '<' || ch == '>')
+        .trim()
+        .to_ascii_lowercase();
+
+    if normalized.is_empty()
+        || (normalized.starts_with("imap-") && normalized.ends_with("@local"))
+        || (normalized.starts_with("pop3-") && normalized.ends_with("@local"))
+        || normalized.starts_with("pop3-uidl:")
+        || normalized.starts_with("pop3:")
+    {
+        return String::new();
+    }
+
+    normalized
+}
+
+fn build_email_content_dedupe_key(email: &EmailData) -> String {
+    let subject = normalize_text_for_dedupe(&email.subject);
+    let from_addr = normalize_text_for_dedupe(&email.from_addr);
+    let to_addr = normalize_text_for_dedupe(&email.to_addr);
+    let content_preview = normalize_text_for_dedupe(if !email.content_text.trim().is_empty() {
+        &email.content_text
+    } else {
+        &email.content_html
+    });
+    let content_preview = content_preview.chars().take(160).collect::<String>();
+    let date_ms = email.email_date_ms;
+
+    if subject.is_empty() && from_addr.is_empty() && to_addr.is_empty() && content_preview.is_empty()
+    {
+        return String::new();
+    }
+
+    format!(
+        "{}|{}|{}|{}|{}",
+        subject, from_addr, to_addr, date_ms, content_preview
+    )
+}
+
 fn select_and_search_all_uids<T: Read + Write>(
     session: &mut imap::Session<T>,
     mailbox: &str,
@@ -668,7 +728,9 @@ fn fetch_from_candidate_mailboxes<T: Read + Write>(
     };
 
     let mut emails: Vec<EmailData> = Vec::new();
-    let mut seen_ids: HashSet<String> = HashSet::new();
+    let mut seen_message_ids: HashSet<String> = HashSet::new();
+    let mut seen_content_keys: HashSet<String> = HashSet::new();
+    let mut seen_fallback_keys: HashSet<String> = HashSet::new();
     let mut scanned_any_mailbox = false;
     let mut last_error: Option<String> = None;
 
@@ -700,15 +762,39 @@ fn fetch_from_candidate_mailboxes<T: Read + Write>(
 
                     match fetch_single_email(session, uid) {
                         Ok(email_data) => {
-                            let dedupe_key = if email_data.message_id.trim().is_empty() {
-                                format!("{}#{}", mailbox, uid)
-                            } else {
-                                email_data.message_id.trim().to_string()
-                            };
-
-                            if seen_ids.insert(dedupe_key) {
-                                emails.push(email_data);
+                            let normalized_message_id =
+                                normalize_message_id_for_dedupe(&email_data.message_id);
+                            let has_message_id_key = !normalized_message_id.is_empty();
+                            if has_message_id_key
+                                && seen_message_ids.contains(&normalized_message_id)
+                            {
+                                continue;
                             }
+
+                            let content_key = build_email_content_dedupe_key(&email_data);
+                            let has_content_key = !content_key.is_empty();
+                            if has_content_key && seen_content_keys.contains(&content_key) {
+                                continue;
+                            }
+
+                            let fallback_key = format!("{}#{}", mailbox.trim().to_ascii_lowercase(), uid);
+                            let needs_fallback_key = !has_message_id_key && !has_content_key;
+                            if needs_fallback_key && seen_fallback_keys.contains(&fallback_key)
+                            {
+                                continue;
+                            }
+
+                            if has_message_id_key {
+                                seen_message_ids.insert(normalized_message_id);
+                            }
+                            if has_content_key {
+                                seen_content_keys.insert(content_key);
+                            }
+                            if needs_fallback_key {
+                                seen_fallback_keys.insert(fallback_key);
+                            }
+
+                            emails.push(email_data);
                         }
                         Err(e) => {
                             error!("获取邮件失败 mailbox={} uid={}: {}", mailbox, uid, e);
@@ -791,12 +877,7 @@ fn imap_fetch_sync(
 // ── 邮件解析（未修改）─────────────────────────────────────────
 
 fn parse_email_timestamp_ms(parsed: &mailparse::ParsedMail, fallback_ms: i64) -> i64 {
-    let raw_date = parsed
-        .headers
-        .iter()
-        .find(|h| h.get_key_ref().eq_ignore_ascii_case("Date"))
-        .map(|h| h.get_value())
-        .unwrap_or_default();
+    let raw_date = find_header_value_ci(parsed, "Date").unwrap_or_default();
 
     chrono::DateTime::parse_from_rfc2822(raw_date.trim())
         .map(|dt| dt.timestamp_millis())
@@ -824,32 +905,13 @@ fn fetch_single_email<T: Read + Write>(
     let parsed = mailparse::parse_mail(body)
         .map_err(|e| format!("解析邮件失败: {}", e))?;
 
-    let subject = parsed
-        .headers
-        .iter()
-        .find(|h| h.get_key_ref() == "Subject")
-        .map(|h| h.get_value())
-        .unwrap_or_else(|| "(无主题)".to_string());
+    let subject = find_header_value_ci(&parsed, "Subject").unwrap_or_else(|| "(无主题)".to_string());
 
-    let from_addr = parsed
-        .headers
-        .iter()
-        .find(|h| h.get_key_ref() == "From")
-        .map(|h| h.get_value())
-        .unwrap_or_default();
+    let from_addr = find_header_value_ci(&parsed, "From").unwrap_or_default();
 
-    let to_addr = parsed
-        .headers
-        .iter()
-        .find(|h| h.get_key_ref() == "To")
-        .map(|h| h.get_value())
-        .unwrap_or_default();
+    let to_addr = find_header_value_ci(&parsed, "To").unwrap_or_default();
 
-    let message_id = parsed
-        .headers
-        .iter()
-        .find(|h| h.get_key_ref() == "Message-ID")
-        .map(|h| h.get_value())
+    let message_id = find_header_value_ci(&parsed, "Message-ID")
         .unwrap_or_else(|| format!("<imap-{}@local>", uid));
 
     let (content_text, content_html, attachments) = extract_content(&parsed);

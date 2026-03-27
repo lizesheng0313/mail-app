@@ -44,6 +44,7 @@ import {
   ArrowRightOnRectangleIcon,
   ArrowLeftOnRectangleIcon,
   Bars3Icon,
+  EllipsisHorizontalIcon,
   CurrencyDollarIcon,
   BanknotesIcon,
   CircleStackIcon,
@@ -139,6 +140,7 @@ const iconMap = {
   
   // 菜单
   'menu': Bars3Icon,
+  'more': EllipsisHorizontalIcon,
   
   // 财务
   'dollar': CurrencyDollarIcon,

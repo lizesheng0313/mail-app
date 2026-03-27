@@ -1,7 +1,7 @@
 <template>
   <div>
     <!-- 顶部导航 -->
-    <nav class="bg-white shadow-sm border-b border-gray-200 mobile-nav">
+    <nav class="fixed inset-x-0 top-0 z-[70] bg-white shadow-sm border-b border-gray-200 mobile-nav">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex justify-between items-center h-16">
           <div class="flex items-center">
@@ -34,6 +34,14 @@
                 active-class="text-primary-600 font-semibold"
               >
                 资源市场
+              </router-link>
+
+              <router-link
+                to="/open-platform"
+                class="text-sm text-black hover:text-black font-medium transition-colors"
+                active-class="text-primary-600 font-semibold"
+              >
+                开放平台
               </router-link>
 
               <!-- 自动化中心（需要登录才显示） -->
@@ -91,7 +99,7 @@
                 <!-- 公告下拉面板 -->
                 <div
                   v-if="showAnnouncements"
-                  class="absolute right-0 mt-2 w-96 bg-white rounded-lg shadow-xl border border-gray-200 z-50"
+                  class="absolute right-0 mt-2 w-96 bg-white rounded-lg shadow-xl border border-gray-200 z-[80]"
                 >
                   <div class="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
                     <h3 class="text-sm font-semibold text-gray-900">系统公告</h3>
@@ -170,19 +178,19 @@
                   @click="toggleUserMenu"
                   class="flex items-center space-x-2 text-sm text-black hover:text-black focus:outline-none"
                 >
-                  <span>{{ userStore.user?.email }}</span>
+                  <span>{{ displayUserName }}</span>
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                   </svg>
                 </button>
                 
                 <!-- 下拉菜单 -->
-                <div v-if="showUserMenu" class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                <div v-if="showUserMenu" class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-[80]">
                   <div class="py-1">
                     <!-- 管理员入口 -->
                     <router-link
                       v-if="userStore.user && (userStore.user as any).is_admin"
-                      to="/admin/auth-codes"
+                      to="/admin/domains"
                       @click="showUserMenu = false"
                       class="block px-4 py-2 text-sm text-black hover:bg-gray-100 transition-colors"
                     >
@@ -231,17 +239,21 @@
               </div>
             </div>
             <div v-else>
-              <router-link
-                to="/login"
-                class="text-sm text-black hover:text-black"
-              >
-                登录
-              </router-link>
+              <div class="flex items-center space-x-4">
+                <router-link
+                  to="/login"
+                  class="text-sm text-black hover:text-black"
+                >
+                  登录
+                </router-link>
+              </div>
             </div>
           </div>
         </div>
       </div>
     </nav>
+
+    <div class="h-16"></div>
 
     <!-- 注册提示横幅 -->
     <div v-if="!userStore.isAuthenticated" class="bg-gradient-to-r from-primary-600 to-primary-700 text-white">
@@ -268,7 +280,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import BaseIcon from '@/components/BaseIcon/index.vue'
@@ -279,6 +291,10 @@ import api from '@/services/api'
 
 const router = useRouter()
 const userStore = useUserStore()
+const displayUserName = computed(() => {
+  const user = userStore.user as any
+  return user?.nickname || user?.display_name || user?.nick_name || user?.username || user?.email || ''
+})
 
 // 用户菜单相关
 const showUserMenu = ref(false)

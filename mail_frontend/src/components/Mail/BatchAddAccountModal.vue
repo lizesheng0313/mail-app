@@ -70,11 +70,11 @@
                 <div class="flex items-center gap-3">
                   <span class="text-sm text-gray-700 font-medium">登录方式：</span>
                   <label class="flex items-center text-sm cursor-pointer hover:text-primary-600 transition">
-                    <input type="radio" v-model="loginMode" value="auto" class="mr-1.5 w-4 h-4 text-primary-600">
+                    <input type="radio" v-model="loginMode" value="auto" class="mr-1.5 h-4 w-4 border-gray-300 text-primary-600 accent-primary-600 focus:ring-primary-500">
                     自动（推荐）
                   </label>
                   <label class="flex items-center text-sm cursor-pointer hover:text-primary-600 transition">
-                    <input type="radio" v-model="loginMode" value="custom" class="mr-1.5 w-4 h-4 text-primary-600">
+                    <input type="radio" v-model="loginMode" value="custom" class="mr-1.5 h-4 w-4 border-gray-300 text-primary-600 accent-primary-600 focus:ring-primary-500">
                     自定义服务器
                   </label>
                 </div>
@@ -309,6 +309,16 @@ watch(() => props.visible, (visible) => {
 })
 
 // ===== 输入模式方法 =====
+const OAUTH_TOKEN_DOMAINS = new Set([
+  'gmail.com',
+  'googlemail.com',
+  'outlook.com',
+  'hotmail.com',
+  'live.com',
+  'live.cn',
+  'msn.com'
+])
+
 const parseAccounts = () => {
   const mode = loginMode.value
   const lines = accountsText.value.trim().split('\n')
@@ -324,9 +334,10 @@ const parseAccounts = () => {
 
     if (parts.length >= 2) {
       const email = parts[0].trim()
+      const domain = (email.split('@')[1] || '').toLowerCase()
 
       // 4段格式：邮箱----密码----Client_ID----Refresh_Token（OAuth Token 批量导入）
-      if (parts.length >= 4) {
+      if (parts.length >= 4 && OAUTH_TOKEN_DOMAINS.has(domain)) {
         const password = parts[1].trim()
         const oauthClientId = parts[2].trim()
         const oauthRefreshToken = parts[3].trim()

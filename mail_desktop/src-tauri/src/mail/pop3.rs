@@ -9,6 +9,14 @@ use std::time::Duration;
 const TCP_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 const IO_TIMEOUT: Duration = Duration::from_secs(30);
 
+fn find_header_value_ci(parsed: &mailparse::ParsedMail, key: &str) -> Option<String> {
+    parsed
+        .headers
+        .iter()
+        .find(|h| h.get_key_ref().eq_ignore_ascii_case(key))
+        .map(|h| h.get_value())
+}
+
 // ── 连接错误分类 ──────────────────────────────────────────────
 
 enum ConnectError {
@@ -434,32 +442,13 @@ fn fetch_single_pop3<S: Read + Write>(
     let parsed = mailparse::parse_mail(&mail_content)
         .map_err(|e| format!("解析邮件失败: {}", e))?;
 
-    let subject = parsed
-        .headers
-        .iter()
-        .find(|h| h.get_key_ref() == "Subject")
-        .map(|h| h.get_value())
-        .unwrap_or_else(|| "(无主题)".to_string());
+    let subject = find_header_value_ci(&parsed, "Subject").unwrap_or_else(|| "(无主题)".to_string());
 
-    let from_addr = parsed
-        .headers
-        .iter()
-        .find(|h| h.get_key_ref() == "From")
-        .map(|h| h.get_value())
-        .unwrap_or_default();
+    let from_addr = find_header_value_ci(&parsed, "From").unwrap_or_default();
 
-    let to_addr = parsed
-        .headers
-        .iter()
-        .find(|h| h.get_key_ref() == "To")
-        .map(|h| h.get_value())
-        .unwrap_or_default();
+    let to_addr = find_header_value_ci(&parsed, "To").unwrap_or_default();
 
-    let message_id = parsed
-        .headers
-        .iter()
-        .find(|h| h.get_key_ref() == "Message-ID")
-        .map(|h| h.get_value())
+    let message_id = find_header_value_ci(&parsed, "Message-ID")
         .or(uidl.map(|value| format!("pop3-uidl:{}", value)))
         .unwrap_or_else(|| format!("<pop3-{}@local>", msg_num));
 
@@ -752,24 +741,9 @@ fn matches_fallback_email_metadata(
     fallback_to_addr: Option<&str>,
     fallback_email_date_ms: Option<i64>,
 ) -> bool {
-    let subject = parsed
-        .headers
-        .iter()
-        .find(|h| h.get_key_ref() == "Subject")
-        .map(|h| h.get_value())
-        .unwrap_or_default();
-    let from_addr = parsed
-        .headers
-        .iter()
-        .find(|h| h.get_key_ref() == "From")
-        .map(|h| h.get_value())
-        .unwrap_or_default();
-    let to_addr = parsed
-        .headers
-        .iter()
-        .find(|h| h.get_key_ref() == "To")
-        .map(|h| h.get_value())
-        .unwrap_or_default();
+    let subject = find_header_value_ci(parsed, "Subject").unwrap_or_default();
+    let from_addr = find_header_value_ci(parsed, "From").unwrap_or_default();
+    let to_addr = find_header_value_ci(parsed, "To").unwrap_or_default();
 
     if let Some(expected_subject) = fallback_subject {
         if normalize_mail_header(&subject) != normalize_mail_header(expected_subject) {

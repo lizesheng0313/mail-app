@@ -6,14 +6,19 @@
         <h2 class="text-base font-semibold text-black">{{ title }}</h2>
         <div class="flex items-center gap-2">
           <slot name="header-actions"></slot>
-          
-          <button
+
+          <HoverTooltip
             v-if="!hideBatchMode && !batchSelection.isBatchMode.value && mailboxes.length > 0"
-            @click="startBatchMode"
-            class="px-2 py-1 text-[13px] text-primary-600 hover:text-primary-700 hover:bg-primary-50 rounded transition-colors"
+            text="批量操作"
           >
-            批量操作
-          </button>
+            <button
+              @click="startBatchMode"
+              class="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 transition-colors hover:bg-primary-50 hover:text-primary-700"
+              title="批量操作"
+            >
+              <BaseIcon name="list" size="sm" />
+            </button>
+          </HoverTooltip>
         </div>
       </div>
     </div>
@@ -64,6 +69,8 @@
 import { toRef } from 'vue'
 import { useBatchSelection } from '@/composables/useBatchSelection'
 import MultiSelectToolbar from '@/components/MultiSelectToolbar/index.vue'
+import BaseIcon from '@/components/BaseIcon/index.vue'
+import HoverTooltip from '@/components/HoverTooltip/index.vue'
 
 interface Mailbox {
   id: number

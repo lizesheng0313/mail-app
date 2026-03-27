@@ -20,13 +20,18 @@
         </div>
 
         <div class="flex items-center gap-1.5 flex-shrink-0">
-          <button
+          <HoverTooltip
             v-if="!batchSelection.isBatchMode.value && emails.length > 0"
-            @click="startBatchMode"
-            class="px-2 py-1 text-[13px] text-primary-600 hover:text-primary-700 hover:bg-primary-50 rounded transition-colors whitespace-nowrap"
+            text="批量操作"
           >
-            批量操作
-          </button>
+            <button
+              @click="startBatchMode"
+              class="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 transition-colors hover:bg-primary-50 hover:text-primary-700"
+              title="批量操作"
+            >
+              <BaseIcon name="list" size="sm" />
+            </button>
+          </HoverTooltip>
 
           <slot name="actions"></slot>
         </div>
@@ -107,6 +112,8 @@
 import { ref, watch, toRef } from 'vue'
 import { useBatchSelection } from '@/composables/useBatchSelection'
 import MultiSelectToolbar from '@/components/MultiSelectToolbar/index.vue'
+import BaseIcon from '@/components/BaseIcon/index.vue'
+import HoverTooltip from '@/components/HoverTooltip/index.vue'
 
 interface Email {
   id: number

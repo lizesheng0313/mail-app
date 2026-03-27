@@ -226,7 +226,7 @@
                 <p class="mt-1 text-sm text-orange-800">如果确认账号未异常，请点击反馈联系管理员，或添加客服微信处理。</p>
                 <div class="mt-3 flex flex-wrap gap-2">
                   <a
-                    href="/feedback"
+                    href="/user/feedback"
                     class="inline-flex items-center rounded-lg bg-primary-600 px-3 py-2 text-xs font-medium text-white hover:bg-primary-700"
                   >
                     提交反馈

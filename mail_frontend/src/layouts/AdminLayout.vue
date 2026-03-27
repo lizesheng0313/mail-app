@@ -36,13 +36,6 @@
             <!-- 二级菜单 -->
             <div v-show="expandedMenus.system" class="ml-8 mt-1 space-y-1">
               <router-link
-                to="/admin/auth-codes"
-                class="block px-3 py-2 text-sm rounded-md hover:bg-gray-50 transition-colors"
-                :class="$route.path === '/admin/auth-codes' ? 'bg-primary-50 text-primary-700 font-medium' : 'text-gray-600 hover:text-gray-900'"
-              >
-                卡密管理
-              </router-link>
-              <router-link
                 to="/admin/domains"
                 class="block px-3 py-2 text-sm rounded-md hover:bg-gray-50 transition-colors"
                 :class="$route.path === '/admin/domains' ? 'bg-primary-50 text-primary-700 font-medium' : 'text-gray-600 hover:text-gray-900'"
@@ -55,6 +48,13 @@
                 :class="$route.path === '/admin/proxy' ? 'bg-primary-50 text-primary-700 font-medium' : 'text-gray-600 hover:text-gray-900'"
               >
                 代理管理
+              </router-link>
+              <router-link
+                to="/admin/ai-models"
+                class="block px-3 py-2 text-sm rounded-md hover:bg-gray-50 transition-colors"
+                :class="$route.path === '/admin/ai-models' ? 'bg-primary-50 text-primary-700 font-medium' : 'text-gray-600 hover:text-gray-900'"
+              >
+                模型管理
               </router-link>
               <router-link
                 to="/admin/announcements"
@@ -313,7 +313,7 @@ const toggleMenu = (menu: keyof typeof expandedMenus) => {
 // 根据当前路由自动展开对应的菜单
 const autoExpandMenu = () => {
   const path = route.path
-  if (['/admin/auth-codes', '/admin/domains', '/admin/proxy', '/admin/announcements'].includes(path)) {
+  if (['/admin/domains', '/admin/proxy', '/admin/announcements'].includes(path)) {
     expandedMenus.system = true
   } else if (['/admin/users', '/admin/feedback'].includes(path)) {
     expandedMenus.user = true
@@ -339,7 +339,6 @@ watch(() => route.path, () => {
 // 页面标题和描述
 const pageTitle = computed(() => {
   const titles: Record<string, string> = {
-    '/admin/auth-codes': '卡密管理',
     '/admin/domains': '域名管理',
     '/admin/feedback': '用户反馈',
     '/admin/monitoring': '系统监控',
@@ -357,7 +356,6 @@ const pageTitle = computed(() => {
 
 const pageDescription = computed(() => {
   const descriptions: Record<string, string> = {
-    '/admin/auth-codes': '管理系统授权码和邮箱配额',
     '/admin/domains': '管理邮箱域名配置',
     '/admin/feedback': '管理用户反馈和问题建议',
     '/admin/monitoring': '实时监控系统运行状态和性能指标',

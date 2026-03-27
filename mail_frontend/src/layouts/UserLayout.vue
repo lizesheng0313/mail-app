@@ -46,6 +46,20 @@ const UserIcon = {
 // 菜单配置
 const menuSections = [
   {
+    name: '开发接入',
+    items: [
+      {
+        path: '/user/developer/api-keys',
+        label: '访问密钥',
+        icon: {
+          render: () => h('svg', { fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' }, [
+            h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'stroke-width': '2', d: 'M15 7a4 4 0 11-7.75 1H5a2 2 0 100 4h2.25A4 4 0 1115 7zm0 0l4 4m0 0l2-2m-2 2l-2 2' })
+          ])
+        }
+      }
+    ]
+  },
+  {
     name: '财务管理',
     items: [
       {
@@ -77,6 +91,15 @@ const menuSections = [
         icon: {
           render: () => h('svg', { fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' }, [
             h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'stroke-width': '2', d: 'M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z' })
+          ])
+        }
+      },
+      {
+        path: '/user/feedback',
+        label: '问题反馈',
+        icon: {
+          render: () => h('svg', { fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' }, [
+            h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'stroke-width': '2', d: 'M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-4l-4 4v-4z' })
           ])
         }
       }
@@ -115,22 +138,28 @@ const menuSections = [
 
 // 当前页面标题
 const currentPageTitle = computed(() => {
+  if (route.path.startsWith('/user/developer/api-keys')) return '访问密钥'
+
   const titles = {
     '/user/purchases': '交易记录',
     '/user/finance': '财务中心',
     '/user/settings': '个人设置',
-    '/user/announcements': '系统公告'
+    '/user/announcements': '系统公告',
+    '/user/feedback': '问题反馈'
   }
   return titles[route.path] || '我的工作台'
 })
 
 // 页面描述
 const pageDescription = computed(() => {
+  if (route.path.startsWith('/user/developer/api-keys')) return '像其它列表页一样直接管理访问密钥；新建通过弹窗完成'
+
   const descriptions = {
     '/user/purchases': '查看所有奶片交易记录',
     '/user/finance': '管理奶片充值、提现和交易记录',
     '/user/settings': '管理个人信息和账户设置',
-    '/user/announcements': '查看系统发布的公告信息'
+    '/user/announcements': '查看系统发布的公告信息',
+    '/user/feedback': '提交问题反馈，查看处理进度和管理员回复'
   }
   return descriptions[route.path] || '欢迎使用工作台'
 })

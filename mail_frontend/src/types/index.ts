@@ -1,6 +1,10 @@
 export interface User {
   id: number
   email: string
+  username?: string
+  nickname?: string
+  display_name?: string
+  nick_name?: string
   is_active: boolean
   is_admin?: boolean
   created_at: string

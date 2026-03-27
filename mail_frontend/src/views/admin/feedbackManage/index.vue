@@ -117,23 +117,23 @@
           <!-- 状态 -->
           <div class="mb-4">
             <label class="block text-sm font-medium text-black mb-2">状态</label>
-            <select v-model="replyForm.status" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent">
-              <option value="pending">待处理</option>
-              <option value="processing">处理中</option>
-              <option value="resolved">已解决</option>
-              <option value="closed">已关闭</option>
-            </select>
+            <CustomSelect
+              v-model="replyForm.status"
+              :options="replyStatusOptions"
+              placeholder="请选择状态"
+              class="w-full"
+            />
           </div>
 
           <!-- 管理员回复 -->
           <div class="mb-6">
-            <label class="block text-sm font-medium text-black mb-2">管理员回复</label>
-            <textarea
+            <BaseTextarea
               v-model="replyForm.admin_reply"
+              label="管理员回复"
               rows="4"
               placeholder="请输入回复内容..."
-              class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-            ></textarea>
+              resize="vertical"
+            />
           </div>
 
           <!-- 按钮 -->
@@ -166,6 +166,7 @@ import { ref, reactive, onMounted } from 'vue'
 import api from '@/services/api'
 import CustomSelect from '@/components/CustomSelect/index.vue'
 import AdminDataTable from '@/components/AdminDataTable/index.vue'
+import BaseTextarea from '@/components/BaseTextarea/index.vue'
 import { showMessage } from '@/utils/message'
 
 
@@ -178,6 +179,8 @@ const statusOptions = [
   { label: '已解决', value: 'resolved' },
   { label: '已关闭', value: 'closed' }
 ]
+
+const replyStatusOptions = statusOptions.filter(option => option.value)
 
 const typeOptions = [
   { label: '全部类型', value: '' },

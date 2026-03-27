@@ -22,143 +22,155 @@
     <template
       #content="{ mailboxes, selectedId, batchMode, selectedIds, toggleSelection, onSelect }"
     >
-      <div
+      <MailboxCard
         v-for="account in mailboxes"
         :key="account.id"
-        class="group rounded-lg border border-transparent p-3"
-        :class="[
+        :batch-mode="batchMode"
+        :checked="selectedIds.includes(account.id)"
+        :card-class="[
           getSendItemClass(account, selectedId, batchMode, selectedIds),
           isSendEmailView && !hasSmtp(account.email) ? 'cursor-not-allowed' : 'cursor-pointer'
         ]"
         @click="handleItemClick(account, batchMode, toggleSelection, onSelect)"
       >
-        <div class="flex items-center justify-between">
-          <div class="flex items-center flex-1 min-w-0">
-            <input
-              v-if="batchMode"
-              type="checkbox"
-              :checked="selectedIds.includes(account.id)"
-              @click.stop="toggleSelection(account.id)"
-              class="w-4 h-4 mr-3 cursor-pointer flex-shrink-0"
-            />
-            <!-- 发件模式下的选中图标 -->
-            <div
-              v-else-if="isSendEmailView"
-              class="w-5 h-5 mr-2 flex-shrink-0 flex items-center justify-center"
-            >
-              <svg
-                v-if="(selectedSendIds || []).includes(account.id)"
-                class="w-5 h-5 text-primary-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-              <div
-                v-else
-                class="w-4 h-4 rounded-full border-2"
-                :class="hasSmtp(account.email) ? 'border-gray-300' : 'border-gray-200'"
-              ></div>
-            </div>
-            <div class="flex-1">
-              <div class="flex items-center gap-2">
-                <span
-                  v-if="account.status === 'active'"
-                  class="w-2 h-2 rounded-full flex-shrink-0 bg-green-500"
-                  title="🟢 在线"
-                ></span>
-                <span
-                  v-else-if="account.status === 'failed'"
-                  class="w-2 h-2 rounded-full flex-shrink-0 bg-red-500"
-                  :title="
-                    '🔴 连接失败' + (account.error_message ? ': ' + account.error_message : '')
-                  "
-                ></span>
-                <span
-                  v-else
-                  class="w-2 h-2 rounded-full flex-shrink-0 bg-gray-400"
-                  title="⚪ 已禁用"
-                ></span>
-                <code
-                  class="text-sm truncate"
-                  :class="[
-                    account.status === 'failed' ? 'text-red-600' : 'text-black',
-                    isSendEmailView && !hasSmtp(account.email) ? 'opacity-50' : ''
-                  ]"
-                >
-                  {{ account.email }}
-                </code>
-              </div>
-              <p
-                v-if="!isSendEmailView || (account.status === 'failed' && account.error_message)"
-                class="text-xs mt-1"
-                :class="account.status === 'failed' ? 'text-red-500' : 'text-gray-600'"
-              >
-                <span v-if="account.status === 'failed' && account.error_message">
-                  {{ account.error_message }}
-                </span>
-                <span v-else>
-                  更新：{{
-                    account.last_sync_at || account.created_at
-                      ? formatDate(account.last_sync_at || account.created_at)
-                      : '未收取'
-                  }}
-                </span>
-              </p>
-              <!-- 站点和标签 -->
-              <MailboxTags
-                v-if="!isSendEmailView && account.id in tagsData"
-                :mailbox-id="account.id"
-                mailbox-type="external"
-                :editable="!batchMode"
-                :show-add-button="!batchMode"
-                :max-display="3"
-                :initial-sites="tagsData[account.id]?.sites || []"
-                :initial-tags="tagsData[account.id]?.tags || []"
-              />
-            </div>
-          </div>
+        <template #leading>
           <div
-            v-if="!batchMode"
-            class="ml-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex gap-1 flex-shrink-0"
+            v-if="!batchMode && isSendEmailView"
+            class="mr-2 flex h-5 w-5 flex-shrink-0 items-center justify-center"
           >
-            <ActionButton
-              icon="copy"
-              variant="copy"
-              tooltip="复制邮箱"
-              @click.stop="copy(account.email)"
-            />
-            <ActionButton
-              v-if="!isSendEmailView"
-              icon="share"
-              variant="primary"
-              tooltip="分享邮箱"
-              @click.stop="handleShare(account)"
-            />
-            <ActionButton
-              icon="delete"
-              variant="delete"
-              tooltip="删除账号"
-              @click.stop="handleDelete(account.id)"
-            />
-            <ActionButton
-              v-if="!isSendEmailView && isDesktop"
-              icon="refresh"
-              variant="primary"
-              :tooltip="mergedFetchingIds.includes(account.id) ? '收取中...' : '收取邮件'"
-              :disabled="mergedFetchingIds.includes(account.id)"
-              :class="{ 'animate-spin': mergedFetchingIds.includes(account.id) }"
-              @click.stop="fetchSingleMailbox(account.id)"
-            />
+            <svg
+              v-if="(selectedSendIds || []).includes(account.id)"
+              class="h-5 w-5 text-primary-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+            <div
+              v-else
+              class="h-4 w-4 rounded-full border-2"
+              :class="hasSmtp(account.email) ? 'border-gray-300' : 'border-gray-200'"
+            ></div>
+          </div>
+        </template>
+        <div class="flex items-center gap-2 min-w-0">
+          <span
+            v-if="account.status === 'active'"
+            class="w-2 h-2 rounded-full flex-shrink-0 bg-green-500"
+            title="🟢 在线"
+          ></span>
+          <span
+            v-else-if="account.status === 'failed'"
+            class="w-2 h-2 rounded-full flex-shrink-0 bg-red-500"
+            :title="
+              '🔴 连接失败' + (account.error_message ? ': ' + account.error_message : '')
+            "
+          ></span>
+          <span
+            v-else
+            class="w-2 h-2 rounded-full flex-shrink-0 bg-gray-400"
+            title="⚪ 已禁用"
+          ></span>
+          <div class="min-w-0 max-w-full text-left">
+            <code
+              class="block text-sm truncate"
+              :class="[
+                account.status === 'failed' ? 'text-red-600' : 'text-black',
+                isSendEmailView && !hasSmtp(account.email) ? 'opacity-50' : ''
+              ]"
+            >
+              {{ account.email }}
+            </code>
           </div>
         </div>
-      </div>
+        <p
+          v-if="!isSendEmailView || (account.status === 'failed' && account.error_message)"
+          class="text-xs mt-1"
+          :class="account.status === 'failed' ? 'text-red-500' : 'text-gray-600'"
+        >
+          <span v-if="account.status === 'failed' && account.error_message">
+            {{ account.error_message }}
+          </span>
+          <span v-else>
+            更新：{{
+              account.last_sync_at || account.created_at
+                ? formatDate(account.last_sync_at || account.created_at)
+                : '未收取'
+            }}
+          </span>
+        </p>
+        <MailboxTags
+          v-if="!isSendEmailView && account.id in tagsData"
+          :mailbox-id="account.id"
+          mailbox-type="external"
+          :editable="!batchMode"
+          :show-add-button="false"
+          :max-display="3"
+          :initial-sites="tagsData[account.id]?.sites || []"
+          :initial-tags="tagsData[account.id]?.tags || []"
+        />
+        <template #actions>
+          <button
+            type="button"
+            class="flex h-8 w-8 items-center justify-center rounded-full text-gray-500 transition-colors hover:bg-white hover:text-gray-700"
+            title="更多操作"
+            @click.stop="toggleActionMenu(account.id)"
+          >
+            <BaseIcon name="more" size="sm" />
+          </button>
+          <div
+            v-if="openMenuId === account.id"
+            class="absolute right-0 top-10 z-20 min-w-[128px] overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg"
+            @click.stop
+          >
+            <button
+              type="button"
+              class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-50"
+              @click.stop="handleCopyEmail(account.email)"
+            >
+              <BaseIcon name="copy" size="sm" />
+              复制邮箱
+            </button>
+            <button
+              v-if="!isSendEmailView"
+              type="button"
+              class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-50"
+              @click.stop="handleShareAction(account)"
+            >
+              <BaseIcon name="share" size="sm" />
+              分享邮箱
+            </button>
+            <button
+              v-if="!isSendEmailView && isDesktop"
+              type="button"
+              class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+              :disabled="mergedFetchingIds.includes(account.id)"
+              @click.stop="handleRefreshAction(account.id)"
+            >
+              <BaseIcon
+                name="refresh"
+                size="sm"
+                :class="{ 'animate-spin': mergedFetchingIds.includes(account.id) }"
+              />
+              {{ mergedFetchingIds.includes(account.id) ? '收取中...' : '收取邮件' }}
+            </button>
+            <button
+              type="button"
+              class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 transition-colors hover:bg-red-50"
+              @click.stop="handleDeleteAction(account.id)"
+            >
+              <BaseIcon name="delete" size="sm" />
+              删除账号
+            </button>
+          </div>
+        </template>
+      </MailboxCard>
     </template>
   </MailboxList>
 
@@ -178,9 +190,10 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import MailboxList from '@/components/Mail/MailboxList/MailboxList.vue'
+import MailboxCard from '@/components/Mail/MailboxList/MailboxCard.vue'
 import Pagination from '@/components/Pagination/index.vue'
-import ActionButton from '@/components/ActionButton/index.vue'
 import ConfirmDialog from '@/components/ConfirmDialog/index.vue'
+import BaseIcon from '@/components/BaseIcon/index.vue'
 import MailboxTags from '@/components/MailboxTags/index.vue'
 import { batchLoginAPI } from '@/api/batchLogin'
 import { unifiedAPI } from '@/api/unified'
@@ -234,6 +247,7 @@ const handleItemClick = (
   onSelect: Function
 ) => {
   if (batchMode) {
+    closeActionMenu()
     toggleSelection(account.id)
     return
   }
@@ -241,6 +255,7 @@ const handleItemClick = (
   if (props.isSendEmailView && !hasSmtp(account.email)) {
     return
   }
+  closeActionMenu()
   selectedId.value = account.id
   onSelect(account)
 }
@@ -251,6 +266,7 @@ const emit = defineEmits<{
   share: [mailboxes: any[]]
   'oauth-reauthorize': [account: any]
   'batch-mode-start': []
+  deleted: [ids: number[]]
 }>()
 
 const accounts = ref([])
@@ -261,6 +277,7 @@ const selectedId = ref<number | null>(null)
 const fetchingIds = ref<number[]>([])
 const mailboxListRef = ref()
 const tagsData = ref<Record<number, { sites: any[]; tags: any[] }>>({})
+const openMenuId = ref<number | null>(null)
 const mergedFetchingIds = computed(() => {
   const ids = [...(props.fetchingIds || []), ...fetchingIds.value]
   return Array.from(new Set(ids))
@@ -297,34 +314,97 @@ const handleRecoveredMailbox = () => {
   void loadAccounts(currentPage.value || 1)
 }
 
+const closeActionMenu = () => {
+  openMenuId.value = null
+}
+
+const toggleActionMenu = (accountId: number) => {
+  openMenuId.value = openMenuId.value === accountId ? null : accountId
+}
+
+const applyAccountsPagination = (pagination?: any, fallbackCount = accounts.value.length) => {
+  if (pagination) {
+    currentPage.value = Number(pagination.page || pagination.current_page || 1)
+    totalPages.value = Number(pagination.total_pages || 0)
+    totalAccounts.value = Number(pagination.total || fallbackCount || 0)
+    return
+  }
+
+  totalAccounts.value = fallbackCount
+  totalPages.value = fallbackCount > 0 ? Math.max(1, Math.ceil(fallbackCount / 20)) : 0
+  currentPage.value = 1
+}
+
+const replaceAccounts = (items: any[] = [], pagination?: any) => {
+  accounts.value = Array.isArray(items) ? [...items] : []
+  applyAccountsPagination(pagination, accounts.value.length)
+
+  if (accounts.value.length > 0) {
+    loadTagsData()
+  } else {
+    tagsData.value = {}
+  }
+}
+
+const upsertAccounts = (items: any[] = []) => {
+  if (!items.length) return
+
+  let addedCount = 0
+  const nextAccounts = [...accounts.value]
+  for (const item of items) {
+    const accountId = Number(item?.id)
+    if (!Number.isFinite(accountId) || accountId <= 0) continue
+
+    const index = nextAccounts.findIndex((account: any) => Number(account?.id) === accountId)
+    if (index >= 0) {
+      nextAccounts[index] = { ...nextAccounts[index], ...item }
+    } else {
+      nextAccounts.unshift(item)
+      addedCount += 1
+    }
+  }
+
+  accounts.value = nextAccounts
+  if (addedCount > 0) {
+    totalAccounts.value += addedCount
+    totalPages.value = Math.max(1, Math.ceil(totalAccounts.value / 20))
+  }
+  loadTagsData()
+}
+
+const removeAccounts = (ids: number[] = []) => {
+  const idSet = new Set(
+    ids.map((item) => Number(item)).filter((item) => Number.isFinite(item) && item > 0)
+  )
+  if (!idSet.size) return
+
+  const originalCount = accounts.value.length
+  accounts.value = accounts.value.filter((account: any) => !idSet.has(Number(account?.id)))
+  const removedCount = originalCount - accounts.value.length
+
+  if (selectedId.value && idSet.has(Number(selectedId.value))) {
+    selectedId.value = null
+  }
+
+  if (removedCount > 0) {
+    totalAccounts.value = Math.max(0, totalAccounts.value - removedCount)
+    totalPages.value = totalAccounts.value > 0 ? Math.max(1, Math.ceil(totalAccounts.value / 20)) : 0
+  }
+
+  if (accounts.value.length > 0) {
+    loadTagsData()
+  } else {
+    tagsData.value = {}
+  }
+}
+
 const loadAccounts = async (page = 1) => {
   try {
     const res = await batchLoginAPI.getAccounts(page, 20)
 
     if (res.code === 0) {
-      // 确保是数组：如果 res.data 是对象，提取 accounts 数组
       const data = res.data || []
-      accounts.value = Array.isArray(data) ? data : data.accounts || []
-
-      // 处理分页信息
-      if (data.pagination) {
-        currentPage.value = data.pagination.current_page || page
-        totalPages.value = data.pagination.total_pages || 1
-        totalAccounts.value = data.pagination.total || accounts.value.length
-      } else if (data.total) {
-        totalAccounts.value = data.total
-        totalPages.value = Math.ceil(data.total / 20)
-        currentPage.value = page
-      } else {
-        totalAccounts.value = accounts.value.length
-        totalPages.value = 1
-        currentPage.value = 1
-      }
-
-      // 批量加载标签数据
-      if (accounts.value.length > 0) {
-        loadTagsData()
-      }
+      replaceAccounts(Array.isArray(data) ? data : data.accounts || [], data.pagination)
     } else {
       console.error('❌ API返回错误:', res.message)
     }
@@ -357,6 +437,21 @@ const handleShare = (account: any) => {
   emit('share', [account])
 }
 
+const handleCopyEmail = (text: string) => {
+  closeActionMenu()
+  copy(text)
+}
+
+const handleShareAction = (account: any) => {
+  closeActionMenu()
+  handleShare(account)
+}
+
+const handleDeleteAction = (id: number) => {
+  closeActionMenu()
+  handleDelete(id)
+}
+
 const handleBatchDelete = (ids: number[]) => {
   console.log('🟢 外部邮箱组件 - handleBatchDelete 被调用')
   console.log('🟢 接收到的 ids:', ids)
@@ -385,11 +480,22 @@ const copy = (text: string) => {
   showMessage('已复制', 'success')
 }
 
+const handleRefreshAction = (accountId: number) => {
+  closeActionMenu()
+  fetchSingleMailbox(accountId)
+}
+
+const handleWindowClick = () => {
+  closeActionMenu()
+}
+
 const confirmDelete = async () => {
   deleting.value = true
   try {
-    await Promise.all(isDeleting.value.ids.map((id) => unifiedAPI.deleteMailbox(id, 'external')))
-    showMessage(`已删除 ${isDeleting.value.ids.length} 个账号`)
+    const deletedIds = [...isDeleting.value.ids]
+    await Promise.all(deletedIds.map((id) => unifiedAPI.deleteMailbox(id, 'external')))
+    showMessage(`已删除 ${deletedIds.length} 个账号`)
+    emit('deleted', deletedIds)
     await loadAccounts()
     emit('refresh')
   } catch (e: any) {
@@ -521,6 +627,9 @@ const fetchSingleMailbox = async (accountId: number) => {
 // 暴露加载方法给父组件调用（不要在onMounted自动加载）
 defineExpose({
   loadAccounts,
+  replaceAccounts,
+  upsertAccounts,
+  removeAccounts,
   loadTagsData,
   cancelBatchMode: () => {
     console.log('🔵 外部邮箱组件 - cancelBatchMode 被调用')
@@ -538,44 +647,14 @@ defineExpose({
 })
 
 onMounted(() => {
+  window.addEventListener('click', handleWindowClick)
   window.addEventListener('external-mailbox-recovered', handleRecoveredMailbox)
   window.addEventListener('external-mailbox-updated', handleRecoveredMailbox)
 })
 
 onBeforeUnmount(() => {
+  window.removeEventListener('click', handleWindowClick)
   window.removeEventListener('external-mailbox-recovered', handleRecoveredMailbox)
   window.removeEventListener('external-mailbox-updated', handleRecoveredMailbox)
 })
 </script>
-
-<style scoped>
-/* 自定义 checkbox 样式 */
-input[type='checkbox'] {
-  appearance: none;
-  -webkit-appearance: none;
-  width: 16px;
-  height: 16px;
-  border: 2px solid #d1d5db;
-  border-radius: 3px;
-  cursor: pointer;
-  position: relative;
-  background-color: white;
-}
-
-input[type='checkbox']:checked {
-  background-color: #22c55e;
-  border-color: #22c55e;
-}
-
-input[type='checkbox']:checked::after {
-  content: '';
-  position: absolute;
-  left: 4px;
-  top: 1px;
-  width: 4px;
-  height: 8px;
-  border: solid white;
-  border-width: 0 2px 2px 0;
-  transform: rotate(45deg);
-}
-</style>

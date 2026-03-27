@@ -1,270 +1,290 @@
 <template>
-  <div>
-    <!-- 顶部导航 -->
-    <PageHeader />
-    
-    <div class="min-h-screen bg-gray-50 py-8">
-    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-      <!-- 页面标题 -->
-      <div class="mb-8">
-        <h1 class="text-3xl font-bold text-black">问题建议</h1>
-        <p class="mt-2 text-black">提交问题建议或查看处理进度</p>
-      </div>
-
-      <!-- 标签切换 -->
-      <div class="mb-6">
-        <div class="border-b border-gray-200">
-          <nav class="-mb-px flex space-x-8">
-            <button
-              @click="activeTab = 'submit'"
-              :class="[
-                'py-2 px-1 border-b-2 font-medium text-sm',
-                activeTab === 'submit'
-                  ? 'border-primary-500 text-primary-600'
-                  : 'border-transparent text-black hover:text-black hover:border-gray-300'
-              ]"
+  <div class="h-full">
+    <div class="h-full flex flex-col">
+      <div class="bg-white rounded-lg shadow-sm border p-6 mb-8">
+        <div class="flex justify-between items-center">
+          <div class="flex items-center space-x-4">
+            <BaseInput
+              v-model="filters.keyword"
+              placeholder="搜索标题或内容..."
+              class="w-64"
+              size="sm"
+              @enter="applyFilters"
             >
-              提交反馈
-            </button>
-            <button
-              @click="activeTab = 'history'"
-              :class="[
-                'py-2 px-1 border-b-2 font-medium text-sm',
-                activeTab === 'history'
-                  ? 'border-primary-500 text-primary-600'
-                  : 'border-transparent text-black hover:text-black hover:border-gray-300'
-              ]"
-            >
-              我的反馈
-              <span v-if="feedbackCount > 0" class="ml-2 bg-primary-100 text-primary-600 py-1 px-2 rounded-full text-xs">
-                {{ feedbackCount }}
-              </span>
-            </button>
-          </nav>
-        </div>
-      </div>
+              <template #left-icon>
+                <svg class="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </template>
+            </BaseInput>
 
-      <!-- 提交反馈标签页 -->
-      <div v-if="activeTab === 'submit'" class="bg-white rounded-lg shadow-sm border p-6">
-        <h2 class="text-xl font-semibold text-black mb-6">提交问题建议</h2>
-        
-        <form @submit.prevent="submitFeedback" class="space-y-6">
-          <!-- 反馈类型 -->
-          <div>
-            <label class="block text-sm font-medium text-black mb-2">
-              反馈类型 <span class="text-red-500">*</span>
-            </label>
             <CustomSelect
-              v-model="feedbackForm.type"
-              :options="typeOptions"
-              placeholder="请选择反馈类型"
+              v-model="filters.type"
+              :options="typeFilterOptions"
+              placeholder="全部类型"
+              class="w-40"
             />
-            <div v-if="errors.type" class="mt-1 text-sm text-red-600">{{ errors.type }}</div>
-          </div>
 
-          <!-- 标题 -->
-          <div>
-            <label class="block text-sm font-medium text-black mb-2">
-              标题 <span class="text-red-500">*</span>
-            </label>
-            <BaseInput
-              v-model="feedbackForm.title"
-              type="text"
-              :error-message="errors.title"
-              placeholder="请简要描述问题..."
+            <CustomSelect
+              v-model="filters.status"
+              :options="statusFilterOptions"
+              placeholder="全部状态"
+              class="w-40"
             />
-            <div v-if="errors.title" class="mt-1 text-sm text-red-600">{{ errors.title }}</div>
-          </div>
 
-          <!-- 详细描述 -->
-          <div>
-            <label class="block text-sm font-medium text-black mb-2">
-              详细描述 <span class="text-red-500">*</span>
-            </label>
-            <BaseTextarea
-              v-model="feedbackForm.content"
-              rows="6"
-              :error-message="errors.content"
-              placeholder="请详细描述遇到的问题、建议的功能或其他反馈..."
-            />
-            <div v-if="errors.content" class="mt-1 text-sm text-red-600">{{ errors.content }}</div>
-          </div>
-
-          <!-- 联系方式 -->
-          <div>
-            <label class="block text-sm font-medium text-black mb-2">
-              联系方式（可选）
-            </label>
-            <BaseInput
-              v-model="feedbackForm.contact_info"
-              type="text"
-              placeholder="如需回复，请留下您的联系方式（邮箱、QQ等）"
-            />
-          </div>
-
-          <!-- 提交按钮 -->
-          <div class="flex justify-end">
             <button
-              type="submit"
-              :disabled="submitting"
-              class="px-6 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              @click="applyFilters"
+              class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-md text-sm"
             >
-              <span v-if="submitting">提交中...</span>
-              <span v-else>提交反馈</span>
+              查询
             </button>
           </div>
-        </form>
-      </div>
 
-      <!-- 我的反馈标签页 -->
-      <div v-if="activeTab === 'history'">
-        <div v-if="loadingHistory" class="flex justify-center py-12">
-          <div class="inline-flex items-center">
-            <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-black" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            加载中...
-          </div>
-        </div>
-
-        <div v-else-if="feedbacks.length === 0" class="text-center py-12 bg-white rounded-lg shadow-sm">
-          <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
-          </svg>
-          <h3 class="mt-2 text-sm font-medium text-black">暂无反馈记录</h3>
-          <p class="mt-1 text-sm text-black">您还没有提交过任何反馈</p>
-          <div class="mt-6">
-            <button
-              @click="activeTab = 'submit'"
-              class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700"
-            >
-              提交反馈
-            </button>
-          </div>
-        </div>
-
-        <div v-else class="space-y-6">
-          <!-- 反馈列表 -->
-          <div v-for="feedback in feedbacks" :key="feedback.id" class="bg-white shadow rounded-lg overflow-hidden">
-            <div class="px-6 py-4 border-b border-gray-200">
-              <div class="flex items-center justify-between">
-                <div class="flex items-center space-x-3">
-                  <span :class="getTypeClass(feedback.type)" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium">
-                    {{ getTypeText(feedback.type) }}
-                  </span>
-                  <span :class="getStatusClass(feedback.status)" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium">
-                    {{ getStatusText(feedback.status) }}
-                  </span>
-                </div>
-                <span class="text-sm text-black">{{ formatDate(feedback.created_at) }}</span>
-              </div>
-            </div>
-
-            <div class="px-6 py-4">
-              <h3 class="text-lg font-medium text-black mb-3">{{ feedback.title }}</h3>
-              <p class="text-black whitespace-pre-wrap mb-4">{{ feedback.content }}</p>
-              
-              <div v-if="feedback.contact_info" class="text-sm text-black mb-4">
-                <span class="font-medium">联系方式:</span> {{ feedback.contact_info }}
-              </div>
-
-              <!-- 管理员回复 -->
-              <div v-if="feedback.admin_reply" class="bg-primary-50 border-l-4 border-blue-400 p-4 rounded">
-                <div class="flex items-start">
-                  <div class="flex-shrink-0">
-                    <svg class="h-5 w-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-                    </svg>
-                  </div>
-                  <div class="ml-3">
-                    <p class="text-sm font-medium text-primary-700">
-                      管理员回复 {{ feedback.admin_name ? `(${feedback.admin_name})` : '' }}
-                    </p>
-                    <p class="text-sm text-primary-600 mt-1 whitespace-pre-wrap">{{ feedback.admin_reply }}</p>
-                    <p v-if="feedback.updated_at" class="text-xs text-primary-500 mt-2">
-                      {{ formatDate(feedback.updated_at) }}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <!-- 未回复状态 -->
-              <div v-else-if="feedback.status === 'pending'" class="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
-                <div class="flex">
-                  <div class="flex-shrink-0">
-                    <svg class="h-5 w-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
-                  </div>
-                  <div class="ml-3">
-                    <p class="text-sm text-yellow-700">您的反馈正在等待处理，我们会尽快回复您。</p>
-                  </div>
-                </div>
-              </div>
-
-              <div v-else-if="feedback.status === 'processing'" class="bg-orange-50 border-l-4 border-orange-400 p-4 rounded">
-                <div class="flex">
-                  <div class="flex-shrink-0">
-                    <svg class="h-5 w-5 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
-                  </div>
-                  <div class="ml-3">
-                    <p class="text-sm text-orange-700">您的反馈正在处理中，请耐心等待。</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- 分页 -->
-          <div v-if="pagination.total_pages > 1" class="bg-white px-6 py-4 border-t border-gray-200 rounded-lg">
-            <div class="flex items-center justify-between">
-              <div class="text-sm text-black">
-                共 {{ pagination.total }} 条，第 {{ pagination.page }} / {{ pagination.total_pages }} 页
-              </div>
-              <div class="flex space-x-2">
-                <button
-                  :disabled="pagination.page <= 1"
-                  @click="loadFeedbacks(pagination.page - 1)"
-                  class="px-3 py-1 border border-gray-300 rounded-md text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-                >
-                  上一页
-                </button>
-                <button
-                  :disabled="pagination.page >= pagination.total_pages"
-                  @click="loadFeedbacks(pagination.page + 1)"
-                  class="px-3 py-1 border border-gray-300 rounded-md text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-                >
-                  下一页
-                </button>
-              </div>
-            </div>
-          </div>
+          <button
+            @click="openCreateModal"
+            class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-md text-sm"
+          >
+            提交反馈
+          </button>
         </div>
       </div>
 
+      <AdminDataTable
+        title="反馈列表"
+        :pagination="pagination"
+        :loading="loading"
+        :show-page-size-selector="true"
+        :column-count="6"
+        @page-change="changePage"
+        @page-size-change="changePageSize"
+      >
+        <template #thead>
+          <tr>
+            <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">标题</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">类型</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">状态</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">提交时间</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">处理进度</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">操作</th>
+          </tr>
+        </template>
 
+        <template #tbody>
+          <tr v-for="feedback in pagedFeedbacks" :key="feedback.id" class="hover:bg-gray-50">
+            <td class="px-6 py-4">
+              <div class="max-w-xl">
+                <div class="text-sm font-medium text-black break-words">{{ feedback.title }}</div>
+                <div class="mt-1 text-sm text-gray-500 line-clamp-2 break-words">
+                  {{ feedback.content }}
+                </div>
+              </div>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+              <span :class="getTypeClass(feedback.type)" class="px-2 py-1 text-xs font-medium rounded-full">
+                {{ getTypeText(feedback.type) }}
+              </span>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+              <span :class="getStatusClass(feedback.status)" class="px-2 py-1 text-xs font-medium rounded-full">
+                {{ getStatusText(feedback.status) }}
+              </span>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+              {{ formatDate(feedback.created_at) }}
+            </td>
+            <td class="px-6 py-4 text-sm text-gray-600">
+              <div class="w-full max-w-sm">
+                <div v-if="feedback.admin_reply" class="space-y-2">
+                  <div class="text-sm font-medium text-black">管理员回复</div>
+                  <div class="whitespace-pre-wrap break-words text-sm leading-7 text-gray-700">
+                    {{ feedback.admin_reply }}
+                  </div>
+                  <div class="text-xs text-gray-500">
+                    {{ getAdminReplyMeta(feedback) }}
+                  </div>
+                </div>
+                <div v-else class="text-sm text-gray-600">
+                  {{ getProgressText(feedback.status) }}
+                </div>
+              </div>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm">
+              <ActionButton
+                icon="eye"
+                tooltip="查看详情"
+                variant="view"
+                @click="openDetailModal(feedback)"
+              />
+            </td>
+          </tr>
+
+          <tr v-if="pagedFeedbacks.length === 0">
+            <td colspan="6" class="px-6 py-12 text-center text-black">
+              暂无反馈记录
+            </td>
+          </tr>
+        </template>
+      </AdminDataTable>
     </div>
-    </div>
+
+    <BaseModal
+      v-model="showCreateModal"
+      title="提交新反馈"
+      :show-footer="false"
+      size="md"
+      @close="closeCreateModal"
+    >
+      <form novalidate @submit.prevent="submitFeedback" class="space-y-5">
+        <div>
+          <label class="mb-2 block text-sm font-medium text-black">
+            反馈类型 <span class="text-red-500">*</span>
+          </label>
+          <CustomSelect
+            v-model="feedbackForm.type"
+            :options="createTypeOptions"
+            placeholder="请选择反馈类型"
+          />
+          <p v-if="errors.type" class="mt-1 text-sm text-red-600">{{ errors.type }}</p>
+        </div>
+
+        <BaseInput
+          v-model="feedbackForm.title"
+          label="标题"
+          placeholder="一句话说清楚你遇到的问题"
+          :error-message="errors.title"
+        />
+
+        <div>
+          <label class="mb-2 block text-sm font-medium text-black">
+            详细描述 <span class="text-red-500">*</span>
+          </label>
+          <BaseTextarea
+            v-model="feedbackForm.content"
+            rows="6"
+            :error-message="errors.content"
+            placeholder="把现象、步骤和你期望的结果写清楚，方便我们尽快处理"
+          />
+        </div>
+
+        <BaseInput
+          v-model="feedbackForm.contact_info"
+          label="联系方式"
+          placeholder="选填，方便我们联系你"
+        />
+
+        <div class="flex justify-end gap-3 border-t border-gray-100 pt-4">
+          <button
+            type="button"
+            @click="closeCreateModal"
+            class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+          >
+            取消
+          </button>
+          <button
+            type="submit"
+            :disabled="submitting"
+            class="px-4 py-2 text-sm font-medium text-white bg-primary-600 border border-transparent rounded-md hover:bg-primary-700 disabled:opacity-50"
+          >
+            {{ submitting ? '提交中...' : '提交反馈' }}
+          </button>
+        </div>
+      </form>
+    </BaseModal>
+
+    <BaseModal
+      v-model="showDetailModal"
+      title="反馈详情"
+      :show-footer="false"
+      size="lg"
+      @close="selectedFeedback = null"
+    >
+      <div v-if="selectedFeedback" class="space-y-5">
+        <div class="flex flex-wrap items-center gap-2">
+          <span :class="getTypeClass(selectedFeedback.type)" class="px-2 py-1 text-xs font-medium rounded-full">
+            {{ getTypeText(selectedFeedback.type) }}
+          </span>
+          <span :class="getStatusClass(selectedFeedback.status)" class="px-2 py-1 text-xs font-medium rounded-full">
+            {{ getStatusText(selectedFeedback.status) }}
+          </span>
+          <span class="text-sm text-gray-500">{{ formatDate(selectedFeedback.created_at) }}</span>
+        </div>
+
+        <div>
+          <h3 class="text-lg font-semibold text-black">{{ selectedFeedback.title }}</h3>
+          <p class="mt-3 whitespace-pre-wrap break-words text-sm leading-7 text-gray-700">
+            {{ selectedFeedback.content }}
+          </p>
+        </div>
+
+        <div v-if="selectedFeedback.contact_info" class="text-sm text-gray-600">
+          联系方式：{{ selectedFeedback.contact_info }}
+        </div>
+
+        <div class="rounded-lg border border-gray-200 bg-gray-50 p-4">
+          <div class="text-sm font-medium text-black">处理进度</div>
+          <div v-if="selectedFeedback.admin_reply" class="mt-3 space-y-2">
+            <div class="text-sm font-medium text-black">管理员回复</div>
+            <div class="whitespace-pre-wrap break-words text-sm leading-7 text-gray-700">
+              {{ selectedFeedback.admin_reply }}
+            </div>
+            <div class="text-xs text-gray-500">
+              {{ getAdminReplyMeta(selectedFeedback) }}
+            </div>
+          </div>
+          <p v-else class="mt-2 text-sm text-gray-600">
+            {{ getProgressText(selectedFeedback.status) }}
+          </p>
+        </div>
+      </div>
+    </BaseModal>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, computed } from 'vue'
-import PageHeader from '@/components/PageHeader/index.vue'
+import { computed, onMounted, reactive, ref } from 'vue'
+import ActionButton from '@/components/ActionButton/index.vue'
+import AdminDataTable from '@/components/AdminDataTable/index.vue'
 import BaseInput from '@/components/BaseInput/index.vue'
+import BaseModal from '@/components/BaseModal/index.vue'
 import BaseTextarea from '@/components/BaseTextarea/index.vue'
-import { feedbackAPI } from '@/api/feedback'
 import CustomSelect from '@/components/CustomSelect/index.vue'
+import { feedbackAPI } from '@/api/feedback'
 import { showMessage } from '@/utils/message'
 
-// 标签页状态
-const activeTab = ref('submit')
+type FeedbackItem = {
+  id: number
+  type: string
+  status: string
+  title: string
+  content: string
+  contact_info?: string
+  admin_reply?: string
+  admin_name?: string
+  created_at?: string
+  updated_at?: string
+}
 
-// 提交反馈相关
+const loading = ref(false)
+const showCreateModal = ref(false)
+const showDetailModal = ref(false)
 const submitting = ref(false)
+const selectedFeedback = ref<FeedbackItem | null>(null)
+const allFeedbacks = ref<FeedbackItem[]>([])
+const page = ref(1)
+const pageSize = ref(20)
+
+const filters = reactive({
+  keyword: '',
+  type: '',
+  status: ''
+})
+
+const appliedFilters = reactive({
+  keyword: '',
+  type: '',
+  status: ''
+})
+
 const feedbackForm = reactive({
   type: '',
   title: '',
@@ -272,92 +292,190 @@ const feedbackForm = reactive({
   contact_info: ''
 })
 
-// 表单验证错误
 const errors = reactive({
   type: '',
   title: '',
   content: ''
 })
 
-// 我的反馈相关
-const loadingHistory = ref(false)
-const feedbacks = ref<any[]>([])
-const feedbackCount = computed(() => feedbacks.value.length)
-
-// 分页信息
-const pagination = reactive({
-  page: 1,
-  page_size: 10,
-  total: 0,
-  total_pages: 0
-})
-
-
-
-// 反馈类型选项
-const typeOptions = [
+const typeFilterOptions = [
+  { label: '全部类型', value: '' },
   { label: '功能建议', value: 'suggestion' },
   { label: '错误报告', value: 'bug' },
   { label: '使用问题', value: 'question' },
   { label: '其他', value: 'other' }
 ]
 
-// 表单验证
-const validateForm = (): boolean => {
-  // 重置错误
+const createTypeOptions = typeFilterOptions.filter(item => item.value)
+
+const statusFilterOptions = [
+  { label: '全部状态', value: '' },
+  { label: '待处理', value: 'pending' },
+  { label: '处理中', value: 'processing' },
+  { label: '已解决', value: 'resolved' },
+  { label: '已关闭', value: 'closed' }
+]
+
+const filteredFeedbacks = computed(() => {
+  const keyword = appliedFilters.keyword.trim().toLowerCase()
+
+  return allFeedbacks.value.filter((item) => {
+    const matchesKeyword = !keyword
+      || item.title?.toLowerCase().includes(keyword)
+      || item.content?.toLowerCase().includes(keyword)
+      || item.admin_reply?.toLowerCase().includes(keyword)
+
+    const matchesType = !appliedFilters.type || item.type === appliedFilters.type
+    const matchesStatus = !appliedFilters.status || item.status === appliedFilters.status
+
+    return matchesKeyword && matchesType && matchesStatus
+  })
+})
+
+const pagedFeedbacks = computed(() => {
+  const start = (page.value - 1) * pageSize.value
+  return filteredFeedbacks.value.slice(start, start + pageSize.value)
+})
+
+const pagination = computed(() => ({
+  page: page.value,
+  total: filteredFeedbacks.value.length,
+  total_pages: Math.max(1, Math.ceil(filteredFeedbacks.value.length / pageSize.value)),
+  page_size: pageSize.value
+}))
+
+const syncPage = () => {
+  const maxPage = Math.max(1, Math.ceil(filteredFeedbacks.value.length / pageSize.value))
+  if (page.value > maxPage) {
+    page.value = maxPage
+  }
+}
+
+const applyFilters = () => {
+  appliedFilters.keyword = filters.keyword
+  appliedFilters.type = filters.type
+  appliedFilters.status = filters.status
+  page.value = 1
+  syncPage()
+}
+
+const changePage = (nextPage: number) => {
+  page.value = nextPage
+  syncPage()
+}
+
+const changePageSize = (nextPageSize: number) => {
+  pageSize.value = nextPageSize
+  page.value = 1
+  syncPage()
+}
+
+const resetForm = () => {
+  feedbackForm.type = ''
+  feedbackForm.title = ''
+  feedbackForm.content = ''
+  feedbackForm.contact_info = ''
+  errors.type = ''
+  errors.title = ''
+  errors.content = ''
+}
+
+const openCreateModal = () => {
+  resetForm()
+  showCreateModal.value = true
+}
+
+const closeCreateModal = () => {
+  showCreateModal.value = false
+  resetForm()
+}
+
+const openDetailModal = (feedback: FeedbackItem) => {
+  selectedFeedback.value = feedback
+  showDetailModal.value = true
+}
+
+const validateForm = () => {
   errors.type = ''
   errors.title = ''
   errors.content = ''
 
-  let isValid = true
+  let valid = true
 
   if (!feedbackForm.type) {
     errors.type = '请选择反馈类型'
-    isValid = false
+    valid = false
   }
 
   if (!feedbackForm.title.trim()) {
     errors.title = '请填写标题'
-    isValid = false
+    valid = false
   } else if (feedbackForm.title.trim().length < 5) {
-    errors.title = '标题至少需要5个字符'
-    isValid = false
+    errors.title = '标题至少需要 5 个字'
+    valid = false
   }
 
   if (!feedbackForm.content.trim()) {
     errors.content = '请填写详细描述'
-    isValid = false
+    valid = false
   } else if (feedbackForm.content.trim().length < 10) {
-    errors.content = '内容至少需要10个字符'
-    isValid = false
+    errors.content = '内容至少需要 10 个字'
+    valid = false
   }
 
-  return isValid
+  return valid
 }
 
-// 提交反馈
-const submitFeedback = async () => {
-  if (!validateForm()) {
-    return
+const loadFeedbacks = async () => {
+  loading.value = true
+  try {
+    const items: FeedbackItem[] = []
+    let currentPage = 1
+    let totalPages = 1
+
+    do {
+      const response = await feedbackAPI.getMyFeedbacks(currentPage, 100)
+      if (response.code !== 0) {
+        showMessage(response.message || '加载反馈列表失败', 'error')
+        break
+      }
+
+      items.push(...(response.data.feedbacks || []))
+      totalPages = response.data.total_pages || 1
+      currentPage += 1
+    } while (currentPage <= totalPages)
+
+    allFeedbacks.value = items
+    syncPage()
+  } catch (error) {
+    console.error('加载反馈列表失败:', error)
+    showMessage('加载反馈列表失败', 'error')
+  } finally {
+    loading.value = false
   }
+}
+
+const submitFeedback = async () => {
+  if (!validateForm()) return
 
   submitting.value = true
   try {
-    const response = await feedbackAPI.create(feedbackForm)
+    const response = await feedbackAPI.create({
+      type: feedbackForm.type,
+      title: feedbackForm.title.trim(),
+      content: feedbackForm.content.trim(),
+      contact_info: feedbackForm.contact_info.trim()
+    })
+
     if (response.code === 0) {
-      showMessage('反馈提交成功，感谢您的建议！', 'success')
-      // 重置表单
-      feedbackForm.type = ''
-      feedbackForm.title = ''
-      feedbackForm.content = ''
-      feedbackForm.contact_info = ''
-      // 切换到历史记录并刷新
-      activeTab.value = 'history'
+      showMessage('反馈提交成功', 'success')
+      closeCreateModal()
       await loadFeedbacks()
-    } else {
-      showMessage(response.message || '提交失败，请稍后再试', 'error')
+      return
     }
-  } catch (error: any) {
+
+    showMessage(response.message || '提交失败，请稍后再试', 'error')
+  } catch (error) {
     console.error('提交反馈失败:', error)
     showMessage('提交失败，请稍后再试', 'error')
   } finally {
@@ -365,27 +483,6 @@ const submitFeedback = async () => {
   }
 }
 
-// 加载反馈历史
-const loadFeedbacks = async (page = 1) => {
-  loadingHistory.value = true
-  try {
-    const response = await feedbackAPI.getMyFeedbacks(page, pagination.page_size)
-    if (response.code === 0) {
-      feedbacks.value = response.data.feedbacks
-      pagination.page = response.data.page
-      pagination.total = response.data.total
-      pagination.total_pages = response.data.total_pages
-    }
-  } catch (error: any) {
-    console.error('加载反馈列表失败:', error)
-  } finally {
-    loadingHistory.value = false
-  }
-}
-
-
-
-// 获取类型样式
 const getTypeClass = (type: string) => {
   const classes = {
     suggestion: 'bg-primary-100 text-success-800',
@@ -396,7 +493,6 @@ const getTypeClass = (type: string) => {
   return classes[type as keyof typeof classes] || classes.other
 }
 
-// 获取类型文本
 const getTypeText = (type: string) => {
   const texts = {
     suggestion: '功能建议',
@@ -407,7 +503,6 @@ const getTypeText = (type: string) => {
   return texts[type as keyof typeof texts] || '其他'
 }
 
-// 获取状态样式
 const getStatusClass = (status: string) => {
   const classes = {
     pending: 'bg-yellow-100 text-yellow-800',
@@ -418,7 +513,6 @@ const getStatusClass = (status: string) => {
   return classes[status as keyof typeof classes] || classes.pending
 }
 
-// 获取状态文本
 const getStatusText = (status: string) => {
   const texts = {
     pending: '待处理',
@@ -429,16 +523,40 @@ const getStatusText = (status: string) => {
   return texts[status as keyof typeof texts] || '待处理'
 }
 
-// 格式化日期
-const formatDate = (dateStr: string) => {
-  if (!dateStr) return ''
-  const date = new Date(dateStr)
-  return date.toLocaleString('zh-CN')
+const getProgressText = (status: string) => {
+  const texts = {
+    pending: '我们已经收到你的反馈，正在排队处理。',
+    processing: '这条反馈正在处理中，有结果会回在这里。',
+    resolved: '这条反馈已经处理完成。',
+    closed: '这条反馈已关闭。'
+  }
+  return texts[status as keyof typeof texts] || texts.pending
 }
 
-// 初始化
-onMounted(() => {
-  // 加载历史记录
-  loadFeedbacks()
+const getProgressPreview = (feedback: FeedbackItem) => {
+  if (feedback.admin_reply?.trim()) {
+    return feedback.admin_reply.trim()
+  }
+  return getProgressText(feedback.status)
+}
+
+const getAdminReplyMeta = (feedback: FeedbackItem) => {
+  const parts: string[] = []
+  if (feedback.admin_name) {
+    parts.push(`回复人：${feedback.admin_name}`)
+  }
+  if (feedback.updated_at) {
+    parts.push(`回复时间：${formatDate(feedback.updated_at)}`)
+  }
+  return parts.join('，')
+}
+
+const formatDate = (dateStr?: string) => {
+  if (!dateStr) return '-'
+  return new Date(dateStr).toLocaleString('zh-CN')
+}
+
+onMounted(async () => {
+  await loadFeedbacks()
 })
 </script>

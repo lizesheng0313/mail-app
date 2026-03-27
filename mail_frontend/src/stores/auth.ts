@@ -2,7 +2,6 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { Mailbox } from '@/types'
 import { mailboxAPI } from '@/api/mailbox'
-import { authCodeAPI } from '@/api/authCode'
 
 export const useMailboxStore = defineStore('mailbox', () => {
   const mailboxes = ref<Mailbox[]>([])
@@ -15,42 +14,83 @@ export const useMailboxStore = defineStore('mailbox', () => {
   const pageSize = ref(50)
   const totalPages = ref(0)
 
+  const normalizeMailbox = (mailbox: any): Mailbox => ({
+    id: mailbox.id,
+    email: mailbox.email,
+    created_at: mailbox.created_at,
+    expires_at: mailbox.expires_at,
+    is_active: mailbox.is_active !== undefined ? mailbox.is_active : true,
+    user_id: mailbox.user_id
+  })
+
+  const applyPagination = (pagination?: any, fallbackCount = mailboxes.value.length) => {
+    if (pagination) {
+      totalMailboxes.value = Number(pagination.total || fallbackCount || 0)
+      totalPages.value = Number(pagination.total_pages || 0)
+      currentPage.value = Number(pagination.page || 1)
+      pageSize.value = Number(pagination.page_size || pageSize.value || 50)
+      return
+    }
+
+    totalMailboxes.value = fallbackCount
+    totalPages.value = fallbackCount > 0 ? 1 : 0
+    currentPage.value = 1
+  }
+
+  const replaceMailboxes = (items: any[] = [], pagination?: any) => {
+    mailboxes.value = items.map(normalizeMailbox)
+    applyPagination(pagination, mailboxes.value.length)
+  }
+
+  const upsertMailboxes = (items: any[] = []) => {
+    if (!items.length) return
+
+    let addedCount = 0
+    const nextMailboxes = [...mailboxes.value]
+
+    for (const rawItem of items) {
+      const mailbox = normalizeMailbox(rawItem)
+      const index = nextMailboxes.findIndex((item) => Number(item.id) === Number(mailbox.id))
+      if (index >= 0) {
+        nextMailboxes[index] = { ...nextMailboxes[index], ...mailbox }
+      } else {
+        nextMailboxes.unshift(mailbox)
+        addedCount += 1
+      }
+    }
+
+    mailboxes.value = nextMailboxes
+    if (addedCount > 0) {
+      totalMailboxes.value += addedCount
+      totalPages.value = Math.max(1, Math.ceil(totalMailboxes.value / (pageSize.value || 50)))
+    }
+  }
+
+  const removeMailboxes = (ids: number[] = []) => {
+    const idSet = new Set(ids.map((item) => Number(item)).filter((item) => Number.isFinite(item) && item > 0))
+    if (!idSet.size) return
+
+    const originalCount = mailboxes.value.length
+    mailboxes.value = mailboxes.value.filter((item) => !idSet.has(Number(item.id)))
+    const removedCount = originalCount - mailboxes.value.length
+    if (removedCount > 0) {
+      totalMailboxes.value = Math.max(0, totalMailboxes.value - removedCount)
+      totalPages.value = totalMailboxes.value > 0 ? Math.max(1, Math.ceil(totalMailboxes.value / (pageSize.value || 50))) : 0
+    }
+  }
+
   const fetchMailboxes = async (page: number = 1, pageSizeParam: number = 50) => {
     loading.value = true
     try {
       const response: any = await mailboxAPI.getMailboxes({ page, page_size: pageSizeParam })
       if (response.code === 0 && response.data) {
-        // 处理分页数据
         const mailboxData = response.data.mailboxes || []
         const paginationData = response.data.pagination
 
-
         if (paginationData) {
-          // 新的分页格式
-          mailboxes.value = mailboxData.map((mailbox: any) => ({
-            id: mailbox.id,
-            email: mailbox.email, // 后端返回的是 'email' 字段
-            created_at: mailbox.created_at,
-            expires_at: mailbox.expires_at,
-            is_active: mailbox.is_active !== undefined ? mailbox.is_active : true,
-            user_id: mailbox.user_id
-          }))
-          totalMailboxes.value = paginationData.total || 0
-          totalPages.value = paginationData.total_pages || 0
-          currentPage.value = paginationData.page || 1
+          replaceMailboxes(mailboxData, paginationData)
         } else {
-          // 兼容旧格式（无分页）
-          mailboxes.value = mailboxData.map((mailbox: any) => ({
-            id: mailbox.id,
-            email: mailbox.email,
-            created_at: mailbox.created_at,
-            expires_at: mailbox.expires_at,
-            is_active: mailbox.is_active !== undefined ? mailbox.is_active : true,
-            user_id: mailbox.user_id
-          }))
-          totalMailboxes.value = mailboxData.length
-          totalPages.value = 1
-          currentPage.value = 1
+          replaceMailboxes(mailboxData)
         }
 
         return { success: true, data: response.data }
@@ -112,27 +152,6 @@ export const useMailboxStore = defineStore('mailbox', () => {
     }
   }
 
-  const useAuthCode = async (code: string) => {
-    loading.value = true
-    try {
-      const response: any = await authCodeAPI.useAuthCode(code)
-      // 处理后端 {code: 0, message: "", data: {}} 格式
-      if (response.code === 0) {
-        // 使用卡密成功后重新获取邮箱列表，确保新邮箱立即显示
-        await fetchMailboxes()
-        return { success: true, data: response.data, message: response.message }
-      }
-      return { success: false, error: response.message }
-    } catch (error: any) {
-      return {
-        success: false,
-        error: error.response?.data?.message || error.response?.data?.detail || '使用授权码失败'
-      }
-    } finally {
-      loading.value = false
-    }
-  }
-
   const deleteMailbox = async (id: number) => {
     loading.value = true
     try {
@@ -184,8 +203,10 @@ export const useMailboxStore = defineStore('mailbox', () => {
     fetchMailboxes,
     getTempMailbox,
     allocateMailbox,
-    useAuthCode,
     deleteMailbox,
+    replaceMailboxes,
+    upsertMailboxes,
+    removeMailboxes,
     getStats
   }
 })

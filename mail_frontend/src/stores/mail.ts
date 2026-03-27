@@ -13,6 +13,68 @@ export const useMailStore = defineStore('mail', () => {
   const totalPages = ref(0)
   const searchKeyword = ref('')
 
+  const applyPagination = (pagination?: any, fallbackCount = emails.value.length) => {
+    if (pagination) {
+      totalEmails.value = Number(pagination.total || fallbackCount || 0)
+      totalPages.value = Number(pagination.total_pages || 0)
+      currentPage.value = Number(pagination.page || 1)
+      pageSize.value = Number(pagination.page_size || pageSize.value || 20)
+      return
+    }
+
+    totalEmails.value = fallbackCount
+    totalPages.value = fallbackCount > 0 ? 1 : 0
+    currentPage.value = 1
+  }
+
+  const replaceEmails = (items: any[] = [], pagination?: any) => {
+    emails.value = [...items]
+    applyPagination(pagination, emails.value.length)
+  }
+
+  const upsertEmails = (items: any[] = []) => {
+    if (!items.length) return
+
+    let addedCount = 0
+    const nextEmails = [...emails.value]
+    for (const email of items) {
+      const emailId = Number(email?.id)
+      if (!Number.isFinite(emailId) || emailId <= 0) continue
+
+      const index = nextEmails.findIndex((item) => Number(item.id) === emailId)
+      if (index >= 0) {
+        nextEmails[index] = { ...nextEmails[index], ...email }
+      } else {
+        nextEmails.unshift(email)
+        addedCount += 1
+      }
+    }
+
+    emails.value = nextEmails
+    if (addedCount > 0) {
+      totalEmails.value += addedCount
+      totalPages.value = Math.max(1, Math.ceil(totalEmails.value / (pageSize.value || 20)))
+    }
+  }
+
+  const removeEmails = (ids: number[] = []) => {
+    const idSet = new Set(ids.map((item) => Number(item)).filter((item) => Number.isFinite(item) && item > 0))
+    if (!idSet.size) return
+
+    const originalCount = emails.value.length
+    emails.value = emails.value.filter((email) => !idSet.has(Number(email.id)))
+    const removedCount = originalCount - emails.value.length
+
+    if (selectedEmail.value && idSet.has(Number(selectedEmail.value.id))) {
+      selectedEmail.value = null
+    }
+
+    if (removedCount > 0) {
+      totalEmails.value = Math.max(0, totalEmails.value - removedCount)
+      totalPages.value = totalEmails.value > 0 ? Math.max(1, Math.ceil(totalEmails.value / (pageSize.value || 20))) : 0
+    }
+  }
+
   // 获取指定邮箱的所有邮件
   const fetchMailboxEmails = async (mailboxId: number, params?: any, silent: boolean = false, signal?: AbortSignal) => {
     if (!silent) loading.value = true
@@ -183,6 +245,26 @@ export const useMailStore = defineStore('mail', () => {
     return emails.value.filter(email => email.mailbox_id === mailboxId)
   }
 
+  const removeEmailsByMailboxIds = (mailboxIds: number[] = []) => {
+    const idSet = new Set(
+      mailboxIds.map((item) => Number(item)).filter((item) => Number.isFinite(item) && item > 0)
+    )
+    if (!idSet.size) return
+
+    const originalCount = emails.value.length
+    emails.value = emails.value.filter((email) => !idSet.has(Number(email.mailbox_id)))
+    const removedCount = originalCount - emails.value.length
+
+    if (selectedEmail.value && idSet.has(Number(selectedEmail.value.mailbox_id))) {
+      selectedEmail.value = null
+    }
+
+    if (removedCount > 0) {
+      totalEmails.value = Math.max(0, totalEmails.value - removedCount)
+      totalPages.value = totalEmails.value > 0 ? Math.max(1, Math.ceil(totalEmails.value / (pageSize.value || 20))) : 0
+    }
+  }
+
 
 
   return {
@@ -196,6 +278,9 @@ export const useMailStore = defineStore('mail', () => {
     searchKeyword,
     fetchUserEmails,
     fetchMailboxEmails,
+    replaceEmails,
+    upsertEmails,
+    removeEmails,
     fetchEmailDetail,
     markAsRead,
     deleteEmail,
@@ -203,6 +288,7 @@ export const useMailStore = defineStore('mail', () => {
     getUnreadCount,
     getEmailsByMailbox,
     clearEmails,
-    removeEmailsByMailbox
+    removeEmailsByMailbox,
+    removeEmailsByMailboxIds
   }
 })

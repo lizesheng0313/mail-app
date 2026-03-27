@@ -19,6 +19,11 @@ export default defineConfig({
         target: 'http://localhost:8088',
         changeOrigin: true,
         secure: false
+      },
+      '/open': {
+        target: 'http://localhost:8088',
+        changeOrigin: true,
+        secure: false
       }
     }
   },

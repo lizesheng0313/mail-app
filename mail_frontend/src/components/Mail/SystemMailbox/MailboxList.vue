@@ -11,74 +11,85 @@
     @batch-mode-start="$emit('batch-mode-start')"
   >
     <template #content="{ mailboxes, selectedId, batchMode, selectedIds, toggleSelection, onSelect }">
-      <div
+      <MailboxCard
         v-for="mailbox in mailboxes"
         :key="mailbox.id"
-        class="group p-3 bg-gray-50 rounded-lg hover:bg-primary-100 cursor-pointer"
-        :class="{ 'bg-primary-100': selectedId === mailbox.id || (batchMode && selectedIds.includes(mailbox.id)) }"
+        :batch-mode="batchMode"
+        :checked="selectedIds.includes(mailbox.id)"
+        :card-class="[
+          selectedId === mailbox.id || (batchMode && selectedIds.includes(mailbox.id))
+            ? 'bg-primary-100 border-primary-200'
+            : 'bg-gray-50 hover:bg-primary-100 cursor-pointer'
+        ]"
         @click="handleMailboxClick(mailbox, batchMode, toggleSelection, onSelect)"
       >
-        <div class="flex items-start justify-between gap-2">
-          <div class="flex items-center flex-1 min-w-0">
-            <input
-              v-if="batchMode"
-              type="checkbox"
-              :checked="selectedIds.includes(mailbox.id)"
-              @click.stop="toggleSelection(mailbox.id)"
-              class="w-4 h-4 mr-3 cursor-pointer flex-shrink-0"
-            />
-            <div class="flex-1 min-w-0">
-              <div class="flex items-center gap-2 flex-nowrap">
-                <svg v-if="isExpired(mailbox)" class="w-3 h-3 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                </svg>
-                <code 
-                  :class="isExpired(mailbox) ? 'text-red-600 line-through' : 'text-black'"
-                  class="text-sm truncate flex-shrink"
-                >{{ mailbox.email }}</code>
-                <span v-if="isExpired(mailbox)" class="px-1 py-0.5 text-xs bg-red-100 text-red-800 rounded whitespace-nowrap flex-shrink-0">过期</span>
-              </div>
-              <div class="flex items-center justify-between text-xs text-gray-600 mt-1">
-                <span>创建：{{ formatDate(mailbox.created_at) }}</span>
-                <span v-if="mailbox.expires_at" :class="isExpired(mailbox) ? 'text-red-600 font-medium' : ''">
-                  过期：{{ formatDate(mailbox.expires_at) }}
-                </span>
-              </div>
-              <!-- 站点和标签 -->
-              <MailboxTags
-                v-if="mailbox.id in tagsData"
-                :mailbox-id="mailbox.id"
-                mailbox-type="system"
-                :editable="!batchMode"
-                :show-add-button="!batchMode"
-                :max-display="3"
-                :initial-sites="tagsData[mailbox.id]?.sites || []"
-                :initial-tags="tagsData[mailbox.id]?.tags || []"
-              />
-            </div>
-          </div>
-          <div v-if="!batchMode" class="opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex gap-1 flex-shrink-0">
-            <ActionButton
-              icon="copy"
-              variant="copy"
-              tooltip="复制邮箱"
-              @click.stop="copy(mailbox.email)"
-            />
-            <ActionButton
-              icon="share"
-              variant="primary"
-              tooltip="分享邮箱"
-              @click.stop="handleShare(mailbox)"
-            />
-            <ActionButton
-              icon="delete"
-              variant="delete"
-              tooltip="删除邮箱"
-              @click.stop="handleDelete(mailbox.id)"
-            />
-          </div>
+        <div class="flex items-center gap-2 flex-nowrap">
+          <svg v-if="isExpired(mailbox)" class="w-3 h-3 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+          <code
+            :class="isExpired(mailbox) ? 'text-red-600 line-through' : 'text-black'"
+            class="text-sm truncate flex-shrink"
+          >{{ mailbox.email }}</code>
+          <span v-if="isExpired(mailbox)" class="px-1 py-0.5 text-xs bg-red-100 text-red-800 rounded whitespace-nowrap flex-shrink-0">过期</span>
         </div>
-      </div>
+        <div class="mt-1 flex items-center justify-between text-xs text-gray-600">
+          <span>创建：{{ formatDate(mailbox.created_at) }}</span>
+          <span v-if="mailbox.expires_at" :class="isExpired(mailbox) ? 'text-red-600 font-medium' : ''">
+            过期：{{ formatDate(mailbox.expires_at) }}
+          </span>
+        </div>
+        <MailboxTags
+          v-if="mailbox.id in tagsData"
+          :mailbox-id="mailbox.id"
+          mailbox-type="system"
+          :editable="!batchMode"
+          :show-add-button="false"
+          :max-display="3"
+          :initial-sites="tagsData[mailbox.id]?.sites || []"
+          :initial-tags="tagsData[mailbox.id]?.tags || []"
+        />
+        <template #actions>
+          <button
+            type="button"
+            class="flex h-8 w-8 items-center justify-center rounded-full text-gray-500 transition-colors hover:bg-white hover:text-gray-700"
+            title="更多操作"
+            @click.stop="toggleActionMenu(mailbox.id)"
+          >
+            <BaseIcon name="more" size="sm" />
+          </button>
+          <div
+            v-if="openMenuId === mailbox.id"
+            class="absolute right-0 top-10 z-20 min-w-[128px] overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg"
+            @click.stop
+          >
+            <button
+              type="button"
+              class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-50"
+              @click.stop="handleCopyEmail(mailbox.email)"
+            >
+              <BaseIcon name="copy" size="sm" />
+              复制邮箱
+            </button>
+            <button
+              type="button"
+              class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-50"
+              @click.stop="handleShareAction(mailbox)"
+            >
+              <BaseIcon name="share" size="sm" />
+              分享邮箱
+            </button>
+            <button
+              type="button"
+              class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 transition-colors hover:bg-red-50"
+              @click.stop="handleDeleteAction(mailbox.id)"
+            >
+              <BaseIcon name="delete" size="sm" />
+              删除邮箱
+            </button>
+          </div>
+        </template>
+      </MailboxCard>
     </template>
 
     <template #pagination>
@@ -103,19 +114,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted } from 'vue'
+import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useMailboxStore } from '@/stores/auth'
 import MailboxList from '@/components/Mail/MailboxList/MailboxList.vue'
+import MailboxCard from '@/components/Mail/MailboxList/MailboxCard.vue'
 import Pagination from '@/components/Pagination/index.vue'
-import ActionButton from '@/components/ActionButton/index.vue'
 import ConfirmDialog from '@/components/ConfirmDialog/index.vue'
+import BaseIcon from '@/components/BaseIcon/index.vue'
 import MailboxTags from '@/components/MailboxTags/index.vue'
 import { showMessage } from '@/utils/message'
 import { unifiedAPI } from '@/api/unified'
 import { mailboxTagsAPI } from '@/api/mailboxTags'
 import { formatTimestamp } from '@/utils/timeUtils'
 
-const emit = defineEmits(['select', 'batch-mode-start', 'share'])
+const emit = defineEmits(['select', 'batch-mode-start', 'share', 'deleted'])
 
 const mailboxStore = useMailboxStore()
 const mailboxListRef = ref()
@@ -124,6 +136,7 @@ const deleting = ref(false)
 const isDeleting = ref({ batch: false, ids: [] as number[] })
 const selectedId = ref<number | null>(null)
 const tagsData = ref<Record<number, { sites: any[], tags: any[] }>>({})
+const openMenuId = ref<number | null>(null)
 
 const isExpired = (mailbox: any) => {
   if (!mailbox.expires_at) return false
@@ -173,8 +186,31 @@ const handleDelete = (id: number) => {
   showConfirm.value = true
 }
 
+const closeActionMenu = () => {
+  openMenuId.value = null
+}
+
+const toggleActionMenu = (mailboxId: number) => {
+  openMenuId.value = openMenuId.value === mailboxId ? null : mailboxId
+}
+
 const handleShare = (mailbox: any) => {
   emit('share', [mailbox])
+}
+
+const handleCopyEmail = (text: string) => {
+  closeActionMenu()
+  copy(text)
+}
+
+const handleShareAction = (mailbox: any) => {
+  closeActionMenu()
+  handleShare(mailbox)
+}
+
+const handleDeleteAction = (id: number) => {
+  closeActionMenu()
+  handleDelete(id)
 }
 
 const handleBatchDelete = (ids: number[]) => {
@@ -192,27 +228,38 @@ const handleBatchShare = (ids: number[]) => {
 // 处理邮箱点击
 const handleMailboxClick = (mailbox: any, batchMode: boolean, toggleSelection: Function, onSelect: Function) => {
   if (batchMode) {
+    closeActionMenu()
     toggleSelection(mailbox.id)
   } else {
+    closeActionMenu()
     selectedId.value = mailbox.id
     onSelect(mailbox)
   }
 }
 
+const handleWindowClick = () => {
+  closeActionMenu()
+}
+
 const confirmDelete = async () => {
   deleting.value = true
   try {
+    const deletedIds = [...isDeleting.value.ids]
     if (isDeleting.value.batch) {
       // 使用批量删除接口
-      await unifiedAPI.batchDeleteMailboxes(isDeleting.value.ids, 'system')
-      showMessage(`已删除 ${isDeleting.value.ids.length} 个邮箱`)
+      await unifiedAPI.batchDeleteMailboxes(deletedIds, 'system')
+      showMessage(`已删除 ${deletedIds.length} 个邮箱`)
+      emit('deleted', deletedIds)
       // 批量删除成功后，退出批量模式
       if (mailboxListRef.value?.cancelBatchMode) {
         mailboxListRef.value.cancelBatchMode()
       }
     } else {
-      const result = await mailboxStore.deleteMailbox(isDeleting.value.ids[0])
+      const result = await mailboxStore.deleteMailbox(deletedIds[0])
       showMessage(result.success ? '删除成功' : result.error || '删除失败', result.success ? 'success' : 'error')
+      if (result.success) {
+        emit('deleted', deletedIds)
+      }
     }
     await mailboxStore.fetchMailboxes()
   } finally {
@@ -237,36 +284,12 @@ defineExpose({
     }
   }
 })
+
+onMounted(() => {
+  window.addEventListener('click', handleWindowClick)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('click', handleWindowClick)
+})
 </script>
-
-<style scoped>
-/* 自定义 checkbox 样式 */
-input[type="checkbox"] {
-  appearance: none;
-  -webkit-appearance: none;
-  width: 16px;
-  height: 16px;
-  border: 2px solid #d1d5db;
-  border-radius: 3px;
-  cursor: pointer;
-  position: relative;
-  background-color: white;
-}
-
-input[type="checkbox"]:checked {
-  background-color: #22c55e;
-  border-color: #22c55e;
-}
-
-input[type="checkbox"]:checked::after {
-  content: '';
-  position: absolute;
-  left: 4px;
-  top: 1px;
-  width: 4px;
-  height: 8px;
-  border: solid white;
-  border-width: 0 2px 2px 0;
-  transform: rotate(45deg);
-}
-</style>

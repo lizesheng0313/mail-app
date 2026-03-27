@@ -1,8 +1,17 @@
 <template>
   <div class="flex flex-col h-full email-detail-container">
     <!-- 标题栏 -->
-    <div class="border-b border-gray-200 pb-4 mb-4">
+    <div class="mb-4 flex items-center justify-between border-b border-gray-200 pb-4">
       <h2 class="text-base font-semibold text-black">{{ title }}</h2>
+      <HoverTooltip v-if="email" text="全屏">
+        <button
+          @click="$emit('expand', email)"
+          class="expand-button"
+          aria-label="全屏"
+        >
+          <ArrowsPointingOutIcon class="h-4 w-4" />
+        </button>
+      </HoverTooltip>
     </div>
 
     <!-- 邮件详情内容 -->
@@ -61,20 +70,7 @@
         </div>
 
         <!-- 邮件内容 -->
-        <div class="email-content" style="position: relative;">
-          <!-- 放大按钮 -->
-          <button
-            v-if="email"
-            @click="$emit('expand', email)"
-            class="expand-button"
-            title="点击放大查看完整邮件内容"
-          >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
-            </svg>
-            <span class="text-xs font-medium">放大</span>
-          </button>
-
+        <div class="email-content">
           <!-- HTML内容 -->
           <iframe
             v-if="hasHtmlContent"
@@ -99,11 +95,13 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { ArrowsPointingOutIcon } from '@heroicons/vue/24/solid'
 import { formatTimestamp } from '@/utils/timeUtils'
 import { isTauri } from '@/services/api'
 import { batchLoginAPI } from '@/api/batchLogin'
 import { runDesktopOAuthMailboxAction } from '@/services/desktopOAuthMailbox'
 import { showMessage } from '@/utils/message'
+import HoverTooltip from '@/components/HoverTooltip/index.vue'
 
 interface Email {
   id: number
@@ -521,24 +519,13 @@ iframe {
   padding: 2rem;
 }
 
-/* 放大按钮 - 和线上一致 */
 .expand-button {
-  position: absolute;
-  top: 0.5rem;
-  right: 0.5rem;
-  z-index: 10;
-  padding: 0.5rem 0.75rem;
-  @apply bg-primary-600 hover:bg-primary-700;
-  color: white;
-  border-radius: 0.5rem;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  @apply inline-flex h-8 w-8 items-center justify-center rounded-md bg-transparent text-gray-600 hover:bg-primary-50 hover:text-primary-700;
   transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
+  flex-shrink: 0;
 }
 
 .expand-button:hover {
-  transform: scale(1.05);
+  transform: none;
 }
 </style>

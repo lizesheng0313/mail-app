@@ -11,8 +11,8 @@ export const mailboxAPI = {
   // 获取临时邮箱的邮件（无需登录）
   getTempMailboxEmails: (mailboxId, params = {}) => api.get(`/mailboxes/temp/${mailboxId}/emails`, { params }),
 
-  // 申请邮箱（注册用户）
-  allocateMailbox: () => api.post('/mailboxes/allocate'),
+  // 创建邮箱（注册用户）
+  allocateMailbox: () => api.post('/mailboxes/'),
 
   // 获取用户邮箱列表
   getMailboxes: (params = {}) => api.get('/mailboxes/', { params }),

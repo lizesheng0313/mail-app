@@ -8,6 +8,7 @@ const GoogleSuccess = () => import('@/views/portal/auth/GoogleSuccess.vue')
 const GoogleChoose = () => import('@/views/portal/auth/GoogleChoose.vue')
 const Profile = () => import('@/views/portal/profile/index.vue')
 const Feedback = () => import('@/views/portal/feedback/index.vue')
+const OpenPlatformPage = () => import('@/views/portal/open-platform/index.vue')
 const PluginManagement = () => import('@/views/portal/plugins/index.vue')
 const PluginStore = () => import('@/views/portal/plugin-store/index.vue')
 const AutomationCenter = () => import('@/views/portal/automation/index.vue')
@@ -24,11 +25,11 @@ const TermsOfServicePage = () => import('@/views/portal/legal/TermsOfService.vue
 
 // 管理后台组件 - 只有管理员访问时才加载
 const AdminLayout = () => import('@/layouts/AdminLayout.vue')
-const AuthCodeManage = () => import('@/views/admin/authManage/index.vue')
 const DomainManage = () => import('@/views/admin/domain/index.vue')
 const FeedbackManage = () => import('@/views/admin/feedbackManage/index.vue')
 const MonitoringDashboard = () => import('@/views/admin/monitoring/index.vue')
 const AdminProxyManagement = () => import('@/views/admin/proxy-management/index.vue')
+const AIModelManagement = () => import('@/views/admin/ai-model-management/index.vue')
 const AdminUserManagement = () => import('@/views/admin/user-management/index.vue')
 const WorkflowReview = () => import('@/views/admin/workflow-review/index.vue')
 const FinanceSettlement = () => import('@/views/admin/finance-settlement/index.vue')
@@ -44,6 +45,7 @@ const UserOrders = () => import('@/views/user/orders/index.vue')
 const UserFinance = () => import('@/views/user/finance/index.vue')
 const UserSettings = () => import('@/views/user/settings/index.vue')
 const UserAnnouncements = () => import('@/views/user/announcements/index.vue')
+const UserDeveloper = () => import('@/views/user/developer/index.vue')
 
 // 工作流市场组件
 const WorkflowMarket = () => import('@/views/market/index.vue')
@@ -104,9 +106,19 @@ const router = createRouter({
     },
     {
       path: '/feedback',
-      name: 'feedback',
-      component: Feedback,
-      meta: { requiresAuth: true }
+      redirect: '/user/feedback'
+    },
+    {
+      path: '/open-platform/:section?',
+      name: 'open-platform',
+      component: OpenPlatformPage,
+      meta: {
+        seo: {
+          title: '开放平台 - API、工具描述与 AI 接入',
+          description: '查看开放平台接口、工具描述、OpenClaw 接入和 AI 调用方式。',
+          canonicalPath: '/open-platform'
+        }
+      }
     },
     {
       path: '/plugins',
@@ -292,6 +304,20 @@ const router = createRouter({
           path: 'announcements',
           name: 'user-announcements',
           component: UserAnnouncements
+        },
+        {
+          path: 'feedback',
+          name: 'user-feedback',
+          component: Feedback
+        },
+        {
+          path: 'developer',
+          redirect: '/user/developer/api-keys'
+        },
+        {
+          path: 'developer/:section',
+          name: 'user-developer',
+          component: UserDeveloper
         }
       ]
     },
@@ -301,11 +327,6 @@ const router = createRouter({
       component: AdminLayout,
       meta: { requiresAuth: true, requiresAdmin: true },
       children: [
-        {
-          path: 'auth-codes',
-          name: 'admin-auth-codes',
-          component: AuthCodeManage
-        },
         {
           path: 'domains',
           name: 'admin-domains',
@@ -325,6 +346,11 @@ const router = createRouter({
           path: 'proxy',
           name: 'admin-proxy',
           component: AdminProxyManagement
+        },
+        {
+          path: 'ai-models',
+          name: 'admin-ai-models',
+          component: AIModelManagement
         },
         {
           path: 'users',

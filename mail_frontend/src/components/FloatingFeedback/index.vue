@@ -1,7 +1,7 @@
 <template>
   <div class="fixed bottom-6 right-6 z-50">
     <router-link
-      to="/feedback"
+      to="/user/feedback"
       class="relative group inline-flex items-center justify-center w-12 h-12 bg-primary-600 hover:bg-primary-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
     >
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
