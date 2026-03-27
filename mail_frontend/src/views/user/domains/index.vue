@@ -37,13 +37,12 @@
     <AdminDataTable
       title="域名列表"
       :loading="loading"
-      :column-count="6"
+      :column-count="5"
     >
       <template #thead>
         <tr>
           <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">域名</th>
           <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">所有权</th>
-          <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">收件状态</th>
           <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">邮箱数</th>
           <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">更新时间</th>
           <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">操作</th>
@@ -58,11 +57,6 @@
           <td class="px-6 py-4 whitespace-nowrap">
             <span :class="getVerificationClass(domain.verification_status)" class="px-2 py-1 text-xs font-medium rounded-full">
               {{ getVerificationLabel(domain.verification_status) }}
-            </span>
-          </td>
-          <td class="px-6 py-4 whitespace-nowrap">
-            <span :class="getInboundClass(domain.inbound_status)" class="px-2 py-1 text-xs font-medium rounded-full">
-              {{ getInboundLabel(domain.inbound_status) }}
             </span>
           </td>
           <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
@@ -90,7 +84,7 @@
         </tr>
 
         <tr v-if="!filteredDomains.length">
-          <td colspan="6" class="px-6 py-12 text-center text-black">
+          <td colspan="5" class="px-6 py-12 text-center text-black">
             暂无域名数据
           </td>
         </tr>
@@ -98,22 +92,23 @@
     </AdminDataTable>
 
     <BaseModal
-      v-model="showCreateModal"
-      :title="createdDomainDetail ? 'DNS 配置' : '添加域名'"
-      :show-confirm="!createdDomainDetail"
-      :show-cancel="true"
-      :cancel-text="createdDomainDetail ? '关闭' : '取消'"
+      v-model="showDomainModal"
+      :title="domainModalDetail ? '域名详情' : '添加域名'"
+      :show-close="Boolean(domainModalDetail)"
+      :show-footer="!domainModalDetail"
+      :show-confirm="!domainModalDetail"
+      :show-cancel="!domainModalDetail"
       :confirm-text="creatingDomain ? '添加中...' : '添加域名'"
       :confirm-loading="creatingDomain"
       :confirm-disabled="creatingDomain || !createForm.domain_name.trim()"
       size="lg"
       @confirm="handleCreateDomain"
-      @close="closeCreateModal"
-      @cancel="closeCreateModal"
+      @close="closeDomainModal"
+      @cancel="closeDomainModal"
     >
-      <div v-if="!createdDomainDetail" class="space-y-4">
+      <div v-if="!domainModalDetail" class="space-y-4">
         <div class="rounded-lg bg-gray-50 px-4 py-3 text-sm leading-6 text-gray-600">
-          输入域名后会立即生成需要配置的 DNS 记录。完成所有权校验后，这个域名就可以在首页生成邮箱地址。
+          输入域名后会立即生成需要配置的 DNS 记录。完成验证后，这个域名就可以在首页生成邮箱地址。
         </div>
         <BaseInput
           v-model="createForm.domain_name"
@@ -123,88 +118,30 @@
       </div>
 
       <div v-else class="space-y-6">
-        <div class="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
-          域名已创建成功，下面是需要配置的 DNS 记录。
+        <div
+          v-if="domainModalNotice"
+          :class="domainModalNotice.type === 'success' ? 'border-green-200 bg-green-50 text-green-800' : 'border-red-200 bg-red-50 text-red-800'"
+          class="rounded-lg border px-4 py-3 text-sm"
+        >
+          {{ domainModalNotice.text }}
         </div>
 
-        <div class="rounded-lg border border-gray-200 bg-gray-50 px-4 py-4">
-          <div class="flex flex-wrap items-center gap-2">
-            <div class="text-base font-semibold text-black">{{ createdDomainDetail.domain.domain_name }}</div>
-            <span :class="getVerificationClass(createdDomainDetail.domain.verification_status)" class="px-2 py-1 text-xs font-medium rounded-full">
-              {{ getVerificationLabel(createdDomainDetail.domain.verification_status) }}
-            </span>
-          </div>
-          <p class="mt-2 text-sm text-gray-600">
-            配置完成后可以在列表操作里点击“详情”再次查看这些记录。
-          </p>
-        </div>
-
-        <div class="overflow-x-auto">
-          <table class="min-w-full divide-y divide-gray-200 text-sm">
-            <thead>
-              <tr class="text-left text-xs uppercase tracking-wide text-gray-500">
-                <th class="pb-3 pr-4 font-medium">类型</th>
-                <th class="pb-3 pr-4 font-medium">主机记录</th>
-                <th class="pb-3 pr-4 font-medium">值</th>
-                <th class="pb-3 font-medium">操作</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-100">
-              <tr v-for="record in createdDomainDetail.dns_instructions || []" :key="record.id">
-                <td class="py-3 pr-4 align-top text-black">{{ record.record_type }}</td>
-                <td class="py-3 pr-4 align-top text-gray-700">{{ record.record_name }}</td>
-                <td class="py-3 pr-4 align-top">
-                  <div class="max-w-[480px] break-all text-gray-700">{{ record.record_value }}</div>
-                </td>
-                <td class="py-3 align-top">
-                  <button
-                    class="text-sm font-medium text-primary-600 transition-colors hover:text-primary-700"
-                    @click="copyText(record.record_value)"
-                  >
-                    复制
-                  </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </BaseModal>
-
-    <BaseModal
-      v-model="showDetailModal"
-      title="域名详情"
-      :show-close="true"
-      :show-confirm="false"
-      :show-cancel="false"
-      size="lg"
-      @close="closeDetailModal"
-      @cancel="closeDetailModal"
-    >
-      <div v-if="detailLoading && !detailDomain" class="py-10 text-center text-sm text-gray-500">
-        加载中...
-      </div>
-
-      <div v-else-if="detailDomain" class="space-y-6">
         <div class="rounded-lg border border-gray-200 bg-gray-50 px-4 py-4">
           <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
               <div class="flex flex-wrap items-center gap-2">
-                <div class="text-base font-semibold text-black">{{ detailDomain.domain.domain_name }}</div>
-                <span :class="getVerificationClass(detailDomain.domain.verification_status)" class="px-2 py-1 text-xs font-medium rounded-full">
-                  {{ getVerificationLabel(detailDomain.domain.verification_status) }}
-                </span>
-                <span :class="getInboundClass(detailDomain.domain.inbound_status)" class="px-2 py-1 text-xs font-medium rounded-full">
-                  {{ getInboundLabel(detailDomain.domain.inbound_status) }}
+                <div class="text-base font-semibold text-black">{{ domainModalDetail.domain.domain_name }}</div>
+                <span :class="getVerificationClass(domainModalDetail.domain.verification_status)" class="px-2 py-1 text-xs font-medium rounded-full">
+                  {{ getVerificationLabel(domainModalDetail.domain.verification_status) }}
                 </span>
               </div>
             </div>
             <button
               class="px-3 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-md text-sm disabled:opacity-50"
-              :disabled="refreshingDomainId === detailDomain.domain.id"
-              @click="refreshDns(detailDomain.domain.id, true)"
+              :disabled="refreshingDomainId === domainModalDetail.domain.id"
+              @click="refreshDns(domainModalDetail.domain.id)"
             >
-              {{ refreshingDomainId === detailDomain.domain.id ? '验证中...' : '立即验证DNS' }}
+              {{ refreshingDomainId === domainModalDetail.domain.id ? '验证中...' : '立即验证DNS' }}
             </button>
           </div>
         </div>
@@ -219,35 +156,52 @@
                   <th class="pb-3 pr-4 font-medium">主机记录</th>
                   <th class="pb-3 pr-4 font-medium">值</th>
                   <th class="pb-3 pr-4 font-medium">状态</th>
-                  <th class="pb-3 font-medium">操作</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-gray-100">
-                <tr v-for="record in detailDomain.dns_instructions || []" :key="record.id">
+                <tr v-for="record in domainModalDetail.dns_instructions || []" :key="record.id">
                   <td class="py-3 pr-4 align-top text-black">{{ record.record_type }}</td>
-                  <td class="py-3 pr-4 align-top text-gray-700">{{ record.record_name }}</td>
                   <td class="py-3 pr-4 align-top">
-                    <div class="max-w-[480px] break-all text-gray-700">{{ record.record_value }}</div>
+                    <div class="flex items-center gap-2">
+                      <div class="max-w-[240px] break-all text-gray-700">{{ record.record_name }}</div>
+                      <button
+                        class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-primary-600 transition-colors hover:bg-primary-50 hover:text-primary-700"
+                        title="复制主机记录"
+                        @click="copyText(record.record_name)"
+                      >
+                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h6a2 2 0 002-2v-8a2 2 0 00-2-2h-6a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                      </button>
+                    </div>
+                  </td>
+                  <td class="py-3 pr-4 align-top">
+                    <div class="flex items-center gap-2">
+                      <div class="max-w-[420px] break-all text-gray-700">{{ record.record_value }}</div>
+                      <button
+                        class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-primary-600 transition-colors hover:bg-primary-50 hover:text-primary-700"
+                        title="复制记录值"
+                        @click="copyText(record.record_value)"
+                      >
+                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h6a2 2 0 002-2v-8a2 2 0 00-2-2h-6a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                      </button>
+                    </div>
                   </td>
                   <td class="py-3 pr-4 align-top">
                     <span :class="getDnsStatusClass(record.status)" class="px-2 py-1 text-xs font-medium rounded-full">
                       {{ getDnsStatusLabel(record.status) }}
                     </span>
-                  </td>
-                  <td class="py-3 align-top">
-                    <button
-                      class="text-sm font-medium text-primary-600 transition-colors hover:text-primary-700"
-                      @click="copyText(record.record_value)"
-                    >
-                      复制
-                    </button>
+                    <div v-if="record.check_message" class="mt-2 max-w-[220px] text-xs text-gray-500 break-all">
+                      {{ record.check_message }}
+                    </div>
                   </td>
                 </tr>
               </tbody>
             </table>
           </div>
         </div>
-
       </div>
     </BaseModal>
 
@@ -280,17 +234,15 @@ const route = useRoute()
 const loading = ref(false)
 const deleting = ref(false)
 const creatingDomain = ref(false)
-const detailLoading = ref(false)
 const refreshingDomainId = ref<number | null>(null)
 
 const searchQuery = ref('')
 const domains = ref<any[]>([])
-const showCreateModal = ref(false)
-const showDetailModal = ref(false)
+const showDomainModal = ref(false)
 const showDeleteConfirm = ref(false)
 const domainToDelete = ref<any | null>(null)
-const detailDomain = ref<any | null>(null)
-const createdDomainDetail = ref<any | null>(null)
+const domainModalDetail = ref<any | null>(null)
+const domainModalNotice = ref<{ type: 'success' | 'error'; text: string } | null>(null)
 
 const createForm = ref({
   domain_name: ''
@@ -316,20 +268,6 @@ const getVerificationClass = (status: string) => {
   return 'bg-amber-100 text-amber-700'
 }
 
-const getInboundLabel = (status: string) => {
-  const normalized = String(status || '').toLowerCase()
-  if (normalized === 'ready') return '已可收信'
-  if (normalized === 'error') return '配置异常'
-  return '待生效'
-}
-
-const getInboundClass = (status: string) => {
-  const normalized = String(status || '').toLowerCase()
-  if (normalized === 'ready') return 'bg-green-100 text-green-700'
-  if (normalized === 'error') return 'bg-red-100 text-red-700'
-  return 'bg-gray-200 text-gray-600'
-}
-
 const getDnsStatusLabel = (status: string) => {
   const normalized = String(status || '').toLowerCase()
   if (normalized === 'verified') return '已验证'
@@ -341,11 +279,25 @@ const getDnsStatusLabel = (status: string) => {
 
 const getDnsStatusClass = (status: string) => {
   const normalized = String(status || '').toLowerCase()
-  if (normalized === 'verified') return 'bg-green-100 text-green-700'
-  if (normalized === 'valid') return 'bg-green-100 text-green-700'
+  if (normalized === 'verified' || normalized === 'valid') return 'bg-green-100 text-green-700'
   if (normalized === 'invalid') return 'bg-red-100 text-red-700'
   if (normalized === 'not_found') return 'bg-amber-100 text-amber-700'
   return 'bg-gray-200 text-gray-600'
+}
+
+const getDomainNotice = (detail: any, created = false) => {
+  const records = detail?.dns_instructions || []
+  const badRecord = records.find((item: any) => !['valid', 'verified'].includes(String(item?.status || '').toLowerCase()))
+  if (!badRecord) {
+    return {
+      type: 'success' as const,
+      text: created ? '域名已创建成功，DNS 记录验证通过。' : 'DNS 记录验证通过。'
+    }
+  }
+  return {
+    type: 'error' as const,
+    text: created ? '域名已创建成功，请先完成 DNS 配置。' : 'DNS 记录校验未通过，请检查配置。'
+  }
 }
 
 const loadDomains = async () => {
@@ -370,15 +322,23 @@ const copyText = async (value: string) => {
 }
 
 const openCreateModal = () => {
-  showCreateModal.value = true
-  createdDomainDetail.value = null
+  showDomainModal.value = true
+  domainModalDetail.value = null
+  domainModalNotice.value = null
   createForm.value = { domain_name: '' }
 }
 
-const closeCreateModal = () => {
-  showCreateModal.value = false
-  createdDomainDetail.value = null
+const closeDomainModal = () => {
+  showDomainModal.value = false
+  domainModalDetail.value = null
+  domainModalNotice.value = null
   createForm.value = { domain_name: '' }
+}
+
+const applyDomainDetailToModal = (detail: any, created = false) => {
+  domainModalDetail.value = detail
+  domainModalNotice.value = getDomainNotice(detail, created)
+  showDomainModal.value = true
 }
 
 const handleCreateDomain = async () => {
@@ -390,7 +350,7 @@ const handleCreateDomain = async () => {
       domain_name: createForm.value.domain_name.trim()
     })
     if (response.code === 0 && response.data) {
-      createdDomainDetail.value = response.data
+      applyDomainDetailToModal(response.data, true)
       showMessage('域名添加成功', 'success')
       await loadDomains()
     }
@@ -400,33 +360,28 @@ const handleCreateDomain = async () => {
 }
 
 const openDetailModal = async (domainId: number) => {
-  detailLoading.value = true
-  showDetailModal.value = true
+  showDomainModal.value = true
+  domainModalDetail.value = null
+  domainModalNotice.value = null
   try {
     const response: any = await hostedDomainAPI.getDomainDetail(domainId)
     if (response.code === 0 && response.data) {
-      detailDomain.value = response.data
+      applyDomainDetailToModal(response.data)
     }
-  } finally {
-    detailLoading.value = false
+  } catch {
+    closeDomainModal()
   }
 }
 
-const closeDetailModal = () => {
-  showDetailModal.value = false
-  detailDomain.value = null
-}
-
-const refreshDns = async (domainId: number, reloadDetail = false) => {
+const refreshDns = async (domainId: number) => {
   refreshingDomainId.value = domainId
   try {
     const response: any = await hostedDomainAPI.refreshDns(domainId)
-    if (response.code === 0) {
-      showMessage('DNS 检查完成', 'success')
+    if (response.code === 0 && response.data) {
+      applyDomainDetailToModal(response.data)
+      const notice = getDomainNotice(response.data)
+      showMessage(notice.text, notice.type)
       await loadDomains()
-      if (reloadDetail) {
-        await openDetailModal(domainId)
-      }
     }
   } finally {
     refreshingDomainId.value = null
@@ -447,8 +402,8 @@ const confirmDeleteDomain = async () => {
     if (response.code === 0) {
       showMessage('域名删除成功', 'success')
       showDeleteConfirm.value = false
-      if (detailDomain.value?.domain?.id === domainToDelete.value.id) {
-        closeDetailModal()
+      if (domainModalDetail.value?.domain?.id === domainToDelete.value.id) {
+        closeDomainModal()
       }
       domainToDelete.value = null
       await loadDomains()
