@@ -141,7 +141,14 @@
               :disabled="refreshingDomainId === domainModalDetail.domain.id"
               @click="refreshDns(domainModalDetail.domain.id)"
             >
-              {{ refreshingDomainId === domainModalDetail.domain.id ? '验证中...' : '立即验证DNS' }}
+              <span v-if="refreshingDomainId === domainModalDetail.domain.id" class="inline-flex items-center gap-2">
+                验证中
+                <svg class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                </svg>
+              </span>
+              <span v-else>立即验证DNS</span>
             </button>
           </div>
         </div>
@@ -152,50 +159,43 @@
             <table class="min-w-full divide-y divide-gray-200 text-sm">
               <thead>
                 <tr class="text-left text-xs uppercase tracking-wide text-gray-500">
-                  <th class="pb-3 pr-4 font-medium">类型</th>
                   <th class="pb-3 pr-4 font-medium">主机记录</th>
+                  <th class="pb-3 pr-4 font-medium">记录类型</th>
                   <th class="pb-3 pr-4 font-medium">值</th>
-                  <th class="pb-3 pr-4 font-medium">状态</th>
+                  <th class="pb-3 pr-4 font-medium">优先级</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-gray-100">
                 <tr v-for="record in domainModalDetail.dns_instructions || []" :key="record.id">
+                  <td class="py-3 pr-4 align-top">
+                    <div class="flex items-center gap-2">
+                      <div class="max-w-[240px] break-all text-gray-700">{{ formatRecordHost(record) }}</div>
+                      <ActionButton
+                        icon="copy"
+                        title="复制主机记录"
+                        @click="copyText(formatRecordHost(record))"
+                        tooltip="复制主机记录"
+                        variant="copy"
+                        size="sm"
+                      />
+                    </div>
+                  </td>
                   <td class="py-3 pr-4 align-top text-black">{{ record.record_type }}</td>
                   <td class="py-3 pr-4 align-top">
                     <div class="flex items-center gap-2">
-                      <div class="max-w-[240px] break-all text-gray-700">{{ record.record_name }}</div>
-                      <button
-                        class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-primary-600 transition-colors hover:bg-primary-50 hover:text-primary-700"
-                        title="复制主机记录"
-                        @click="copyText(record.record_name)"
-                      >
-                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h6a2 2 0 002-2v-8a2 2 0 00-2-2h-6a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                        </svg>
-                      </button>
-                    </div>
-                  </td>
-                  <td class="py-3 pr-4 align-top">
-                    <div class="flex items-center gap-2">
                       <div class="max-w-[420px] break-all text-gray-700">{{ record.record_value }}</div>
-                      <button
-                        class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-primary-600 transition-colors hover:bg-primary-50 hover:text-primary-700"
+                      <ActionButton
+                        icon="copy"
                         title="复制记录值"
                         @click="copyText(record.record_value)"
-                      >
-                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h6a2 2 0 002-2v-8a2 2 0 00-2-2h-6a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                        </svg>
-                      </button>
+                        tooltip="复制记录值"
+                        variant="copy"
+                        size="sm"
+                      />
                     </div>
                   </td>
-                  <td class="py-3 pr-4 align-top">
-                    <span :class="getDnsStatusClass(record.status)" class="px-2 py-1 text-xs font-medium rounded-full">
-                      {{ getDnsStatusLabel(record.status) }}
-                    </span>
-                    <div v-if="record.check_message" class="mt-2 max-w-[220px] text-xs text-gray-500 break-all">
-                      {{ record.check_message }}
-                    </div>
+                  <td class="py-3 pr-4 align-top text-gray-700">
+                    {{ record.priority ?? '-' }}
                   </td>
                 </tr>
               </tbody>
@@ -287,8 +287,10 @@ const getDnsStatusClass = (status: string) => {
 
 const getDomainNotice = (detail: any, created = false) => {
   const records = detail?.dns_instructions || []
-  const badRecord = records.find((item: any) => !['valid', 'verified'].includes(String(item?.status || '').toLowerCase()))
-  if (!badRecord) {
+  const badRecords = records.filter(
+    (item: any) => !['valid', 'verified'].includes(String(item?.status || '').toLowerCase())
+  )
+  if (!badRecords.length) {
     return {
       type: 'success' as const,
       text: created ? '域名已创建成功，DNS 记录验证通过。' : 'DNS 记录验证通过。'
@@ -296,7 +298,7 @@ const getDomainNotice = (detail: any, created = false) => {
   }
   return {
     type: 'error' as const,
-    text: created ? '域名已创建成功，请先完成 DNS 配置。' : 'DNS 记录校验未通过，请检查配置。'
+    text: created ? '域名已创建成功，请先完成 DNS 配置。' : 'DNS 没验证通过。'
   }
 }
 
@@ -319,6 +321,11 @@ const copyText = async (value: string) => {
   } catch {
     showMessage('复制失败', 'error')
   }
+}
+
+const formatRecordHost = (record: any) => {
+  const value = String(record?.record_host || '').trim()
+  return value || '@'
 }
 
 const openCreateModal = () => {
@@ -375,12 +382,11 @@ const openDetailModal = async (domainId: number) => {
 
 const refreshDns = async (domainId: number) => {
   refreshingDomainId.value = domainId
+  domainModalNotice.value = null
   try {
     const response: any = await hostedDomainAPI.refreshDns(domainId)
     if (response.code === 0 && response.data) {
       applyDomainDetailToModal(response.data)
-      const notice = getDomainNotice(response.data)
-      showMessage(notice.text, notice.type)
       await loadDomains()
     }
   } finally {
