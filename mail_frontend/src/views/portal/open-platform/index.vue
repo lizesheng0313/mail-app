@@ -259,6 +259,72 @@ const docsData = ref<any>(null)
 
 const fallbackDocGroups: EndpointGroup[] = [
   {
+    name: 'hosted-domains',
+    description: '托管域名接口',
+    items: [
+      {
+        method: 'POST',
+        path: '/open/v1/hosted-domains',
+        description: '创建托管域名',
+        auth: 'API Key / 登录 Token',
+        scope: 'mailbox.write',
+        request_example: { domain_name: 'example.com', expires_at_ms: 1770000000000 },
+        response_example: { domain: { id: 11, domain_name: 'example.com', verification_status: 'pending' } },
+        error_codes: [1002, 1004, 2001]
+      },
+      {
+        method: 'GET',
+        path: '/open/v1/hosted-domains',
+        description: '获取托管域名列表',
+        auth: 'API Key / 登录 Token',
+        scope: 'mailbox.read',
+        request_example: {},
+        response_example: { items: [{ id: 11, domain_name: 'example.com', verification_status: 'verified' }] },
+        error_codes: [1002, 1004, 2001]
+      },
+      {
+        method: 'GET',
+        path: '/open/v1/hosted-domains/{domain_id}',
+        description: '获取托管域名详情',
+        auth: 'API Key / 登录 Token',
+        scope: 'mailbox.read',
+        request_example: {},
+        response_example: { domain: { id: 11, domain_name: 'example.com' }, dns_instructions: [] },
+        error_codes: [1002, 1004, 2001]
+      },
+      {
+        method: 'PUT',
+        path: '/open/v1/hosted-domains/{domain_id}',
+        description: '更新托管域名',
+        auth: 'API Key / 登录 Token',
+        scope: 'mailbox.write',
+        request_example: { is_active: false, expires_at_ms: 1770000000000 },
+        response_example: { domain: { id: 11, domain_name: 'example.com', is_active: false } },
+        error_codes: [1002, 1004, 2001]
+      },
+      {
+        method: 'DELETE',
+        path: '/open/v1/hosted-domains/{domain_id}',
+        description: '删除托管域名',
+        auth: 'API Key / 登录 Token',
+        scope: 'mailbox.write',
+        request_example: {},
+        response_example: { code: 0, message: '删除托管域名成功' },
+        error_codes: [1002, 1004, 2001]
+      },
+      {
+        method: 'POST',
+        path: '/open/v1/hosted-domains/{domain_id}/refresh-dns',
+        description: '立即验证托管域名 DNS',
+        auth: 'API Key / 登录 Token',
+        scope: 'mailbox.read',
+        request_example: {},
+        response_example: { domain: { id: 11, verification_status: 'verified' }, dns_instructions: [] },
+        error_codes: [1002, 1004, 2001]
+      }
+    ]
+  },
+  {
     name: 'mailboxes',
     description: '系统邮箱接口',
     items: [
@@ -429,6 +495,7 @@ const fallbackDocGroups: EndpointGroup[] = [
 const docGroupLabelMap: Record<string, string> = {
   'api-keys': '访问密钥',
   logs: '调用日志',
+  'hosted-domains': '托管域名',
   mailboxes: '系统邮箱',
   'external-mailboxes': '第三方邮箱',
   'smtp-accounts': '发信账号',
@@ -451,6 +518,12 @@ const scopeLabelMap: Record<string, string> = {
 }
 
 const endpointLabelMap: Record<string, string> = {
+  'POST /open/v1/hosted-domains': '创建托管域名',
+  'GET /open/v1/hosted-domains': '托管域名列表',
+  'GET /open/v1/hosted-domains/{domain_id}': '托管域名详情',
+  'PUT /open/v1/hosted-domains/{domain_id}': '更新托管域名',
+  'DELETE /open/v1/hosted-domains/{domain_id}': '删除托管域名',
+  'POST /open/v1/hosted-domains/{domain_id}/refresh-dns': '验证 DNS',
   'POST /open/v1/mailboxes': '创建邮箱',
   'GET /open/v1/mailboxes': '邮箱列表',
   'DELETE /open/v1/mailboxes/{mailbox_id}': '删除邮箱',

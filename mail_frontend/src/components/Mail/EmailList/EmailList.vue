@@ -2,8 +2,8 @@
   <div class="flex flex-col h-full">
     <!-- 标题栏 -->
     <div class="border-b border-gray-200 pb-4 mb-4">
-      <div class="flex justify-between items-center flex-wrap gap-2">
-        <div class="flex items-center flex-shrink-0">
+      <div class="flex min-h-8 justify-between items-center flex-wrap gap-2">
+        <div class="flex min-h-8 items-center flex-shrink-0">
           <h2 class="text-base font-semibold text-black whitespace-nowrap">{{ title }}</h2>
 
           <!-- 自动刷新倒计时 -->
@@ -19,7 +19,7 @@
           </div>
         </div>
 
-        <div class="flex items-center gap-1.5 flex-shrink-0">
+        <div class="flex min-h-8 min-w-8 items-center gap-1.5 flex-shrink-0 justify-end">
           <HoverTooltip
             v-if="!batchSelection.isBatchMode.value && emails.length > 0"
             text="批量操作"

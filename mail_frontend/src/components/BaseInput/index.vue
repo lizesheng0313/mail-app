@@ -166,10 +166,15 @@ const inputClasses = computed(() => {
     ? ['border-red-300 focus:border-red-500 focus:ring-red-500']
     : []
 
+  const dateLikeClasses = ['date', 'time', 'datetime-local'].includes(props.type)
+    ? ['date-like-input min-h-[48px] cursor-pointer pr-12']
+    : []
+
   return [
     ...baseClasses,
     sizeClasses[props.size],
     ...paddingClasses,
+    ...dateLikeClasses,
     ...errorClasses
   ].join(' ')
 })
@@ -210,3 +215,15 @@ const handleClear = () => {
   emit('clear')
 }
 </script>
+
+<style scoped>
+.date-like-input::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.9;
+  transform: scale(1.15);
+}
+
+.date-like-input::-webkit-date-and-time-value {
+  min-height: 1.5rem;
+}
+</style>

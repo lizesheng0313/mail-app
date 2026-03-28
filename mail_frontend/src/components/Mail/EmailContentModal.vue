@@ -199,8 +199,26 @@ const enhanceIframeLinks = (iframeDoc: Document) => {
   const links = iframeDoc.querySelectorAll('a')
   links.forEach((link) => {
     if (!(link instanceof HTMLAnchorElement)) return
+    const boundLink = link as HTMLAnchorElement & { __externalLinkBound?: boolean }
+    const url = resolveExternalUrl(link.getAttribute('href'), iframeDoc.baseURI)
+    if (!url) return
+
+    link.setAttribute('href', url)
     link.setAttribute('target', '_blank')
     link.setAttribute('rel', 'noopener noreferrer')
+
+    if (boundLink.__externalLinkBound) return
+    boundLink.__externalLinkBound = true
+
+    const openLink = (event: Event) => {
+      event.preventDefault()
+      event.stopPropagation()
+      console.info('[mail-link-open]', url)
+      void openExternalUrl(url)
+    }
+
+    link.addEventListener('click', openLink, true)
+    link.addEventListener('auxclick', openLink, true)
   })
 }
 

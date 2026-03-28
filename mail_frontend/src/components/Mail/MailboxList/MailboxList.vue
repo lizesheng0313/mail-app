@@ -2,9 +2,9 @@
   <div class="flex flex-col h-full">
     <!-- 标题栏 -->
     <div class="border-b border-gray-200 pb-4 mb-4">
-      <div class="flex justify-between items-center">
+      <div class="flex min-h-8 justify-between items-center">
         <h2 class="text-base font-semibold text-black">{{ title }}</h2>
-        <div class="flex items-center gap-2">
+        <div class="flex min-h-8 min-w-8 items-center justify-end gap-2">
           <slot name="header-actions"></slot>
 
           <HoverTooltip
@@ -20,6 +20,31 @@
             </button>
           </HoverTooltip>
         </div>
+      </div>
+    </div>
+
+    <div v-if="searchable" class="pb-3 mb-1">
+      <div class="relative flex items-center">
+        <svg class="absolute left-2.5 w-3.5 h-3.5 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+        </svg>
+        <input
+          v-model="searchText"
+          type="text"
+          :placeholder="searchPlaceholder"
+          class="w-full pl-8 pr-8 py-1.5 text-sm border border-gray-200 rounded-lg outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-100 transition-colors"
+          @input="handleSearch"
+          @keyup.escape="clearSearch"
+        />
+        <button
+          v-if="searchText"
+          @click="clearSearch"
+          class="absolute right-2 text-gray-400 hover:text-gray-600"
+        >
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
       </div>
     </div>
     
@@ -66,7 +91,7 @@
 </template>
 
 <script setup lang="ts">
-import { toRef } from 'vue'
+import { ref, toRef, watch } from 'vue'
 import { useBatchSelection } from '@/composables/useBatchSelection'
 import MultiSelectToolbar from '@/components/MultiSelectToolbar/index.vue'
 import BaseIcon from '@/components/BaseIcon/index.vue'
@@ -85,6 +110,9 @@ interface Props {
   emptyText?: string
   showPagination?: boolean
   hideBatchMode?: boolean
+  searchable?: boolean
+  searchKeyword?: string
+  searchPlaceholder?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -92,7 +120,10 @@ const props = withDefaults(defineProps<Props>(), {
   selectedId: null,
   emptyText: '暂无邮箱',
   showPagination: false,
-  hideBatchMode: false
+  hideBatchMode: false,
+  searchable: false,
+  searchKeyword: '',
+  searchPlaceholder: '搜索邮箱...'
 })
 
 const emit = defineEmits<{
@@ -100,7 +131,30 @@ const emit = defineEmits<{
   'batch-delete': [ids: number[]]
   'batch-share': [ids: number[]]
   'batch-mode-start': []
+  'search': [keyword: string]
 }>()
+
+const searchText = ref(props.searchKeyword || '')
+let searchTimer: any = null
+
+watch(
+  () => props.searchKeyword,
+  (value) => {
+    searchText.value = value || ''
+  }
+)
+
+const handleSearch = () => {
+  clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => {
+    emit('search', searchText.value.trim())
+  }, 400)
+}
+
+const clearSearch = () => {
+  searchText.value = ''
+  emit('search', '')
+}
 
 // 批量选择逻辑 - 使用 toRef 保持响应式
 const batchSelection = useBatchSelection(toRef(props, 'mailboxes'))

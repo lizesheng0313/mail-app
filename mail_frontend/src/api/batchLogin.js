@@ -10,11 +10,17 @@ export const batchLoginAPI = {
     api.post('/unified-emails/external-mailboxes', accountData, requestConfig),
 
   // 获取邮箱账号列表
-  getAccounts: (page = 1, pageSize = 20, requestConfig = {}) =>
-    api.get('/unified-emails/external-mailboxes', {
-      params: { page, page_size: pageSize },
-      ...requestConfig
-    }),
+  getAccounts: (page = 1, pageSize = 20, requestConfig = {}) => {
+    const { search, ...restConfig } = requestConfig
+    return api.get('/unified-emails/external-mailboxes', {
+      params: {
+        page,
+        page_size: pageSize,
+        ...(search ? { search } : {})
+      },
+      ...restConfig
+    })
+  },
 
   // 获取全部邮箱账号（自动翻页）
   getAllAccounts: async (pageSize = 100, requestConfig = {}) => {

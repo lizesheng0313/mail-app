@@ -43,10 +43,8 @@ const UserIcon = {
   ])
 }
 
-const isAdmin = computed(() => Boolean(userStore.user?.is_admin))
-
 // 菜单配置
-const menuSections = computed(() => [
+const menuSections = [
   {
     name: '开发接入',
     items: [
@@ -61,7 +59,7 @@ const menuSections = computed(() => [
       }
     ]
   },
-  ...(isAdmin.value ? [{
+  {
     name: '域名邮箱',
     items: [
       {
@@ -74,7 +72,7 @@ const menuSections = computed(() => [
         }
       }
     ]
-  }] : []),
+  },
   {
     name: '财务管理',
     items: [
@@ -150,7 +148,7 @@ const menuSections = computed(() => [
       }
     ]
   }
-])
+]
 
 // 当前页面标题
 const currentPageTitle = computed(() => {

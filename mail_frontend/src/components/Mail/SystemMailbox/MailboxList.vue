@@ -5,10 +5,14 @@
     :mailboxes="resolvedMailboxes"
     :selectedId="selectedId"
     :showPagination="showPagination"
+    :searchable="searchable"
+    :search-keyword="resolvedSearchKeyword"
+    :search-placeholder="searchPlaceholder"
     @select="$emit('select', $event)"
     @batch-delete="handleBatchDelete"
     @batch-share="handleBatchShare"
     @batch-mode-start="$emit('batch-mode-start')"
+    @search="handleSearch"
   >
     <template #content="{ mailboxes, selectedId, batchMode, selectedIds, toggleSelection, onSelect }">
       <MailboxCard
@@ -24,19 +28,20 @@
         @click="handleMailboxClick(mailbox, batchMode, toggleSelection, onSelect)"
       >
         <div class="flex items-center gap-2 flex-nowrap">
-          <svg v-if="isExpired(mailbox)" class="w-3 h-3 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg v-if="isUnavailable(mailbox)" class="w-3 h-3 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
           </svg>
           <code
-            :class="isExpired(mailbox) ? 'text-red-600 line-through' : 'text-black'"
+            :class="isUnavailable(mailbox) ? 'text-red-600 line-through' : 'text-black'"
             class="text-sm truncate flex-shrink"
           >{{ mailbox.email }}</code>
-          <span v-if="isExpired(mailbox)" class="px-1 py-0.5 text-xs bg-red-100 text-red-800 rounded whitespace-nowrap flex-shrink-0">过期</span>
+          <span v-if="isDeletedHostedDomain(mailbox)" class="px-1 py-0.5 text-xs bg-red-100 text-red-800 rounded whitespace-nowrap flex-shrink-0">域名已删除</span>
+          <span v-else-if="isExpired(mailbox)" class="px-1 py-0.5 text-xs bg-red-100 text-red-800 rounded whitespace-nowrap flex-shrink-0">过期</span>
         </div>
         <div class="mt-1 flex items-center justify-between text-xs text-gray-600">
           <span>创建：{{ formatDate(mailbox.created_at) }}</span>
-          <span v-if="mailbox.expires_at" :class="isExpired(mailbox) ? 'text-red-600 font-medium' : ''">
-            过期：{{ formatDate(mailbox.expires_at) }}
+          <span v-if="getDisplayExpiresAt(mailbox)" :class="isExpired(mailbox) ? 'text-red-600 font-medium' : ''">
+            过期：{{ formatDate(getDisplayExpiresAt(mailbox)) }}
           </span>
         </div>
         <MailboxTags
@@ -53,13 +58,16 @@
             type="button"
             class="flex h-8 w-8 items-center justify-center rounded-full text-gray-500 transition-colors hover:bg-white hover:text-gray-700"
             title="更多操作"
-            @click.stop="toggleActionMenu(mailbox.id)"
+            @click.stop="toggleActionMenu(mailbox.id, $event)"
           >
             <BaseIcon name="more" size="sm" />
           </button>
           <div
             v-if="openMenuId === mailbox.id"
-            class="absolute right-0 top-10 z-20 min-w-[128px] overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg"
+            :class="[
+              'absolute right-0 z-20 min-w-[128px] overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg',
+              openMenuPlacement === 'up' ? 'bottom-full mb-2' : 'top-full mt-2'
+            ]"
             @click.stop
           >
             <button
@@ -134,6 +142,10 @@ const props = withDefaults(defineProps<{
   enableTags?: boolean
   pagination?: Record<string, any> | null
   onPageChange?: ((page: number) => void | Promise<void>) | null
+  searchable?: boolean
+  searchKeyword?: string | null
+  searchPlaceholder?: string
+  onSearch?: ((keyword: string) => void | Promise<void>) | null
 }>(), {
   mailboxType: 'system',
   title: '临时邮箱',
@@ -141,7 +153,11 @@ const props = withDefaults(defineProps<{
   showPagination: true,
   enableTags: true,
   pagination: null,
-  onPageChange: null
+  onPageChange: null,
+  searchable: true,
+  searchKeyword: null,
+  searchPlaceholder: '搜索邮箱...',
+  onSearch: null
 })
 
 const emit = defineEmits(['select', 'batch-mode-start', 'share', 'deleted', 'refresh'])
@@ -154,7 +170,13 @@ const isDeleting = ref({ batch: false, ids: [] as number[] })
 const selectedId = ref<number | null>(null)
 const tagsData = ref<Record<number, { sites: any[], tags: any[] }>>({})
 const openMenuId = ref<number | null>(null)
+const openMenuPlacement = ref<'up' | 'down'>('down')
 const resolvedMailboxes = computed(() => props.mailboxes || mailboxStore.mailboxes)
+const resolvedSearchKeyword = computed(() =>
+  props.searchKeyword !== null && props.searchKeyword !== undefined
+    ? String(props.searchKeyword || '')
+    : String(mailboxStore.searchKeyword || '')
+)
 const resolvedPagination = computed(() => {
   if (props.pagination) {
     return {
@@ -170,11 +192,25 @@ const resolvedPagination = computed(() => {
   }
 })
 
-const isExpired = (mailbox: any) => {
-  if (!mailbox.expires_at) return false
-  // expires_at 是毫秒时间戳
-  return mailbox.expires_at < Date.now()
+const getDisplayExpiresAt = (mailbox: any) => {
+  const mailboxExpiresAt = Number(mailbox?.expires_at || 0)
+  const domainExpiresAt = Number(mailbox?.domain_expires_at || 0)
+  if (String(mailbox?.mailbox_type || '') === 'hosted') {
+    return domainExpiresAt || mailboxExpiresAt || null
+  }
+  return mailboxExpiresAt || null
 }
+
+const isExpired = (mailbox: any) => {
+  const expiresAt = Number(getDisplayExpiresAt(mailbox) || 0)
+  return expiresAt > 0 && expiresAt < Date.now()
+}
+
+const isDeletedHostedDomain = (mailbox: any) =>
+  String(mailbox?.mailbox_type || '') === 'hosted' && Boolean(mailbox?.domain_deleted)
+
+const isUnavailable = (mailbox: any) =>
+  isExpired(mailbox) || isDeletedHostedDomain(mailbox)
 
 // 批量加载邮箱标签数据
 const loadTagsData = async () => {
@@ -228,8 +264,24 @@ const closeActionMenu = () => {
   openMenuId.value = null
 }
 
-const toggleActionMenu = (mailboxId: number) => {
+const resolveMenuPlacement = (event: Event) => {
+  const target = event.currentTarget as HTMLElement | null
+  if (!target) return 'down' as const
+
+  const triggerRect = target.getBoundingClientRect()
+  const scrollContainer = target.closest('.scrollbar-stable') as HTMLElement | null
+  const containerBottom = scrollContainer
+    ? Math.min(scrollContainer.getBoundingClientRect().bottom, window.innerHeight)
+    : window.innerHeight
+  const spaceBelow = containerBottom - triggerRect.bottom
+  return spaceBelow < 160 ? 'up' : 'down'
+}
+
+const toggleActionMenu = (mailboxId: number, event: Event) => {
   openMenuId.value = openMenuId.value === mailboxId ? null : mailboxId
+  if (openMenuId.value === mailboxId) {
+    openMenuPlacement.value = resolveMenuPlacement(event)
+  }
 }
 
 const handleShare = (mailbox: any) => {
@@ -268,7 +320,15 @@ const handlePageChange = async (page: number) => {
     await props.onPageChange(page)
     return
   }
-  await mailboxStore.fetchMailboxes(page)
+  await mailboxStore.fetchMailboxes(page, mailboxStore.pageSize, mailboxStore.searchKeyword)
+}
+
+const handleSearch = async (keyword: string) => {
+  if (props.onSearch) {
+    await props.onSearch(keyword)
+    return
+  }
+  await mailboxStore.fetchMailboxes(1, mailboxStore.pageSize, keyword)
 }
 
 // 处理邮箱点击

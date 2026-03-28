@@ -17,7 +17,6 @@
             临时邮箱
           </button>
           <button
-            v-if="isAdmin"
             @click="switchMailboxType('hosted')"
             :class="[
               'px-6 py-2 text-sm font-medium border-b-2 transition-colors',
@@ -54,7 +53,7 @@
           </button>
 
           <button
-            v-if="isAdmin && mailboxType === 'hosted'"
+            v-if="mailboxType === 'hosted'"
             @click="generateHostedMailbox"
             :disabled="mailboxStore.loading"
             class="px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 transition-colors"
@@ -63,7 +62,7 @@
           </button>
 
           <button
-            v-if="isAdmin && mailboxType === 'hosted'"
+            v-if="mailboxType === 'hosted'"
             @click="goToDomainWorkbench()"
             class="px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors"
           >
@@ -169,11 +168,12 @@
           />
         </div>
 
-        <div v-if="isAdmin" v-show="mailboxType === 'hosted'" class="h-full">
+        <div v-show="mailboxType === 'hosted'" class="h-full">
           <SystemMailboxList
             ref="hostedMailboxListRef"
             mailbox-type="hosted"
             title="域名邮箱"
+            :search-keyword="hostedMailboxSearchKeyword"
             :mailboxes="hostedMailboxItems"
             :pagination="{
               page: hostedMailboxPage,
@@ -181,6 +181,7 @@
               total: hostedMailboxTotal
             }"
             :on-page-change="handleHostedMailboxPageChange"
+            :on-search="handleHostedMailboxSearch"
             :enable-tags="false"
             @select="handleSelectHostedMailbox"
             @share="handleShareMailboxes"
@@ -627,7 +628,6 @@ const userStore = useUserStore()
 const mailboxStore = useMailboxStore()
 const mailStore = useMailStore()
 const router = useRouter()
-const isAdmin = computed(() => Boolean((userStore.user as any)?.is_admin))
 
 const systemMailboxListRef = ref()
 const hostedMailboxListRef = ref()
@@ -707,6 +707,7 @@ const hostedMailboxPage = ref(1)
 const hostedMailboxPageSize = ref(50)
 const hostedMailboxTotal = ref(0)
 const hostedMailboxTotalPages = ref(0)
+const hostedMailboxSearchKeyword = ref('')
 const selectedHostedMailboxId = ref<number | null>(null)
 const selectedHostedEmailId = ref<number | null>(null)
 const hostedEmails = ref<any[]>([])
@@ -972,14 +973,18 @@ const normalizeHostedEmailRows = (items: any[] = []) =>
     mailbox_type: 'hosted'
   }))
 
-const loadHostedDomainSummary = async (page = hostedMailboxPage.value) => {
+const loadHostedDomainSummary = async (
+  page = hostedMailboxPage.value,
+  search = hostedMailboxSearchKeyword.value
+) => {
   try {
     const [domainsResponse, mailboxesResponse] = await Promise.all([
       hostedDomainAPI.listDomains(),
       mailboxAPI.getMailboxes({
         mailbox_type: 'hosted',
         page,
-        page_size: hostedMailboxPageSize.value
+        page_size: hostedMailboxPageSize.value,
+        ...(String(search || '').trim() ? { search: String(search || '').trim() } : {})
       })
     ])
 
@@ -1013,6 +1018,12 @@ const loadHostedDomainSummary = async (page = hostedMailboxPage.value) => {
 const handleHostedMailboxPageChange = async (page: number) => {
   hostedMailboxPage.value = page
   await loadHostedDomainSummary(page)
+}
+
+const handleHostedMailboxSearch = async (keyword: string) => {
+  hostedMailboxSearchKeyword.value = String(keyword || '').trim()
+  hostedMailboxPage.value = 1
+  await loadHostedDomainSummary(1, hostedMailboxSearchKeyword.value)
 }
 
 const resolvePreferredHostedDomainId = () => {
@@ -1175,9 +1186,6 @@ const handleMailboxBatchStart = () => {
 
 // 切换邮箱类型
 const switchMailboxType = (type: 'system' | 'hosted' | 'external') => {
-  if (type === 'hosted' && !isAdmin.value) {
-    return
-  }
   currentView.value = 'emails'
   // 保存当前Tab的选中邮件
   if (mailboxType.value === 'system') {
@@ -2245,12 +2253,9 @@ onMounted(async () => {
 
     // 恢复上次使用的 Tab（临时邮箱 / 域名邮箱 / 第三方邮箱）
     const savedMailboxType = getSavedMailboxType()
-    if (savedMailboxType && (savedMailboxType !== 'hosted' || isAdmin.value)) {
+    if (savedMailboxType) {
       switchMailboxType(savedMailboxType)
     } else {
-      if (mailboxType.value === 'hosted' && !isAdmin.value) {
-        mailboxType.value = 'system'
-      }
       saveMailboxType(mailboxType.value)
     }
   } else {

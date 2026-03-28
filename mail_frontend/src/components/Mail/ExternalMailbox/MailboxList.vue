@@ -6,10 +6,13 @@
     :selectedId="activeMailboxId ?? selectedId"
     :showPagination="true"
     :hideBatchMode="isSendEmailView"
+    :searchable="true"
+    :search-keyword="searchKeyword"
     @select="$emit('select', $event)"
     @batch-delete="handleBatchDelete"
     @batch-share="handleBatchShare"
     @batch-mode-start="$emit('batch-mode-start')"
+    @search="handleSearch"
   >
     <template #pagination>
       <Pagination
@@ -119,13 +122,16 @@
             type="button"
             class="flex h-8 w-8 items-center justify-center rounded-full text-gray-500 transition-colors hover:bg-white hover:text-gray-700"
             title="更多操作"
-            @click.stop="toggleActionMenu(account.id)"
+            @click.stop="toggleActionMenu(account.id, $event)"
           >
             <BaseIcon name="more" size="sm" />
           </button>
           <div
             v-if="openMenuId === account.id"
-            class="absolute right-0 top-10 z-20 min-w-[128px] overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg"
+            :class="[
+              'absolute right-0 z-20 min-w-[128px] overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg',
+              openMenuPlacement === 'up' ? 'bottom-full mb-2' : 'top-full mt-2'
+            ]"
             @click.stop
           >
             <button
@@ -277,6 +283,7 @@ const fetchingIds = ref<number[]>([])
 const mailboxListRef = ref()
 const tagsData = ref<Record<number, { sites: any[]; tags: any[] }>>({})
 const openMenuId = ref<number | null>(null)
+const openMenuPlacement = ref<'up' | 'down'>('down')
 const mergedFetchingIds = computed(() => {
   const ids = [...(props.fetchingIds || []), ...fetchingIds.value]
   return Array.from(new Set(ids))
@@ -286,6 +293,7 @@ const mergedFetchingIds = computed(() => {
 const currentPage = ref(1)
 const totalPages = ref(1)
 const totalAccounts = ref(0)
+const searchKeyword = ref('')
 
 const displayAccounts = computed(() => {
   if (!props.isSendEmailView) {
@@ -317,8 +325,24 @@ const closeActionMenu = () => {
   openMenuId.value = null
 }
 
-const toggleActionMenu = (accountId: number) => {
+const resolveMenuPlacement = (event: Event) => {
+  const target = event.currentTarget as HTMLElement | null
+  if (!target) return 'down' as const
+
+  const triggerRect = target.getBoundingClientRect()
+  const scrollContainer = target.closest('.scrollbar-stable') as HTMLElement | null
+  const containerBottom = scrollContainer
+    ? Math.min(scrollContainer.getBoundingClientRect().bottom, window.innerHeight)
+    : window.innerHeight
+  const spaceBelow = containerBottom - triggerRect.bottom
+  return spaceBelow < 200 ? 'up' : 'down'
+}
+
+const toggleActionMenu = (accountId: number, event: Event) => {
   openMenuId.value = openMenuId.value === accountId ? null : accountId
+  if (openMenuId.value === accountId) {
+    openMenuPlacement.value = resolveMenuPlacement(event)
+  }
 }
 
 const applyAccountsPagination = (pagination?: any, fallbackCount = accounts.value.length) => {
@@ -399,7 +423,9 @@ const removeAccounts = (ids: number[] = []) => {
 
 const loadAccounts = async (page = 1) => {
   try {
-    const res = await batchLoginAPI.getAccounts(page, 20)
+    const res = await batchLoginAPI.getAccounts(page, 20, {
+      search: searchKeyword.value
+    })
 
     if (res.code === 0) {
       const data = res.data || []
@@ -410,6 +436,11 @@ const loadAccounts = async (page = 1) => {
   } catch (e) {
     console.error('❌ 加载外部邮箱失败', e)
   }
+}
+
+const handleSearch = async (keyword: string) => {
+  searchKeyword.value = String(keyword || '').trim()
+  await loadAccounts(1)
 }
 
 // 批量加载邮箱标签数据

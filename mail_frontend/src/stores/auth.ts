@@ -13,6 +13,7 @@ export const useMailboxStore = defineStore('mailbox', () => {
   const currentPage = ref(1)
   const pageSize = ref(50)
   const totalPages = ref(0)
+  const searchKeyword = ref('')
 
   const normalizeMailbox = (mailbox: any): Mailbox => ({
     id: mailbox.id,
@@ -79,10 +80,23 @@ export const useMailboxStore = defineStore('mailbox', () => {
     }
   }
 
-  const fetchMailboxes = async (page: number = 1, pageSizeParam: number = 50) => {
+  const fetchMailboxes = async (
+    page: number = 1,
+    pageSizeParam: number = 50,
+    searchKeywordParam?: string
+  ) => {
     loading.value = true
     try {
-      const response: any = await mailboxAPI.getMailboxes({ page, page_size: pageSizeParam })
+      if (searchKeywordParam !== undefined) {
+        searchKeyword.value = String(searchKeywordParam || '').trim()
+      }
+
+      const params: Record<string, any> = { page, page_size: pageSizeParam }
+      if (searchKeyword.value) {
+        params.search = searchKeyword.value
+      }
+
+      const response: any = await mailboxAPI.getMailboxes(params)
       if (response.code === 0 && response.data) {
         const mailboxData = response.data.mailboxes || []
         const paginationData = response.data.pagination
@@ -202,6 +216,7 @@ export const useMailboxStore = defineStore('mailbox', () => {
     currentPage,
     pageSize,
     totalPages,
+    searchKeyword,
     fetchMailboxes,
     getTempMailbox,
     allocateMailbox,

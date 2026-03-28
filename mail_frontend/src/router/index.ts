@@ -298,8 +298,7 @@ const router = createRouter({
         {
           path: 'domains',
           name: 'user-domains',
-          component: UserDomains,
-          meta: { requiresAdmin: true }
+          component: UserDomains
         },
         {
           path: 'settings',
