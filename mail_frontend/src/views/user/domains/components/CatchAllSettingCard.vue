@@ -7,7 +7,7 @@
           开启后，未创建地址的邮件会统一收到 <span class="font-mono text-gray-700">{{ getCatchAllMailbox(domainName) }}</span>；关闭后不收。
         </p>
         <p class="mt-1 text-xs leading-5 text-gray-500">
-          多级域名也支持，如 <span class="font-mono text-gray-700">{{ getCatchAllSubdomainExample(domainName, 'www') }}</span>、<span class="font-mono text-gray-700">{{ getCatchAllSubdomainExample(domainName, 'bbb.ccc') }}</span>。
+          子域名或多级域名是否能代收，取决于 DNS 是否已经把对应子域名或通配子域名的 MX 指到当前收件服务器。
         </p>
         <p v-if="showMailboxLine && enabled" class="mt-1 text-xs leading-5 text-gray-600">
           代收邮箱：<span class="font-mono text-gray-700">{{ getCatchAllMailbox(domainName) }}</span>
@@ -48,5 +48,4 @@ const emit = defineEmits<{
 
 const normalizeCatchAllDomain = (domainName?: string) => String(domainName || '').trim() || '你的域名'
 const getCatchAllMailbox = (domainName?: string) => `admin@${normalizeCatchAllDomain(domainName)}`
-const getCatchAllSubdomainExample = (domainName?: string, subdomain = 'www') => `xxxx@${subdomain}.${normalizeCatchAllDomain(domainName)}`
 </script>

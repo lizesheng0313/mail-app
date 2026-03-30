@@ -35,6 +35,13 @@
             :class="isUnavailable(mailbox) ? 'text-red-600 line-through' : 'text-black'"
             class="text-sm truncate flex-shrink"
           >{{ mailbox.email }}</code>
+          <span
+            v-if="isProtectedHostedCatchAll(mailbox)"
+            title="未匹配地址默认进入这个邮箱"
+            class="px-1.5 py-0.5 text-xs bg-amber-100 text-amber-800 rounded whitespace-nowrap flex-shrink-0"
+          >
+            默认代收
+          </span>
           <span v-if="isDeletedHostedDomain(mailbox)" class="px-1 py-0.5 text-xs bg-red-100 text-red-800 rounded whitespace-nowrap flex-shrink-0">域名已删除</span>
           <span v-else-if="isExpired(mailbox)" class="px-1 py-0.5 text-xs bg-red-100 text-red-800 rounded whitespace-nowrap flex-shrink-0">过期</span>
         </div>
@@ -88,7 +95,11 @@
             </button>
             <button
               type="button"
-              class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 transition-colors hover:bg-red-50"
+              :disabled="isProtectedHostedCatchAll(mailbox)"
+              :title="isProtectedHostedCatchAll(mailbox) ? '代收邮箱不支持删除' : '删除邮箱'"
+              :class="isProtectedHostedCatchAll(mailbox)
+                ? 'flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-400 cursor-not-allowed'
+                : 'flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 transition-colors hover:bg-red-50'"
               @click.stop="handleDeleteAction(mailbox.id)"
             >
               <BaseIcon name="delete" size="sm" />
@@ -212,6 +223,9 @@ const isDeletedHostedDomain = (mailbox: any) =>
 const isUnavailable = (mailbox: any) =>
   isExpired(mailbox) || isDeletedHostedDomain(mailbox)
 
+const isProtectedHostedCatchAll = (mailbox: any) =>
+  props.mailboxType === 'hosted' && String(mailbox?.local_part || '').trim().toLowerCase() === 'admin'
+
 // 批量加载邮箱标签数据
 const loadTagsData = async () => {
   if (!props.enableTags) {
@@ -299,12 +313,28 @@ const handleShareAction = (mailbox: any) => {
 }
 
 const handleDeleteAction = (id: number) => {
+  const targetMailbox = resolvedMailboxes.value.find((item: any) => Number(item.id) === Number(id))
+  if (targetMailbox && isProtectedHostedCatchAll(targetMailbox)) {
+    closeActionMenu()
+    return
+  }
   closeActionMenu()
   handleDelete(id)
 }
 
 const handleBatchDelete = (ids: number[]) => {
-  isDeleting.value = { batch: true, ids }
+  const deletableIds = ids.filter((id) => {
+    const targetMailbox = resolvedMailboxes.value.find((item: any) => Number(item.id) === Number(id))
+    return !targetMailbox || !isProtectedHostedCatchAll(targetMailbox)
+  })
+  if (!deletableIds.length) {
+    showMessage('代收邮箱不支持删除', 'warning')
+    return
+  }
+  if (deletableIds.length !== ids.length) {
+    showMessage('代收邮箱已跳过', 'warning')
+  }
+  isDeleting.value = { batch: true, ids: deletableIds }
   showConfirm.value = true
 }
 

@@ -91,7 +91,7 @@
             开启后，验证通过才会启用 <span class="font-mono text-gray-700">{{ getCatchAllMailbox(detail.domain.domain_name) }}</span> 代收；未验证前不会代收。
           </p>
           <p class="mt-1 text-xs leading-5 text-gray-500">
-            多级域名也支持，如 <span class="font-mono text-gray-700">{{ getCatchAllSubdomainExample(detail.domain.domain_name, 'www') }}</span>、<span class="font-mono text-gray-700">{{ getCatchAllSubdomainExample(detail.domain.domain_name, 'bbb.ccc') }}</span>。
+            子域名或多级域名是否能代收，取决于 DNS 是否已经把对应子域名或通配子域名的 MX 指到当前收件服务器。
           </p>
           <p v-if="detail.domain.catch_all_enabled && isVerified" class="mt-1 text-xs text-gray-600">
             当前代收邮箱：{{ detail.domain.catch_all_mailbox_email || getCatchAllMailbox(detail.domain.domain_name) }}
@@ -212,5 +212,4 @@ const getRecordResultClass = (record: any) => {
 
 const normalizeCatchAllDomain = (domainName?: string) => String(domainName || '').trim() || '你的域名'
 const getCatchAllMailbox = (domainName?: string) => `admin@${normalizeCatchAllDomain(domainName)}`
-const getCatchAllSubdomainExample = (domainName?: string, subdomain = 'www') => `xxxx@${subdomain}.${normalizeCatchAllDomain(domainName)}`
 </script>
