@@ -102,7 +102,7 @@
               </div>
               <div class="rounded-2xl bg-gray-50 p-5">
                 <p class="text-sm font-semibold text-gray-900">3. 调下面接口</p>
-                <p class="mt-2 text-sm leading-6 text-gray-600">系统邮箱、第三方邮箱、邮件、验证码、工作流都在下面。</p>
+                <p class="mt-2 text-sm leading-6 text-gray-600">临时邮箱、域名邮箱、第三方邮箱、邮件、验证码、工作流都在下面。</p>
               </div>
             </div>
 
@@ -157,6 +157,34 @@
                   v-if="endpoint.sample"
                   class="overflow-x-auto whitespace-pre-wrap rounded-xl bg-gray-900 px-4 py-3 text-xs leading-6 text-gray-100"
                 >{{ endpoint.sample }}</pre>
+
+                <div v-if="shouldRenderRequestParams(endpoint) && getEndpointParameters(endpoint).length" class="overflow-hidden rounded-xl border border-gray-200">
+                  <div class="border-b border-gray-200 bg-gray-50 px-4 py-3 text-sm font-medium text-gray-900">请求参数</div>
+                  <div class="divide-y divide-gray-100">
+                    <div
+                      v-for="param in getEndpointParameters(endpoint)"
+                      :key="param.name"
+                      class="grid grid-cols-1 gap-2 px-4 py-3 lg:grid-cols-[220px,1fr]"
+                    >
+                      <div>
+                        <div class="flex flex-wrap items-center gap-2">
+                          <code class="text-sm text-primary-700">{{ param.name }}</code>
+                          <span
+                            :class="param.required ? 'bg-red-50 text-red-700' : 'bg-gray-100 text-gray-600'"
+                            class="rounded-full px-2 py-0.5 text-xs"
+                          >
+                            {{ param.required ? '必填' : '可选' }}
+                          </span>
+                        </div>
+                        <div class="mt-1 text-xs text-gray-500">
+                          {{ param.type }}
+                          <span v-if="param.enumText"> · {{ param.enumText }}</span>
+                        </div>
+                      </div>
+                      <div class="text-sm leading-6 text-gray-600">{{ param.description || '-' }}</div>
+                    </div>
+                  </div>
+                </div>
 
                 <div v-if="hasRenderableExample(endpoint.request_example) || hasRenderableExample(endpoint.response_example)" class="grid grid-cols-1 gap-3 lg:grid-cols-2">
                   <pre
@@ -233,6 +261,7 @@ type EndpointItem = {
   auth?: string
   scope?: string
   sample?: string
+  request_schema?: any
   request_example?: any
   response_example?: any
   error_codes?: Array<number | string>
@@ -259,102 +288,77 @@ const docsData = ref<any>(null)
 
 const fallbackDocGroups: EndpointGroup[] = [
   {
-    name: 'hosted-domains',
-    description: '托管域名接口',
-    items: [
-      {
-        method: 'POST',
-        path: '/open/v1/hosted-domains',
-        description: '创建托管域名',
-        auth: 'API Key / 登录 Token',
-        scope: 'mailbox.write',
-        request_example: { domain_name: 'example.com', expires_at_ms: 1770000000000 },
-        response_example: { domain: { id: 11, domain_name: 'example.com', verification_status: 'pending' } },
-        error_codes: [1002, 1004, 2001]
-      },
-      {
-        method: 'GET',
-        path: '/open/v1/hosted-domains',
-        description: '获取托管域名列表',
-        auth: 'API Key / 登录 Token',
-        scope: 'mailbox.read',
-        request_example: {},
-        response_example: { items: [{ id: 11, domain_name: 'example.com', verification_status: 'verified' }] },
-        error_codes: [1002, 1004, 2001]
-      },
-      {
-        method: 'GET',
-        path: '/open/v1/hosted-domains/{domain_id}',
-        description: '获取托管域名详情',
-        auth: 'API Key / 登录 Token',
-        scope: 'mailbox.read',
-        request_example: {},
-        response_example: { domain: { id: 11, domain_name: 'example.com' }, dns_instructions: [] },
-        error_codes: [1002, 1004, 2001]
-      },
-      {
-        method: 'PUT',
-        path: '/open/v1/hosted-domains/{domain_id}',
-        description: '更新托管域名',
-        auth: 'API Key / 登录 Token',
-        scope: 'mailbox.write',
-        request_example: { is_active: false, expires_at_ms: 1770000000000 },
-        response_example: { domain: { id: 11, domain_name: 'example.com', is_active: false } },
-        error_codes: [1002, 1004, 2001]
-      },
-      {
-        method: 'DELETE',
-        path: '/open/v1/hosted-domains/{domain_id}',
-        description: '删除托管域名',
-        auth: 'API Key / 登录 Token',
-        scope: 'mailbox.write',
-        request_example: {},
-        response_example: { code: 0, message: '删除托管域名成功' },
-        error_codes: [1002, 1004, 2001]
-      },
-      {
-        method: 'POST',
-        path: '/open/v1/hosted-domains/{domain_id}/refresh-dns',
-        description: '立即验证托管域名 DNS',
-        auth: 'API Key / 登录 Token',
-        scope: 'mailbox.read',
-        request_example: {},
-        response_example: { domain: { id: 11, verification_status: 'verified' }, dns_instructions: [] },
-        error_codes: [1002, 1004, 2001]
-      }
-    ]
-  },
-  {
     name: 'mailboxes',
-    description: '系统邮箱接口',
+    description: '临时邮箱或域名邮箱接口',
     items: [
       {
         method: 'POST',
         path: '/open/v1/mailboxes',
-        description: '生成系统邮箱',
+        description: '创建临时邮箱或域名邮箱',
         auth: 'API Key / 登录 Token',
         scope: 'mailbox.write',
-        request_example: {},
-        response_example: { item: { id: 101, email_address: 'demo@fmm.email' } },
+        request_schema: {
+          type: 'object',
+          properties: {
+            mailbox_type: {
+              type: 'string',
+              enum: ['system', 'hosted'],
+              description: '邮箱类型。system 是临时邮箱，hosted 是域名邮箱；不传默认 system。'
+            },
+            domain_id: {
+              type: 'integer',
+              description: '域名邮箱所属的域名 ID。只有 mailbox_type=hosted 时才需要传。'
+            },
+            local_part: {
+              type: 'string',
+              description: '邮箱前缀，例如 support。不传时系统会自动生成前缀。'
+            }
+          }
+        },
+        request_example: {
+          临时邮箱: { mailbox_type: 'system' },
+          域名邮箱: { mailbox_type: 'hosted', domain_id: 12, local_part: 'support' }
+        },
+        response_example: { id: 101, email: 'support@example.com', mailbox_type: 'hosted', domain_id: 12, local_part: 'support' },
         error_codes: [1002, 1004, 2001]
       },
       {
         method: 'GET',
         path: '/open/v1/mailboxes',
-        description: '获取系统邮箱列表',
+        description: '获取临时邮箱或域名邮箱列表',
         auth: 'API Key / 登录 Token',
         scope: 'mailbox.read',
-        request_example: { page: 1, page_size: 20 },
-        response_example: { items: [{ id: 101, email_address: 'demo@fmm.email' }] },
+        request_example: { mailbox_type: 'all', page: 1, page_size: 20 },
+        response_example: { items: [{ id: 101, email: 'demo@fmm.email', mailbox_type: 'system' }] },
         error_codes: [1002, 1004, 2001]
       },
       {
         method: 'DELETE',
         path: '/open/v1/mailboxes/{mailbox_id}',
-        description: '删除系统邮箱',
+        description: '删除临时邮箱或域名邮箱',
         auth: 'API Key / 登录 Token',
         scope: 'mailbox.write',
-        request_example: {},
+        request_schema: {
+          type: 'object',
+          required: ['mailbox_id'],
+          properties: {
+            mailbox_id: {
+              type: 'integer',
+              description: '要删除的邮箱 ID，放在路径里。',
+              in: 'path'
+            },
+            mailbox_type: {
+              type: 'string',
+              enum: ['auto', 'system', 'hosted'],
+              description: '邮箱类型。一般不传，默认 auto 自动识别；识别不了时再手动传 system 或 hosted。',
+              in: 'query'
+            }
+          }
+        },
+        request_example: {
+          path: { mailbox_id: 101 },
+          query: { mailbox_type: 'auto' }
+        },
         response_example: { code: 0, message: '删除邮箱成功' },
         error_codes: [1002, 1004, 2001]
       }
@@ -495,8 +499,7 @@ const fallbackDocGroups: EndpointGroup[] = [
 const docGroupLabelMap: Record<string, string> = {
   'api-keys': '访问密钥',
   logs: '调用日志',
-  'hosted-domains': '托管域名',
-  mailboxes: '系统邮箱',
+  mailboxes: '临时邮箱或域名邮箱',
   'external-mailboxes': '第三方邮箱',
   'smtp-accounts': '发信账号',
   emails: '邮件',
@@ -505,8 +508,8 @@ const docGroupLabelMap: Record<string, string> = {
 }
 
 const scopeLabelMap: Record<string, string> = {
-  'mailbox.read': '读取系统邮箱',
-  'mailbox.write': '管理系统邮箱',
+  'mailbox.read': '读取临时邮箱或域名邮箱',
+  'mailbox.write': '管理临时邮箱或域名邮箱',
   'external_mailbox.read': '读取第三方邮箱',
   'external_mailbox.write': '管理第三方邮箱',
   'smtp_account.read': '读取发信账号',
@@ -518,15 +521,9 @@ const scopeLabelMap: Record<string, string> = {
 }
 
 const endpointLabelMap: Record<string, string> = {
-  'POST /open/v1/hosted-domains': '创建托管域名',
-  'GET /open/v1/hosted-domains': '托管域名列表',
-  'GET /open/v1/hosted-domains/{domain_id}': '托管域名详情',
-  'PUT /open/v1/hosted-domains/{domain_id}': '更新托管域名',
-  'DELETE /open/v1/hosted-domains/{domain_id}': '删除托管域名',
-  'POST /open/v1/hosted-domains/{domain_id}/refresh-dns': '验证 DNS',
-  'POST /open/v1/mailboxes': '创建邮箱',
-  'GET /open/v1/mailboxes': '邮箱列表',
-  'DELETE /open/v1/mailboxes/{mailbox_id}': '删除邮箱',
+  'POST /open/v1/mailboxes': '创建临时邮箱或域名邮箱',
+  'GET /open/v1/mailboxes': '临时邮箱或域名邮箱列表',
+  'DELETE /open/v1/mailboxes/{mailbox_id}': '删除临时邮箱或域名邮箱',
   'GET /open/v1/external-mailboxes': '外部邮箱列表',
   'DELETE /open/v1/external-mailboxes/{mailbox_id}': '删除外部邮箱',
   'GET /open/v1/smtp-accounts': '发信账号列表',
@@ -552,6 +549,7 @@ const docEndpointGroups = computed<EndpointGroup[]>(() => {
         const path = String(item.path || '')
         const method = String(item.method || '').toUpperCase()
         if (!path.startsWith('/open/v1')) return false
+        if (path.startsWith('/open/v1/hosted-domains')) return false
         if (method === 'POST' && path === '/open/v1/external-mailboxes') return false
         return true
       })
@@ -592,6 +590,35 @@ const getScopeLabel = (scope?: string) => {
     .split('+')
     .map((item) => scopeLabelMap[item.trim()] || item.trim())
     .join(' + ')
+}
+
+const shouldRenderRequestParams = (endpoint: EndpointItem) => {
+  const schema = endpoint.request_schema
+  return Boolean(schema && schema.properties && Object.keys(schema.properties).length)
+}
+
+const getSchemaTypeLabel = (schema: any) => {
+  const type = String(schema?.type || 'string')
+  if (type === 'integer') return 'integer'
+  if (type === 'boolean') return 'boolean'
+  if (type === 'array') return 'array'
+  if (type === 'object') return 'object'
+  return 'string'
+}
+
+const getEndpointParameters = (endpoint: EndpointItem) => {
+  const schema = endpoint.request_schema
+  const properties = schema?.properties || {}
+  const requiredSet = new Set(Array.isArray(schema?.required) ? schema.required : [])
+  return Object.entries(properties).map(([name, item]: [string, any]) => ({
+    name,
+    required: requiredSet.has(name),
+    type: getSchemaTypeLabel(item),
+    enumText: Array.isArray(item?.enum) && item.enum.length ? item.enum.join(' / ') : '',
+    description: [String(item?.description || '').trim(), item?.in ? `位置：${item.in === 'path' ? '路径参数' : '查询参数'}` : '']
+      .filter(Boolean)
+      .join(' ')
+  }))
 }
 
 const hasRenderableExample = (value: any) => {

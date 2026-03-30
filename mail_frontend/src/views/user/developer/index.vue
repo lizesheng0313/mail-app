@@ -336,8 +336,8 @@ const statusOptions = [
 ]
 
 const scopeLabelMap: Record<string, string> = {
-  'mailbox.read': '读取系统邮箱',
-  'mailbox.write': '管理系统邮箱',
+  'mailbox.read': '读取临时邮箱或域名邮箱',
+  'mailbox.write': '管理临时邮箱或域名邮箱',
   'external_mailbox.read': '读取第三方邮箱',
   'external_mailbox.write': '管理第三方邮箱',
   'smtp_account.read': '读取发信账号',
