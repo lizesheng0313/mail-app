@@ -1,3 +1,5 @@
+import { watch } from 'vue'
+import type { I18n } from 'vue-i18n'
 import type { RouteLocationNormalizedLoaded, Router } from 'vue-router'
 
 export interface PageSeo {
@@ -11,18 +13,28 @@ export interface PageSeo {
 }
 
 const SITE_URL = 'https://zjkdongao.cn'
-const SITE_NAME = '肥猫猫邮箱服务'
+const SITE_NAME = 'FeiMao Mail'
 
 const DEFAULT_SEO: PageSeo = {
-  title: '肥猫猫邮箱服务 - 邮箱管理、第三方邮箱接入与邮件自动化平台',
-  description:
-    '肥猫猫提供邮箱管理、第三方邮箱接入、邮件自动化、批量收发与工作流市场能力，帮助团队统一处理多邮箱和邮件任务。',
-  keywords:
-    '邮箱管理,第三方邮箱,邮件自动化,多邮箱管理,邮件工具,工作流市场,mail management,workflow marketplace',
+  title: '',
+  description: '',
+  keywords: '',
   canonicalPath: '/',
   robots: 'index, follow',
   ogType: 'website',
   lang: 'zh-CN'
+}
+
+const ROUTE_SEO_KEY_MAP: Record<string, string> = {
+  login: 'login',
+  dashboard: 'dashboard',
+  'open-platform': 'openPlatform',
+  about: 'about',
+  'privacy-policy': 'privacyPolicy',
+  'terms-of-service': 'termsOfService',
+  'workflow-market': 'workflowMarket',
+  'workflow-detail': 'workflowDetail',
+  download: 'download'
 }
 
 const NOINDEX_PREFIXES = ['/auth/google', '/share/', '/payment', '/purchase']
@@ -76,6 +88,7 @@ const upsertLink = (rel: string, href: string) => {
 
 export const applyPageSeo = (seo: PageSeo) => {
   const canonicalUrl = buildCanonicalUrl(seo.canonicalPath || '/')
+  const locale = seo.lang === 'en' ? 'en_US' : 'zh_CN'
 
   document.documentElement.setAttribute('lang', seo.lang || DEFAULT_SEO.lang || 'zh-CN')
   document.title = seo.title
@@ -100,7 +113,7 @@ export const applyPageSeo = (seo: PageSeo) => {
   })
   upsertMeta('meta[property="og:url"]', { property: 'og:url', content: canonicalUrl })
   upsertMeta('meta[property="og:site_name"]', { property: 'og:site_name', content: SITE_NAME })
-  upsertMeta('meta[property="og:locale"]', { property: 'og:locale', content: 'zh_CN' })
+  upsertMeta('meta[property="og:locale"]', { property: 'og:locale', content: locale })
   upsertMeta('meta[name="twitter:card"]', { name: 'twitter:card', content: 'summary' })
   upsertMeta('meta[name="twitter:title"]', { name: 'twitter:title', content: seo.title })
   upsertMeta('meta[name="twitter:description"]', {
@@ -111,14 +124,33 @@ export const applyPageSeo = (seo: PageSeo) => {
   upsertLink('canonical', canonicalUrl)
 }
 
-export const resolveRouteSeo = (route: RouteLocationNormalizedLoaded): PageSeo => {
+export const resolveRouteSeo = (route: RouteLocationNormalizedLoaded, i18n?: I18n): PageSeo => {
+  const t = i18n?.global?.t?.bind(i18n.global)
   const routeSeo = (route.meta.seo || {}) as Partial<PageSeo>
+  const routeKey = ROUTE_SEO_KEY_MAP[String(route.name || '')]
+  const lang = (i18n?.global.locale.value as string) || 'zh-CN'
+  const translatedDefault = {
+    title: t ? String(t('seo.default.title')) : routeSeo.title || DEFAULT_SEO.title,
+    description: t ? String(t('seo.default.description')) : routeSeo.description || DEFAULT_SEO.description,
+    keywords: t ? String(t('seo.default.keywords')) : routeSeo.keywords || DEFAULT_SEO.keywords,
+    lang
+  }
+  const translatedRouteSeo = routeKey && t
+    ? {
+        title: String(t(`seo.routes.${routeKey}.title`)),
+        description: String(t(`seo.routes.${routeKey}.description`)),
+        keywords: String(t(`seo.routes.${routeKey}.keywords`))
+      }
+    : {}
 
   return {
     ...DEFAULT_SEO,
+    ...translatedDefault,
     ...routeSeo,
+    ...translatedRouteSeo,
     canonicalPath: routeSeo.canonicalPath || normalizePath(route.path),
-    robots: routeSeo.robots || (shouldNoIndex(route) ? 'noindex, nofollow' : DEFAULT_SEO.robots)
+    robots: routeSeo.robots || (shouldNoIndex(route) ? 'noindex, nofollow' : DEFAULT_SEO.robots),
+    lang
   }
 }
 
@@ -130,15 +162,24 @@ export const setPageSeo = (seo: Partial<PageSeo>) => {
   })
 }
 
-export const setupSeo = (router: Router) => {
+export const setupSeo = (router: Router, i18n?: I18n) => {
   router.afterEach(to => {
-    applyPageSeo(resolveRouteSeo(to))
+    applyPageSeo(resolveRouteSeo(to, i18n))
   })
+
+  if (i18n) {
+    watch(
+      () => i18n.global.locale.value,
+      () => {
+        applyPageSeo(resolveRouteSeo(router.currentRoute.value, i18n))
+      }
+    )
+  }
 
   router
     .isReady()
     .then(() => {
-      applyPageSeo(resolveRouteSeo(router.currentRoute.value))
+      applyPageSeo(resolveRouteSeo(router.currentRoute.value, i18n))
     })
     .catch(() => {})
 }

@@ -3,18 +3,18 @@
     <!-- 标题栏 -->
     <div class="border-b border-gray-200 pb-4 mb-4">
       <div class="flex min-h-8 justify-between items-center">
-        <h2 class="text-base font-semibold text-black">{{ title }}</h2>
+        <h2 class="text-base font-semibold text-black">{{ resolvedTitle }}</h2>
         <div class="flex min-h-8 min-w-8 items-center justify-end gap-2">
           <slot name="header-actions"></slot>
 
           <HoverTooltip
             v-if="!hideBatchMode && !batchSelection.isBatchMode.value && mailboxes.length > 0"
-            text="批量操作"
+            :text="t('mail.batchAction')"
           >
             <button
               @click="startBatchMode"
               class="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 transition-colors hover:bg-primary-50 hover:text-primary-700"
-              title="批量操作"
+              :title="t('mail.batchAction')"
             >
               <BaseIcon name="list" size="sm" />
             </button>
@@ -31,7 +31,7 @@
         <input
           v-model="searchText"
           type="text"
-          :placeholder="searchPlaceholder"
+          :placeholder="resolvedSearchPlaceholder"
           class="w-full pl-8 pr-8 py-1.5 text-sm border border-gray-200 rounded-lg outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-100 transition-colors"
           @input="handleSearch"
           @keyup.escape="clearSearch"
@@ -66,7 +66,7 @@
           <svg class="w-16 h-16 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
           </svg>
-          <p class="text-sm">{{ emptyText }}</p>
+          <p class="text-sm">{{ resolvedEmptyText }}</p>
         </slot>
       </div>
     </div>
@@ -91,7 +91,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, toRef, watch } from 'vue'
+import { computed, ref, toRef, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useBatchSelection } from '@/composables/useBatchSelection'
 import MultiSelectToolbar from '@/components/MultiSelectToolbar/index.vue'
 import BaseIcon from '@/components/BaseIcon/index.vue'
@@ -116,15 +117,19 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  title: '我的邮箱',
+  title: '',
   selectedId: null,
-  emptyText: '暂无邮箱',
+  emptyText: '',
   showPagination: false,
   hideBatchMode: false,
   searchable: false,
   searchKeyword: '',
-  searchPlaceholder: '搜索邮箱...'
+  searchPlaceholder: ''
 })
+const { t } = useI18n()
+const resolvedTitle = computed(() => props.title || t('mail.myMailbox'))
+const resolvedEmptyText = computed(() => props.emptyText || t('mail.noMailbox'))
+const resolvedSearchPlaceholder = computed(() => props.searchPlaceholder || t('mail.searchMailboxesPlaceholder'))
 
 const emit = defineEmits<{
   'select': [mailbox: Mailbox]

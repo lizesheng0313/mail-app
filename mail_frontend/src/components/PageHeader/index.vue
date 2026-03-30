@@ -11,7 +11,7 @@
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                 </svg>
               </div>
-              <h1 class="ml-3 text-xl font-semibold text-black">肥猫猫邮箱服务</h1>
+              <h1 class="ml-3 text-xl font-semibold text-black">{{ t('pageHeader.siteName') }}</h1>
             </router-link>
           </div>
           <div class="flex items-center space-x-6 desktop-nav-items">
@@ -24,7 +24,7 @@
                 class="text-sm text-black hover:text-black font-medium transition-colors"
                 active-class="text-primary-600 font-semibold"
               >
-                我的资源
+                {{ t('pageHeader.myAssets') }}
               </router-link>
 
               <!-- 资源市场（无需登录） -->
@@ -33,7 +33,7 @@
                 class="text-sm text-black hover:text-black font-medium transition-colors"
                 active-class="text-primary-600 font-semibold"
               >
-                资源市场
+                {{ t('pageHeader.resourceMarket') }}
               </router-link>
 
               <router-link
@@ -41,7 +41,7 @@
                 class="text-sm text-black hover:text-black font-medium transition-colors"
                 active-class="text-primary-600 font-semibold"
               >
-                开放平台
+                {{ t('pageHeader.openPlatform') }}
               </router-link>
 
               <!-- 自动化中心（需要登录才显示） -->
@@ -51,7 +51,7 @@
                 class="text-sm text-black hover:text-black font-medium transition-colors"
                 active-class="text-primary-600 font-semibold"
               >
-                自动化中心
+                {{ t('pageHeader.automationCenter') }}
               </router-link>
 
               <!-- 下载客户端（桌面端不显示） -->
@@ -64,7 +64,7 @@
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                 </svg>
-                <span>下载客户端</span>
+                <span>{{ t('pageHeader.downloadClient') }}</span>
               </router-link>
 
               <!-- 关于我们 -->
@@ -73,9 +73,11 @@
                 class="text-sm text-black hover:text-black font-medium transition-colors"
                 active-class="text-primary-600 font-semibold"
               >
-                关于我们
+                {{ t('pageHeader.about') }}
               </router-link>
             </nav>
+
+            <LanguageSwitcher />
               
             <!-- 用户信息 -->
             <div v-if="userStore.isAuthenticated" class="flex items-center space-x-4">
@@ -84,7 +86,7 @@
                 <button
                   @click="toggleAnnouncements"
                   class="relative p-2 text-gray-600 hover:text-primary-600 hover:bg-gray-100 rounded-lg transition-colors focus:outline-none"
-                  title="公告通知"
+                  :title="t('pageHeader.notices')"
                 >
                   <BaseIcon name="bell" size="md" />
                   <!-- 未读数量徽章 -->
@@ -102,21 +104,21 @@
                   class="absolute right-0 mt-2 w-96 bg-white rounded-lg shadow-xl border border-gray-200 z-[80]"
                 >
                   <div class="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
-                    <h3 class="text-sm font-semibold text-gray-900">系统公告</h3>
-                    <span class="text-xs text-gray-500">{{ announcements.length }}条公告</span>
+                    <h3 class="text-sm font-semibold text-gray-900">{{ t('pageHeader.systemAnnouncements') }}</h3>
+                    <span class="text-xs text-gray-500">{{ t('pageHeader.announcementCount', { count: announcements.length }) }}</span>
                   </div>
 
                   <div class="max-h-96 overflow-y-auto">
                     <div v-if="announcementsLoading" class="p-8 text-center">
                       <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
-                      <p class="mt-2 text-sm text-gray-500">加载中...</p>
+                      <p class="mt-2 text-sm text-gray-500">{{ t('common.loading') }}</p>
                     </div>
 
                     <div v-else-if="announcements.length === 0" class="p-8 text-center">
                       <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
                       </svg>
-                      <p class="mt-2 text-sm text-gray-500">暂无公告</p>
+                      <p class="mt-2 text-sm text-gray-500">{{ t('pageHeader.noAnnouncements') }}</p>
                     </div>
 
                     <div v-else>
@@ -166,7 +168,7 @@
                       @click="showAnnouncements = false"
                       class="text-xs text-primary-600 hover:text-primary-700 font-medium"
                     >
-                      查看全部公告
+                      {{ t('pageHeader.viewAllAnnouncements') }}
                     </router-link>
                   </div>
                 </div>
@@ -198,7 +200,7 @@
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                         </svg>
-                        <span>管理后台</span>
+                        <span>{{ t('pageHeader.admin') }}</span>
                       </div>
                     </router-link>
 
@@ -215,7 +217,7 @@
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                         </svg>
-                        <span>我的工作台</span>
+                        <span>{{ t('pageHeader.workspace') }}</span>
                       </div>
                     </router-link>
 
@@ -231,7 +233,7 @@
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                         </svg>
-                        <span>退出登录</span>
+                        <span>{{ t('pageHeader.logout') }}</span>
                       </div>
                     </button>
                   </div>
@@ -244,7 +246,7 @@
                   to="/login"
                   class="text-sm text-black hover:text-black"
                 >
-                  登录
+                  {{ t('pageHeader.login') }}
                 </router-link>
               </div>
             </div>
@@ -264,14 +266,14 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
             </svg>
             <span class="text-sm font-medium">
-              <span class="register-banner-details">🎉 </span>注册登录解锁：免费邮箱 + 自动化工具 + 更多功能
+              <span class="register-banner-details">🎉 </span>{{ t('pageHeader.registerBanner') }}
             </span>
           </div>
           <router-link
             to="/login?mode=register"
             class="bg-white text-primary-600 px-4 py-1 rounded-full text-sm font-medium hover:bg-gray-100 transition-colors"
           >
-            立即注册
+            {{ t('pageHeader.registerNow') }}
           </router-link>
         </div>
       </div>
@@ -281,14 +283,17 @@
 
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import BaseIcon from '@/components/BaseIcon/index.vue'
+import LanguageSwitcher from '@/components/LanguageSwitcher/index.vue'
 import { showMessage } from '@/utils/message'
 import { showAlert } from '@/utils/dialog'
 import { isTauri } from '@/services/api'
 import api from '@/services/api'
 
+const { t, locale } = useI18n()
 const router = useRouter()
 const userStore = useUserStore()
 const displayUserName = computed(() => {
@@ -441,7 +446,7 @@ const markAllAsRead = async () => {
   for (const announcement of unreadAnnouncements) {
     await markAsRead(announcement.id)
   }
-  showMessage('已全部标记为已读', 'success')
+  showMessage(t('pageHeader.markedAllRead'), 'success')
 }
 
 // 格式化时间
@@ -455,12 +460,12 @@ const formatTime = (timestamp: number) => {
   const hours = Math.floor(minutes / 60)
   const days = Math.floor(hours / 24)
 
-  if (seconds < 60) return '刚刚'
-  if (minutes < 60) return `${minutes}分钟前`
-  if (hours < 24) return `${hours}小时前`
-  if (days < 7) return `${days}天前`
+  if (seconds < 60) return t('common.justNow')
+  if (minutes < 60) return t('common.minutesAgo', { count: minutes })
+  if (hours < 24) return t('common.hoursAgo', { count: hours })
+  if (days < 7) return t('common.daysAgo', { count: days })
 
-  return date.toLocaleDateString('zh-CN')
+  return date.toLocaleDateString(locale.value === 'en' ? 'en-US' : 'zh-CN')
 }
 
 // 处理退出登录

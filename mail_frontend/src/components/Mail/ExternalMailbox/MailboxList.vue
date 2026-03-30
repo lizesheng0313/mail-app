@@ -1,7 +1,7 @@
 <template>
   <MailboxList
     ref="mailboxListRef"
-    title="第三方邮箱"
+    :title="t('home.externalMailbox')"
     :mailboxes="displayAccounts"
     :selectedId="activeMailboxId ?? selectedId"
     :showPagination="true"
@@ -194,6 +194,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { useI18n } from 'vue-i18n'
 import MailboxList from '@/components/Mail/MailboxList/MailboxList.vue'
 import MailboxCard from '@/components/Mail/MailboxList/MailboxCard.vue'
 import Pagination from '@/components/Pagination/index.vue'
@@ -217,6 +218,7 @@ const props = defineProps<{
   smtpAccounts?: any[]
   fetchingIds?: number[]
 }>()
+const { t } = useI18n()
 
 const isDesktop = isTauri()
 

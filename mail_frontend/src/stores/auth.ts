@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { Mailbox } from '@/types'
 import { mailboxAPI } from '@/api/mailbox'
+import { i18n } from '@/i18n'
 
 export const useMailboxStore = defineStore('mailbox', () => {
   const mailboxes = ref<Mailbox[]>([])
@@ -139,7 +140,7 @@ export const useMailboxStore = defineStore('mailbox', () => {
     } catch (error: any) {
       return {
         success: false,
-        error: error.response?.data?.message || error.response?.data?.detail || '获取临时邮箱失败'
+        error: error.response?.data?.message || error.response?.data?.detail || i18n.global.t('mail.tempMailboxFetchFailed')
       }
     } finally {
       loading.value = false
@@ -161,7 +162,7 @@ export const useMailboxStore = defineStore('mailbox', () => {
     } catch (error: any) {
       return {
         success: false,
-        error: error.response?.data?.message || error.response?.data?.detail || '申请邮箱失败'
+        error: error.response?.data?.message || error.response?.data?.detail || i18n.global.t('mail.mailboxApplyFailed')
       }
     } finally {
       loading.value = false

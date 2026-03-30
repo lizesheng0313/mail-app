@@ -1,9 +1,11 @@
 import axios from 'axios'
 
+import { getCurrentLocale, i18n } from '@/i18n'
 import { getServerUrl } from '@/services/api'
 import { showMessage } from '@/utils/message'
 
 const shouldSuppressErrorMessage = (config: any) => Boolean(config?.suppressErrorMessage)
+const t = (key: string) => String(i18n.global.t(key))
 
 const getOpenPlatformBaseURL = () => {
   const baseUrl = getServerUrl()
@@ -30,6 +32,10 @@ openPlatformApi.interceptors.request.use(
       }
       config.headers.Authorization = `Bearer ${token}`
     }
+    if (!config.headers) {
+      config.headers = {} as any
+    }
+    config.headers['Accept-Language'] = getCurrentLocale()
     return config
   },
   (error) => Promise.reject(error)
@@ -39,12 +45,12 @@ openPlatformApi.interceptors.response.use(
   (response) => {
     const data = response.data
     if (data.code !== 0 && !shouldSuppressErrorMessage(response.config)) {
-      showMessage(data.message || '操作失败', 'error')
+      showMessage(data.message || t('common.operationFailed'), 'error')
     }
     return data
   },
   (error) => {
-    const errorMessage = error.response?.data?.message || error.response?.data?.detail || '网络错误，请稍后重试'
+    const errorMessage = error.response?.data?.message || error.response?.data?.detail || t('common.networkErrorRetry')
     if (!shouldSuppressErrorMessage(error.config)) {
       showMessage(errorMessage, 'error')
     }

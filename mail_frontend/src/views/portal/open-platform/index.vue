@@ -6,25 +6,25 @@
       <div class="grid grid-cols-1 gap-6 lg:grid-cols-[220px,1fr]">
         <aside class="self-start rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-200 lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto">
           <div class="border-b border-gray-100 px-3 pb-4">
-            <p class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-400">接口目录</p>
-            <h2 class="mt-2 text-base font-semibold text-gray-900">对外接口</h2>
+            <p class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-400">{{ t('openPlatform.sidebarCatalog') }}</p>
+            <h2 class="mt-2 text-base font-semibold text-gray-900">{{ t('openPlatform.externalApis') }}</h2>
           </div>
 
           <div class="space-y-5 px-1 pt-4">
             <div>
-              <p class="px-3 text-xs font-semibold uppercase tracking-wide text-gray-400">接入方式</p>
+              <p class="px-3 text-xs font-semibold uppercase tracking-wide text-gray-400">{{ t('openPlatform.accessGuide') }}</p>
               <div class="mt-2 space-y-1">
                 <a
                   href="#doc-auth"
                   class="block rounded-xl px-3 py-2 text-sm text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900"
                 >
-                  如何调用
+                  {{ t('openPlatform.howToCall') }}
                 </a>
               </div>
             </div>
 
             <div v-if="docEndpointGroups.length">
-              <p class="px-3 text-xs font-semibold uppercase tracking-wide text-gray-400">接口目录</p>
+              <p class="px-3 text-xs font-semibold uppercase tracking-wide text-gray-400">{{ t('openPlatform.sidebarCatalog') }}</p>
               <div class="mt-2 space-y-3">
                 <div
                   v-for="group in docEndpointGroups"
@@ -52,13 +52,13 @@
             </div>
 
             <div v-if="errorGroups.length">
-              <p class="px-3 text-xs font-semibold uppercase tracking-wide text-gray-400">附录</p>
+              <p class="px-3 text-xs font-semibold uppercase tracking-wide text-gray-400">{{ t('openPlatform.appendix') }}</p>
               <div class="mt-2 space-y-1">
                 <a
                   href="#doc-errors"
                   class="block rounded-xl px-3 py-2 text-sm text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900"
                 >
-                  错误码
+                  {{ t('openPlatform.errorCodes') }}
                 </a>
               </div>
             </div>
@@ -69,18 +69,18 @@
           <section id="doc-auth" class="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
             <div class="flex items-center justify-between gap-4">
               <div>
-                <h2 class="text-xl font-semibold text-gray-900">对外接口文档</h2>
-                <p class="mt-2 text-sm text-gray-600">先创建访问密钥，再按下面的接口地址直接调用。</p>
+                <h2 class="text-xl font-semibold text-gray-900">{{ t('openPlatform.title') }}</h2>
+                <p class="mt-2 text-sm text-gray-600">{{ t('openPlatform.intro') }}</p>
               </div>
-              <div v-if="loading" class="text-sm text-gray-500">加载中...</div>
+              <div v-if="loading" class="text-sm text-gray-500">{{ t('common.loading') }}</div>
             </div>
 
             <div class="mt-6 flex flex-wrap gap-3">
               <span class="rounded-full bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700">
-                协议 {{ (meta?.version || 'v1').toUpperCase() }}
+                {{ t('openPlatform.protocol') }} {{ (meta?.version || 'v1').toUpperCase() }}
               </span>
               <span class="rounded-full bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700">
-                基础路径 /open/v1
+                {{ t('openPlatform.basePath') }} /open/v1
               </span>
               <span
                 v-for="mode in meta?.auth?.supported_modes || []"
@@ -93,21 +93,21 @@
 
             <div class="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
               <div class="rounded-2xl bg-gray-50 p-5">
-                <p class="text-sm font-semibold text-gray-900">1. 创建访问密钥</p>
-                <p class="mt-2 text-sm leading-6 text-gray-600">登录后到我的工作台创建一把访问密钥。</p>
+                <p class="text-sm font-semibold text-gray-900">{{ t('openPlatform.step1Title') }}</p>
+                <p class="mt-2 text-sm leading-6 text-gray-600">{{ t('openPlatform.step1Desc') }}</p>
               </div>
               <div class="rounded-2xl bg-gray-50 p-5">
-                <p class="text-sm font-semibold text-gray-900">2. 带上鉴权头</p>
-                <p class="mt-2 text-sm leading-6 text-gray-600">请求时用 `Authorization: Bearer sk_xxx` 或 `X-API-Key`。</p>
+                <p class="text-sm font-semibold text-gray-900">{{ t('openPlatform.step2Title') }}</p>
+                <p class="mt-2 text-sm leading-6 text-gray-600">{{ t('openPlatform.step2Desc') }}</p>
               </div>
               <div class="rounded-2xl bg-gray-50 p-5">
-                <p class="text-sm font-semibold text-gray-900">3. 调下面接口</p>
-                <p class="mt-2 text-sm leading-6 text-gray-600">临时邮箱、域名邮箱、第三方邮箱、邮件、验证码、工作流都在下面。</p>
+                <p class="text-sm font-semibold text-gray-900">{{ t('openPlatform.step3Title') }}</p>
+                <p class="mt-2 text-sm leading-6 text-gray-600">{{ t('openPlatform.step3Desc') }}</p>
               </div>
             </div>
 
             <div class="mt-6 rounded-2xl bg-gray-900 p-5 text-gray-100">
-              <p class="text-sm font-medium">请求示例</p>
+              <p class="text-sm font-medium">{{ t('openPlatform.requestSample') }}</p>
               <pre class="mt-3 overflow-x-auto whitespace-pre-wrap text-xs leading-6 text-gray-100">{{ sampleCurl }}</pre>
             </div>
           </section>
@@ -123,7 +123,7 @@
                 <h3 class="text-base font-semibold text-gray-900">{{ getDocGroupLabel(group.name, group.description) }}</h3>
                 <code class="rounded-full bg-white px-3 py-1 text-xs text-gray-500">{{ group.name }}</code>
                 <span class="rounded-full bg-primary-50 px-3 py-1 text-xs font-medium text-primary-700">
-                  {{ group.items?.length || 0 }} 个接口
+                  {{ t('openPlatform.endpointCount', { count: group.items?.length || 0 }) }}
                 </span>
               </div>
               <p class="mt-2 text-sm text-gray-600">{{ group.description }}</p>
@@ -146,10 +146,10 @@
 
                 <div class="flex flex-wrap gap-2 text-xs text-gray-500">
                   <span v-if="endpoint.scope" class="rounded-full bg-primary-50 px-3 py-1 text-primary-700">
-                    权限: {{ getScopeLabel(endpoint.scope) }}
+                    {{ t('openPlatform.scopeLabel') }}: {{ getScopeLabel(endpoint.scope) }}
                   </span>
                   <span v-if="endpoint.auth" class="rounded-full bg-gray-100 px-3 py-1">
-                    鉴权: {{ endpoint.auth }}
+                    {{ t('openPlatform.authLabel') }}: {{ endpoint.auth }}
                   </span>
                 </div>
 
@@ -159,7 +159,7 @@
                 >{{ endpoint.sample }}</pre>
 
                 <div v-if="shouldRenderRequestParams(endpoint) && getEndpointParameters(endpoint).length" class="overflow-hidden rounded-xl border border-gray-200">
-                  <div class="border-b border-gray-200 bg-gray-50 px-4 py-3 text-sm font-medium text-gray-900">请求参数</div>
+                  <div class="border-b border-gray-200 bg-gray-50 px-4 py-3 text-sm font-medium text-gray-900">{{ t('openPlatform.requestParams') }}</div>
                   <div class="divide-y divide-gray-100">
                     <div
                       v-for="param in getEndpointParameters(endpoint)"
@@ -173,7 +173,7 @@
                             :class="param.required ? 'bg-red-50 text-red-700' : 'bg-gray-100 text-gray-600'"
                             class="rounded-full px-2 py-0.5 text-xs"
                           >
-                            {{ param.required ? '必填' : '可选' }}
+                            {{ param.required ? t('common.required') : t('common.optional') }}
                           </span>
                         </div>
                         <div class="mt-1 text-xs text-gray-500">
@@ -190,12 +190,12 @@
                   <pre
                     v-if="hasRenderableExample(endpoint.request_example)"
                     class="overflow-x-auto whitespace-pre-wrap rounded-xl bg-gray-50 px-4 py-3 text-xs leading-6 text-gray-700"
-                  >请求示例
+                  >{{ t('openPlatform.requestExample') }}
 {{ formatJson(endpoint.request_example) }}</pre>
                   <pre
                     v-if="hasRenderableExample(endpoint.response_example)"
                     class="overflow-x-auto whitespace-pre-wrap rounded-xl bg-gray-50 px-4 py-3 text-xs leading-6 text-gray-700"
-                  >返回示例
+                  >{{ t('openPlatform.responseExample') }}
 {{ formatJson(endpoint.response_example) }}</pre>
                 </div>
 
@@ -205,7 +205,7 @@
                     :key="code"
                     class="rounded-full bg-red-50 px-3 py-1 text-red-700"
                   >
-                    错误码: {{ code }}
+                    {{ t('openPlatform.errorCode') }}: {{ code }}
                   </span>
                 </div>
               </div>
@@ -213,14 +213,14 @@
           </section>
 
           <section v-if="!loading && !docEndpointGroups.length" class="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
-            <h3 class="text-base font-semibold text-gray-900">暂无接口文档</h3>
-            <p class="mt-2 text-sm text-gray-600">当前没有可展示的对外接口，请检查文档数据是否返回成功。</p>
+            <h3 class="text-base font-semibold text-gray-900">{{ t('openPlatform.noDocsTitle') }}</h3>
+            <p class="mt-2 text-sm text-gray-600">{{ t('openPlatform.noDocsDesc') }}</p>
           </section>
 
           <section v-if="errorGroups.length" id="doc-errors" class="rounded-2xl bg-white shadow-sm ring-1 ring-gray-200">
             <div class="border-b border-gray-200 bg-gray-50 px-5 py-4">
-              <h3 class="text-base font-semibold text-gray-900">错误码</h3>
-              <p class="mt-1 text-sm text-gray-600">开放平台统一错误码目录。</p>
+              <h3 class="text-base font-semibold text-gray-900">{{ t('openPlatform.errorCatalogTitle') }}</h3>
+              <p class="mt-1 text-sm text-gray-600">{{ t('openPlatform.errorCatalogDesc') }}</p>
             </div>
             <div class="divide-y divide-gray-100">
               <div
@@ -250,9 +250,12 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import PageHeader from '@/components/PageHeader/index.vue'
 import openPlatformApi from '@/services/openPlatformApi'
+
+const { t } = useI18n()
 
 type EndpointItem = {
   method: string
@@ -497,43 +500,41 @@ const fallbackDocGroups: EndpointGroup[] = [
 ]
 
 const docGroupLabelMap: Record<string, string> = {
-  'api-keys': '访问密钥',
-  logs: '调用日志',
-  mailboxes: '临时邮箱或域名邮箱',
-  'external-mailboxes': '第三方邮箱',
-  'smtp-accounts': '发信账号',
-  emails: '邮件',
-  'verification-codes': '验证码',
-  'workflow-executions': '工作流执行'
+  mailboxes: 'openPlatform.groups.mailboxes',
+  'external-mailboxes': 'openPlatform.groups.externalMailboxes',
+  'smtp-accounts': 'openPlatform.groups.smtpAccounts',
+  emails: 'openPlatform.groups.emails',
+  'verification-codes': 'openPlatform.groups.verificationCodes',
+  'workflow-executions': 'openPlatform.groups.workflowExecutions'
 }
 
 const scopeLabelMap: Record<string, string> = {
-  'mailbox.read': '读取临时邮箱或域名邮箱',
-  'mailbox.write': '管理临时邮箱或域名邮箱',
-  'external_mailbox.read': '读取第三方邮箱',
-  'external_mailbox.write': '管理第三方邮箱',
-  'smtp_account.read': '读取发信账号',
-  'email.read': '读取邮件列表',
-  'email.body.read': '读取邮件正文',
-  'email.delete': '删除邮件',
-  'verification_code.read': '读取验证码',
-  'workflow.execute': '执行工作流'
+  'mailbox.read': 'openPlatform.scopes.mailboxRead',
+  'mailbox.write': 'openPlatform.scopes.mailboxWrite',
+  'external_mailbox.read': 'openPlatform.scopes.externalRead',
+  'external_mailbox.write': 'openPlatform.scopes.externalWrite',
+  'smtp_account.read': 'openPlatform.scopes.smtpRead',
+  'email.read': 'openPlatform.scopes.emailRead',
+  'email.body.read': 'openPlatform.scopes.emailBodyRead',
+  'email.delete': 'openPlatform.scopes.emailDelete',
+  'verification_code.read': 'openPlatform.scopes.codeRead',
+  'workflow.execute': 'openPlatform.scopes.workflowExecute'
 }
 
 const endpointLabelMap: Record<string, string> = {
-  'POST /open/v1/mailboxes': '创建临时邮箱或域名邮箱',
-  'GET /open/v1/mailboxes': '临时邮箱或域名邮箱列表',
-  'DELETE /open/v1/mailboxes/{mailbox_id}': '删除临时邮箱或域名邮箱',
-  'GET /open/v1/external-mailboxes': '外部邮箱列表',
-  'DELETE /open/v1/external-mailboxes/{mailbox_id}': '删除外部邮箱',
-  'GET /open/v1/smtp-accounts': '发信账号列表',
-  'GET /open/v1/emails': '邮件列表',
-  'GET /open/v1/emails/{email_id}': '邮件详情',
-  'DELETE /open/v1/emails/{email_id}': '删除邮件',
-  'GET /open/v1/verification-codes/latest': '最新验证码',
-  'GET /open/v1/verification-codes/{email_id}': '邮件验证码',
-  'POST /open/v1/workflow-executions': '执行工作流',
-  'GET /open/v1/workflow-executions/{execution_id}': '执行结果'
+  'POST /open/v1/mailboxes': 'openPlatform.endpoints.createMailbox',
+  'GET /open/v1/mailboxes': 'openPlatform.endpoints.listMailboxes',
+  'DELETE /open/v1/mailboxes/{mailbox_id}': 'openPlatform.endpoints.deleteMailbox',
+  'GET /open/v1/external-mailboxes': 'openPlatform.endpoints.listExternalMailboxes',
+  'DELETE /open/v1/external-mailboxes/{mailbox_id}': 'openPlatform.endpoints.deleteExternalMailbox',
+  'GET /open/v1/smtp-accounts': 'openPlatform.endpoints.listSmtpAccounts',
+  'GET /open/v1/emails': 'openPlatform.endpoints.listEmails',
+  'GET /open/v1/emails/{email_id}': 'openPlatform.endpoints.emailDetail',
+  'DELETE /open/v1/emails/{email_id}': 'openPlatform.endpoints.deleteEmail',
+  'GET /open/v1/verification-codes/latest': 'openPlatform.endpoints.latestCode',
+  'GET /open/v1/verification-codes/{email_id}': 'openPlatform.endpoints.emailCode',
+  'POST /open/v1/workflow-executions': 'openPlatform.endpoints.runWorkflow',
+  'GET /open/v1/workflow-executions/{execution_id}': 'openPlatform.endpoints.workflowResult'
 }
 
 const endpointGroups = computed<EndpointGroup[]>(() => {
@@ -568,14 +569,17 @@ const getEndpointAnchor = (groupName: string, endpoint: EndpointItem) =>
     .replace(/[^a-zA-Z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .toLowerCase()}`
-const getDocGroupLabel = (name: string, fallback?: string) => docGroupLabelMap[name] || fallback || name
+const getDocGroupLabel = (name: string, fallback?: string) => {
+  const key = docGroupLabelMap[name]
+  return key ? t(key) : fallback || name
+}
 const getEndpointLabel = (endpoint: EndpointItem) => {
   const key = `${String(endpoint.method || '').toUpperCase()} ${String(endpoint.path || '')}`
-  return endpointLabelMap[key] || endpoint.description || `${endpoint.method} ${endpoint.path}`
+  return endpointLabelMap[key] ? t(endpointLabelMap[key]) : endpoint.description || `${endpoint.method} ${endpoint.path}`
 }
 const getAuthModeLabel = (mode?: string) => {
-  if (mode === 'api_key') return 'API Key 鉴权'
-  if (mode === 'bearer_token') return '登录态鉴权'
+  if (mode === 'api_key') return t('openPlatform.authApiKey')
+  if (mode === 'bearer_token') return t('openPlatform.authBearer')
   return mode || '-'
 }
 
@@ -588,7 +592,10 @@ const getScopeLabel = (scope?: string) => {
   if (!scope) return '-'
   return scope
     .split('+')
-    .map((item) => scopeLabelMap[item.trim()] || item.trim())
+    .map((item) => {
+      const key = scopeLabelMap[item.trim()]
+      return key ? t(key) : item.trim()
+    })
     .join(' + ')
 }
 
@@ -615,7 +622,7 @@ const getEndpointParameters = (endpoint: EndpointItem) => {
     required: requiredSet.has(name),
     type: getSchemaTypeLabel(item),
     enumText: Array.isArray(item?.enum) && item.enum.length ? item.enum.join(' / ') : '',
-    description: [String(item?.description || '').trim(), item?.in ? `位置：${item.in === 'path' ? '路径参数' : '查询参数'}` : '']
+    description: [String(item?.description || '').trim(), item?.in ? `${t('common.position')}: ${item.in === 'path' ? t('common.pathParam') : item.in === 'body' ? t('common.bodyParam') : t('common.queryParam')}` : '']
       .filter(Boolean)
       .join(' ')
   }))

@@ -1,7 +1,7 @@
 <template>
   <MailboxList
     ref="mailboxListRef"
-    :title="title"
+    :title="resolvedTitle"
     :mailboxes="resolvedMailboxes"
     :selectedId="selectedId"
     :showPagination="showPagination"
@@ -133,6 +133,7 @@
 
 <script setup lang="ts">
 import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useMailboxStore } from '@/stores/auth'
 import MailboxList from '@/components/Mail/MailboxList/MailboxList.vue'
 import MailboxCard from '@/components/Mail/MailboxList/MailboxCard.vue'
@@ -159,7 +160,7 @@ const props = withDefaults(defineProps<{
   onSearch?: ((keyword: string) => void | Promise<void>) | null
 }>(), {
   mailboxType: 'system',
-  title: '临时邮箱',
+  title: '',
   mailboxes: null,
   showPagination: true,
   enableTags: true,
@@ -170,6 +171,7 @@ const props = withDefaults(defineProps<{
   searchPlaceholder: '搜索邮箱...',
   onSearch: null
 })
+const { t } = useI18n()
 
 const emit = defineEmits(['select', 'batch-mode-start', 'share', 'deleted', 'refresh'])
 
@@ -201,6 +203,10 @@ const resolvedPagination = computed(() => {
     total_pages: Number(mailboxStore.totalPages || 1),
     total: Number(mailboxStore.totalMailboxes || 0)
   }
+})
+const resolvedTitle = computed(() => {
+  if (props.title) return props.title
+  return props.mailboxType === 'hosted' ? t('home.hostedMailbox') : t('home.temporaryMailbox')
 })
 
 const getDisplayExpiresAt = (mailbox: any) => {

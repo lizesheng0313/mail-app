@@ -1,7 +1,9 @@
 import axios from 'axios'
 import { showMessage } from '@/utils/message'
+import { getCurrentLocale, i18n } from '@/i18n'
 
 const shouldSuppressErrorMessage = (config: any) => Boolean(config?.suppressErrorMessage)
+const t = (key: string) => String(i18n.global.t(key))
 
 // 检测是否在 Tauri 环境
 const isTauri = () => {
@@ -99,6 +101,10 @@ api.interceptors.request.use(
       }
       config.headers['Authorization'] = `Bearer ${token}`
     }
+    if (!config.headers) {
+      config.headers = {} as any
+    }
+    config.headers['Accept-Language'] = getCurrentLocale()
     
     return config
   },
@@ -123,7 +129,7 @@ api.interceptors.response.use(
 
     // 统一处理业务错误：只要 code !== 0 就显示错误消息
     if (data.code !== 0 && !shouldSuppressErrorMessage(response.config)) {
-      showMessage(data.message || '操作失败', 'error')
+      showMessage(data.message || t('common.operationFailed'), 'error')
     }
 
     // 直接返回后端数据，保持 {code: 0, message: "", data: []} 格式
@@ -132,11 +138,15 @@ api.interceptors.response.use(
   (error) => {
     // 401错误不计入维护检测
     if (error.response?.status === 401) {
-      const authErrorMessage = error.response?.data?.detail === '账户已被禁用'
-        ? '账户已被禁用'
-        : '登录已过期，请重新登录'
+      const backendDetail = String(error.response?.data?.detail || error.response?.data?.message || '').trim().toLowerCase()
+      const isAccountDisabled =
+        backendDetail === '账户已被禁用' ||
+        backendDetail === 'this account has been disabled'
+      const authErrorMessage = isAccountDisabled
+        ? t('common.accountDisabled')
+        : t('common.sessionExpired')
 
-      if (error.response?.data?.detail === '账户已被禁用') {
+      if (isAccountDisabled) {
         sessionStorage.setItem('login_error_message', authErrorMessage)
       }
 
@@ -175,7 +185,7 @@ api.interceptors.response.use(
     }
 
     // 处理HTTP错误状态码，返回统一格式
-    const errorMessage = error.response?.data?.message || error.response?.data?.detail || '网络错误，请稍后重试'
+    const errorMessage = error.response?.data?.message || error.response?.data?.detail || t('common.networkErrorRetry')
 
     // 显示网络错误
     if (!shouldSuppressErrorMessage(error.config)) {

@@ -17,24 +17,23 @@
                 </svg>
               </div>
             </div>
-            <h1 class="mt-6 text-center text-4xl font-bold">关于我们</h1>
-            <p class="mt-3 text-center text-primary-100">邮箱管理与邮件自动化平台</p>
+            <h1 class="mt-6 text-center text-4xl font-bold">{{ t('about.title') }}</h1>
+            <p class="mt-3 text-center text-primary-100">{{ t('about.subtitle') }}</p>
           </div>
 
           <!-- 内容区域 -->
           <div class="px-8 py-10">
             <!-- 简介 -->
             <div class="mb-10">
-              <h2 class="mb-4 text-2xl font-bold text-gray-800">简介</h2>
+              <h2 class="mb-4 text-2xl font-bold text-gray-800">{{ t('about.introTitle') }}</h2>
               <p class="text-gray-600 leading-relaxed">
-                这是一个面向个人与团队的邮箱管理平台，提供第三方邮箱接入、多邮箱统一处理、邮件自动化工作流与插件扩展等功能。
-                我们致力于为用户提供高效、稳定、易用的邮件管理与协作解决方案。
+                {{ t('about.introBody') }}
               </p>
             </div>
 
             <!-- 联系方式 -->
             <div>
-            <h2 class="mb-6 text-2xl font-bold text-gray-800">联系我们</h2>
+            <h2 class="mb-6 text-2xl font-bold text-gray-800">{{ t('about.contactTitle') }}</h2>
             
             <!-- 微信联系卡片 -->
             <div class="rounded-xl border-2 border-primary-200 bg-gradient-to-br from-primary-50 to-white p-6 transition-all hover:border-primary-300 hover:shadow-lg">
@@ -45,11 +44,11 @@
                   </svg>
                 </div>
                 <div class="ml-4 flex-1">
-                  <h3 class="text-lg font-semibold text-gray-800">微信联系</h3>
-                  <p class="mt-2 text-sm text-gray-600">如有问题或建议，欢迎添加微信咨询</p>
+                  <h3 class="text-lg font-semibold text-gray-800">{{ t('about.wechatTitle') }}</h3>
+                  <p class="mt-2 text-sm text-gray-600">{{ t('about.wechatDesc') }}</p>
                   <div class="mt-4 flex items-center justify-between rounded-lg bg-white px-4 py-3 shadow-sm">
                     <div class="flex items-center">
-                      <span class="text-sm font-medium text-gray-500">微信号：</span>
+                      <span class="text-sm font-medium text-gray-500">{{ t('about.wechatId') }}</span>
                       <span class="ml-2 font-mono text-lg font-bold text-primary-600">lizesheng1234</span>
                     </div>
                     <button
@@ -60,7 +59,7 @@
                         <svg class="mr-1 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                         </svg>
-                        复制
+                        {{ t('about.copy') }}
                       </span>
                     </button>
                   </div>
@@ -73,7 +72,7 @@
 
         <!-- 底部提示 -->
         <div class="mt-8 text-center text-sm text-gray-500">
-          <p>感谢您使用本系统，我们将持续优化产品体验</p>
+          <p>{{ t('about.thanks') }}</p>
         </div>
       </div>
     </div>
@@ -81,15 +80,18 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { showMessage } from '@/utils/message'
 import PageHeader from '@/components/PageHeader/index.vue'
+
+const { t } = useI18n()
 
 const copyWechat = async () => {
   try {
     await navigator.clipboard.writeText('lizesheng1234')
-    showMessage('微信号已复制到剪贴板', 'success')
+    showMessage(t('about.copied'), 'success')
   } catch (err) {
-    showMessage('复制失败，请手动复制', 'error')
+    showMessage(t('about.copyFailed'), 'error')
   }
 }
 </script>

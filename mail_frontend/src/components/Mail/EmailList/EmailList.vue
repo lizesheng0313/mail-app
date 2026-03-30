@@ -4,7 +4,7 @@
     <div class="border-b border-gray-200 pb-4 mb-4">
       <div class="flex min-h-8 justify-between items-center flex-wrap gap-2">
         <div class="flex min-h-8 items-center flex-shrink-0">
-          <h2 class="text-base font-semibold text-black whitespace-nowrap">{{ title }}</h2>
+          <h2 class="text-base font-semibold text-black whitespace-nowrap">{{ resolvedTitle }}</h2>
 
           <!-- 自动刷新倒计时 -->
           <div v-if="autoRefresh && autoRefresh.countdown.value > 0" class="ml-2 flex items-center text-xs text-gray-500 whitespace-nowrap">
@@ -22,12 +22,12 @@
         <div class="flex min-h-8 min-w-8 items-center gap-1.5 flex-shrink-0 justify-end">
           <HoverTooltip
             v-if="!batchSelection.isBatchMode.value && emails.length > 0"
-            text="批量操作"
+            :text="t('mail.batchAction')"
           >
             <button
               @click="startBatchMode"
               class="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 transition-colors hover:bg-primary-50 hover:text-primary-700"
-              title="批量操作"
+              :title="t('mail.batchAction')"
             >
               <BaseIcon name="list" size="sm" />
             </button>
@@ -47,7 +47,7 @@
         <input
           v-model="searchText"
           type="text"
-          placeholder="搜索主题、发件人、内容..."
+          :placeholder="t('mail.searchEmailsPlaceholder')"
           class="w-full pl-8 pr-8 py-1.5 text-sm border border-gray-200 rounded-lg outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-100 transition-colors"
           @input="handleSearch"
           @keyup.escape="clearSearch"
@@ -63,7 +63,7 @@
         </button>
       </div>
       <div v-if="searchText.trim()" class="mt-1.5 text-xs text-gray-400">
-        找到 {{ emails.length }} 条结果
+        {{ t('mail.searchResults', { count: emails.length }) }}
       </div>
     </div>
 
@@ -85,7 +85,7 @@
           <svg class="w-16 h-16 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 19v-8.93a2 2 0 01.89-1.664l7-4.666a2 2 0 012.22 0l7 4.666A2 2 0 0121 10.07V19M3 19a2 2 0 002 2h14a2 2 0 002-2M3 19l6.75-4.5M21 19l-6.75-4.5M3 10l6.75 4.5M21 10l-6.75 4.5m0 0l-1.14.76a2 2 0 01-2.22 0l-1.14-.76"></path>
           </svg>
-          <p class="text-sm">{{ emptyText }}</p>
+          <p class="text-sm">{{ resolvedEmptyText }}</p>
         </slot>
       </div>
     </div>
@@ -109,7 +109,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, toRef } from 'vue'
+import { computed, ref, watch, toRef } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useBatchSelection } from '@/composables/useBatchSelection'
 import MultiSelectToolbar from '@/components/MultiSelectToolbar/index.vue'
 import BaseIcon from '@/components/BaseIcon/index.vue'
@@ -133,12 +134,15 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  title: '我的邮件',
+  title: '',
   selectedId: null,
-  emptyText: '暂无邮件',
+  emptyText: '',
   showPagination: false,
   searchable: false
 })
+const { t } = useI18n()
+const resolvedTitle = computed(() => props.title || t('mail.myEmails'))
+const resolvedEmptyText = computed(() => props.emptyText || t('mail.noEmails'))
 
 const emit = defineEmits<{
   'select': [email: Email]

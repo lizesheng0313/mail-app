@@ -14,7 +14,7 @@
                 : 'text-gray-500 border-transparent hover:text-gray-700 hover:border-gray-300'
             ]"
           >
-            临时邮箱
+            {{ t('home.temporaryMailbox') }}
           </button>
           <button
             @click="switchMailboxType('hosted')"
@@ -25,7 +25,7 @@
                 : 'text-gray-500 border-transparent hover:text-gray-700 hover:border-gray-300'
             ]"
           >
-            域名邮箱
+            {{ t('home.hostedMailbox') }}
           </button>
           <button
             @click="switchMailboxType('external')"
@@ -36,7 +36,7 @@
                 : 'text-gray-500 border-transparent hover:text-gray-700 hover:border-gray-300'
             ]"
           >
-            第三方邮箱
+            {{ t('home.externalMailbox') }}
           </button>
         </div>
 
@@ -49,7 +49,7 @@
             :disabled="mailboxStore.loading"
             class="px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {{ mailboxStore.loading ? '生成中' : '生成邮箱' }}
+            {{ mailboxStore.loading ? t('home.generating') : t('home.createMailbox') }}
           </button>
 
           <button
@@ -58,7 +58,7 @@
             :disabled="mailboxStore.loading"
             class="px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 transition-colors"
           >
-            {{ mailboxStore.loading ? '生成中' : '生成邮箱' }}
+            {{ mailboxStore.loading ? t('home.generating') : t('home.createMailbox') }}
           </button>
 
           <button
@@ -66,7 +66,7 @@
             @click="goToDomainWorkbench()"
             class="px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors"
           >
-            管理域名
+            {{ t('home.manageDomains') }}
           </button>
 
           <!-- 添加邮箱按钮（第三方邮箱） -->
@@ -76,7 +76,7 @@
             :disabled="batchLoginLoading"
             class="px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {{ batchLoginLoading ? '登录中...' : '添加邮箱' }}
+            {{ batchLoginLoading ? t('home.addingMailbox') : t('home.addMailbox') }}
           </button>
 
           <!-- 写邮件 / 返回 切换 -->
@@ -115,17 +115,16 @@
               ></path>
             </svg>
 
-            {{ currentView === 'send-email' ? '返回收件箱' : '批量发送邮件' }}
+            {{ currentView === 'send-email' ? t('home.backInbox') : t('home.bulkSend') }}
           </button>
         </div>
       </div>
       <section v-else class="rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm">
         <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div class="min-w-0">
-            <h1 class="text-lg font-semibold text-gray-900">肥猫猫邮箱服务</h1>
+            <h1 class="text-lg font-semibold text-gray-900">{{ t('home.guestTitle') }}</h1>
             <p class="mt-1 text-sm text-gray-600">
-              肥猫猫邮箱服务是一个邮箱管理平台，提供临时邮箱收件、第三方邮箱（Gmail / Outlook
-              等）批量接入、邮件批量收发以及邮件自动化工作流，帮助个人和团队更高效地管理多邮箱任务。
+              {{ t('home.guestDescription') }}
             </p>
           </div>
           <div class="flex flex-wrap gap-2 flex-shrink-0">
@@ -133,19 +132,19 @@
               href="/market"
               class="inline-flex items-center rounded-md bg-primary-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-primary-700"
             >
-              工作流市场
+              {{ t('home.workflowMarket') }}
             </a>
             <a
               href="/download"
               class="inline-flex items-center rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:border-gray-400 hover:bg-gray-50"
             >
-              下载桌面端
+              {{ t('home.downloadDesktop') }}
             </a>
             <a
               href="/about"
               class="inline-flex items-center rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:border-gray-400 hover:bg-gray-50"
             >
-              了解产品
+              {{ t('home.learnMore') }}
             </a>
           </div>
         </div>
@@ -172,7 +171,7 @@
           <SystemMailboxList
             ref="hostedMailboxListRef"
             mailbox-type="hosted"
-            title="域名邮箱"
+            :title="t('home.hostedMailbox')"
             :search-keyword="hostedMailboxSearchKeyword"
             :mailboxes="hostedMailboxItems"
             :pagination="{
@@ -216,7 +215,7 @@
       <div v-show="mailboxType === 'system'" class="h-full">
         <EmailList
           ref="systemEmailListRef"
-          title="收件箱"
+          :title="t('mail.inbox')"
           :emails="mailStore.emails"
           :selectedId="mailStore.selectedEmail?.id"
           :showPagination="true"
@@ -301,7 +300,7 @@
       <div v-show="mailboxType === 'hosted'" class="h-full">
         <EmailList
           ref="hostedEmailListRef"
-          :title="selectedHostedMailboxId ? '收件箱' : '全部邮件'"
+          :title="selectedHostedMailboxId ? t('mail.inbox') : t('mail.allEmails')"
           :emails="hostedEmails"
           :selected-id="selectedHostedEmailId"
           :show-pagination="true"
@@ -368,7 +367,7 @@
       <div v-show="mailboxType === 'external'" class="h-full">
         <EmailList
           ref="externalEmailListRef"
-          :title="selectedExternalMailboxId ? '收件箱' : '全部邮件'"
+          :title="selectedExternalMailboxId ? t('mail.inbox') : t('mail.allEmails')"
           :emails="externalEmails"
           :selectedId="selectedExternalEmailId"
           :showPagination="true"
@@ -463,11 +462,11 @@
       <div
         class="flex flex-col gap-2 text-xs text-gray-500 sm:flex-row sm:items-center sm:justify-between"
       >
-        <div>服务名称：肥猫猫邮箱服务</div>
+        <div>{{ t('mail.footerServiceName') }}</div>
         <div class="flex items-center gap-3">
-          <a href="/privacy-policy" class="hover:text-primary-600">隐私权政策</a>
+          <a href="/privacy-policy" class="hover:text-primary-600">{{ t('legal.privacyTitle') }}</a>
           <span class="text-gray-300">|</span>
-          <a href="/terms-of-service" class="hover:text-primary-600">服务条款</a>
+          <a href="/terms-of-service" class="hover:text-primary-600">{{ t('legal.termsTitle') }}</a>
         </div>
       </div>
     </template>
@@ -557,6 +556,7 @@
 
 <script setup lang="ts">
 import { computed, ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { useMailboxStore } from '@/stores/auth'
@@ -603,6 +603,8 @@ async function getTauriInvoke() {
 }
 import { unifiedAPI } from '@/api/unified'
 import { emailAPI } from '@/api/email'
+
+const { t } = useI18n()
 
 const OAUTH2_DOMAINS: Record<string, string> = {
   'gmail.com': 'google',

@@ -1,5 +1,8 @@
 <template>
   <div class="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div class="fixed right-4 top-4 z-40">
+      <LanguageSwitcher />
+    </div>
     <!-- 消息提示 -->
     <div v-if="message" class="fixed top-4 right-4 z-50">
       <div :class="[
@@ -24,22 +27,22 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
           </svg>
         </div>
-        <h2 class="mt-6 text-3xl font-bold text-black">肥猫猫邮箱服务</h2>
+        <h2 class="mt-6 text-3xl font-bold text-black">{{ t('pageHeader.siteName') }}</h2>
         <p class="mt-2 text-sm text-black">
-          {{ isResetMode ? '重置密码' : (isLoginMode ? '登录您的账户' : '创建新账户') }}
+          {{ isResetMode ? t('login.subtitleReset') : (isLoginMode ? t('login.subtitleLogin') : t('login.subtitleRegister')) }}
         </p>
       </div>
       
       <div class="bg-white rounded-2xl shadow-lg border border-gray-200 p-8">
         <form @submit.prevent="handleSubmit" class="space-y-6">
           <div>
-            <label for="email" class="block text-sm font-medium text-black mb-2">邮箱地址</label>
+            <label for="email" class="block text-sm font-medium text-black mb-2">{{ t('login.emailLabel') }}</label>
             <BaseInput
               id="email"
               v-model="form.email"
               type="email"
               required
-              placeholder="请输入邮箱地址"
+              :placeholder="t('login.emailPlaceholder')"
               :disabled="userStore.loading"
             >
               <template #right-icon>
@@ -50,7 +53,7 @@
                   :disabled="userStore.loading || !form.email"
                   class="px-3 py-1 text-sm text-primary-600 hover:text-primary-700 font-medium transition-colors disabled:opacity-50 whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-opacity-50 rounded"
                 >
-                  发送验证码
+                  {{ t('login.sendCode') }}
                 </button>
                 <button
                   v-else-if="!isLoginMode && !userStore.verificationCodeSent"
@@ -67,25 +70,25 @@
 
             <!-- 邮箱域名提示 -->
             <div v-if="!isLoginMode && showDomainHelp" class="mt-2 p-3 bg-primary-50 rounded-lg text-sm">
-              <p class="text-primary-800 font-medium mb-2">支持的邮箱域名：</p>
+              <p class="text-primary-800 font-medium mb-2">{{ t('login.supportedDomainsTitle') }}</p>
               <div class="text-primary-700 space-y-1">
-                <p><strong>国内：</strong>163.com, qq.com, 126.com, sina.com, 139.com</p>
-                <p><strong>国外：</strong>gmail.com, outlook.com, hotmail.com, yahoo.com</p>
-                <p class="text-xs text-primary-600 mt-2">更多域名请查看完整列表</p>
+                <p>{{ t('login.domestic') }}</p>
+                <p>{{ t('login.overseas') }}</p>
+                <p class="text-xs text-primary-600 mt-2">{{ t('login.moreDomains') }}</p>
               </div>
             </div>
           </div>
           
           <!-- 验证码输入 -->
           <div v-if="((!isLoginMode && !isResetMode) || isResetMode) && userStore.verificationCodeSent">
-            <label for="verificationCode" class="block text-sm font-medium text-black mb-2">验证码</label>
+            <label for="verificationCode" class="block text-sm font-medium text-black mb-2">{{ t('login.verificationCode') }}</label>
             <BaseInput
               id="verificationCode"
               v-model="form.verificationCode"
               type="text"
               required
               maxlength="6"
-              placeholder="请输入6位验证码"
+              :placeholder="t('login.verificationPlaceholder')"
               :disabled="userStore.loading"
             >
               <template #right-icon>
@@ -95,25 +98,25 @@
                   :disabled="userStore.loading"
                   class="px-3 py-1 text-sm text-primary-600 hover:text-primary-700 font-medium transition-colors disabled:opacity-50 whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-opacity-50 rounded"
                 >
-                  重发
+                  {{ t('login.resend') }}
                 </button>
               </template>
             </BaseInput>
             <p class="mt-2 text-sm text-black">
-              验证码已发送至 {{ userStore.verificationEmail }}
+              {{ t('login.sentTo', { email: userStore.verificationEmail }) }}
             </p>
           </div>
 
           <div v-if="!isResetMode || (isResetMode && userStore.verificationCodeSent)">
             <label for="password" class="block text-sm font-medium text-black mb-2">
-              {{ isResetMode ? '新密码' : '密码' }}
+              {{ isResetMode ? t('login.newPassword') : t('login.password') }}
             </label>
             <BaseInput
               id="password"
               v-model="form.password"
               :type="showPassword ? 'text' : 'password'"
               required
-              :placeholder="isResetMode ? '请输入新密码' : '请输入密码'"
+              :placeholder="isResetMode ? t('login.newPasswordPlaceholder') : t('login.passwordPlaceholder')"
               :disabled="userStore.loading"
             >
               <template #right-icon>
@@ -135,49 +138,49 @@
 
             <!-- 注册或重置密码时显示密码强度提示 -->
             <div v-if="(!isLoginMode || isResetMode) && form.password" class="mt-2 p-3 bg-gray-50 rounded-lg text-sm">
-              <p class="text-black font-medium mb-2">密码强度：</p>
+              <p class="text-black font-medium mb-2">{{ t('login.passwordStrength') }}</p>
               <div class="space-y-1 text-xs">
                 <div :class="form.password.length >= 6 ? 'text-primary-600' : 'text-red-500'">
                   <span class="mr-1">{{ form.password.length >= 6 ? '✓' : '✗' }}</span>
-                  至少6位字符 (必需)
+                  {{ t('login.passwordRuleMin6') }}
                 </div>
                 <div :class="form.password.length >= 8 ? 'text-primary-600' : 'text-black'">
                   <span class="mr-1">{{ form.password.length >= 8 ? '✓' : '○' }}</span>
-                  至少8位字符 (推荐)
+                  {{ t('login.passwordRuleMin8') }}
                 </div>
                 <div :class="/[A-Z]/.test(form.password) ? 'text-primary-600' : 'text-black'">
                   <span class="mr-1">{{ /[A-Z]/.test(form.password) ? '✓' : '○' }}</span>
-                  包含大写字母 (推荐)
+                  {{ t('login.passwordRuleUpper') }}
                 </div>
                 <div :class="/[a-z]/.test(form.password) ? 'text-primary-600' : 'text-black'">
                   <span class="mr-1">{{ /[a-z]/.test(form.password) ? '✓' : '○' }}</span>
-                  包含小写字母 (推荐)
+                  {{ t('login.passwordRuleLower') }}
                 </div>
                 <div :class="/[0-9]/.test(form.password) ? 'text-primary-600' : 'text-black'">
                   <span class="mr-1">{{ /[0-9]/.test(form.password) ? '✓' : '○' }}</span>
-                  包含数字 (推荐)
+                  {{ t('login.passwordRuleNumber') }}
                 </div>
                 <div :class="/[!@#$%^&*(),.?':{}|<>]/.test(form.password) ? 'text-primary-600' : 'text-black'">
                   <span class="mr-1">{{ /[!@#$%^&*(),.?':{}|<>]/.test(form.password) ? '✓' : '○' }}</span>
-                  包含特殊字符 (推荐)
+                  {{ t('login.passwordRuleSpecial') }}
                 </div>
               </div>
               <div class="mt-2 text-xs text-black">
-                提示：满足更多条件可提高密码安全性
+                {{ t('login.strengthTip') }}
               </div>
             </div>
           </div>
 
           <div v-if="(!isLoginMode && !isResetMode) || (isResetMode && userStore.verificationCodeSent)">
             <label for="confirmPassword" class="block text-sm font-medium text-black mb-2">
-              {{ isResetMode ? '确认新密码' : '确认密码' }}
+              {{ isResetMode ? t('login.confirmNewPassword') : t('login.confirmPassword') }}
             </label>
             <BaseInput
               id="confirmPassword"
               v-model="form.confirmPassword"
               :type="showConfirmPassword ? 'text' : 'password'"
               required
-              :placeholder="isResetMode ? '请再次输入新密码' : '请再次输入密码'"
+              :placeholder="isResetMode ? t('login.confirmNewPasswordPlaceholder') : t('login.confirmPasswordPlaceholder')"
               :disabled="userStore.loading"
             >
               <template #right-icon>
@@ -202,13 +205,13 @@
               <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
               </svg>
-              两次输入的密码不一致
+              {{ t('login.passwordMismatch') }}
             </div>
             <div v-else-if="form.confirmPassword && form.password === form.confirmPassword" class="mt-2 text-primary-600 text-sm flex items-center">
               <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
               </svg>
-              密码匹配
+              {{ t('login.passwordMatched') }}
             </div>
           </div>
           
@@ -222,23 +225,23 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
               </svg>
               <div class="ml-3 flex-1">
-                <p class="text-sm font-medium text-orange-900">检测到账号异常</p>
-                <p class="mt-1 text-sm text-orange-800">如果确认账号未异常，请点击反馈联系管理员，或添加客服微信处理。</p>
+                <p class="text-sm font-medium text-orange-900">{{ t('login.abnormalTitle') }}</p>
+                <p class="mt-1 text-sm text-orange-800">{{ t('login.abnormalDesc') }}</p>
                 <div class="mt-3 flex flex-wrap gap-2">
                   <a
                     href="/user/feedback"
                     class="inline-flex items-center rounded-lg bg-primary-600 px-3 py-2 text-xs font-medium text-white hover:bg-primary-700"
                   >
-                    提交反馈
+                    {{ t('login.submitFeedback') }}
                   </a>
                   <button
                     type="button"
                     @click="copySupportWechat"
                     class="inline-flex items-center rounded-lg border border-orange-300 bg-white px-3 py-2 text-xs font-medium text-orange-700 hover:bg-orange-100"
                   >
-                    复制客服微信
+                    {{ t('login.copyWechat') }}
                   </button>
-                  <span class="inline-flex items-center text-xs text-orange-700">微信号：{{ supportWechat }}</span>
+                  <span class="inline-flex items-center text-xs text-orange-700">{{ t('login.wechatLabel', { wechat: supportWechat }) }}</span>
                 </div>
               </div>
             </div>
@@ -254,19 +257,19 @@
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
-              {{ isResetMode ? '重置中...' : (isLoginMode ? '登录中...' : '注册中...') }}
+              {{ isResetMode ? t('login.submittingReset') : (isLoginMode ? t('login.submittingLogin') : t('login.submittingRegister')) }}
             </span>
-            <span v-else>{{ isResetMode ? '重置密码' : (isLoginMode ? '登录' : '完成注册') }}</span>
+            <span v-else>{{ isResetMode ? t('login.submitReset') : (isLoginMode ? t('login.submitLogin') : t('login.submitRegister')) }}</span>
           </button>
 
           <p class="text-center text-xs leading-6 text-gray-500">
-            继续操作即表示您同意
+            {{ t('login.agreementPrefix') }}
             <a href="/terms-of-service" target="_blank" rel="noopener noreferrer" class="text-primary-600 hover:text-primary-700">
-              《服务条款》
+              {{ t('login.terms') }}
             </a>
-            和
+            &
             <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" class="text-primary-600 hover:text-primary-700">
-              《隐私权政策》
+              {{ t('login.privacy') }}
             </a>
           </p>
         </form>
@@ -277,7 +280,7 @@
             <div class="w-full border-t border-gray-300"></div>
           </div>
           <div class="relative flex justify-center text-sm">
-            <span class="px-2 bg-white text-gray-500">或</span>
+            <span class="px-2 bg-white text-gray-500">{{ t('login.or') }}</span>
           </div>
         </div>
         
@@ -295,8 +298,8 @@
             <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
             <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
           </svg>
-          <span v-if="googleLoading">登录中...</span>
-          <span v-else>使用 Google 账号登录</span>
+          <span v-if="googleLoading">{{ t('login.submittingLogin') }}</span>
+          <span v-else>{{ t('login.googleLogin') }}</span>
         </button>
         
         <div class="mt-6 text-center space-y-3">
@@ -305,7 +308,7 @@
             @click="toggleMode"
             class="text-primary-600 hover:text-primary-700 text-sm font-medium transition-colors"
           >
-            {{ isLoginMode ? '没有账户？立即注册' : '已有账户？立即登录' }}
+            {{ isLoginMode ? t('login.noAccount') : t('login.hasAccount') }}
           </button>
 
           <div class="flex justify-center space-x-4 text-sm">
@@ -314,14 +317,14 @@
               @click="switchToResetMode"
               class="text-primary-600 hover:text-primary-700 font-medium transition-colors"
             >
-              忘记密码？
+              {{ t('login.forgotPassword') }}
             </button>
             <button
               v-if="isResetMode"
               @click="switchToLoginMode"
               class="text-black hover:text-black font-medium transition-colors"
             >
-              返回登录
+              {{ t('login.backToLogin') }}
             </button>
           </div>
         </div>
@@ -332,13 +335,16 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import authAPI from '@/api/auth'
 import BaseInput from '@/components/BaseInput/index.vue'
+import LanguageSwitcher from '@/components/LanguageSwitcher/index.vue'
 import { showMessage } from '@/utils/message'
 import { isTauri } from '@/services/api'
 
+const { t } = useI18n()
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
@@ -452,7 +458,7 @@ const switchToLoginMode = () => {
 
 const sendVerificationCode = async () => {
   if (!form.value.email.trim()) {
-    error.value = '请输入邮箱地址'
+    error.value = t('login.errorEmailRequired')
     return
   }
 
@@ -462,7 +468,7 @@ const sendVerificationCode = async () => {
   const result = await userStore.sendVerificationCode(form.value.email, purpose)
 
   if (!result.success) {
-    error.value = result.error || '发送验证码失败'
+    error.value = result.error || t('login.networkError')
   }
 }
 
@@ -470,7 +476,7 @@ const sendVerificationCode = async () => {
 // 密码复杂度验证
 const validatePassword = (password: string): { valid: boolean; message: string } => {
   if (password.length < 6) {
-    return { valid: false, message: '密码长度至少6位' }
+    return { valid: false, message: t('login.errorPasswordTooShort') }
   }
 
   // 计算密码强度分数
@@ -483,9 +489,9 @@ const validatePassword = (password: string): { valid: boolean; message: string }
 
   // 至少需要满足2个条件（除了长度）
   if (score >= 2) {
-    return { valid: true, message: '密码强度良好' }
+    return { valid: true, message: '' }
   } else {
-    return { valid: false, message: '密码强度不够，建议包含大小写字母、数字或特殊字符' }
+    return { valid: false, message: t('login.errorPasswordWeak') }
   }
 }
 
@@ -501,7 +507,7 @@ const handleSubmit = async () => {
     }
 
     if (form.value.password !== form.value.confirmPassword) {
-      error.value = '两次输入的密码不一致'
+      error.value = t('login.passwordMismatch')
       return
     }
   }
@@ -529,11 +535,11 @@ const handleSubmit = async () => {
       router.push('/')
     } else if (isResetMode.value) {
       // 密码重置成功，显示提示并跳转到登录
-      showMessage(result.message || '密码重置成功！请使用新密码登录', 'success')
+      showMessage(result.message || t('login.resetSuccess'), 'success')
       switchToLoginMode()
     } else {
       // 注册成功，显示提示并跳转到登录
-      showMessage(result.message || '注册成功！请登录', 'success')
+      showMessage(result.message || t('login.registerSuccess'), 'success')
       isLoginMode.value = true
       isResetMode.value = false
       // 清空表单
@@ -548,7 +554,7 @@ const handleSubmit = async () => {
       userStore.verificationEmail = ''
     }
   } else {
-    error.value = result.error || (isResetMode.value ? '密码重置失败' : (isLoginMode.value ? '登录失败' : '注册失败'))
+    error.value = result.error || t('login.networkError')
   }
 }
 
@@ -565,10 +571,10 @@ const loginWithGoogle = async () => {
       // 跳转到 Google 授权页面
       window.location.href = result.data.auth_url
     } else {
-      error.value = result.message || '获取授权链接失败'
+      error.value = result.message || t('login.getAuthLinkFailed')
     }
   } catch (err: any) {
-    error.value = '网络错误，请稍后重试'
+    error.value = t('login.networkError')
   } finally {
     googleLoading.value = false
   }
@@ -577,9 +583,9 @@ const loginWithGoogle = async () => {
 const copySupportWechat = async () => {
   try {
     await navigator.clipboard.writeText(supportWechat)
-    showMessage('客服微信已复制', 'success')
+    showMessage(t('login.supportWechatCopied'), 'success')
   } catch (err) {
-    showMessage('复制失败，请手动复制', 'error')
+    showMessage(t('login.copyFailed'), 'error')
   }
 }
 
