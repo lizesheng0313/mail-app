@@ -207,7 +207,7 @@
 
                     <!-- 我的工作台 -->
                     <router-link
-                      to="/user"
+                      to="/user/developer/api-keys"
                       @click="showUserMenu = false"
                       class="block px-4 py-2 text-sm text-black hover:bg-gray-100 transition-colors"
                     >

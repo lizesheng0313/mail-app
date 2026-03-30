@@ -102,7 +102,7 @@
                 icon="edit"
                 tooltip="编辑"
                 variant="edit"
-                :disabled="isDomainDeleted(domain)"
+                v-if="!isDomainDeleted(domain) && String(domain.verification_status || '').toLowerCase() === 'verified'"
                 @click="openEditModal(domain)"
               />
               <ActionButton
@@ -116,7 +116,7 @@
                 icon="eye"
                 tooltip="详情"
                 variant="view"
-                v-if="String(domain.verification_status || '').toLowerCase() !== 'verified'"
+                v-if="!isDomainDeleted(domain) && String(domain.verification_status || '').toLowerCase() !== 'verified'"
                 @click="openDetailModal(domain.id)"
               />
               <ActionButton
@@ -139,7 +139,7 @@
 
     <BaseModal
       v-model="showDomainModal"
-      :title="domainModalDetail ? '域名详情' : '添加域名'"
+      :title="domainModalTitle"
       :show-close="Boolean(domainModalDetail)"
       :show-footer="!domainModalDetail"
       :show-confirm="!domainModalDetail"
@@ -173,91 +173,23 @@
           size="lg"
           auto-show-picker
         />
+        <CatchAllSettingCard
+          :domain-name="createForm.domain_name"
+          :enabled="createForm.catch_all_enabled"
+          @update:enabled="createForm.catch_all_enabled = $event"
+        />
       </div>
 
       <div v-else class="space-y-6">
-        <div
-          v-if="domainModalNotice"
-          :class="domainModalNotice.type === 'success' ? 'border-green-200 bg-green-50 text-green-800' : 'border-red-200 bg-red-50 text-red-800'"
-          class="rounded-lg border px-4 py-3 text-sm"
-        >
-          {{ domainModalNotice.text }}
-        </div>
-
-        <div class="rounded-lg border border-gray-200 bg-gray-50 px-4 py-4">
-          <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div>
-              <div class="flex flex-wrap items-center gap-2">
-                <div class="text-base font-semibold text-black">{{ domainModalDetail.domain.domain_name }}</div>
-                <span :class="getVerificationClass(domainModalDetail.domain.verification_status)" class="px-2 py-1 text-xs font-medium rounded-full">
-                  {{ getVerificationLabel(domainModalDetail.domain.verification_status) }}
-                </span>
-              </div>
-            </div>
-            <button
-              v-if="String(domainModalDetail.domain.verification_status || '').toLowerCase() !== 'verified'"
-              class="px-3 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-md text-sm disabled:opacity-50"
-              :disabled="refreshingDomainId === domainModalDetail.domain.id"
-              @click="refreshDns(domainModalDetail.domain.id)"
-            >
-              <span v-if="refreshingDomainId === domainModalDetail.domain.id" class="inline-flex items-center gap-2">
-                验证中
-                <BaseIcon name="refresh" size="sm" class="animate-spin" />
-              </span>
-              <span v-else>立即验证DNS</span>
-            </button>
-          </div>
-        </div>
-
-        <div>
-          <h3 class="text-sm font-semibold text-black mb-3">DNS 配置</h3>
-          <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200 text-sm">
-              <thead>
-                <tr class="text-left text-xs uppercase tracking-wide text-gray-500">
-                  <th class="pb-3 pr-4 font-medium">主机记录</th>
-                  <th class="pb-3 pr-4 font-medium">记录类型</th>
-                  <th class="pb-3 pr-4 font-medium">值</th>
-                  <th class="pb-3 pr-4 font-medium">优先级</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-gray-100">
-                <tr v-for="record in domainModalDetail.dns_instructions || []" :key="record.id">
-                  <td class="py-3 pr-4 align-top">
-                    <div class="flex items-center gap-2">
-                      <div class="max-w-[240px] break-all text-gray-700">{{ formatRecordHost(record) }}</div>
-                      <ActionButton
-                        icon="copy"
-                        title="复制主机记录"
-                        @click="copyText(formatRecordHost(record))"
-                        tooltip="复制主机记录"
-                        variant="copy"
-                        size="sm"
-                      />
-                    </div>
-                  </td>
-                  <td class="py-3 pr-4 align-top text-black">{{ record.record_type }}</td>
-                  <td class="py-3 pr-4 align-top">
-                    <div class="flex items-center gap-2">
-                      <div class="max-w-[420px] break-all text-gray-700">{{ record.record_value }}</div>
-                      <ActionButton
-                        icon="copy"
-                        title="复制记录值"
-                        @click="copyText(record.record_value)"
-                        tooltip="复制记录值"
-                        variant="copy"
-                        size="sm"
-                      />
-                    </div>
-                  </td>
-                  <td class="py-3 pr-4 align-top text-gray-700">
-                    {{ record.priority ?? '-' }}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <DomainDetailPanel
+          :key="`${domainDetailRenderKey}-${domainModalDetail?.domain?.id || 'detail'}`"
+          :detail="domainModalDetail"
+          :refreshing="refreshingDomainId === domainModalDetail.domain.id"
+          :catch-all-updating="updatingDetailCatchAll"
+          @refresh="refreshDns"
+          @copy="copyText"
+          @update:catch-all-enabled="updateDetailCatchAll"
+        />
       </div>
     </BaseModal>
 
@@ -294,6 +226,12 @@
           size="lg"
           auto-show-picker
         />
+        <CatchAllSettingCard
+          :domain-name="editForm.domain_name"
+          :enabled="editForm.catch_all_enabled"
+          :show-mailbox-line="true"
+          @update:enabled="editForm.catch_all_enabled = $event"
+        />
       </div>
     </BaseModal>
 
@@ -310,14 +248,15 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import AdminDataTable from '@/components/AdminDataTable/index.vue'
 import ActionButton from '@/components/ActionButton/index.vue'
-import BaseIcon from '@/components/BaseIcon/index.vue'
 import BaseInput from '@/components/BaseInput/index.vue'
 import BaseModal from '@/components/BaseModal/index.vue'
 import ConfirmDialog from '@/components/ConfirmDialog/index.vue'
+import CatchAllSettingCard from '@/views/user/domains/components/CatchAllSettingCard.vue'
+import DomainDetailPanel from '@/views/user/domains/components/DomainDetailPanel.vue'
 import { hostedDomainAPI } from '@/api/hostedDomain'
 import { showMessage } from '@/utils/message'
 import { formatTimestamp } from '@/utils/timeUtils.js'
@@ -329,6 +268,7 @@ const deleting = ref(false)
 const creatingDomain = ref(false)
 const savingEdit = ref(false)
 const refreshingDomainId = ref<number | null>(null)
+const updatingDetailCatchAll = ref(false)
 
 const searchQuery = ref('')
 const domains = ref<any[]>([])
@@ -337,19 +277,21 @@ const showEditModal = ref(false)
 const showDeleteConfirm = ref(false)
 const domainToDelete = ref<any | null>(null)
 const domainModalDetail = ref<any | null>(null)
-const domainModalNotice = ref<{ type: 'success' | 'error'; text: string } | null>(null)
+const domainDetailRenderKey = ref(0)
 
 const createForm = ref({
   domain_name: '',
   display_name: '',
-  expires_at: ''
+  expires_at: '',
+  catch_all_enabled: false
 })
 
 const editForm = ref({
   id: 0,
   domain_name: '',
   display_name: '',
-  expires_at: ''
+  expires_at: '',
+  catch_all_enabled: false
 })
 
 const filteredDomains = computed(() => {
@@ -357,6 +299,10 @@ const filteredDomains = computed(() => {
   if (!keyword) return domains.value
   return domains.value.filter((item) => String(item.domain_name || '').toLowerCase().includes(keyword))
 })
+
+const domainModalTitle = computed(() => (
+  domainModalDetail.value?.domain ? '域名详情' : '添加域名'
+))
 
 const getVerificationLabel = (status: string) => {
   const normalized = String(status || '').toLowerCase()
@@ -372,32 +318,12 @@ const getVerificationClass = (status: string) => {
   return 'bg-amber-100 text-amber-700'
 }
 
-const getDomainNotice = (detail: any, created = false) => {
-  if (String(detail?.domain?.verification_status || '').toLowerCase() === 'verified') {
-    return null
-  }
-  const records = detail?.dns_instructions || []
-  const badRecords = records.filter(
-    (item: any) => !['valid', 'verified'].includes(String(item?.status || '').toLowerCase())
-  )
-  if (!badRecords.length) {
-    return {
-      type: 'success' as const,
-      text: created ? '域名已创建成功，DNS 记录验证通过。' : 'DNS 记录验证通过。'
-    }
-  }
-  return {
-    type: 'error' as const,
-    text: created ? '域名已创建成功，请先完成 DNS 配置。' : 'DNS 没验证通过。'
-  }
-}
-
 const loadDomains = async () => {
   loading.value = true
   try {
     const response: any = await hostedDomainAPI.listDomains()
     if (response.code === 0 && response.data) {
-      domains.value = response.data.items || []
+      domains.value = (response.data.items || []).filter((item: any) => !item?.is_deleted)
     }
   } finally {
     loading.value = false
@@ -413,28 +339,23 @@ const copyText = async (value: string) => {
   }
 }
 
-const formatRecordHost = (record: any) => {
-  const value = String(record?.record_host || '').trim()
-  return value || '@'
-}
-
 const openCreateModal = () => {
   showDomainModal.value = true
   domainModalDetail.value = null
-  domainModalNotice.value = null
-  createForm.value = { domain_name: '', display_name: '', expires_at: '' }
+  domainDetailRenderKey.value += 1
+  createForm.value = { domain_name: '', display_name: '', expires_at: '', catch_all_enabled: false }
 }
 
 const closeDomainModal = () => {
   showDomainModal.value = false
   domainModalDetail.value = null
-  domainModalNotice.value = null
-  createForm.value = { domain_name: '', display_name: '', expires_at: '' }
+  domainDetailRenderKey.value += 1
+  createForm.value = { domain_name: '', display_name: '', expires_at: '', catch_all_enabled: false }
 }
 
-const applyDomainDetailToModal = (detail: any, created = false) => {
-  domainModalDetail.value = detail
-  domainModalNotice.value = getDomainNotice(detail, created)
+const applyDomainDetailToModal = (detail: any) => {
+  domainModalDetail.value = JSON.parse(JSON.stringify(detail))
+  domainDetailRenderKey.value += 1
   showDomainModal.value = true
 }
 
@@ -446,10 +367,14 @@ const handleCreateDomain = async () => {
     const response: any = await hostedDomainAPI.createDomain({
       domain_name: createForm.value.domain_name.trim(),
       display_name: createForm.value.display_name.trim() || undefined,
-      expires_at_ms: createForm.value.expires_at ? toEndOfDayMs(createForm.value.expires_at) : undefined
+      expires_at_ms: createForm.value.expires_at ? toEndOfDayMs(createForm.value.expires_at) : undefined,
+      catch_all_enabled: createForm.value.catch_all_enabled
     })
     if (response.code === 0 && response.data) {
-      applyDomainDetailToModal(response.data, true)
+      domainModalDetail.value = null
+      domainDetailRenderKey.value += 1
+      await nextTick()
+      applyDomainDetailToModal(response.data)
       showMessage('域名添加成功', 'success')
       await loadDomains()
     }
@@ -463,14 +388,15 @@ const openEditModal = (domain: any) => {
     id: Number(domain.id),
     domain_name: domain.domain_name || '',
     display_name: domain.display_name || '',
-    expires_at: domain.expires_at ? toDateInputValue(domain.expires_at) : ''
+    expires_at: domain.expires_at ? toDateInputValue(domain.expires_at) : '',
+    catch_all_enabled: Boolean(domain.catch_all_enabled)
   }
   showEditModal.value = true
 }
 
 const closeEditModal = () => {
   showEditModal.value = false
-  editForm.value = { id: 0, domain_name: '', display_name: '', expires_at: '' }
+  editForm.value = { id: 0, domain_name: '', display_name: '', expires_at: '', catch_all_enabled: false }
 }
 
 const saveEditDomain = async () => {
@@ -479,7 +405,8 @@ const saveEditDomain = async () => {
   try {
     const response: any = await hostedDomainAPI.updateDomain(editForm.value.id, {
       display_name: editForm.value.display_name.trim() || null,
-      expires_at_ms: editForm.value.expires_at ? toEndOfDayMs(editForm.value.expires_at) : null
+      expires_at_ms: editForm.value.expires_at ? toEndOfDayMs(editForm.value.expires_at) : null,
+      catch_all_enabled: editForm.value.catch_all_enabled
     })
     if (response.code === 0) {
       showMessage('域名更新成功', 'success')
@@ -525,7 +452,7 @@ const isDomainExpired = (domain: any) => {
 const openDetailModal = async (domainId: number) => {
   showDomainModal.value = true
   domainModalDetail.value = null
-  domainModalNotice.value = null
+  domainDetailRenderKey.value += 1
   try {
     const response: any = await hostedDomainAPI.getDomainDetail(domainId)
     if (response.code === 0 && response.data) {
@@ -538,7 +465,6 @@ const openDetailModal = async (domainId: number) => {
 
 const refreshDns = async (domainId: number) => {
   refreshingDomainId.value = domainId
-  domainModalNotice.value = null
   try {
     const response: any = await hostedDomainAPI.refreshDns(domainId)
     if (response.code === 0 && response.data) {
@@ -547,6 +473,25 @@ const refreshDns = async (domainId: number) => {
     }
   } finally {
     refreshingDomainId.value = null
+  }
+}
+
+const updateDetailCatchAll = async (enabled: boolean) => {
+  const domainId = Number(domainModalDetail.value?.domain?.id || 0)
+  if (!domainId || updatingDetailCatchAll.value) return
+
+  updatingDetailCatchAll.value = true
+  try {
+    const response: any = await hostedDomainAPI.updateDomain(domainId, {
+      catch_all_enabled: enabled
+    })
+    if (response.code === 0 && response.data) {
+      domainModalDetail.value = response.data
+      showMessage(enabled ? '未匹配邮箱代收已开启' : '未匹配邮箱代收已关闭', 'success')
+      await loadDomains()
+    }
+  } finally {
+    updatingDetailCatchAll.value = false
   }
 }
 

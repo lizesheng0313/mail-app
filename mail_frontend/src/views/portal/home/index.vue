@@ -750,7 +750,7 @@ const hostedDomainNameMap = computed(() =>
 const hostedMailboxItems = computed(() =>
   hostedDomainMailboxes.value.map((item: any) => ({
     ...item,
-    domain_name: hostedDomainNameMap.value[Number(item.domain_id)] || ''
+    domain_name: hostedDomainNameMap.value[Number(item.domain_id)] || item.domain_name || ''
   }))
 )
 
