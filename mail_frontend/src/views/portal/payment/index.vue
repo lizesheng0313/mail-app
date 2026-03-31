@@ -13,11 +13,11 @@
           <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
           </svg>
-          <span class="text-sm">当前余额：</span>
+          <span class="text-sm">{{ t('paymentPage.currentBalance') }}</span>
           <span class="text-xl font-bold ml-1">{{ userMilkCoins }}</span>
-          <span class="text-sm ml-1">奶片</span>
+          <span class="text-sm ml-1">{{ t('paymentPage.coins') }}</span>
           <router-link to="/user/finance#recharge" class="ml-3 text-xs bg-white text-primary-600 px-3 py-1 rounded-full hover:bg-opacity-90 transition-colors">
-            充值
+            {{ t('paymentPage.recharge') }}
           </router-link>
         </div>
       </div>
@@ -27,13 +27,13 @@
       <!-- 加载中 -->
       <div v-if="loading" class="text-center py-12">
         <div class="inline-block animate-spin rounded-full h-12 w-12 border-4 border-primary-200 border-t-primary-600 mb-3"></div>
-        <p class="text-black">加载套餐中...</p>
+        <p class="text-black">{{ t('paymentPage.loadingPackages') }}</p>
       </div>
 
       <!-- 空状态 -->
       <div v-else-if="(purchaseType === 'mailbox' && packages.length === 0) || (purchaseType === 'plugin' && pluginPricing.length === 0)" class="text-center py-12">
         <div class="text-5xl mb-3">📦</div>
-        <p class="text-black">暂无可用套餐</p>
+        <p class="text-black">{{ t('paymentPage.noPackages') }}</p>
       </div>
 
       <!-- 邮箱套餐列表 -->
@@ -50,7 +50,7 @@
           <!-- 推荐标签 -->
           <div v-if="pkg.package_code === 'MAILBOX_50'" 
                class="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-gradient-to-r from-primary-600 to-primary-700 text-white px-4 py-1 rounded-full text-xs font-bold shadow-md">
-            ⭐ 推荐
+            ⭐ {{ t('paymentPage.recommended') }}
           </div>
 
           <!-- 套餐图标 -->
@@ -69,19 +69,19 @@
               <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
               </svg>
-              <span class="font-semibold">{{ pkg.mailbox_count }} 个邮箱</span>
+              <span class="font-semibold">{{ t('paymentPage.mailboxCount', { count: pkg.mailbox_count }) }}</span>
             </div>
           </div>
 
           <!-- 价格 (奶片) -->
           <div class="text-center mb-4 flex-grow">
-            <div class="text-xs text-gray-400 line-through mb-1">原价 {{ pkg.original_price }} 奶片</div>
+            <div class="text-xs text-gray-400 line-through mb-1">{{ t('paymentPage.originalPrice', { price: pkg.original_price }) }}</div>
             <div class="flex items-baseline justify-center mb-2">
               <span class="text-4xl font-extrabold bg-gradient-to-r from-primary-700 to-primary-800 bg-clip-text text-transparent">{{ pkg.sale_price }}</span>
-              <span class="text-lg text-primary-600 font-bold ml-1">奶片</span>
+              <span class="text-lg text-primary-600 font-bold ml-1">{{ t('paymentPage.coins') }}</span>
             </div>
             <div class="inline-block bg-primary-100 text-primary-700 px-2.5 py-0.5 rounded-full text-xs font-medium">
-              优惠 {{ Math.round((1 - pkg.sale_price / pkg.original_price) * 100) }}%
+              {{ t('paymentPage.discount', { percent: Math.round((1 - pkg.sale_price / pkg.original_price) * 100) }) }}
             </div>
           </div>
 
@@ -96,19 +96,19 @@
               <svg class="w-4 h-4 text-success-500 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
               </svg>
-              <span>稳定可靠</span>
+              <span>{{ t('paymentPage.stableReliable') }}</span>
             </div>
             <div class="flex items-center text-xs text-black">
               <svg class="w-4 h-4 text-success-500 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
               </svg>
-              <span>即时到账</span>
+              <span>{{ t('paymentPage.instantArrival') }}</span>
             </div>
             <div class="flex items-center text-xs text-black">
               <svg class="w-4 h-4 text-success-500 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
               </svg>
-              <span>技术支持</span>
+              <span>{{ t('paymentPage.support') }}</span>
             </div>
           </div>
 
@@ -119,7 +119,7 @@
             class="w-full h-11 btn-primary font-bold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-md hover:shadow-lg"
           >
             <div v-if="buyingPackageId === pkg.id" class="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-            <span>{{ buyingPackageId === pkg.id ? '处理中...' : '立即购买' }}</span>
+            <span>{{ buyingPackageId === pkg.id ? t('paymentPage.processing') : t('paymentPage.buyNow') }}</span>
           </button>
         </div>
       </div>
@@ -138,7 +138,7 @@
           <!-- 推荐标签 -->
           <div v-if="pricing.duration_type === 'yearly'" 
                class="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-gradient-to-r from-primary-600 to-primary-700 text-white px-4 py-1 rounded-full text-xs font-bold shadow-md">
-            ⭐ 推荐
+            ⭐ {{ t('paymentPage.recommended') }}
           </div>
 
           <!-- 套餐图标 -->
@@ -157,25 +157,25 @@
               <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <span class="font-semibold">{{ pricing.duration_days }} 天</span>
+              <span class="font-semibold">{{ t('paymentPage.durationDays', { count: pricing.duration_days }) }}</span>
             </div>
           </div>
 
           <!-- 价格 -->
           <div class="text-center mb-4 flex-grow">
-            <div class="text-xs text-gray-400 line-through mb-1">原价 {{ Math.floor(pricing.original_price) }} 奶片</div>
+            <div class="text-xs text-gray-400 line-through mb-1">{{ t('paymentPage.originalPrice', { price: Math.floor(pricing.original_price) }) }}</div>
             <div class="flex items-baseline justify-center mb-2">
               <span class="text-4xl font-extrabold bg-gradient-to-r from-primary-700 to-primary-800 bg-clip-text text-transparent">{{ Math.floor(pricing.price) }}</span>
-              <span class="text-lg text-primary-600 font-bold ml-1">奶片</span>
+              <span class="text-lg text-primary-600 font-bold ml-1">{{ t('paymentPage.coins') }}</span>
             </div>
             <div class="inline-block bg-primary-100 text-primary-700 px-2.5 py-0.5 rounded-full text-xs font-medium">
-              优惠 {{ pricing.discount }}%
+              {{ t('paymentPage.discount', { percent: pricing.discount }) }}
             </div>
           </div>
 
           <!-- 描述 -->
           <div class="text-center text-black text-sm mb-4 pb-4 border-b border-gray-100">
-            <p>{{ pluginInfo?.description || '网页爬虫插件，自动化采集数据' }}</p>
+            <p>{{ pluginInfo?.description || t('paymentPage.pluginFallbackDesc') }}</p>
           </div>
 
           <!-- 特性列表 -->
@@ -184,25 +184,25 @@
               <svg class="w-4 h-4 text-success-500 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
               </svg>
-              <span>全功能使用</span>
+              <span>{{ t('paymentPage.fullAccess') }}</span>
             </div>
             <div class="flex items-center text-xs text-black">
               <svg class="w-4 h-4 text-success-500 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
               </svg>
-              <span>即开即用</span>
+              <span>{{ t('paymentPage.readyToUse') }}</span>
             </div>
             <div class="flex items-center text-xs text-black">
               <svg class="w-4 h-4 text-success-500 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
               </svg>
-              <span>技术支持</span>
+              <span>{{ t('paymentPage.support') }}</span>
             </div>
           </div>
 
           <!-- 已购买提示 -->
           <div v-if="pluginInfo?.user_has_authorization" class="mb-3 p-2 bg-green-50 border border-green-200 rounded-lg text-center">
-            <p class="text-xs text-green-700">✓ 您已订阅此插件</p>
+            <p class="text-xs text-green-700">✓ {{ t('paymentPage.subscribed') }}</p>
           </div>
 
           <!-- 购买按钮 -->
@@ -212,9 +212,9 @@
             class="w-full h-11 btn-primary font-bold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-md hover:shadow-lg"
           >
             <div v-if="buyingPackageId === pricing.id" class="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-            <span v-if="buyingPackageId === pricing.id">处理中...</span>
-            <span v-else-if="pluginInfo?.user_has_authorization">续费</span>
-            <span v-else>立即购买</span>
+            <span v-if="buyingPackageId === pricing.id">{{ t('paymentPage.processing') }}</span>
+            <span v-else-if="pluginInfo?.user_has_authorization">{{ t('paymentPage.renew') }}</span>
+            <span v-else>{{ t('paymentPage.buyNow') }}</span>
           </button>
         </div>
       </div>
@@ -227,10 +227,10 @@
         <div class="bg-gradient-to-r from-[#1677FF] to-[#0D5FD9] text-white px-6 py-5 rounded-t-2xl">
           <div class="flex justify-between items-center">
             <div class="flex items-center gap-3">
-              <img src="@/assets/img/zhi-white.svg" alt="支付宝" class="w-10 h-10" />
+              <img src="@/assets/img/zhi-white.svg" :alt="t('paymentPage.alipay')" class="w-10 h-10" />
               <div>
-                <h3 class="text-xl font-bold">支付宝扫码支付</h3>
-                <p class="text-xs text-blue-100 mt-0.5">请使用支付宝扫描二维码完成支付</p>
+                <h3 class="text-xl font-bold">{{ t('paymentPage.alipayTitle') }}</h3>
+                <p class="text-xs text-blue-100 mt-0.5">{{ t('paymentPage.alipayHint') }}</p>
               </div>
             </div>
             <button @click="closePayDialog" class="text-white/80 hover:text-white text-3xl w-8 h-8 flex items-center justify-center transition-colors">
@@ -248,11 +248,11 @@
                 <div class="text-sm text-gray-500 mb-1">{{ purchaseType === 'plugin' ? currentOrder?.plugin_name : currentOrder?.package?.package_name }}</div>
                 <div class="flex items-baseline">
                   <span class="text-4xl font-extrabold text-success-600">{{ Math.floor(currentOrder?.amount) }}</span>
-                  <span class="text-2xl text-success-600 font-bold ml-1">奶片</span>
+                  <span class="text-2xl text-success-600 font-bold ml-1">{{ t('paymentPage.coins') }}</span>
                 </div>
               </div>
               <div class="text-xs text-gray-500">
-                <div>订单号</div>
+                <div>{{ t('paymentPage.orderNo') }}</div>
                 <div class="font-mono mt-1">{{ currentOrder?.order_no?.slice(-12) }}</div>
               </div>
             </div>
@@ -265,10 +265,10 @@
             </div>
             <div class="text-center mt-4">
               <div class="flex items-center justify-center gap-2 mb-2">
-                <img src="@/assets/img/zhi.svg" alt="支付宝" class="h-5 w-5" />
-                <span class="text-sm font-medium text-gray-700">使用支付宝扫码支付</span>
+                <img src="@/assets/img/zhi.svg" :alt="t('paymentPage.alipay')" class="h-5 w-5" />
+                <span class="text-sm font-medium text-gray-700">{{ t('paymentPage.alipayScan') }}</span>
               </div>
-              <div class="text-xs text-gray-400">打开支付宝 APP，扫描上方二维码完成支付</div>
+              <div class="text-xs text-gray-400">{{ t('paymentPage.alipayScanHint') }}</div>
             </div>
           </div>
         </div>
@@ -277,14 +277,14 @@
         <div class="px-6 py-5 bg-gray-50 rounded-b-2xl border-t border-gray-200">
           <div class="flex gap-3">
             <button @click="closePayDialog" class="flex-1 h-12 border-2 border-gray-300 text-gray-700 rounded-xl font-medium hover:bg-gray-100 transition-colors">
-              取消
+              {{ t('common.cancel') }}
             </button>
             <button @click="checkPayment" :disabled="checking" class="flex-1 h-12 bg-gradient-to-r from-success-600 to-success-700 hover:from-success-500 hover:to-success-600 text-white rounded-xl font-bold transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 disabled:opacity-50">
               <div v-if="checking" class="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
               <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              {{ checking ? '查询中...' : '我已支付' }}
+              {{ checking ? t('paymentPage.checking') : t('paymentPage.paid') }}
             </button>
           </div>
         </div>
@@ -306,6 +306,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, nextTick } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import PageHeader from '@/components/PageHeader/index.vue'
 import ConfirmDialog from '@/components/ConfirmDialog/index.vue'
@@ -347,6 +348,7 @@ interface CurrentOrder {
 
 const route = useRoute()
 const router = useRouter()
+const { t } = useI18n()
 const packages = ref<Package[]>([])
 const pluginPricing = ref<PluginPricing[]>([])
 const pluginInfo = ref<any>(null)
@@ -370,16 +372,16 @@ const pluginId = computed(() => route.query.id as string)
 // 页面标题
 const pageTitle = computed(() => {
   if (purchaseType.value === 'plugin') {
-    return pluginInfo.value?.name || '选择插件套餐'
+    return pluginInfo.value?.name || t('paymentPage.choosePluginPlan')
   }
-  return '选择适合你的套餐'
+  return t('paymentPage.choosePackage')
 })
 
 const pageSubtitle = computed(() => {
   if (purchaseType.value === 'plugin') {
-    return '灵活套餐 · 按需购买 · 即买即用'
+    return t('paymentPage.pluginSubtitle')
   }
-  return '稳定可靠 · 安全高效 · 灵活扩展'
+  return t('paymentPage.mailboxSubtitle')
 })
 
 // 获取用户奶片余额
@@ -412,7 +414,7 @@ const loadMailboxPackages = async () => {
 // 加载插件定价
 const loadPluginPricing = async () => {
   if (!pluginId.value) {
-    showMessage('缺少插件ID', 'error')
+    showMessage(t('paymentPage.missingPluginId'), 'error')
     return
   }
   
@@ -425,7 +427,7 @@ const loadPluginPricing = async () => {
     }
   } catch (error: any) {
     console.error('加载插件定价错误：', error)
-    showMessage('加载插件定价失败', 'error')
+    showMessage(t('paymentPage.loadPluginPricingFailed'), 'error')
   } finally {
     loading.value = false
   }
@@ -458,17 +460,25 @@ const handleBuy = async (item: any) => {
     // 检查是否已有套餐
     const hasActivePlan = pluginInfo.value?.user_has_authorization
     
-    confirmDialogTitle.value = hasActivePlan ? '续费插件套餐' : '购买插件套餐'
-    let message = `套餐：${getDurationName(item.duration_type)}\n有效期：${item.duration_days} 天\n价格：${Math.floor(item.price)} 奶片`
+    confirmDialogTitle.value = hasActivePlan ? t('paymentPage.renewPluginTitle') : t('paymentPage.buyPluginTitle')
+    let message = t('paymentPage.confirmPluginMessage', {
+      name: getDurationName(item.duration_type),
+      days: item.duration_days,
+      price: Math.floor(item.price)
+    })
     
     if (hasActivePlan) {
-      message += '\n\n当前套餐有效，购买后将在到期后自动续期'
+      message += t('paymentPage.confirmPluginRenewHint')
     }
     
     confirmDialogMessage.value = message
   } else {
-    confirmDialogTitle.value = '购买邮箱套餐'
-    confirmDialogMessage.value = `套餐：${item.package_name}\n邮箱数量：${item.mailbox_count} 个\n价格：${Math.floor(item.sale_price)} 奶片`
+    confirmDialogTitle.value = t('paymentPage.buyMailboxTitle')
+    confirmDialogMessage.value = t('paymentPage.confirmMailboxMessage', {
+      name: item.package_name,
+      count: item.mailbox_count,
+      price: Math.floor(item.sale_price)
+    })
   }
   
   currentBuyingItem.value = item
@@ -490,13 +500,13 @@ const confirmBuy = async () => {
       res = await pluginApi.purchaseWithMilkCoins(pluginId.value, item.id)
       
       if (res.code === 0) {
-        showMessage('购买成功！插件已开通', 'success')
+        showMessage(t('paymentPage.buyPluginSuccess'), 'success')
         showConfirmDialog.value = false
         setTimeout(() => {
           router.back()
         }, 1000)
       } else {
-        showMessage(res.message || '购买失败', 'error')
+        showMessage(res.message || t('paymentPage.buyFailed'), 'error')
       }
     } else {
       // 邮箱套餐购买 - 使用奶片
@@ -505,18 +515,18 @@ const confirmBuy = async () => {
       })
       
       if (res.code === 0) {
-        showMessage('购买成功！邮箱已创建', 'success')
+        showMessage(t('paymentPage.buyMailboxSuccess'), 'success')
         showConfirmDialog.value = false
         setTimeout(() => {
           router.push('/')
         }, 1000)
       } else {
-        showMessage(res.message || '购买失败', 'error')
+        showMessage(res.message || t('paymentPage.buyFailed'), 'error')
       }
     }
   } catch (error: any) {
     console.error('购买失败：', error)
-    showMessage('购买失败：' + (error.response?.data?.message || error.message), 'error')
+    showMessage(t('paymentPage.buyFailedWithReason', { reason: error.response?.data?.message || error.message }), 'error')
   } finally {
     buyingPackageId.value = null
   }
@@ -564,9 +574,14 @@ const handlePaymentSuccess = () => {
   
   // 显示成功提示
   if (purchaseType.value === 'plugin') {
-    showMessage(`🎉 支付成功！已获得 ${currentOrder.value?.duration_days} 天 ${currentOrder.value?.plugin_name} 使用权限，即将跳转...`, 'success')
+    showMessage(t('paymentPage.paymentPluginSuccess', {
+      days: currentOrder.value?.duration_days,
+      name: currentOrder.value?.plugin_name
+    }), 'success')
   } else {
-    showMessage(`🎉 支付成功！已获得 ${currentOrder.value?.package?.mailbox_count} 个邮箱，即将跳转...`, 'success')
+    showMessage(t('paymentPage.paymentMailboxSuccess', {
+      count: currentOrder.value?.package?.mailbox_count
+    }), 'success')
   }
   
   // 等待 2 秒后跳转
@@ -603,14 +618,14 @@ const checkPayment = async () => {
         stopPolling()
         handlePaymentSuccess()
       } else {
-        showMessage('未检测到支付，请确认是否已完成支付', 'warning')
+        showMessage(t('paymentPage.paymentNotFound'), 'warning')
       }
     } else {
-      showMessage(res.message || '查询失败', 'error')
+      showMessage(res.message || t('paymentPage.queryFailed'), 'error')
     }
   } catch (error: any) {
     console.error('查询支付状态失败：', error)
-    showMessage('查询失败', 'error')
+    showMessage(t('paymentPage.queryFailed'), 'error')
   } finally {
     checking.value = false
   }
@@ -619,9 +634,9 @@ const checkPayment = async () => {
 // 获取套餐显示名称
 const getDurationName = (durationType: string) => {
   const map: Record<string, string> = {
-    'monthly': '一个月',
-    'half_yearly': '半年',
-    'yearly': '一年'
+    'monthly': t('paymentPage.monthly'),
+    'half_yearly': t('paymentPage.halfYearly'),
+    'yearly': t('paymentPage.yearly')
   }
   return map[durationType] || durationType
 }

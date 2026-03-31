@@ -8,7 +8,7 @@
             <svg class="w-5 h-5 text-primary-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
             </svg>
-            库存管理
+            {{ t('inventoryModal.title') }}
           </h3>
           <p class="text-sm text-gray-500 mt-1">{{ workflow?.name }}</p>
         </div>
@@ -35,7 +35,7 @@
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               ]"
             >
-              全部 ({{ stats.total }})
+              {{ t('inventoryModal.all') }} ({{ stats.total }})
             </button>
             <button
               @click="statusFilter = 'available'"
@@ -46,7 +46,7 @@
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               ]"
             >
-              可用 ({{ stats.available }})
+              {{ t('inventoryModal.available') }} ({{ stats.available }})
             </button>
             <button
               @click="statusFilter = 'consumed'"
@@ -57,7 +57,7 @@
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               ]"
             >
-              已消耗 ({{ stats.consumed }})
+              {{ t('inventoryModal.consumed') }} ({{ stats.consumed }})
             </button>
             <!-- 批量删除模式切换 -->
             <div class="ml-2 border-l pl-2">
@@ -69,7 +69,7 @@
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                 </svg>
-                批量删除
+                {{ t('inventoryModal.batchDelete') }}
               </button>
 
               <div v-else class="flex items-center gap-2">
@@ -81,13 +81,13 @@
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                   </svg>
-                  删除 ({{ selectedIds.length }})
+                  {{ t('inventoryModal.deleteSelected', { count: selectedIds.length }) }}
                 </button>
                 <button
                   @click="exitBatchDeleteMode"
                   class="px-3 py-1.5 text-sm rounded-md bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
                 >
-                  取消
+                  {{ t('common.cancel') }}
                 </button>
               </div>
             </div>
@@ -99,7 +99,7 @@
             <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
             </svg>
-            批量添加
+            {{ t('inventoryModal.addBulk') }}
           </button>
         </div>
         <!-- 搜索栏 -->
@@ -107,20 +107,20 @@
           <input
             v-model="searchQuery"
             type="text"
-            placeholder="搜索账号数据或交易号..."
+            :placeholder="t('inventoryModal.searchPlaceholder')"
             class="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
           />
           <button
             @click="handleSearch"
             class="px-4 py-1.5 text-sm bg-primary-600 text-white rounded-md hover:bg-primary-700"
           >
-            查询
+            {{ t('inventoryModal.search') }}
           </button>
           <button
             @click="handleReset"
             class="px-4 py-1.5 text-sm border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
           >
-            重置
+            {{ t('inventoryModal.reset') }}
           </button>
         </div>
       </div>
@@ -151,13 +151,13 @@
                 class="rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
               />
             </th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">账号数据</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">交易号</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">消耗时间</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">消耗者</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">入库时间</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('inventoryModal.accountData') }}</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('inventoryModal.status') }}</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('inventoryModal.transactionNo') }}</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('inventoryModal.consumedAt') }}</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('inventoryModal.consumer') }}</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('inventoryModal.createdAt') }}</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('inventoryModal.actions') }}</th>
           </tr>
         </template>
         
@@ -168,8 +168,8 @@
                 <svg class="w-16 h-16 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                 </svg>
-                <p class="text-sm">暂无库存数据</p>
-                <p class="text-xs text-gray-400 mt-1">点击"批量添加"按钮开始添加</p>
+                <p class="text-sm">{{ t('inventoryModal.emptyTitle') }}</p>
+                <p class="text-xs text-gray-400 mt-1">{{ t('inventoryModal.emptyDesc') }}</p>
               </div>
             </td>
           </tr>
@@ -192,7 +192,7 @@
                   <button
                     @click="copyAccountData(item.account_data)"
                     class="flex-shrink-0 p-1 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded transition-colors"
-                    title="复制账号数据"
+                    :title="t('inventoryModal.copyAccountData')"
                   >
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
@@ -209,7 +209,7 @@
                       : 'bg-gray-100 text-gray-800'
                   ]"
                 >
-                  {{ item.status === 'available' ? '✓ 可用' : '× 已消耗' }}
+                  {{ item.status === 'available' ? `✓ ${t('inventoryModal.statusAvailable')}` : `× ${t('inventoryModal.statusConsumed')}` }}
                 </span>
               </td>
               <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -231,7 +231,7 @@
                   @click="confirmDelete(item.id)"
                   class="text-red-600 hover:text-red-900"
                 >
-                  删除
+                  {{ t('inventoryModal.delete') }}
                 </button>
                 <span v-else class="text-gray-400">-</span>
               </td>
@@ -241,13 +241,13 @@
     </div>
 
     <!-- 删除确认对话框 -->
-    <ConfirmDialog
-      :visible="showDeleteConfirm"
-      title="确认删除"
-      message="确定要删除这条库存吗？"
-      confirmText="删除"
-      cancelText="取消"
-      type="danger"
+  <ConfirmDialog
+    :visible="showDeleteConfirm"
+    :title="t('inventoryModal.deleteConfirmTitle')"
+    :message="t('inventoryModal.deleteConfirmMessage')"
+    :confirmText="t('inventoryModal.delete')"
+    :cancelText="t('common.cancel')"
+    type="danger"
       :show-warning="true"
       @confirm="deleteItem"
       @cancel="showDeleteConfirm = false"
@@ -257,7 +257,7 @@
     <div v-if="showAddModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-60" @click.self="showAddModal = false">
       <div class="bg-white rounded-lg shadow-xl max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col">
         <div class="flex items-center justify-between px-6 py-4 border-b">
-          <h3 class="text-lg font-semibold text-gray-900">批量添加账号</h3>
+          <h3 class="text-lg font-semibold text-gray-900">{{ t('inventoryModal.addAccountsTitle') }}</h3>
           <button @click="showAddModal = false" class="text-gray-400 hover:text-gray-600">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -277,8 +277,8 @@
                     : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
                 ]"
               >
-                <div class="font-semibold">单行模式</div>
-                <div class="text-xs mt-0.5 opacity-75">每行一个账号</div>
+                <div class="font-semibold">{{ t('inventoryModal.inputModeSingle') }}</div>
+                <div class="text-xs mt-0.5 opacity-75">{{ t('inventoryModal.inputModeSingleDesc') }}</div>
               </button>
               <button
                 @click="inputMode = 'multiline'"
@@ -289,8 +289,8 @@
                     : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
                 ]"
               >
-                <div class="font-semibold">多行组模式</div>
-                <div class="text-xs mt-0.5 opacity-75">按行数分组</div>
+                <div class="font-semibold">{{ t('inventoryModal.inputModeMultiline') }}</div>
+                <div class="text-xs mt-0.5 opacity-75">{{ t('inventoryModal.inputModeMultilineDesc') }}</div>
               </button>
               <button
                 @click="inputMode = 'separator'"
@@ -301,8 +301,8 @@
                     : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
                 ]"
               >
-                <div class="font-semibold">分隔符模式</div>
-                <div class="text-xs mt-0.5 opacity-75">自定义分隔符</div>
+                <div class="font-semibold">{{ t('inventoryModal.inputModeSeparator') }}</div>
+                <div class="text-xs mt-0.5 opacity-75">{{ t('inventoryModal.inputModeSeparatorDesc') }}</div>
               </button>
             </div>
           </div>
@@ -310,7 +310,7 @@
           <!-- 多行模式配置 -->
           <div v-if="inputMode === 'multiline'" class="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
             <div class="flex items-center gap-3">
-              <label class="text-sm font-medium text-gray-700">每几行算一个账号:</label>
+              <label class="text-sm font-medium text-gray-700">{{ t('inventoryModal.linesPerItem') }}:</label>
               <input
                 v-model.number="multilineConfig.linesPerItem"
                 type="number"
@@ -318,9 +318,9 @@
                 max="20"
                 class="w-20 px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
               />
-              <span class="text-sm text-gray-600">行</span>
+              <span class="text-sm text-gray-600">{{ t('inventoryModal.lineUnit') }}</span>
               <div class="ml-4 text-xs text-gray-500">
-                示例: 输入3表示每3行作为一个账号单位
+                {{ t('inventoryModal.multilineHint') }}
               </div>
             </div>
           </div>
@@ -328,14 +328,14 @@
           <!-- 分隔符模式配置 -->
           <div v-if="inputMode === 'separator'" class="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
             <div class="flex items-center gap-3">
-              <label class="text-sm font-medium text-gray-700">分隔符内容:</label>
+              <label class="text-sm font-medium text-gray-700">{{ t('inventoryModal.separatorContent') }}:</label>
               <input
                 v-model="separatorConfig.separator"
                 type="text"
-                placeholder="例如: === 或 --- 或 ****"
+                :placeholder="t('inventoryModal.separatorPlaceholder')"
                 class="flex-1 max-w-xs px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 font-mono"
               />
-              <span class="text-xs text-gray-500">输入用于分隔不同账号的符号(必须完全一致)</span>
+              <span class="text-xs text-gray-500">{{ t('inventoryModal.separatorHint') }}</span>
             </div>
           </div>
 
@@ -355,26 +355,26 @@
             :disabled="adding || !inventoryInput.trim()"
             class="px-4 py-2 bg-primary-600 text-white text-sm rounded-md hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {{ adding ? '添加中...' : '确认添加' }}
+            {{ adding ? t('inventoryModal.adding') : t('inventoryModal.confirmAdd') }}
           </button>
           <button
             @click="showAddModal = false; inventoryInput = ''"
             class="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm rounded-md hover:bg-gray-50"
           >
-            取消
+            {{ t('common.cancel') }}
           </button>
         </div>
       </div>
     </div>
 
     <!-- 批量删除确认对话框 -->
-    <ConfirmDialog
-      :visible="showBatchDeleteConfirm"
-      title="确认批量删除"
-      :message="`确定要删除选中的 ${selectedIds.length} 条库存吗？`"
-      confirmText="删除"
-      cancelText="取消"
-      type="danger"
+  <ConfirmDialog
+    :visible="showBatchDeleteConfirm"
+    :title="t('inventoryModal.batchDeleteConfirmTitle')"
+    :message="t('inventoryModal.batchDeleteConfirmMessage', { count: selectedIds.length })"
+    :confirmText="t('inventoryModal.delete')"
+    :cancelText="t('common.cancel')"
+    type="danger"
       :show-warning="true"
       @confirm="batchDeleteItems"
       @cancel="showBatchDeleteConfirm = false"
@@ -384,6 +384,7 @@
 
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { workflowApi } from '@/api/workflow'
 import { showMessage } from '@/utils/message'
 import { formatTimestamp } from '@/utils/timeUtils'
@@ -398,6 +399,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['close', 'updated'])
+const { t } = useI18n()
 
 // 响应式数据
 const loading = ref(false)
@@ -516,11 +518,11 @@ const fetchInventoryList = async () => {
       // 清空选择状态（当列表刷新时）
       selectedIds.value = []
     } else {
-      showMessage(res.message || '获取库存失败', 'error')
+      showMessage(t('inventoryModal.fetchFailed'), 'error')
     }
   } catch (error) {
     console.error('获取库存失败:', error)
-    showMessage('获取库存失败', 'error')
+    showMessage(t('inventoryModal.fetchFailed'), 'error')
   } finally {
     loading.value = false
   }
@@ -551,7 +553,7 @@ const toggleSelectAll = () => {
 // 确认批量删除
 const confirmBatchDelete = () => {
   if (selectedIds.value.length === 0) {
-    showMessage('请先选择要删除的库存', 'warning')
+    showMessage(t('inventoryModal.selectDeleteWarning'), 'warning')
     return
   }
   showBatchDeleteConfirm.value = true
@@ -564,7 +566,7 @@ const batchDeleteItems = async () => {
   try {
     const res = await workflowApi.batchDeleteInventory(props.workflow.workflow_id, selectedIds.value)
     if (res.code === 0) {
-      showMessage(`成功删除 ${res.data.deleted_count} 条库存`, 'success')
+      showMessage(t('inventoryModal.batchDeleteSuccess', { count: res.data.deleted_count }), 'success')
       // 退出批量删除模式
       exitBatchDeleteMode()
       // 刷新库存列表
@@ -572,11 +574,11 @@ const batchDeleteItems = async () => {
       // 通知父组件更新库存数量
       emit('updated')
     } else {
-      showMessage(res.message || '批量删除失败', 'error')
+      showMessage(t('inventoryModal.batchDeleteFailed'), 'error')
     }
   } catch (error) {
     console.error('批量删除失败:', error)
-    showMessage('批量删除失败', 'error')
+    showMessage(t('inventoryModal.batchDeleteFailed'), 'error')
   } finally {
     showBatchDeleteConfirm.value = false
   }
@@ -584,7 +586,7 @@ const batchDeleteItems = async () => {
 
 const handleAddInventory = async () => {
   if (!inventoryInput.value.trim()) {
-    showMessage('请输入账号数据', 'warning')
+    showMessage(t('inventoryModal.inputRequired'), 'warning')
     return
   }
 
@@ -606,9 +608,9 @@ const handleAddInventory = async () => {
     const res = await workflowApi.addInventory(props.workflow.workflow_id, requestData)
 
     if (res.code === 0) {
-      showMessage(`成功添加 ${res.data.added_count} 个账号`, 'success')
+      showMessage(t('inventoryModal.addSuccess', { count: res.data.added_count }), 'success')
       if (res.data.duplicate_count > 0) {
-        showMessage(`跳过 ${res.data.duplicate_count} 个重复账号`, 'warning')
+        showMessage(t('inventoryModal.duplicateSkipped', { count: res.data.duplicate_count }), 'warning')
       }
       inventoryInput.value = ''
       showAddModal.value = false
@@ -617,11 +619,11 @@ const handleAddInventory = async () => {
       // 通知父组件更新库存数量
       emit('updated')
     } else {
-      showMessage(res.message || '添加库存失败', 'error')
+      showMessage(t('inventoryModal.addFailed'), 'error')
     }
   } catch (error) {
     console.error('添加库存失败:', error)
-    showMessage('添加库存失败', 'error')
+    showMessage(t('inventoryModal.addFailed'), 'error')
   } finally {
     adding.value = false
   }
@@ -630,54 +632,21 @@ const handleAddInventory = async () => {
 // 根据选择的模式返回对应的placeholder
 const getPlaceholder = () => {
   if (inputMode.value === 'single') {
-    return `# 单行模式 - 每行一个账号
-
-user1:pass1
-user2:pass2
-token123
-account@example.com|password456`
+    return t('inventoryModal.placeholderSingle')
   } else if (inputMode.value === 'multiline') {
-    const lines = multilineConfig.value.linesPerItem
-    return `# 多行组模式 - 每${lines}行算一个账号
-
-邮箱: user@mail.com
-密码: password123
-备注: VIP账号
-账号: test
-token: abc123
-有效期: 2025-12-31
-用户名: admin
-密码: admin888
-状态: active
-
-提示: 上面共9行,按照当前配置每${lines}行算一个账号`
+    return t('inventoryModal.placeholderMultiline', { lines: multilineConfig.value.linesPerItem })
   } else {
-    const sep = separatorConfig.value.separator || '==='
-    return `# 分隔符模式 - 使用 "${sep}" 作为分隔符
-
-账号: admin
-密码: admin123
-状态: active
-${sep}
-邮箱: user@test.com
-密码: pass456
-备注: 测试账号
-${sep}
-用户: demo
-token: xyz789
-${sep}
-
-提示: 每个 "${sep}" 之间的内容算一个账号,分隔符必须完全一致`
+    return t('inventoryModal.placeholderSeparator', { separator: separatorConfig.value.separator || '===' })
   }
 }
 
 const copyAccountData = async (accountData) => {
   try {
     await navigator.clipboard.writeText(accountData)
-    showMessage('账号数据已复制到剪贴板', 'success')
+    showMessage(t('inventoryModal.copySuccess'), 'success')
   } catch (error) {
     console.error('复制失败:', error)
-    showMessage('复制失败，请手动复制', 'error')
+    showMessage(t('inventoryModal.copyFailed'), 'error')
   }
 }
 
@@ -692,32 +661,20 @@ const deleteItem = async () => {
   try {
     const res = await workflowApi.deleteInventory(props.workflow.workflow_id, deleteTargetId.value)
     if (res.code === 0) {
-      showMessage('删除成功', 'success')
+      showMessage(t('inventoryModal.deleteSuccess'), 'success')
       // 刷新库存列表
       await fetchInventoryList()
       // 通知父组件更新库存数量
       emit('updated')
     } else {
-      showMessage(res.message || '删除失败', 'error')
+      showMessage(t('inventoryModal.deleteFailed'), 'error')
     }
   } catch (error) {
     console.error('删除失败:', error)
-    showMessage('删除失败', 'error')
+    showMessage(t('inventoryModal.deleteFailed'), 'error')
   } finally {
     showDeleteConfirm.value = false
     deleteTargetId.value = null
-  }
-}
-
-const prevPage = () => {
-  if (page.value > 1) {
-    page.value--
-  }
-}
-
-const nextPage = () => {
-  if (page.value < totalPages.value) {
-    page.value++
   }
 }
 

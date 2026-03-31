@@ -4,7 +4,7 @@
       <!-- 头部 -->
       <div class="flex items-center justify-between p-6 border-b">
         <h3 class="text-xl font-semibold text-black">
-          执行历史
+          {{ t('executionHistory.breadcrumb') }}
         </h3>
         <button
           @click="$emit('close')"
@@ -26,17 +26,17 @@
         >
           <template #thead>
             <tr>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">交易号</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">执行者</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">执行时间</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">耗时</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('executionHistory.status') }}</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('executionHistory.orderNo') }}</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('executionHistory.executor') }}</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('executionHistory.startTime') }}</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('executionHistory.duration') }}</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('executionHistory.actions') }}</th>
             </tr>
           </template>
           <template #tbody>
             <tr v-if="executions.length === 0">
-              <td colspan="6" class="px-4 py-8 text-center text-gray-500">暂无执行记录</td>
+              <td colspan="6" class="px-4 py-8 text-center text-gray-500">{{ t('executionHistory.empty') }}</td>
             </tr>
             <tr v-for="execution in executions" :key="execution.execution_id" class="hover:bg-gray-50">
               <td class="px-4 py-3 whitespace-nowrap">
@@ -65,7 +65,7 @@
                     icon="view"
                     variant="primary"
                     size="sm"
-                    tooltip="查看详情"
+                    :tooltip="t('executionHistory.detailTooltip')"
                     @click="viewExecutionDetail(execution)"
                   />
                   <ActionButton
@@ -73,7 +73,7 @@
                     icon="refresh"
                     variant="warning"
                     size="sm"
-                    tooltip="重新执行"
+                    :tooltip="t('executionHistory.retryTooltip')"
                     @click="retryExecution(execution)"
                   />
                 </div>
@@ -88,10 +88,10 @@
   <!-- 重试确认对话框 -->
   <ConfirmDialog
     :visible="showRetryConfirm"
-    title="确认重试"
+    :title="t('executionHistory.retryDialogTitle')"
     :message="retryConfirmData.message"
     type="warning"
-    confirm-text="确认"
+    :confirm-text="t('executionHistory.retryDialogConfirm')"
     :loading="retryLoading"
     @confirm="confirmRetry"
     @cancel="showRetryConfirm = false"
@@ -107,12 +107,14 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { workflowApi } from '@/api/workflow'
 import { showMessage } from '@/utils/message'
 import ConfirmDialog from '@/components/ConfirmDialog/index.vue'
 import ExecutionResultModal from '../ExecutionResultModal/index.vue'
 import ActionButton from '@/components/ActionButton/index.vue'
 import AdminDataTable from '@/components/AdminDataTable/index.vue'
+import { getCurrentLocale } from '@/i18n'
 
 const props = defineProps({
   workflowId: {
@@ -125,7 +127,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['close'])
+const { t } = useI18n()
 
 // 响应式数据
 const loading = ref(false)
@@ -164,7 +166,7 @@ const fetchExecutions = async () => {
 
   } catch (error) {
     console.error('获取执行历史失败:', error)
-    showMessage('获取执行历史失败', 'error')
+    showMessage(t('executionHistory.loadHistoryFailed'), 'error')
   } finally {
     loading.value = false
   }
@@ -198,7 +200,7 @@ const retryExecution = async (execution) => {
       retryConfirmData.value = {
         execution,
         price,
-        message: `重新执行将消耗 ${price} 奶片`
+        message: t('executionHistory.retryConsume', { price })
       }
       showRetryConfirm.value = true
     } else {
@@ -206,7 +208,7 @@ const retryExecution = async (execution) => {
       await executeRetry(execution)
     }
   } catch (error) {
-    showMessage(error.response?.data?.message || '查询工作流信息失败', 'error')
+    showMessage(t('executionHistory.retryFailed'), 'error')
   }
 }
 
@@ -221,10 +223,10 @@ const executeRetry = async (execution) => {
   retryLoading.value = true
   try {
     await workflowApi.executeWorkflow(props.workflowId, execution.variables)
-    showMessage('重新执行成功', 'success')
+    showMessage(t('executionHistory.executionSuccess'), 'success')
     fetchExecutions()
   } catch (error) {
-    showMessage(error.response?.data?.message || '重新执行失败', 'error')
+    showMessage(t('executionHistory.retryFailed'), 'error')
   } finally {
     retryLoading.value = false
   }
@@ -244,36 +246,19 @@ const getExecutionStatusClass = (status) => {
 
 const getExecutionStatusText = (status) => {
   const texts = {
-    created: '已创建',
-    running: '执行中',
-    paused: '已暂停',
-    success: '成功',
-    failed: '失败',
-    cancelled: '已取消'
+    created: t('executionHistory.statusCreated'),
+    running: t('executionHistory.statusRunning'),
+    paused: t('executionHistory.statusPaused'),
+    success: t('executionHistory.statusSuccess'),
+    failed: t('executionHistory.statusFailed'),
+    cancelled: t('executionHistory.statusCancelled')
   }
   return texts[status] || status
 }
 
-const getStepStatusColor = (status) => {
-  const colors = {
-    pending: 'bg-gray-400',
-    running: 'bg-primary-500',
-    success: 'bg-primary-500',
-    failed: 'bg-red-500',
-    skipped: 'bg-yellow-500',
-    cancelled: 'bg-gray-400'
-  }
-  return colors[status] || 'bg-gray-400'
-}
-
-const formatDate = (dateString) => {
-  if (!dateString) return '未知'
-  return new Date(dateString).toLocaleDateString('zh-CN')
-}
-
 const formatTime = (dateString) => {
-  if (!dateString) return '未知'
-  return new Date(dateString).toLocaleString('zh-CN')
+  if (!dateString) return t('common.unknown')
+  return new Date(dateString).toLocaleString(getCurrentLocale())
 }
 
 const formatDuration = (duration) => {
@@ -281,21 +266,6 @@ const formatDuration = (duration) => {
   if (duration < 1000) return `${duration}ms`
   if (duration < 60000) return `${(duration / 1000).toFixed(1)}s`
   return `${(duration / 60000).toFixed(1)}min`
-}
-
-const copyToClipboard = async (text) => {
-  try {
-    await navigator.clipboard.writeText(text)
-    showMessage('已复制到剪贴板', 'success')
-  } catch (error) {
-    showMessage('复制失败', 'error')
-  }
-}
-
-// 将账号数据按行分割
-const getAccountLines = (accountData) => {
-  if (!accountData) return []
-  return accountData.split('\n').filter(line => line.trim())
 }
 
 // 生命周期

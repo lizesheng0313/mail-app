@@ -236,7 +236,7 @@
                 ref="refreshButtonRef"
                 @click="handleImmediateRefreshSystemEmails"
                 :disabled="refreshingSystemEmails"
-                :aria-label="refreshingSystemEmails ? '刷新中' : '立即刷新'"
+                :aria-label="refreshingSystemEmails ? t('home.refreshing') : t('home.refreshNow')"
                 class="inline-flex items-center rounded p-1 text-gray-500 transition-colors hover:text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <BaseIcon
@@ -251,7 +251,7 @@
               @click="backToAllEmails"
               class="ml-1.5 px-2 py-1 text-xs text-primary-600 hover:text-primary-700 hover:bg-primary-50 rounded transition-colors whitespace-nowrap"
             >
-              查看全部
+              {{ t('home.viewAll') }}
             </button>
           </template>
 
@@ -265,7 +265,7 @@
                   : 'text-gray-600 hover:text-gray-700 hover:bg-gray-50'
               ]"
             >
-              仅未读
+              {{ t('home.unreadOnly') }}
             </button>
           </template>
 
@@ -317,7 +317,7 @@
               @click="backToAllHostedEmails"
               class="px-2 py-1 text-xs text-primary-600 hover:text-primary-700 hover:bg-primary-50 rounded transition-colors"
             >
-              查看全部
+              {{ t('home.viewAll') }}
             </button>
           </template>
 
@@ -331,7 +331,7 @@
                   : 'text-gray-600 hover:text-gray-700 hover:bg-gray-50'
               ]"
             >
-              仅未读
+              {{ t('home.unreadOnly') }}
             </button>
           </template>
 
@@ -384,7 +384,7 @@
               @click="backToAllExternalEmails"
               class="px-2 py-1 text-xs text-primary-600 hover:text-primary-700 hover:bg-primary-50 rounded transition-colors"
             >
-              查看全部
+              {{ t('home.viewAll') }}
             </button>
           </template>
 
@@ -411,7 +411,7 @@
                   d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
                 />
               </svg>
-              <span>{{ fetchingExternalEmails ? '收取中...' : '收取全部' }}</span>
+              <span>{{ fetchingExternalEmails ? t('home.fetchingAll') : t('home.fetchAll') }}</span>
             </button>
           </template>
 
@@ -483,8 +483,8 @@
     >
       &times;
     </button>
-    <img :src="wxProgramImg" class="w-20 h-20 rounded-lg" alt="小程序二维码" />
-    <p class="text-[11px] text-gray-500 mt-1.5">扫码使用小程序版</p>
+    <img :src="wxProgramImg" class="w-20 h-20 rounded-lg" :alt="t('home.miniProgramQrAlt')" />
+    <p class="text-[11px] text-gray-500 mt-1.5">{{ t('home.miniProgramCta') }}</p>
   </div>
 
   <!-- 邮件内容弹窗 -->
@@ -493,7 +493,7 @@
     class="pointer-events-none fixed z-[9999] whitespace-nowrap rounded bg-gray-800 px-2 py-1 text-xs text-white shadow-sm"
     :style="refreshTooltipStyle"
   >
-    立即刷新
+    {{ t('home.refreshNow') }}
   </div>
 
   <EmailContentModal
@@ -506,8 +506,12 @@
   <ConfirmDialog
     :visible="showDeleteConfirm"
     :mask="false"
-    :title="deletingBatch ? '批量删除' : '删除邮件'"
-    :message="deletingBatch ? `确定删除 ${deletingIds.length} 封邮件？` : '确定删除这封邮件？'"
+    :title="deletingBatch ? t('home.batchDeleteTitle') : t('home.deleteEmailTitle')"
+    :message="
+      deletingBatch
+        ? t('home.deleteEmailsMessage', { count: deletingIds.length })
+        : t('home.deleteEmailMessage')
+    "
     :loading="deleting"
     @confirm="confirmDeleteEmails"
     @cancel="showDeleteConfirm = false"
@@ -529,8 +533,8 @@
     :mask="false"
     :title="downloadDialogTitle"
     :message="downloadDialogMessage"
-    confirm-text="下载桌面端"
-    cancel-text="取消"
+    :confirm-text="t('home.downloadDesktop')"
+    :cancel-text="t('common.cancel')"
     @confirm="openDownloadDesktop"
     @cancel="showDownloadDialog = false"
   />
@@ -555,7 +559,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { computed, ref, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
@@ -587,8 +591,14 @@ import { DESKTOP_DOWNLOAD_URLS } from '@/config/desktopRelease'
 import { normalizeOAuthRecoveryErrorMessage } from '@/utils/oauthRecovery'
 import { runPromisePool } from '@/utils/promisePool'
 import { canDesktopSmtpSend, normalizeSmtpEmail } from '@/utils/smtpCapability'
-import { AI_UI_SYNC_EVENT, extractMailboxType, extractToolIds, normalizeAIToolTrace } from '@/utils/aiUiSync'
+import {
+  AI_UI_SYNC_EVENT,
+  extractMailboxType,
+  extractToolIds,
+  normalizeAIToolTrace
+} from '@/utils/aiUiSync'
 import { hostedDomainAPI } from '@/api/hostedDomain'
+import { getCurrentLocale } from '@/i18n'
 import wxProgramImg from '@/assets/img/wx_program.jpg'
 
 // 获取 Tauri invoke（按需加载，避免竞态）
@@ -653,8 +663,8 @@ const batchAddModalRef = ref<any>(null)
 const pendingOAuthAccounts = ref<Array<{ email: string; provider: string }>>([])
 const pendingOAuthBootstrapEmails = ref<string[]>([])
 const showDownloadDialog = ref(false)
-const downloadDialogTitle = ref('需要桌面端')
-const downloadDialogMessage = ref('第三方邮箱仅支持桌面端添加和收取，是否下载桌面客户端？')
+const downloadDialogTitle = ref(t('home.desktopRequiredTitle'))
+const downloadDialogMessage = ref(t('home.desktopRequiredMessage'))
 const showDeleteConfirm = ref(false)
 const deleting = ref(false)
 const deletingIds = ref<number[]>([])
@@ -684,8 +694,8 @@ const openDownloadDesktop = () => {
 }
 
 const openDesktopDownloadDialog = (
-  message = '第三方邮箱仅支持桌面端添加和收取，是否下载桌面客户端？',
-  title = '需要桌面端'
+  message = t('home.desktopRequiredMessage'),
+  title = t('home.desktopRequiredTitle')
 ) => {
   downloadDialogTitle.value = title
   downloadDialogMessage.value = message
@@ -737,6 +747,20 @@ const EXTERNAL_FETCH_ALL_CONCURRENCY = Math.max(
   2,
   Math.min(8, Number(globalThis.navigator?.hardwareConcurrency || 8))
 )
+const TITLE_ALERT_POLL_INTERVAL = 5
+const TITLE_ALERT_PREFIX_RE = /^[【\[].*?[】\]]/
+const browserBaseTitle = ref(t('home.defaultBrowserTitle'))
+const titleAlertSeenEmailIds: Record<'system' | 'hosted' | 'external', Set<number>> = {
+  system: new Set<number>(),
+  hosted: new Set<number>(),
+  external: new Set<number>()
+}
+const titleAlertInitialized: Record<'system' | 'hosted' | 'external', boolean> = {
+  system: false,
+  hosted: false,
+  external: false
+}
+const pendingTitleAlertEmails = new Map<string, any>()
 
 const canShowExternalFetchButton = computed(() => {
   // 只有桌面端才显示收取按钮（Web 端所有用户共用服务器 IP 连 IMAP，量大会被风控）
@@ -763,6 +787,207 @@ const syncMailboxAuthTypeMap = (items: any[]) => {
     if (id) {
       externalMailboxAuthTypeMap.value[id] = authType
     }
+  }
+}
+
+const normalizeBrowserBaseTitle = (title?: string) => {
+  const cleaned = String(title || '')
+    .replace(TITLE_ALERT_PREFIX_RE, '')
+    .trim()
+  return cleaned || t('home.defaultBrowserTitle')
+}
+
+const rememberBrowserBaseTitle = (title?: string) => {
+  browserBaseTitle.value = normalizeBrowserBaseTitle(title || document.title)
+}
+
+const getTitleAlertEmailKey = (mailType: 'system' | 'hosted' | 'external', email: any) => {
+  const id = Number(email?.id)
+  if (!Number.isFinite(id) || id <= 0) {
+    return ''
+  }
+  return `${mailType}:${id}`
+}
+
+const getEmailTimestamp = (email: any) => {
+  const candidates = [email?.received_at, email?.email_date, email?.created_at]
+  for (const value of candidates) {
+    if (value === null || value === undefined || value === '') {
+      continue
+    }
+    const timestamp = new Date(value).getTime()
+    if (!Number.isNaN(timestamp) && timestamp > 0) {
+      return timestamp
+    }
+    const numericValue = Number(value)
+    if (Number.isFinite(numericValue) && numericValue > 0) {
+      return numericValue
+    }
+  }
+  return 0
+}
+
+const applyBrowserTitleAlert = () => {
+  const baseTitle = normalizeBrowserBaseTitle(browserBaseTitle.value || document.title)
+  if (!document.hidden || pendingTitleAlertEmails.size === 0) {
+    if (document.title !== baseTitle) {
+      document.title = baseTitle
+    }
+    return
+  }
+
+  const pendingEmails = Array.from(pendingTitleAlertEmails.values()).sort(
+    (left, right) => getEmailTimestamp(right) - getEmailTimestamp(left)
+  )
+  const latestCode = String(
+    pendingEmails.find((item) => String(item?.verification_code || '').trim())?.verification_code ||
+      ''
+  ).trim()
+  const alertPrefix = latestCode
+    ? t('home.titleAlertCode', { code: latestCode })
+    : pendingTitleAlertEmails.size > 1
+      ? t('home.titleAlertNewMailCount', { count: pendingTitleAlertEmails.size })
+      : t('home.titleAlertNewMail')
+
+  document.title = `${alertPrefix}${baseTitle}`
+}
+
+const clearBrowserTitleAlerts = () => {
+  pendingTitleAlertEmails.clear()
+  applyBrowserTitleAlert()
+}
+
+const registerTitleAlertEmails = (
+  mailType: 'system' | 'hosted' | 'external',
+  emails: any[] = []
+) => {
+  const seenIds = titleAlertSeenEmailIds[mailType]
+  if (!titleAlertInitialized[mailType]) {
+    for (const email of emails) {
+      const emailId = Number(email?.id)
+      if (Number.isFinite(emailId) && emailId > 0) {
+        seenIds.add(emailId)
+      }
+    }
+    titleAlertInitialized[mailType] = true
+    return
+  }
+
+  for (const email of emails) {
+    const emailId = Number(email?.id)
+    if (!Number.isFinite(emailId) || emailId <= 0) {
+      continue
+    }
+
+    const alertKey = getTitleAlertEmailKey(mailType, email)
+    const isUnread = !email?.is_read
+
+    if (document.hidden && isUnread && !seenIds.has(emailId) && alertKey) {
+      pendingTitleAlertEmails.set(alertKey, email)
+    }
+    if (!isUnread && alertKey) {
+      pendingTitleAlertEmails.delete(alertKey)
+    }
+
+    seenIds.add(emailId)
+  }
+
+  applyBrowserTitleAlert()
+}
+
+const loadTitleAlertEmailsByType = async (mailType: 'system' | 'hosted' | 'external') => {
+  if (mailType === 'system' && !userStore.isAuthenticated) {
+    const tempMailboxId = Number(mailboxStore.tempMailbox?.id || 0)
+    if (!tempMailboxId) {
+      return []
+    }
+    const response: any = await mailboxAPI.getTempMailboxEmails(tempMailboxId, {
+      page: 1,
+      page_size: 20
+    })
+    return response.code === 0 && response.data ? response.data.emails || [] : []
+  }
+
+  if (!userStore.isAuthenticated) {
+    return []
+  }
+
+  const response: any = await emailAPI.getUserEmails({
+    type: mailType,
+    page: 1,
+    page_size: 20
+  })
+  if (response.code !== 0 || !response.data) {
+    return []
+  }
+
+  if (mailType === 'hosted') {
+    return normalizeHostedEmailRows(response.data.emails || [])
+  }
+  return response.data.emails || []
+}
+
+const pollBrowserTitleAlerts = async () => {
+  if (typeof document === 'undefined' || !document.hidden) {
+    return
+  }
+
+  rememberBrowserBaseTitle()
+
+  try {
+    const systemEmails = await loadTitleAlertEmailsByType('system')
+    registerTitleAlertEmails('system', systemEmails)
+  } catch (error) {
+    console.error('轮询系统邮件标题提醒失败:', error)
+  }
+
+  if (!userStore.isAuthenticated) {
+    applyBrowserTitleAlert()
+    return
+  }
+
+  const [hostedResult, externalResult] = await Promise.allSettled([
+    loadTitleAlertEmailsByType('hosted'),
+    loadTitleAlertEmailsByType('external')
+  ])
+
+  if (hostedResult.status === 'fulfilled') {
+    registerTitleAlertEmails('hosted', hostedResult.value)
+  } else {
+    console.error('轮询域名邮件标题提醒失败:', hostedResult.reason)
+  }
+
+  if (externalResult.status === 'fulfilled') {
+    registerTitleAlertEmails('external', externalResult.value)
+  } else {
+    console.error('轮询第三方邮件标题提醒失败:', externalResult.reason)
+  }
+}
+
+const handleBrowserVisibilityChange = () => {
+  if (document.hidden) {
+    rememberBrowserBaseTitle()
+    void pollBrowserTitleAlerts()
+    return
+  }
+
+  clearBrowserTitleAlerts()
+  rememberBrowserBaseTitle()
+}
+
+const syncAutoRefreshStates = () => {
+  if (mailboxType.value === 'external') {
+    autoRefresh.stop()
+  } else if (!autoRefresh.isRunning.value) {
+    autoRefresh.start()
+  }
+
+  if (userStore.isAuthenticated && isTauri()) {
+    if (!externalAutoFetch.isRunning.value) {
+      externalAutoFetch.start()
+    }
+  } else {
+    externalAutoFetch.stop()
   }
 }
 
@@ -802,16 +1027,19 @@ const loadExternalMailboxAccountById = async (mailboxId: number) => {
     suppressErrorMessage: true
   })
   if (response.code !== 0) {
-    throw new Error(response.message || '获取邮箱信息失败')
+    throw new Error(response.message || t('home.loadMailboxInfoFailed'))
   }
   const accounts = response.data?.accounts || []
   return accounts.find((item: any) => Number(item?.id) === Number(mailboxId)) || null
 }
 
 const openOAuthReauthorizeModal = async (account: any) => {
-  const provider = resolveOAuthProviderByEmail(account?.email || '', account?.oauth_provider || account?.provider || '')
+  const provider = resolveOAuthProviderByEmail(
+    account?.email || '',
+    account?.oauth_provider || account?.provider || ''
+  )
   if (!provider) {
-    throw new Error('当前邮箱不支持 OAuth 重新授权')
+    throw new Error(t('home.oauthReauthorizeUnsupported'))
   }
 
   pendingOAuthAccounts.value = [{ email: account.email, provider }]
@@ -932,9 +1160,7 @@ const externalSelectedEmail = ref<any>(null)
 
 const normalizeIds = (ids: number[] = []) =>
   Array.from(
-    new Set(
-      ids.map((item) => Number(item)).filter((item) => Number.isFinite(item) && item > 0)
-    )
+    new Set(ids.map((item) => Number(item)).filter((item) => Number.isFinite(item) && item > 0))
   )
 
 const isExternalEmailRecord = (email: any) =>
@@ -1000,9 +1226,7 @@ const loadHostedDomainSummary = async (
       hostedMailboxTotal.value = Number(
         mailboxesResponse.data.pagination?.total || hostedDomainMailboxes.value.length
       )
-      hostedMailboxTotalPages.value = Number(
-        mailboxesResponse.data.pagination?.total_pages || 1
-      )
+      hostedMailboxTotalPages.value = Number(mailboxesResponse.data.pagination?.total_pages || 1)
       if (
         selectedHostedMailboxId.value &&
         !hostedDomainMailboxes.value.some(
@@ -1040,7 +1264,8 @@ const resolvePreferredHostedDomainId = () => {
   }
 
   const verifiedDomains = hostedDomains.value.filter(
-    (item: any) => Boolean(item?.is_active) && String(item?.verification_status || '') === 'verified'
+    (item: any) =>
+      Boolean(item?.is_active) && String(item?.verification_status || '') === 'verified'
   )
   if (!verifiedDomains.length) {
     return null
@@ -1052,13 +1277,13 @@ const resolvePreferredHostedDomainId = () => {
 
 const generateHostedMailbox = async () => {
   if (!hostedDomains.value.length) {
-    showMessage('请先到我的工作台添加域名', 'warning')
+    showMessage(t('home.addDomainFirst'), 'warning')
     return
   }
 
   const preferredDomainId = resolvePreferredHostedDomainId()
   if (!preferredDomainId) {
-    showMessage('请先到我的工作台完成域名验证', 'warning')
+    showMessage(t('home.verifyDomainFirst'), 'warning')
     return
   }
 
@@ -1069,11 +1294,11 @@ const generateHostedMailbox = async () => {
   })
 
   if (!result.success) {
-    showMessage(result.error || '生成邮箱失败', 'error')
+    showMessage(result.error || t('home.generateMailboxFailed'), 'error')
     return
   }
 
-  showMessage('域名邮箱生成成功', 'success')
+  showMessage(t('home.hostedMailboxCreated'), 'success')
   await loadHostedDomainSummary()
   selectedHostedMailboxId.value = null
   selectedHostedEmailId.value = null
@@ -1087,9 +1312,7 @@ const handleSystemEmailsDeleted = (ids: number[] = []) => {
 
   const idSet = new Set(normalizedIds)
   mailStore.removeEmails(normalizedIds)
-  clearSavedSelectedEmails(
-    (email) => isSystemEmailRecord(email) && idSet.has(Number(email?.id))
-  )
+  clearSavedSelectedEmails((email) => isSystemEmailRecord(email) && idSet.has(Number(email?.id)))
 }
 
 const handleExternalEmailsDeleted = (ids: number[] = []) => {
@@ -1098,9 +1321,7 @@ const handleExternalEmailsDeleted = (ids: number[] = []) => {
 
   const idSet = new Set(normalizedIds)
   removeExternalEmailsByIds(normalizedIds)
-  clearSavedSelectedEmails(
-    (email) => isExternalEmailRecord(email) && idSet.has(Number(email?.id))
-  )
+  clearSavedSelectedEmails((email) => isExternalEmailRecord(email) && idSet.has(Number(email?.id)))
 }
 
 const handleHostedEmailsDeleted = (ids: number[] = []) => {
@@ -1109,9 +1330,7 @@ const handleHostedEmailsDeleted = (ids: number[] = []) => {
 
   const idSet = new Set(normalizedIds)
   removeHostedEmailsByIds(normalizedIds)
-  clearSavedSelectedEmails(
-    (email) => isHostedEmailRecord(email) && idSet.has(Number(email?.id))
-  )
+  clearSavedSelectedEmails((email) => isHostedEmailRecord(email) && idSet.has(Number(email?.id)))
 }
 
 const handleSystemMailboxesDeleted = (ids: number[] = []) => {
@@ -1205,27 +1424,12 @@ const switchMailboxType = (type: 'system' | 'hosted' | 'external') => {
   // 恢复目标Tab的选中邮件
   if (type === 'system') {
     mailStore.selectedEmail = systemSelectedEmail.value
-    // 切回系统邮箱时，确保自动刷新开启，停止外部收取
-    if (!autoRefresh.isRunning.value) {
-      autoRefresh.start()
-    }
-    externalAutoFetch.stop()
   } else if (type === 'hosted') {
     mailStore.selectedEmail = hostedSelectedEmail.value
-    externalAutoFetch.stop()
-    if (!autoRefresh.isRunning.value) {
-      autoRefresh.start()
-    }
     void loadHostedDomainSummary()
     void loadHostedEmails()
   } else {
     mailStore.selectedEmail = externalSelectedEmail.value
-
-    // 切换到外部邮箱时，停止系统邮箱的自动刷新，启动外部自动收取
-    autoRefresh.stop()
-    if (!externalAutoFetch.isRunning.value) {
-      externalAutoFetch.start()
-    }
 
     // 加载外部邮箱列表
     if (externalMailboxListRef.value?.loadAccounts) {
@@ -1243,12 +1447,14 @@ const switchMailboxType = (type: 'system' | 'hosted' | 'external') => {
       fetchAllExternalEmails()
     }
   }
+
+  syncAutoRefreshStates()
 }
 
 // 批量登录 - 打开添加账号弹窗
 const handleBatchLogin = () => {
   if (!isTauri()) {
-    openDesktopDownloadDialog('第三方邮箱仅支持桌面端添加和收取，是否下载桌面客户端？')
+    openDesktopDownloadDialog()
     return
   }
   showBatchAddModal.value = true
@@ -1270,12 +1476,15 @@ const handleOAuth2Login = async (provider: string) => {
       } else {
         window.open(res.data.auth_url, '_blank')
       }
-      showMessage(`正在打开${provider === 'microsoft' ? 'Outlook' : 'Gmail'}授权页面...`, 'success')
+      showMessage(
+        t('home.openingOauthPage', { provider: provider === 'microsoft' ? 'Outlook' : 'Gmail' }),
+        'success'
+      )
     } else {
-      showMessage(res.message || '获取授权链接失败', 'error')
+      showMessage(res.message || t('login.getAuthLinkFailed'), 'error')
     }
   } catch (e: any) {
-    showMessage(e.message || '获取授权链接失败', 'error')
+    showMessage(e.message || t('login.getAuthLinkFailed'), 'error')
   }
 }
 
@@ -1300,7 +1509,7 @@ const handleCloseShareModal = () => {
 // 分享成功
 const handleShareSuccess = (data: any) => {
   console.log('🔵 分享成功', data)
-  showMessage('分享创建成功', 'success')
+  showMessage(t('home.shareCreated'), 'success')
 }
 
 const loadSmtpAccounts = async () => {
@@ -1322,14 +1531,14 @@ const openSendEmailModal = async () => {
     if (response.code === 0 && response.data) {
       externalMailboxList.value = response.data.accounts || []
       if (externalMailboxList.value.length === 0) {
-        showMessage('请先添加第三方邮箱账号', 'error')
+        showMessage(t('home.addExternalFirst'), 'error')
         return
       }
       showSendEmailModal.value = true
     }
   } catch (error) {
     console.error('获取邮箱列表失败:', error)
-    showMessage('获取邮箱列表失败', 'error')
+    showMessage(t('home.fetchMailboxListFailed'), 'error')
   }
 }
 
@@ -1403,7 +1612,7 @@ const handleBatchAddAccounts = async (accounts: any[]) => {
     const markNoNeedOAuth = (email: string) => {
       successCount++
       if (batchAddModalRef.value) {
-        batchAddModalRef.value.updateResult(email, 'success', '无需授权（已存在）')
+        batchAddModalRef.value.updateResult(email, 'success', t('home.batchAddAlreadyExists'))
       }
     }
 
@@ -1417,9 +1626,7 @@ const handleBatchAddAccounts = async (accounts: any[]) => {
     // ========== OAuth Token 批量导入（4段格式：邮箱----密码----Client_ID----Refresh_Token） ==========
     const tokenAccounts = accounts.filter(
       (a: any) =>
-        a.oauth_refresh_token &&
-        a.oauth_client_id &&
-        !!resolveOAuthProviderByEmail(a.email)
+        a.oauth_refresh_token && a.oauth_client_id && !!resolveOAuthProviderByEmail(a.email)
     )
     const normalAccounts = accounts.filter(
       (a: any) =>
@@ -1430,12 +1637,12 @@ const handleBatchAddAccounts = async (accounts: any[]) => {
       try {
         // 根据邮箱后缀推断 provider
         const importItems = tokenAccounts.map((account: any) => ({
-            email: account.email,
-            provider: resolveOAuthProviderByEmail(account.email),
-            password: account.password,
-            refresh_token: account.oauth_refresh_token,
-            client_id: account.oauth_client_id
-          }))
+          email: account.email,
+          provider: resolveOAuthProviderByEmail(account.email),
+          password: account.password,
+          refresh_token: account.oauth_refresh_token,
+          client_id: account.oauth_client_id
+        }))
 
         const res = await batchLoginAPI.batchImportOAuth2(importItems)
         const importResults = res.data?.results || res.results || []
@@ -1452,12 +1659,13 @@ const handleBatchAddAccounts = async (accounts: any[]) => {
                 setExternalMailboxFetchingIds([mailboxId])
                 const importedAccount =
                   tokenAccounts.find(
-                    (item: any) => String(item.email || '').toLowerCase() === String(r.email || '').toLowerCase()
+                    (item: any) =>
+                      String(item.email || '').toLowerCase() === String(r.email || '').toLowerCase()
                   ) || null
                 const newCount = await fetchOAuthMailboxOnceById(tauriInvoke, mailboxId, {
                   account: importedAccount
                 })
-                fetchStatus = `，首次收取完成（新增 ${newCount} 封）`
+                fetchStatus = t('home.initialFetchSuccessSuffix', { count: newCount })
               } catch (fetchError: any) {
                 const fetchErrorMessage = resolveErrorMessage(fetchError)
                 try {
@@ -1465,7 +1673,7 @@ const handleBatchAddAccounts = async (accounts: any[]) => {
                 } catch (statusError) {
                   console.error('更新 OAuth 邮箱收取状态失败:', statusError)
                 }
-                fetchStatus = '，首次收取失败'
+                fetchStatus = t('home.initialFetchFailedSuffix')
               } finally {
                 clearExternalMailboxFetchingIds()
               }
@@ -1475,13 +1683,17 @@ const handleBatchAddAccounts = async (accounts: any[]) => {
               batchAddModalRef.value.updateResult(
                 r.email,
                 'success',
-                `OAuth Token 导入成功${fetchStatus}`
+                t('home.oauthTokenImportSuccess', { status: fetchStatus })
               )
             }
           } else {
             failCount++
             if (batchAddModalRef.value) {
-              batchAddModalRef.value.updateResult(r.email, 'error', r.error || 'Token 导入失败')
+              batchAddModalRef.value.updateResult(
+                r.email,
+                'error',
+                r.error || t('home.oauthTokenImportFailed')
+              )
             }
           }
         }
@@ -1529,7 +1741,7 @@ const handleBatchAddAccounts = async (accounts: any[]) => {
           try {
             const tauriInvoke = await getTauriInvoke()
             if (!tauriInvoke) {
-              throw new Error('Tauri API 尚未加载，请稍后重试')
+              throw new Error(t('home.desktopApiNotReady'))
             }
 
             // 调用 Tauri 命令验证邮箱
@@ -1543,7 +1755,7 @@ const handleBatchAddAccounts = async (accounts: any[]) => {
 
             // 检查登录是否真正成功
             if (!result.success) {
-              throw new Error(result.message || '邮箱验证失败，请检查账号和密码')
+              throw new Error(result.message || t('home.mailboxVerifyFailed'))
             }
 
             console.log('✅ 本地验证成功:', result)
@@ -1593,13 +1805,13 @@ const handleBatchAddAccounts = async (accounts: any[]) => {
                 canSend = false
               }
 
-              const smtpStatus = canSend ? '能收能发' : '能收不能发'
+              const smtpStatus = canSend ? t('home.smtpReceiveAndSend') : t('home.smtpReceiveOnly')
               let fetchStatus = ''
 
               if (mailboxId > 0) {
                 try {
                   const newCount = await fetchNewMailboxOnce(tauriInvoke, mailboxId, accountData)
-                  fetchStatus = `，首次收取完成（新增 ${newCount} 封）`
+                  fetchStatus = t('home.initialFetchSuccessSuffix', { count: newCount })
                 } catch (fetchError: any) {
                   const fetchErrorMessage = resolveErrorMessage(fetchError)
                   try {
@@ -1607,7 +1819,7 @@ const handleBatchAddAccounts = async (accounts: any[]) => {
                   } catch (statusError) {
                     console.error('更新邮箱收取状态失败:', statusError)
                   }
-                  fetchStatus = `，首次收取失败`
+                  fetchStatus = t('home.initialFetchFailedSuffix')
                 }
               }
 
@@ -1615,7 +1827,7 @@ const handleBatchAddAccounts = async (accounts: any[]) => {
                 batchAddModalRef.value.updateResult(
                   account.email,
                   'success',
-                  `本地验证成功（${smtpStatus}）${fetchStatus}`
+                  t('home.localVerifySuccess', { smtpStatus, status: fetchStatus })
                 )
               }
             } else {
@@ -1642,7 +1854,7 @@ const handleBatchAddAccounts = async (accounts: any[]) => {
                   batchAddModalRef.value.updateResult(
                     account.email,
                     'error',
-                    '密码登录失败，需要OAuth2授权'
+                    t('home.passwordLoginNeedsOAuth')
                   )
                 }
               }
@@ -1663,7 +1875,11 @@ const handleBatchAddAccounts = async (accounts: any[]) => {
             console.log('🔵 Web 端：OAuth2 邮箱直接走授权')
             enqueueOAuthPending(account.email, oauthProvider)
             if (batchAddModalRef.value) {
-              batchAddModalRef.value.updateResult(account.email, 'error', '需要 OAuth2 授权')
+              batchAddModalRef.value.updateResult(
+                account.email,
+                'error',
+                t('home.oauthAuthorizationRequired')
+              )
             }
           } else {
             // 普通邮箱：Web 端不支持，提示下载桌面端
@@ -1671,7 +1887,11 @@ const handleBatchAddAccounts = async (accounts: any[]) => {
             failCount++
             needDesktopDownload = true
             if (batchAddModalRef.value) {
-              batchAddModalRef.value.updateResult(account.email, 'error', '需下载桌面端添加')
+              batchAddModalRef.value.updateResult(
+                account.email,
+                'error',
+                t('home.desktopRequiredForAddMailbox')
+              )
             }
           }
         }
@@ -1688,7 +1908,7 @@ const handleBatchAddAccounts = async (accounts: any[]) => {
               batchAddModalRef.value.updateResult(
                 account.email,
                 'error',
-                '密码登录失败，需要OAuth2授权'
+                t('home.passwordLoginNeedsOAuth')
               )
             }
           }
@@ -1710,12 +1930,12 @@ const handleBatchAddAccounts = async (accounts: any[]) => {
 
     // 显示结果
     if (successCount > 0) {
-      showMessage(`添加成功 ${successCount} 个邮箱`, 'success')
+      showMessage(t('home.batchAddSuccess', { count: successCount }), 'success')
     }
 
     // 如果有普通邮箱需要桌面端，提示下载
     if (needDesktopDownload) {
-      openDesktopDownloadDialog('普通邮箱需要桌面端添加和收取，是否下载桌面客户端？')
+      openDesktopDownloadDialog(t('home.desktopRequiredMessage'))
     }
 
     // 刷新列表
@@ -1737,11 +1957,11 @@ const handleBatchAddAccounts = async (accounts: any[]) => {
     }
 
     shouldAutoCloseBatchAdd =
-      accounts.length > 0
-      && successCount === accounts.length
-      && failCount === 0
-      && pendingOAuthAccounts.value.length === 0
-      && !needDesktopDownload
+      accounts.length > 0 &&
+      successCount === accounts.length &&
+      failCount === 0 &&
+      pendingOAuthAccounts.value.length === 0 &&
+      !needDesktopDownload
 
     if (shouldAutoCloseBatchAdd) {
       window.setTimeout(() => {
@@ -1752,14 +1972,18 @@ const handleBatchAddAccounts = async (accounts: any[]) => {
     }
   } catch (error) {
     console.error('批量添加账号失败:', error)
-    showMessage('批量添加账号失败', 'error')
+    showMessage(t('home.batchAddFailed'), 'error')
   } finally {
     batchLoginLoading.value = false
   }
 }
 
 // OAuth2 授权完成的回调
-const handleOAuth2Complete = async (result: { successCount: number; failCount: number; accounts?: any[] }) => {
+const handleOAuth2Complete = async (result: {
+  successCount: number
+  failCount: number
+  accounts?: any[]
+}) => {
   showBatchAddModal.value = false
   pendingOAuthAccounts.value = []
   pendingOAuthBootstrapEmails.value = Array.isArray(result.accounts)
@@ -1769,7 +1993,7 @@ const handleOAuth2Complete = async (result: { successCount: number; failCount: n
     : []
 
   if (result.successCount > 0) {
-    showMessage(`OAuth2授权完成: ${result.successCount} 个成功`, 'success')
+    showMessage(t('home.oauthCompleteSuccess', { count: result.successCount }), 'success')
 
     // 刷新邮箱列表
     if (externalMailboxListRef.value?.loadAccounts) {
@@ -1784,7 +2008,7 @@ const handleOAuth2Complete = async (result: { successCount: number; failCount: n
     }
   } else if (result.failCount > 0) {
     pendingOAuthBootstrapEmails.value = []
-    showMessage(`OAuth2授权失败: ${result.failCount} 个`, 'error')
+    showMessage(t('home.oauthCompleteFailed', { count: result.failCount }), 'error')
   }
 }
 
@@ -2002,7 +2226,9 @@ const removeExternalEmailsByMailboxIds = (mailboxIds: number[] = []) => {
   }
   if (
     selectedExternalEmailId.value &&
-    !externalEmails.value.some((email: any) => Number(email?.id) === Number(selectedExternalEmailId.value))
+    !externalEmails.value.some(
+      (email: any) => Number(email?.id) === Number(selectedExternalEmailId.value)
+    )
   ) {
     selectedExternalEmailId.value = null
   }
@@ -2036,7 +2262,9 @@ const removeHostedEmailsByMailboxIds = (mailboxIds: number[] = []) => {
   }
   if (
     selectedHostedEmailId.value &&
-    !hostedEmails.value.some((email: any) => Number(email?.id) === Number(selectedHostedEmailId.value))
+    !hostedEmails.value.some(
+      (email: any) => Number(email?.id) === Number(selectedHostedEmailId.value)
+    )
   ) {
     selectedHostedEmailId.value = null
   }
@@ -2098,7 +2326,10 @@ const applyExternalEmailListResult = (result: any, mailboxId?: number | null) =>
   currentView.value = 'emails'
 }
 
-const applyEmailDetailResult = (result: any, mailboxTypeValue: 'system' | 'hosted' | 'external') => {
+const applyEmailDetailResult = (
+  result: any,
+  mailboxTypeValue: 'system' | 'hosted' | 'external'
+) => {
   if (!result?.id) return
 
   mailStore.selectedEmail = result
@@ -2119,7 +2350,8 @@ const applyEmailDetailResult = (result: any, mailboxTypeValue: 'system' | 'hoste
     if (result.mailbox_id) {
       selectedExternalMailboxId.value = Number(result.mailbox_id)
       selectedExternalAuthType.value =
-        externalMailboxAuthTypeMap.value[Number(result.mailbox_id)] || selectedExternalAuthType.value
+        externalMailboxAuthTypeMap.value[Number(result.mailbox_id)] ||
+        selectedExternalAuthType.value
     }
     return
   }
@@ -2231,19 +2463,45 @@ const autoRefresh = useAutoRefresh(async () => {
 // 第三方邮箱自动收取（10分钟）
 const externalAutoFetch = useAutoRefresh(async () => {
   if (!isTauri()) return
-  if (mailboxType.value !== 'external') return
   if (!userStore.isAuthenticated) return
   if (fetchingExternalEmails.value) return
   if (currentView.value === 'send-email') return
 
-  await fetchAllExternalEmails()
+  await fetchAllExternalEmails({ silent: true })
   externalMailboxListRef.value?.loadTagsData?.()
 }, 600)
 
+const titleAlertRefresh = useAutoRefresh(async () => {
+  await pollBrowserTitleAlerts()
+}, TITLE_ALERT_POLL_INTERVAL)
+
+watch(
+  () => mailStore.emails,
+  (emails) => {
+    registerTitleAlertEmails('system', Array.isArray(emails) ? emails : [])
+  }
+)
+
+watch(hostedEmails, (emails) => {
+  registerTitleAlertEmails('hosted', Array.isArray(emails) ? emails : [])
+})
+
+watch(externalEmails, (emails) => {
+  registerTitleAlertEmails('external', Array.isArray(emails) ? emails : [])
+})
+
 // 页面加载时获取数据并启动自动刷新
 onMounted(async () => {
-  window.addEventListener('external-mailbox-recovered', handleRecoveredMailboxEvent as EventListener)
+  window.addEventListener(
+    'external-mailbox-recovered',
+    handleRecoveredMailboxEvent as EventListener
+  )
   window.addEventListener(AI_UI_SYNC_EVENT, handleAIUiSyncEvent as EventListener)
+  document.addEventListener('visibilitychange', handleBrowserVisibilityChange)
+  rememberBrowserBaseTitle()
+  if (!titleAlertRefresh.isRunning.value) {
+    titleAlertRefresh.start()
+  }
 
   if (userStore.isAuthenticated) {
     // 加载邮箱列表
@@ -2263,28 +2521,26 @@ onMounted(async () => {
   } else {
     // 未登录也写默认值，避免首次进入没有偏好
     saveMailboxType(mailboxType.value)
-    autoRefresh.start()
+    syncAutoRefreshStates()
     return
   }
 
   // 按恢复后的 Tab 启动对应刷新器
   if (mailboxType.value === 'external') {
-    autoRefresh.stop()
-    if (!externalAutoFetch.isRunning.value) {
-      externalAutoFetch.start()
-    }
     await loadExternalMailboxAuthTypes()
-  } else {
-    externalAutoFetch.stop()
-    if (!autoRefresh.isRunning.value) {
-      autoRefresh.start()
-    }
   }
+  syncAutoRefreshStates()
 })
 
 onBeforeUnmount(() => {
-  window.removeEventListener('external-mailbox-recovered', handleRecoveredMailboxEvent as EventListener)
+  window.removeEventListener(
+    'external-mailbox-recovered',
+    handleRecoveredMailboxEvent as EventListener
+  )
   window.removeEventListener(AI_UI_SYNC_EVENT, handleAIUiSyncEvent as EventListener)
+  document.removeEventListener('visibilitychange', handleBrowserVisibilityChange)
+  titleAlertRefresh.stop()
+  clearBrowserTitleAlerts()
 })
 
 // 生成系统邮箱
@@ -2295,7 +2551,9 @@ const allocateMailbox = async () => {
     await userStore.updateUserProfile()
   }
   showMessage(
-    result.success ? '邮箱申请成功' : result.error || '申请失败',
+    result.success
+      ? t('home.allocateMailboxSuccess')
+      : result.error || t('home.allocateMailboxFailed'),
     result.success ? 'success' : 'error'
   )
 }
@@ -2357,7 +2615,7 @@ const handleSelectHostedEmail = async (email: any) => {
 
   const result = await mailStore.fetchEmailDetail(email.id, 'hosted')
   if (!result.success) {
-    showMessage(result.error || '邮件不存在或无权访问', 'error')
+    showMessage(result.error || t('home.emailNotFoundOrNoPermission'), 'error')
     selectedHostedEmailId.value = null
     mailStore.selectedEmail = null
     return
@@ -2387,7 +2645,7 @@ const handleOAuthMailboxReauthorize = async (account: any) => {
   try {
     await openOAuthReauthorizeModal(account)
   } catch (error: any) {
-    showMessage(error?.message || '打开重新授权窗口失败', 'error')
+    showMessage(error?.message || t('common.operationFailed'), 'error')
   }
 }
 
@@ -2422,7 +2680,7 @@ const loadExternalMailboxEmails = async () => {
 
       // 空列表不弹 toast，避免和邮箱收取失败的红色错误同时出现造成误导
     } else {
-      const msg = response.message || '加载邮件失败'
+      const msg = response.message || t('home.loadEmailsFailed')
       // 仅在邮箱不存在/无权限时清空，其他错误保留已有列表
       if (msg.includes('邮箱不存在') || msg.includes('无权限')) {
         externalEmails.value = []
@@ -2431,8 +2689,7 @@ const loadExternalMailboxEmails = async () => {
         selectedExternalAuthType.value = 'password'
         selectedExternalEmailId.value = null
         clearSavedSelectedEmails(
-          (email) =>
-            isExternalEmailRecord(email) && Number(email?.mailbox_id) === Number(mailboxId)
+          (email) => isExternalEmailRecord(email) && Number(email?.mailbox_id) === Number(mailboxId)
         )
         await loadAllExternalEmails()
       }
@@ -2441,7 +2698,7 @@ const loadExternalMailboxEmails = async () => {
   } catch (error) {
     console.error('❌ 获取外部邮箱邮件失败:', error)
     // 请求失败时保留已有邮件列表，不清空
-    showMessage('加载邮件失败', 'error')
+    showMessage(t('home.loadEmailsFailed'), 'error')
   }
 }
 
@@ -2464,11 +2721,11 @@ const fetchExternalMailboxEmails = async () => {
   fetchingExternalEmails.value = true
   try {
     if (!isTauri()) {
-      showMessage('仅支持桌面端本地收取', 'warning')
+      showMessage(t('home.desktopOnlyFetch'), 'warning')
       return
     }
 
-    showMessage('正在收取邮件...', 'primary', 0)
+    showMessage(t('externalMailbox.fetchingMailNow'), 'primary', 0)
 
     // 桌面端：统一走本地 Tauri 收取；OAuth2 只向后端拿 token
     const mailboxId = selectedExternalMailboxId.value
@@ -2479,7 +2736,7 @@ const fetchExternalMailboxEmails = async () => {
       // OAuth2 邮箱：先获取 token，再走本地 IMAP XOAUTH2
       const tauriInvoke = await getTauriInvoke()
       if (!tauriInvoke) {
-        showMessage('桌面端能力未就绪，请稍后重试', 'error')
+        showMessage(t('home.desktopNotReady'), 'error')
         return
       }
 
@@ -2491,13 +2748,13 @@ const fetchExternalMailboxEmails = async () => {
         })
       } catch (e: any) {
         const rawMsg = normalizeOAuthRecoveryErrorMessage(
-          typeof e === 'string' ? e : e?.message || '收取失败'
+          typeof e === 'string' ? e : e?.message || t('home.fetchFailed')
         )
         if (rawMsg === '__oauth_reauthorizing__') {
           return
         }
         await batchLoginAPI.updateMailboxStatus(mailboxId, 'failed', rawMsg)
-        showMessage('收取失败: ' + rawMsg, 'error')
+        showMessage(t('home.fetchFailedWithReason', { reason: rawMsg }), 'error')
         if (externalMailboxListRef.value?.loadAccounts) {
           externalMailboxListRef.value.loadAccounts()
         }
@@ -2507,7 +2764,7 @@ const fetchExternalMailboxEmails = async () => {
       // 非 OAuth2 邮箱：走本地 Tauri
       const tauriInvoke = await getTauriInvoke()
       if (!tauriInvoke) {
-        showMessage('桌面端能力未就绪，请稍后重试', 'error')
+        showMessage(t('home.desktopNotReady'), 'error')
         return
       }
 
@@ -2516,7 +2773,7 @@ const fetchExternalMailboxEmails = async () => {
       const accountList = res.code === 0 ? res.data?.accounts || [] : []
       const account = accountList.find((a: any) => a.id === mailboxId)
       if (!account) {
-        showMessage('未找到该邮箱信息', 'error')
+        showMessage(t('home.mailboxNotFound'), 'error')
         return
       }
 
@@ -2539,9 +2796,9 @@ const fetchExternalMailboxEmails = async () => {
         newCount = Number(result?.count || 0)
         await batchLoginAPI.updateMailboxStatus(mailboxId, 'active')
       } catch (e: any) {
-        const rawMsg = typeof e === 'string' ? e : e?.message || '收取失败'
+        const rawMsg = typeof e === 'string' ? e : e?.message || t('home.fetchFailed')
         await batchLoginAPI.updateMailboxStatus(mailboxId, 'failed', rawMsg)
-        showMessage('收取失败: ' + rawMsg, 'error')
+        showMessage(t('home.fetchFailedWithReason', { reason: rawMsg }), 'error')
         if (externalMailboxListRef.value?.loadAccounts) {
           externalMailboxListRef.value.loadAccounts()
         }
@@ -2553,14 +2810,14 @@ const fetchExternalMailboxEmails = async () => {
     await new Promise((resolve) => setTimeout(resolve, 500))
     externalEmailPage.value = 1
     await loadExternalMailboxEmails()
-    showMessage(`收取成功，新增 ${newCount} 封邮件`, 'success')
+    showMessage(t('home.fetchSuccessNewCount', { count: newCount }), 'success')
     if (externalMailboxListRef.value?.loadAccounts) {
       externalMailboxListRef.value.loadAccounts()
     }
   } catch (error: any) {
     console.error('❌ 收取邮件失败:', error)
-    const errorMsg = error.response?.data?.message || error.message || '网络错误'
-    showMessage('收取邮件失败: ' + errorMsg, 'error')
+    const errorMsg = error.response?.data?.message || error.message || t('common.operationFailed')
+    showMessage(t('home.fetchFailedWithReason', { reason: errorMsg }), 'error')
 
     if (externalMailboxListRef.value?.loadAccounts) {
       externalMailboxListRef.value.loadAccounts()
@@ -2579,7 +2836,7 @@ const handleSelectExternalEmail = async (email: any) => {
   // 获取完整详情（含附件）
   const result = await mailStore.fetchEmailDetail(email.id, 'external')
   if (!result.success) {
-    showMessage(result.error || '邮件不存在或无权访问', 'error')
+    showMessage(result.error || t('home.emailNotFoundOrNoPermission'), 'error')
     selectedExternalEmailId.value = null
     mailStore.selectedEmail = null
     return
@@ -2627,7 +2884,9 @@ const loadAllExternalEmails = async () => {
 }
 
 // 收取所有外部邮箱的邮件
-const fetchAllExternalEmails = async () => {
+const fetchAllExternalEmails = async (options: { silent?: boolean } = {}) => {
+  const silent = options.silent === true
+
   // Web 端不支持“收取全部”
   if (!isTauri()) return
 
@@ -2642,7 +2901,9 @@ const fetchAllExternalEmails = async () => {
   try {
     const tauriInvoke = await getTauriInvoke()
     if (!tauriInvoke) {
-      showMessage('桌面端能力未就绪，请稍后重试', 'error')
+      if (!silent) {
+        showMessage(t('home.desktopNotReady'), 'error')
+      }
       return
     }
 
@@ -2656,26 +2917,28 @@ const fetchAllExternalEmails = async () => {
       return
     }
 
-    showMessage('正在收取邮件...', 'primary', 0)
+    if (!silent) {
+      showMessage(t('externalMailbox.fetchingMailNow'), 'primary', 0)
+    }
 
     let totalNew = 0
     let failCount = 0
     const bootstrapOAuthEmailSet = new Set(pendingOAuthBootstrapEmails.value)
 
     const friendlyError = (msg: string) => {
-      if (!msg) return '收取失败'
+      if (!msg) return t('home.fetchFailed')
       if (msg.includes('Unsafe Login') || msg.includes('unsafe login'))
-        return '登录被拒绝，请检查授权码或邮箱IMAP设置'
+        return t('home.fetchUnsafeLogin')
       if (
         msg.includes('auth') ||
         msg.includes('AUTH') ||
         msg.includes('password') ||
         msg.includes('授权')
       )
-        return '授权码错误或已失效'
+        return t('home.fetchAuthExpired')
       if (msg.includes('Connection') || msg.includes('connect') || msg.includes('timeout'))
-        return '连接超时，请检查网络'
-      if (msg.includes('Unable to parse')) return '服务器响应异常，请稍后重试'
+        return t('home.fetchTimeout')
+      if (msg.includes('Unable to parse')) return t('home.fetchServerError')
       if (msg.length > 30) return msg.substring(0, 30) + '...'
       return msg
     }
@@ -2724,7 +2987,7 @@ const fetchAllExternalEmails = async () => {
         } catch (e: any) {
           console.error(`收取 ${account.email} 失败:`, e)
           const rawMsg = normalizeOAuthRecoveryErrorMessage(
-            typeof e === 'string' ? e : e?.message || '收取失败'
+            typeof e === 'string' ? e : e?.message || t('home.fetchFailed')
           )
           const normalizedEmail = normalizeMailboxEmail(account.email)
           const shouldRemoveBootstrapOAuth =
@@ -2767,12 +3030,18 @@ const fetchAllExternalEmails = async () => {
 
     if (failCount === 0) {
       if (totalNew > 0) {
-        showMessage(`收取成功，新增 ${totalNew} 封邮件`, 'success')
+        if (!silent) {
+          showMessage(t('home.fetchSuccessNewCount', { count: totalNew }), 'success')
+        }
       } else {
-        showMessage('收取完成，暂无新邮件', 'success')
+        if (!silent) {
+          showMessage(t('home.fetchDoneNoNewMail'), 'success')
+        }
       }
     } else {
-      showMessage(`收取完成，新增 ${totalNew} 封，${failCount} 个邮箱失败`, 'warning')
+      if (!silent) {
+        showMessage(t('home.fetchDoneWithFailures', { count: totalNew, failCount }), 'warning')
+      }
     }
 
     // 收取成功后立即刷新邮件列表
@@ -2791,7 +3060,14 @@ const fetchAllExternalEmails = async () => {
     }
   } catch (error: any) {
     console.error('收取失败:', error)
-    showMessage('收取失败: ' + (error.response?.data?.message || error.message), 'error')
+    if (!silent) {
+      showMessage(
+        t('home.fetchFailedWithReason', {
+          reason: error.response?.data?.message || error.message || t('common.operationFailed')
+        }),
+        'error'
+      )
+    }
   } finally {
     pendingOAuthBootstrapEmails.value = []
     fetchingExternalEmails.value = false
@@ -2865,7 +3141,7 @@ const openEmailModal = (email: any) => {
 
 // 格式化日期
 const formatDate = (date: string) => {
-  return new Date(date).toLocaleString('zh-CN')
+  return new Date(date).toLocaleString(getCurrentLocale())
 }
 
 // 搜索系统邮件
@@ -2978,13 +3254,13 @@ const confirmDeleteEmails = async () => {
     if (deletingBatch.value) {
       // 使用批量删除接口
       await unifiedAPI.batchDeleteEmails(deletingIds.value, emailType)
-      showMessage(`已删除 ${deletingIds.value.length} 封邮件`, 'success')
+      showMessage(t('home.deleteEmailsSuccess', { count: deletingIds.value.length }), 'success')
     } else {
       const result = await unifiedAPI.deleteEmail(deletingIds.value[0], emailType)
       if (result.data?.code === 0 || result.code === 0) {
-        showMessage('删除成功', 'success')
+        showMessage(t('home.deleteEmailSuccess'), 'success')
       } else {
-        showMessage(result.data?.message || result.message || '删除失败', 'error')
+        showMessage(result.data?.message || result.message || t('home.deleteFailed'), 'error')
       }
     }
 
@@ -3042,7 +3318,10 @@ const confirmDeleteEmails = async () => {
     }
   } catch (error: any) {
     console.error('❌ 删除邮件失败:', error)
-    showMessage('删除失败: ' + (error.response?.data?.message || error.message), 'error')
+    showMessage(
+      `${t('home.deleteFailed')}: ${error.response?.data?.message || error.message || t('common.operationFailed')}`,
+      'error'
+    )
   } finally {
     deleting.value = false
     showDeleteConfirm.value = false
@@ -3052,7 +3331,7 @@ const confirmDeleteEmails = async () => {
 // 复制验证码
 const copyVerificationCode = (code: string) => {
   navigator.clipboard.writeText(code)
-  showMessage('✓ 验证码已复制', 'success')
+  showMessage(t('home.copyCodeSuccess'), 'success')
 }
 
 // 选择邮件（获取详情并自动标记已读）

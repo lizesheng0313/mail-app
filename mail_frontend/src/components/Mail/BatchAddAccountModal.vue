@@ -5,7 +5,7 @@
         <div class="w-full overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/5 max-h-[86vh] flex flex-col">
           <!-- 标题栏 -->
           <div class="px-5 py-4 border-b border-gray-200 flex items-center justify-between bg-white">
-            <h3 class="text-lg font-semibold text-gray-800">批量添加第三方邮箱</h3>
+            <h3 class="text-lg font-semibold text-gray-800">{{ t('batchAdd.title') }}</h3>
             <button @click="handleClose" class="text-gray-400 hover:text-gray-600 transition">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
@@ -19,11 +19,11 @@
               <!-- 左侧：输入框 -->
               <div class="col-span-5">
                 <div class="text-sm text-gray-600 mb-2 h-6 flex items-center font-medium">
-                  输入账号（每行一个）
+                  {{ t('batchAdd.inputLabel') }}
                 </div>
                 <textarea
                   v-model="accountsText"
-                  placeholder="每行一个，支持格式：&#10;邮箱----授权码&#10;邮箱 授权码&#10;邮箱----密码----Client_ID----Refresh_Token&#10;&#10;示例：&#10;user@163.com----abc123&#10;user@qq.com pwd456&#10;user@outlook.com----pwd----client_id----refresh_token"
+                  :placeholder="t('batchAdd.inputPlaceholder')"
                   class="w-full px-3 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 font-mono resize-none transition"
                   :style="{ height: oauthAccounts.length > 0 ? '120px' : '280px', lineHeight: '20px', fontSize: '13px' }"
                 ></textarea>
@@ -32,12 +32,12 @@
               <!-- 右侧：结果状态 -->
               <div class="col-span-5">
                 <div class="text-sm text-gray-600 mb-2 h-6 flex items-center font-medium">
-                  添加结果
+                  {{ t('batchAdd.resultLabel') }}
                 </div>
                 <div class="border border-gray-200 rounded-xl p-2 bg-gray-50 overflow-y-auto"
                      :style="{ height: oauthAccounts.length > 0 ? '120px' : '280px' }">
                   <div v-if="results.length === 0" class="text-sm text-gray-400 text-center" :class="oauthAccounts.length > 0 ? 'py-10' : 'py-20'">
-                    添加结果将显示在这里
+                    {{ t('batchAdd.resultEmpty') }}
                   </div>
                   <div v-else class="space-y-0">
                     <div v-for="(result, idx) in results" :key="idx"
@@ -68,31 +68,31 @@
             <div class="mt-4 pt-4 border-t border-gray-100">
               <div class="flex items-center gap-6">
                 <div class="flex items-center gap-3">
-                  <span class="text-sm text-gray-700 font-medium">登录方式：</span>
+                  <span class="text-sm text-gray-700 font-medium">{{ t('batchAdd.loginMode') }}</span>
                   <label class="flex items-center text-sm cursor-pointer hover:text-primary-600 transition">
                     <input type="radio" v-model="loginMode" value="auto" class="mr-1.5 h-4 w-4 border-gray-300 text-primary-600 accent-primary-600 focus:ring-primary-500">
-                    自动（推荐）
+                    {{ t('batchAdd.autoRecommended') }}
                   </label>
                   <label class="flex items-center text-sm cursor-pointer hover:text-primary-600 transition">
                     <input type="radio" v-model="loginMode" value="custom" class="mr-1.5 h-4 w-4 border-gray-300 text-primary-600 accent-primary-600 focus:ring-primary-500">
-                    自定义服务器
+                    {{ t('batchAdd.customServer') }}
                   </label>
                 </div>
               </div>
 
               <div v-if="loginMode === 'custom'" class="mt-3 flex items-center gap-3">
-                <span class="text-sm text-gray-600 w-16">服务器：</span>
+                <span class="text-sm text-gray-600 w-16">{{ t('batchAdd.server') }}</span>
                 <input
                   v-model="customHost"
                   type="text"
-                  placeholder="imap.example.com 或 pop.example.com"
+                  :placeholder="t('batchAdd.serverPlaceholder')"
                   class="flex-1 px-3 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent transition"
                 />
-                <span class="text-sm text-gray-600">端口：</span>
+                <span class="text-sm text-gray-600">{{ t('batchAdd.port') }}</span>
                 <input
                   v-model.number="customPort"
                   type="number"
-                  placeholder="993 或 995"
+                  :placeholder="t('batchAdd.portPlaceholder')"
                   class="w-24 px-3 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent transition"
                 />
               </div>
@@ -103,7 +103,7 @@
               <div class="mt-4 pt-4 border-t border-gray-100">
                 <!-- 说明 -->
                 <div class="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800 leading-relaxed">
-                  以下邮箱需要 OAuth2 授权。点击"开始授权"后将逐个打开浏览器新标签页，请在新标签页中完成登录。
+                  {{ t('batchAdd.oauthNotice') }}
                 </div>
 
                 <!-- 邮箱列表 -->
@@ -160,7 +160,7 @@
             <!-- 左侧信息 -->
             <div class="text-sm text-gray-500">
               <template v-if="oauthAccounts.length > 0">
-                共 {{ oauthAccounts.length }} 个待授权，成功 {{ oauthSuccessCount }} 个，失败 {{ oauthFailCount }} 个
+                {{ t('batchAdd.oauthSummary', { total: oauthAccounts.length, success: oauthSuccessCount, fail: oauthFailCount }) }}
               </template>
             </div>
 
@@ -192,7 +192,7 @@
                 <svg v-if="loading" class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                 </svg>
-                {{ loading ? '添加中...' : '开始添加' }}
+                {{ loading ? t('batchAdd.adding') : t('batchAdd.startAdd') }}
               </button>
             </div>
           </div>
@@ -204,8 +204,10 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import batchLoginAPI from '@/api/batchLogin'
 import { isTauri } from '@/services/api'
+const { t } = useI18n()
 
 // ===== Props & Emits =====
 const props = defineProps<{ visible: boolean, loading?: boolean }>()
@@ -259,27 +261,35 @@ const hasOAuthPending = computed(() => {
 const oauthProgressText = computed(() => {
   if (!isOAuthAuthorizing.value) return ''
   if (oauthAuthPhase.value === 'preparing') {
-    return `正在打开授权页面 ${oauthCurrentIndex.value + 1}/${oauthAccounts.value.length}: ${oauthCurrentEmail.value}`
+    return t('batchAdd.openingAuthorizePage', {
+      current: oauthCurrentIndex.value + 1,
+      total: oauthAccounts.value.length,
+      email: oauthCurrentEmail.value
+    })
   }
-  return `正在授权 ${oauthCurrentIndex.value + 1}/${oauthAccounts.value.length}: ${oauthCurrentEmail.value}`
+  return t('batchAdd.authorizingProgress', {
+    current: oauthCurrentIndex.value + 1,
+    total: oauthAccounts.value.length,
+    email: oauthCurrentEmail.value
+  })
 })
 
 const oauthProgressHint = computed(() => {
   if (oauthAuthPhase.value === 'preparing') {
-    return '正在获取授权链接并打开新标签页，请稍候。'
+    return t('batchAdd.preparingHint')
   }
-  return '请在新标签页中完成授权。若手动关闭授权页，本次批量授权会停止。'
+  return t('batchAdd.waitingHint')
 })
 
 const oauthPrimaryButtonText = computed(() => {
-  if (!isOAuthAuthorizing.value) return '开始授权'
-  if (oauthAuthPhase.value === 'preparing') return '正在打开授权页...'
-  return '授权中，请在浏览器完成'
+  if (!isOAuthAuthorizing.value) return t('batchAdd.startAuthorize')
+  if (oauthAuthPhase.value === 'preparing') return t('batchAdd.openingAuthorize')
+  return t('batchAdd.authorizingBrowser')
 })
 
 const closeButtonText = computed(() => {
-  if (isOAuthAuthorizing.value) return '终止'
-  return '取消'
+  if (isOAuthAuthorizing.value) return t('batchAdd.stop')
+  return t('common.cancel')
 })
 
 // ===== 初始化与重置 =====
@@ -438,10 +448,10 @@ const getOAuthRowClass = (status: string) => {
 
 const getOAuthStatusText = (status: string) => {
   switch (status) {
-    case 'success': return '授权成功'
-    case 'error': return '授权失败'
-    case 'authorizing': return '授权中...'
-    default: return '待授权'
+    case 'success': return t('batchAdd.authSuccess')
+    case 'error': return t('batchAdd.authFailed')
+    case 'authorizing': return t('batchAdd.authorizingBrowser')
+    default: return t('batchAdd.authPending')
   }
 }
 
@@ -450,7 +460,7 @@ const waitForDesktopOAuthCallback = (timeoutMs: number) =>
     const stopWatcher = window.setInterval(() => {
       if (oauthStopRequested.value) {
         cleanup()
-        resolve({ success: false, error: '已取消授权' })
+        resolve({ success: false, error: t('batchAdd.authCanceled') })
       }
     }, 200)
 
@@ -489,12 +499,12 @@ const waitForWebOAuthCallback = (
     const stopWatcher = window.setInterval(() => {
       if (oauthStopRequested.value) {
         cleanup()
-        resolve({ success: false, error: '已取消授权' })
+        resolve({ success: false, error: t('batchAdd.authCanceled') })
         return
       }
       if (popupWindow && popupWindow.closed) {
         cleanup()
-        resolve({ success: false, error: '检测到授权窗口已关闭', popupClosed: true })
+        resolve({ success: false, error: t('batchAdd.authPopupClosed'), popupClosed: true })
       }
     }, 200)
 
@@ -537,7 +547,7 @@ const markAuthorizedByEmail = (returnedEmail: string, fallbackIndex: number) => 
     if (fallback) {
       fallback.status = 'error'
     }
-    oauthErrorMessage.value = `授权成功，但邮箱不在列表: ${returnedEmail}`
+    oauthErrorMessage.value = t('batchAdd.authSuccessMismatch', { email: returnedEmail })
     return
   }
 
@@ -579,7 +589,7 @@ const startOAuthAuthorization = async () => {
       const authUrl = res.data?.auth_url || res.auth_url
 
       if (!authUrl) {
-        oauthErrorMessage.value = res.message || res.data?.message || '获取授权链接失败'
+        oauthErrorMessage.value = res.message || res.data?.message || t('batchAdd.authUrlFailed')
         account.status = 'error'
         closeActivePopupWindow()
         continue
@@ -589,7 +599,7 @@ const startOAuthAuthorization = async () => {
       activePopupWindow = openResult.popup
 
       if (!openResult.opened) {
-        oauthErrorMessage.value = '无法打开授权页面，请手动复制链接到浏览器'
+        oauthErrorMessage.value = t('batchAdd.authOpenFailed')
         account.status = 'error'
         closeActivePopupWindow()
         continue
@@ -604,7 +614,7 @@ const startOAuthAuthorization = async () => {
         const callbackResult = await waitForDesktopOAuthCallback(maxWait)
         if (callbackResult?.success === false) {
           account.status = 'error'
-          oauthErrorMessage.value = callbackResult.error || '授权失败'
+          oauthErrorMessage.value = callbackResult.error || t('batchAdd.authFailed')
           closeActivePopupWindow()
           oauthStopRequested.value = true
           break
@@ -622,7 +632,7 @@ const startOAuthAuthorization = async () => {
             waitResult = 'popup_closed'
           } else {
             account.status = 'error'
-            oauthErrorMessage.value = callbackResult.error || '授权失败'
+            oauthErrorMessage.value = callbackResult.error || t('batchAdd.authFailed')
             closeActivePopupWindow()
             oauthStopRequested.value = true
             break
@@ -642,16 +652,16 @@ const startOAuthAuthorization = async () => {
         markAuthorizedByEmail(authorizedEmail, i)
       } else if (waitResult === 'popup_closed') {
         account.status = 'error'
-        oauthErrorMessage.value = '检测到授权窗口已关闭，已停止后续授权，请重试'
+        oauthErrorMessage.value = `${t('batchAdd.authPopupClosed')}，${t('batchAdd.authTimeout')}`
         oauthStopRequested.value = true
         break
       } else if (waitResult === 'cancelled') {
         account.status = 'error'
-        oauthErrorMessage.value = '已终止授权'
+        oauthErrorMessage.value = t('batchAdd.authStopped')
         break
       } else {
         account.status = 'error'
-        oauthErrorMessage.value = '授权超时或未完成，请重试'
+        oauthErrorMessage.value = t('batchAdd.authTimeout')
       }
 
       if (!oauthStopRequested.value && i < oauthAccounts.value.length - 1) {
@@ -660,7 +670,7 @@ const startOAuthAuthorization = async () => {
 
     } catch (e: any) {
       closeActivePopupWindow()
-      oauthErrorMessage.value = e.message || '授权失败'
+      oauthErrorMessage.value = e.message || t('batchAdd.authFailed')
       account.status = 'error'
       oauthStopRequested.value = true
       break
@@ -685,7 +695,7 @@ const handleClose = () => {
   if (isOAuthAuthorizing.value) {
     oauthStopRequested.value = true
     closeActivePopupWindow()
-    oauthErrorMessage.value = '正在终止授权...'
+    oauthErrorMessage.value = t('batchAdd.authStopping')
     return
   }
   emit('close')

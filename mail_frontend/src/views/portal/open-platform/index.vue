@@ -141,7 +141,7 @@
                     <span class="rounded-full bg-gray-900 px-3 py-1 text-xs font-semibold text-white">{{ endpoint.method }}</span>
                     <code class="text-sm text-primary-700">{{ endpoint.path }}</code>
                   </div>
-                  <p class="text-sm text-gray-600">{{ endpoint.description }}</p>
+                  <p class="text-sm text-gray-600">{{ getEndpointDescription(endpoint) }}</p>
                 </div>
 
                 <div class="flex flex-wrap gap-2 text-xs text-gray-500">
@@ -249,13 +249,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import PageHeader from '@/components/PageHeader/index.vue'
 import openPlatformApi from '@/services/openPlatformApi'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 
 type EndpointItem = {
   method: string
@@ -577,6 +577,10 @@ const getEndpointLabel = (endpoint: EndpointItem) => {
   const key = `${String(endpoint.method || '').toUpperCase()} ${String(endpoint.path || '')}`
   return endpointLabelMap[key] ? t(endpointLabelMap[key]) : endpoint.description || `${endpoint.method} ${endpoint.path}`
 }
+const getEndpointDescription = (endpoint: EndpointItem) => {
+  const key = `${String(endpoint.method || '').toUpperCase()} ${String(endpoint.path || '')}`
+  return endpointLabelMap[key] ? t(endpointLabelMap[key]) : endpoint.description || '-'
+}
 const getAuthModeLabel = (mode?: string) => {
   if (mode === 'api_key') return t('openPlatform.authApiKey')
   if (mode === 'bearer_token') return t('openPlatform.authBearer')
@@ -668,4 +672,12 @@ const loadPageData = async () => {
 onMounted(async () => {
   await loadPageData()
 })
+
+watch(
+  () => locale.value,
+  async (next, prev) => {
+    if (!prev || next === prev) return
+    await loadPageData()
+  }
+)
 </script>

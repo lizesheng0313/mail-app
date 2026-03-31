@@ -66,19 +66,17 @@
           <span
             v-if="account.status === 'active'"
             class="w-2 h-2 rounded-full flex-shrink-0 bg-green-500"
-            title="🟢 在线"
+            :title="t('externalMailbox.online')"
           ></span>
           <span
             v-else-if="account.status === 'failed'"
             class="w-2 h-2 rounded-full flex-shrink-0 bg-red-500"
-            :title="
-              '🔴 连接失败' + (account.error_message ? ': ' + account.error_message : '')
-            "
+            :title="`${t('externalMailbox.connectionFailed')}${account.error_message ? `: ${account.error_message}` : ''}`"
           ></span>
           <span
             v-else
             class="w-2 h-2 rounded-full flex-shrink-0 bg-gray-400"
-            title="⚪ 已禁用"
+            :title="t('externalMailbox.disabled')"
           ></span>
           <div class="min-w-0 max-w-full text-left">
             <code
@@ -101,11 +99,7 @@
             {{ account.error_message }}
           </span>
           <span v-else>
-            更新：{{
-              account.last_sync_at || account.created_at
-                ? formatDate(account.last_sync_at || account.created_at)
-                : '未收取'
-            }}
+            {{ getUpdatedText(account) }}
           </span>
         </p>
         <MailboxTags
@@ -121,7 +115,7 @@
           <button
             type="button"
             class="flex h-8 w-8 items-center justify-center rounded-full text-gray-500 transition-colors hover:bg-white hover:text-gray-700"
-            title="更多操作"
+            :title="t('externalMailbox.moreActions')"
             @click.stop="toggleActionMenu(account.id, $event)"
           >
             <BaseIcon name="more" size="sm" />
@@ -140,7 +134,7 @@
               @click.stop="handleCopyEmail(account.email)"
             >
               <BaseIcon name="copy" size="sm" />
-              复制邮箱
+              {{ t('externalMailbox.copyMailbox') }}
             </button>
             <button
               v-if="!isSendEmailView"
@@ -149,7 +143,7 @@
               @click.stop="handleShareAction(account)"
             >
               <BaseIcon name="share" size="sm" />
-              分享邮箱
+              {{ t('externalMailbox.shareMailbox') }}
             </button>
             <button
               v-if="!isSendEmailView && isDesktop"
@@ -163,7 +157,7 @@
                 size="sm"
                 :class="{ 'animate-spin': mergedFetchingIds.includes(account.id) }"
               />
-              {{ mergedFetchingIds.includes(account.id) ? '收取中...' : '收取邮件' }}
+              {{ mergedFetchingIds.includes(account.id) ? t('externalMailbox.fetching') : t('externalMailbox.fetchMail') }}
             </button>
             <button
               type="button"
@@ -171,7 +165,7 @@
               @click.stop="handleDeleteAction(account.id)"
             >
               <BaseIcon name="delete" size="sm" />
-              删除账号
+              {{ t('externalMailbox.deleteAccount') }}
             </button>
           </div>
         </template>
@@ -182,10 +176,8 @@
   <ConfirmDialog
     :visible="showConfirm"
     :mask="false"
-    :title="isDeleting.batch ? '批量删除' : '删除账号'"
-    :message="
-      isDeleting.batch ? `确定删除 ${isDeleting.ids.length} 个账号？` : '确定删除这个账号？'
-    "
+    :title="isDeleting.batch ? t('externalMailbox.batchDeleteTitle') : t('externalMailbox.deleteTitle')"
+    :message="isDeleting.batch ? t('externalMailbox.deleteBatchMessage', { count: isDeleting.ids.length }) : t('externalMailbox.deleteSingleMessage')"
     :loading="deleting"
     @confirm="confirmDelete"
     @cancel="showConfirm = false"
@@ -313,11 +305,17 @@ const displayAccounts = computed(() => {
 })
 
 const formatDate = (date: string | number) => {
-  if (!date) return '未知'
+  if (!date) return t('externalMailbox.unknown')
   const timestamp = typeof date === 'number' ? date : new Date(date).getTime()
-  if (isNaN(timestamp)) return '未知'
+  if (isNaN(timestamp)) return t('externalMailbox.unknown')
   return formatTimestamp(timestamp, 'datetime')
 }
+
+const getUpdatedText = (account: any) => t('externalMailbox.updatedAt', {
+  date: account.last_sync_at || account.created_at
+    ? formatDate(account.last_sync_at || account.created_at)
+    : t('externalMailbox.notFetched')
+})
 
 const handleRecoveredMailbox = () => {
   void loadAccounts(currentPage.value || 1)
@@ -491,7 +489,7 @@ const handleBatchDelete = (ids: number[]) => {
   console.log('🟢 ids 是数组吗:', Array.isArray(ids))
   if (!ids || ids.length === 0) {
     console.warn('⚠️ 外部邮箱组件 - ids 为空或长度为0')
-    showMessage('请先选择要删除的邮箱', 'warning')
+    showMessage(t('externalMailbox.selectDeleteWarning'), 'warning')
     return
   }
   console.log('🟢 准备显示确认对话框')
@@ -509,7 +507,7 @@ const handleBatchShare = (ids: number[]) => {
 
 const copy = (text: string) => {
   navigator.clipboard.writeText(text)
-  showMessage('已复制', 'success')
+  showMessage(t('mail.copied'), 'success')
 }
 
 const handleRefreshAction = (accountId: number) => {
@@ -526,12 +524,12 @@ const confirmDelete = async () => {
   try {
     const deletedIds = [...isDeleting.value.ids]
     await Promise.all(deletedIds.map((id) => unifiedAPI.deleteMailbox(id, 'external')))
-    showMessage(`已删除 ${deletedIds.length} 个账号`)
+    showMessage(t('externalMailbox.batchDeleted', { count: deletedIds.length }))
     emit('deleted', deletedIds)
     await loadAccounts()
     emit('refresh')
   } catch (e: any) {
-    showMessage(e.message || '删除失败', 'error')
+    showMessage(e.message || t('systemMailbox.deleteFailed'), 'error')
   } finally {
     deleting.value = false
     showConfirm.value = false
@@ -551,16 +549,16 @@ const fetchSingleMailbox = async (accountId: number) => {
   try {
     const account = accounts.value.find((a: any) => a.id === accountId)
     if (!account) {
-      showMessage('邮箱不存在', 'error')
+      showMessage(t('externalMailbox.mailboxNotFound'), 'error')
       return
     }
 
     if (!isDesktop) {
-      showMessage('仅支持桌面端本地收取', 'warning')
+      showMessage(t('externalMailbox.desktopOnlyFetch'), 'warning')
       return
     }
 
-    showMessage('正在收取邮件...', 'primary', 0)
+    showMessage(t('externalMailbox.fetchingMailNow'), 'primary', 0)
 
     if (account.auth_type === 'oauth2') {
       // OAuth2 邮箱 + 桌面端：先获取 token，再走本地 IMAP XOAUTH2
@@ -583,9 +581,9 @@ const fetchSingleMailbox = async (accountId: number) => {
             accessToken: tokenPayload.access_token
           })
         })
-        showMessage('收取成功', 'success')
+        showMessage(t('externalMailbox.fetchSuccess'), 'success')
       } catch (e: any) {
-        const message = typeof e === 'string' ? e : e.message || '收取失败'
+        const message = typeof e === 'string' ? e : e.message || t('externalMailbox.fetchFailed')
         if (String(account.password || '').trim()) {
           try {
             const { invoke } = await import('@tauri-apps/api/core')
@@ -601,7 +599,7 @@ const fetchSingleMailbox = async (accountId: number) => {
                 detail: { mailboxId: account.id }
               })
             )
-            showMessage('收取成功', 'success')
+            showMessage(t('externalMailbox.fetchSuccess'), 'success')
           } catch (recoveryError: any) {
             const recoveryMessage = normalizeOAuthRecoveryErrorMessage(
               typeof recoveryError === 'string' ? recoveryError : recoveryError?.message || message
@@ -641,15 +639,15 @@ const fetchSingleMailbox = async (accountId: number) => {
           token,
           serverUrl
         })
-        showMessage('收取成功', 'success')
+        showMessage(t('externalMailbox.fetchSuccess'), 'success')
       } catch (e: any) {
-        showMessage(typeof e === 'string' ? e : e.message || '收取失败', 'error')
+        showMessage(typeof e === 'string' ? e : e.message || t('externalMailbox.fetchFailed'), 'error')
       }
     }
     await loadAccounts()
     emit('refresh')
   } catch (e: any) {
-    showMessage(typeof e === 'string' ? e : e.message || '收取失败', 'error')
+    showMessage(typeof e === 'string' ? e : e.message || t('externalMailbox.fetchFailed'), 'error')
     await loadAccounts()
   } finally {
     fetchingIds.value = fetchingIds.value.filter((id) => id !== accountId)

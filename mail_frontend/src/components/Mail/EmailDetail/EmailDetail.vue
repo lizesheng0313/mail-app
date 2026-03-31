@@ -3,11 +3,11 @@
     <!-- 标题栏 -->
     <div class="mb-4 flex items-center justify-between border-b border-gray-200 pb-4">
       <h2 class="text-base font-semibold text-black">{{ title }}</h2>
-      <HoverTooltip v-if="email" text="全屏">
+      <HoverTooltip v-if="email" :text="t('emailDetail.fullscreen')">
         <button
           @click="$emit('expand', email)"
           class="expand-button"
-          aria-label="全屏"
+          :aria-label="t('emailDetail.fullscreen')"
         >
           <ArrowsPointingOutIcon class="h-4 w-4" />
         </button>
@@ -28,18 +28,18 @@
       <div v-else>
         <!-- 邮件头部信息 -->
         <div class="border-b border-gray-200 pb-4 mb-4">
-          <h3 class="text-lg font-semibold text-gray-900 mb-3">{{ email.subject || '(无主题)' }}</h3>
+          <h3 class="text-lg font-semibold text-gray-900 mb-3">{{ email.subject || t('emailDetail.noSubject') }}</h3>
           <div class="space-y-2 text-sm">
             <div class="flex">
-              <span class="text-gray-500 w-16">发件人：</span>
+              <span class="text-gray-500 w-16">{{ t('common.sender') }}：</span>
               <span class="text-gray-900">{{ email.from_addr }}</span>
             </div>
             <div class="flex">
-              <span class="text-gray-500 w-16">收件人：</span>
+              <span class="text-gray-500 w-16">{{ t('common.recipient') }}：</span>
               <span class="text-gray-900">{{ email.to_addr }}</span>
             </div>
             <div class="flex">
-              <span class="text-gray-500 w-16">时间：</span>
+              <span class="text-gray-500 w-16">{{ t('common.time') }}：</span>
               <span class="text-gray-900">{{ formatDate(email.received_at) }}</span>
             </div>
           </div>
@@ -47,7 +47,7 @@
 
         <!-- 附件列表 -->
         <div v-if="attachments.length > 0" class="mb-4">
-          <div class="text-sm text-gray-500 mb-2">附件 ({{ attachments.length }})</div>
+          <div class="text-sm text-gray-500 mb-2">{{ t('emailDetail.attachmentsCount', { count: attachments.length }) }}</div>
           <div class="flex flex-col gap-2">
             <div
               v-for="att in attachments"
@@ -85,7 +85,7 @@
             {{ textContent }}
           </div>
           <div v-else class="text-gray-400 text-center py-8">
-            邮件内容为空
+            {{ t('emailDetail.emptyContent') }}
           </div>
         </div>
       </div>
@@ -96,6 +96,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { ArrowsPointingOutIcon } from '@heroicons/vue/24/solid'
+import { useI18n } from 'vue-i18n'
 import { formatTimestamp } from '@/utils/timeUtils'
 import { isTauri } from '@/services/api'
 import { batchLoginAPI } from '@/api/batchLogin'
@@ -125,14 +126,18 @@ type EmailIframeElement = HTMLIFrameElement & {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  title: '邮件详情',
+  title: '',
   email: null,
-  emptyText: '请选择一封邮件查看详情'
+  emptyText: ''
 })
+const { t } = useI18n()
 
 defineEmits<{
   expand: [email: Email]
 }>()
+
+const title = computed(() => props.title || t('emailDetail.title'))
+const emptyText = computed(() => props.emptyText || t('emailDetail.emptyText'))
 
 const attachments = computed(() => {
   return props.email?.attachments || []
@@ -167,7 +172,7 @@ const downloadAttachment = async (att: { id: number; filename: string }) => {
       const savePath = await save({ defaultPath: att.filename })
       if (!savePath) return
 
-      showMessage('正在下载附件...', 'info')
+      showMessage(t('emailDetail.downloadingAttachment'), 'info')
 
       // 获取邮箱连接信息
       const mailboxId = props.email.mailbox_id
@@ -181,7 +186,7 @@ const downloadAttachment = async (att: { id: number; filename: string }) => {
       const mailbox = accounts.find((a: any) => a.id === mailboxId)
 
       if (!mailbox) {
-        showMessage('找不到邮箱配置信息', 'error')
+        showMessage(t('emailDetail.mailboxConfigMissing'), 'error')
         return
       }
 
@@ -214,7 +219,7 @@ const downloadAttachment = async (att: { id: number; filename: string }) => {
           })
         })
 
-        showMessage(`附件已保存至: ${savePath}`, 'success')
+        showMessage(t('emailDetail.attachmentSaved', { path: savePath }), 'success')
         return
       } else if (protocol === 'pop3') {
         host = mailbox.pop3_host || ''
@@ -238,11 +243,11 @@ const downloadAttachment = async (att: { id: number; filename: string }) => {
         emailDateMs: Number(currentEmail.email_date || currentEmail.received_at || 0),
       })
 
-      showMessage(`附件已保存至: ${savePath}`, 'success')
+      showMessage(t('emailDetail.attachmentSaved', { path: savePath }), 'success')
       return
     } catch (e: any) {
       console.error('桌面端下载附件失败:', e)
-      showMessage(typeof e === 'string' ? e : (e?.message || '下载失败'), 'error')
+      showMessage(typeof e === 'string' ? e : (e?.message || t('emailDetail.downloadFailed')), 'error')
       return
     }
   }
@@ -250,12 +255,12 @@ const downloadAttachment = async (att: { id: number; filename: string }) => {
 
 const handleAttachmentClick = async (att: { id: number; filename: string }) => {
   if (!isExternalEmail.value) {
-    showMessage('临时邮箱附件不支持下载', 'warning')
+    showMessage(t('emailDetail.tempAttachmentUnsupported'), 'warning')
     return
   }
 
   if (!isTauri()) {
-    showMessage('请在桌面端下载附件', 'warning')
+    showMessage(t('emailDetail.desktopDownloadOnly'), 'warning')
     return
   }
 
@@ -420,7 +425,7 @@ const addIframeOpenHint = (embeddedFrame: HTMLIFrameElement, iframeDoc: Document
 
   const hint = iframeDoc.createElement('a')
   hint.href = url
-  hint.textContent = '嵌入页面可能无法直接操作，点此在系统浏览器打开'
+  hint.textContent = t('emailDetail.openInBrowserHint')
   hint.style.display = 'inline-block'
   hint.style.marginBottom = '8px'
   hint.style.padding = '6px 10px'

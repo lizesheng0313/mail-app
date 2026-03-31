@@ -70,9 +70,6 @@
             </div>
             <div class="flex items-center space-x-4">
               <slot name="header-actions"></slot>
-              <span class="text-sm text-gray-500">
-                {{ new Date().toLocaleDateString('zh-CN') }}
-              </span>
             </div>
         </div>
       </header>

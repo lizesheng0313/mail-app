@@ -2,8 +2,8 @@
   <div>
     <!-- 页面标题 -->
     <div class="mb-6">
-      <h2 class="text-2xl font-bold text-gray-900">我的销售</h2>
-      <p class="text-sm text-gray-600 mt-1">查看所有收益记录</p>
+      <h2 class="text-2xl font-bold text-gray-900">{{ t('ordersPage.title') }}</h2>
+      <p class="text-sm text-gray-600 mt-1">{{ t('ordersPage.subtitle') }}</p>
     </div>
 
     <!-- 筛选栏 -->
@@ -14,7 +14,7 @@
           <input
             v-model="searchKeyword"
             type="text"
-            placeholder="搜索订单号、工作流名称..."
+            :placeholder="t('ordersPage.searchPlaceholder')"
             class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-primary-500 focus:border-transparent"
           />
         </div>
@@ -24,7 +24,7 @@
           <CustomSelect
             v-model="orderType"
             :options="orderTypeOptions"
-            placeholder="全部类型"
+            :placeholder="t('ordersPage.allTypes')"
           />
         </div>
 
@@ -33,7 +33,7 @@
           <CustomSelect
             v-model="orderStatus"
             :options="orderStatusOptions"
-            placeholder="全部状态"
+            :placeholder="t('ordersPage.allStatuses')"
           />
         </div>
 
@@ -43,13 +43,13 @@
             @click="handleSearch"
             class="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
           >
-            查询
+            {{ t('ordersPage.query') }}
           </button>
           <button
             @click="handleReset"
             class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
           >
-            重置
+            {{ t('ordersPage.reset') }}
           </button>
         </div>
       </div>
@@ -57,7 +57,7 @@
 
     <!-- 数据表格 -->
     <AdminDataTable
-      title="收益记录"
+      :title="t('ordersPage.listTitle')"
       :pagination="pagination"
       :loading="loading"
       :column-count="6"
@@ -66,12 +66,12 @@
     >
       <template #thead>
         <tr>
-          <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">交易号</th>
-          <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">收益类型</th>
-          <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">描述</th>
-          <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">金额</th>
-          <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">时间</th>
-          <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">操作</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">{{ t('ordersPage.transactionNo') }}</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">{{ t('ordersPage.earningType') }}</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">{{ t('ordersPage.description') }}</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">{{ t('ordersPage.amount') }}</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">{{ t('ordersPage.time') }}</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">{{ t('ordersPage.actions') }}</th>
         </tr>
       </template>
 
@@ -89,14 +89,14 @@
             {{ order.description }}
           </td>
           <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-success-600">
-            +{{ order.amount }} 奶片
+            +{{ order.amount }} {{ t('ordersPage.coinsUnit') }}
           </td>
           <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
             {{ formatDate(order.created_at) }}
           </td>
           <td class="px-6 py-4 whitespace-nowrap text-sm">
             <ActionButton
-              label="详情"
+              :label="t('ordersPage.detail')"
               type="info"
               size="small"
               @click="viewDetail(order)"
@@ -105,7 +105,7 @@
         </tr>
         <tr v-if="orders.length === 0">
           <td colspan="9" class="px-6 py-12 text-center text-black">
-            暂无订单记录
+            {{ t('ordersPage.empty') }}
           </td>
         </tr>
       </template>
@@ -114,16 +114,16 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch, computed } from 'vue'
-import { showMessage } from '@/utils/message'
-import { showConfirm, showPrompt, showAlert } from '@/utils/dialog'
+import { ref, onMounted, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { showAlert } from '@/utils/dialog'
 import api from '@/services/api'
 import CustomSelect from '@/components/CustomSelect/index.vue'
 import AdminDataTable from '@/components/AdminDataTable/index.vue'
 import ActionButton from '@/components/ActionButton/index.vue'
+import { getCurrentLocale } from '@/i18n'
 
-// 当前用户ID
-const userId = ref(parseInt(localStorage.getItem('userId')) || 1)
+const { t } = useI18n()
 
 // 筛选条件
 const searchKeyword = ref('')
@@ -131,32 +131,20 @@ const orderType = ref('')
 const orderStatus = ref('')
 
 // Select选项
-const orderTypeOptions = [
-  { label: '全部类型', value: '' },
-  { label: '新购', value: 'purchase' },
-  { label: '续费', value: 'renew' },
-  { label: '升级', value: 'upgrade' }
-]
+const orderTypeOptions = computed(() => [
+  { label: t('ordersPage.allTypes'), value: '' },
+  { label: t('ordersPage.purchase'), value: 'purchase' },
+  { label: t('ordersPage.renew'), value: 'renew' },
+  { label: t('ordersPage.upgrade'), value: 'upgrade' }
+])
 
-const orderStatusOptions = [
-  { label: '全部状态', value: '' },
-  { label: '待支付', value: 'pending' },
-  { label: '已支付', value: 'paid' },
-  { label: '已退款', value: 'refunded' },
-  { label: '已取消', value: 'cancelled' }
-]
-
-// 统计数据
-const stats = ref({
-  total: 0,
-  totalAmount: 0,
-  pending: 0,
-  pendingAmount: 0,
-  completed: 0,
-  completedAmount: 0,
-  refunded: 0,
-  refundedAmount: 0
-})
+const orderStatusOptions = computed(() => [
+  { label: t('ordersPage.allStatuses'), value: '' },
+  { label: t('ordersPage.pending'), value: 'pending' },
+  { label: t('ordersPage.paid'), value: 'paid' },
+  { label: t('ordersPage.refunded'), value: 'refunded' },
+  { label: t('ordersPage.cancelled'), value: 'cancelled' }
+])
 
 // 订单列表
 const orders = ref([])
@@ -207,17 +195,6 @@ const loadOrders = async () => {
     if (res.code === 0) {
       orders.value = res.data.items || []
       total.value = res.data.total || 0
-
-      // 更新统计（根据收益记录计算）
-      const totalEarned = orders.value.reduce((sum, item) => sum + (item.amount || 0), 0)
-      stats.value.total = orders.value.length
-      stats.value.totalAmount = totalEarned
-      stats.value.completed = orders.value.length
-      stats.value.completedAmount = totalEarned
-      stats.value.pending = 0
-      stats.value.pendingAmount = 0
-      stats.value.refunded = 0
-      stats.value.refundedAmount = 0
     }
   } catch (error) {
     console.error('加载订单失败:', error)
@@ -239,9 +216,9 @@ const getTypeClass = (type) => {
 // 获取类型名称
 const getTypeName = (type) => {
   const typeMap = {
-    'workflow_execution': '工作流',
-    'plugin_order': '插件',
-    'mailbox': '邮箱'
+    'workflow_execution': t('ordersPage.typeWorkflow'),
+    'plugin_order': t('ordersPage.typePlugin'),
+    'mailbox': t('ordersPage.typeMailbox')
   }
   return typeMap[type] || type
 }
@@ -250,94 +227,21 @@ const getTypeName = (type) => {
 const formatDate = (timestamp) => {
   if (!timestamp) return '-'
   const date = new Date(timestamp)
-  return date.toLocaleString('zh-CN')
+  return date.toLocaleString(getCurrentLocale())
 }
 
 // 查看详情
 const viewDetail = (item) => {
   showAlert(
     `<div class="space-y-2">
-      <div><strong>交易号:</strong> ${item.transaction_no || '#' + item.id}</div>
-      <div><strong>类型:</strong> ${getTypeName(item.related_type)}</div>
-      <div><strong>金额:</strong> +${item.amount} 奶片</div>
-      <div><strong>描述:</strong> ${item.description}</div>
-      <div><strong>时间:</strong> ${formatDate(item.created_at)}</div>
+      <div><strong>${t('ordersPage.detailTransactionNo')}:</strong> ${item.transaction_no || '#' + item.id}</div>
+      <div><strong>${t('ordersPage.detailType')}:</strong> ${getTypeName(item.related_type)}</div>
+      <div><strong>${t('ordersPage.detailAmount')}:</strong> +${item.amount} ${t('ordersPage.coinsUnit')}</div>
+      <div><strong>${t('ordersPage.detailDescription')}:</strong> ${item.description}</div>
+      <div><strong>${t('ordersPage.detailTime')}:</strong> ${formatDate(item.created_at)}</div>
     </div>`,
-    '收益详情'
+    t('ordersPage.detailTitle')
   )
-}
-
-// 获取订单类型文本（保留旧方法避免错误）
-const getOrderTypeText = (type) => {
-  const texts = {
-    'purchase': '新购',
-    'renew': '续费',
-    'upgrade': '升级'
-  }
-  return texts[type] || type
-}
-
-// 获取订单状态样式
-const getOrderStatusClass = (status) => {
-  const classes = {
-    'pending': 'bg-warning-100 text-warning-700',
-    'paid': 'bg-primary-100 text-primary-700',
-    'refunded': 'bg-danger-100 text-danger-700',
-    'cancelled': 'bg-gray-100 text-gray-700'
-  }
-  return classes[status] || 'bg-gray-100 text-gray-700'
-}
-
-// 获取订单状态文本
-const getOrderStatusText = (status) => {
-  const texts = {
-    'pending': '待支付',
-    'paid': '已支付',
-    'refunded': '已退款',
-    'cancelled': '已取消'
-  }
-  return texts[status] || status
-}
-
-// 格式化日期时间
-const formatDateTime = (timestamp) => {
-  const date = new Date(timestamp)
-  return date.toLocaleString('zh-CN')
-}
-
-// 判断是否可以退款
-const canRefund = (order) => {
-  // 7天内可退款
-  const daysSincePaid = (Date.now() - order.paid_at) / 86400000
-  return daysSincePaid <= 7
-}
-
-// 查看订单详情
-const viewOrderDetail = async (order) => {
-  await showAlert(
-    `订单号：${order.order_no}\n工作流：${order.workflow_name}\n买家：${order.buyer_name}\n金额：¥${order.amount}\n佣金：¥${order.commission}\n状态：${getOrderStatusText(order.status)}`,
-    '订单详情'
-  )
-}
-
-// 退款
-const refundOrder = async (order) => {
-  const confirmed = await showConfirm(
-    `确定要退款订单"${order.order_no}"吗？退款后买家将无法继续使用该工作流。`,
-    '退款确认'
-  )
-
-  if (confirmed) {
-    // TODO: 调用退款API
-    showMessage('退款成功', 'success')
-    loadOrders()
-  }
-}
-
-// 导出订单
-const exportOrders = () => {
-  // TODO: 调用导出API
-  showMessage('正在导出订单数据...', 'success')
 }
 
 // 查询按钮

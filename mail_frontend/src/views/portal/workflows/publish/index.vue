@@ -9,7 +9,7 @@
           </svg>
         </button>
         <div>
-          <h1 class="text-sm font-medium">{{ isEditMode ? '编辑发布信息' : '发布工作流' }}</h1>
+          <h1 class="text-sm font-medium">{{ isEditMode ? t('publishWorkflow.titleEdit') : t('publishWorkflow.titleCreate') }}</h1>
           <p class="text-xs text-gray-500">{{ workflowName }}</p>
         </div>
       </div>
@@ -19,14 +19,14 @@
           :disabled="generating"
           class="px-3 py-1.5 text-sm bg-primary-600 text-white rounded hover:bg-primary-700 disabled:opacity-50"
         >
-          {{ generating ? '生成中...' : 'AI生成' }}
+          {{ generating ? t('publishWorkflow.generating') : t('publishWorkflow.generateWithAI') }}
         </button>
         <button
           @click="handleSubmit"
           :disabled="submitting"
           class="px-4 py-1.5 text-sm bg-primary-600 text-white rounded hover:bg-primary-700 disabled:opacity-50"
         >
-          {{ submitting ? (isEditMode ? '保存中...' : '提交中...') : (isEditMode ? '保存' : '提交') }}
+          {{ submitting ? (isEditMode ? t('publishWorkflow.saving') : t('publishWorkflow.submitting')) : (isEditMode ? t('publishWorkflow.save') : t('publishWorkflow.submit')) }}
         </button>
       </div>
     </div>
@@ -42,7 +42,7 @@
             <CustomSelect
               v-model="headingLevel"
               :options="headingOptions"
-              placeholder="正文"
+              :placeholder="t('publishWorkflow.body')"
               @update:modelValue="setHeading"
             />
           </div>
@@ -54,7 +54,7 @@
             @click="editor.chain().focus().toggleBold().run()"
             :class="{ 'bg-blue-100': editor.isActive('bold') }"
             class="p-1.5 hover:bg-gray-100 rounded"
-            title="加粗"
+            :title="t('publishWorkflow.bold')"
           >
             <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
               <path d="M11 5H7v10h4a5 5 0 000-10zm-1 8H9V7h1a3 3 0 010 6z"/>
@@ -66,7 +66,7 @@
             @click="editor.chain().focus().toggleItalic().run()"
             :class="{ 'bg-blue-100': editor.isActive('italic') }"
             class="p-1.5 hover:bg-gray-100 rounded"
-            title="斜体"
+            :title="t('publishWorkflow.italic')"
           >
             <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
               <path d="M12 3l-2 14h2l2-14h-2z"/>
@@ -78,7 +78,7 @@
             @click="editor.chain().focus().toggleStrike().run()"
             :class="{ 'bg-blue-100': editor.isActive('strike') }"
             class="p-1.5 hover:bg-gray-100 rounded"
-            title="删除线"
+            :title="t('publishWorkflow.strike')"
           >
             <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
               <path d="M10 3v2H6v2h8V5h-4V3h4a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V5a2 2 0 012-2h4zm0 8a2 2 0 100 4 2 2 0 000-4z"/>
@@ -92,7 +92,7 @@
             @click="editor.chain().focus().toggleBulletList().run()"
             :class="{ 'bg-blue-100': editor.isActive('bulletList') }"
             class="p-1.5 hover:bg-gray-100 rounded"
-            title="无序列表"
+            :title="t('publishWorkflow.bulletList')"
           >
             <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
               <path d="M3 4h1v1H3V4zm3 0h11v1H6V4zM3 9h1v1H3V9zm3 0h11v1H6V9zm-3 5h1v1H3v-1zm3 0h11v1H6v-1z"/>
@@ -104,7 +104,7 @@
             @click="editor.chain().focus().toggleOrderedList().run()"
             :class="{ 'bg-blue-100': editor.isActive('orderedList') }"
             class="p-1.5 hover:bg-gray-100 rounded"
-            title="有序列表"
+            :title="t('publishWorkflow.orderedList')"
           >
             <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
               <path d="M3 4h1v3H3V4zm0 5h1v3H3V9zm0 5h1v3H3v-3zm3-9h11v1H6V5zm0 5h11v1H6v-1zm0 5h11v1H6v-1z"/>
@@ -118,7 +118,7 @@
             @click="editor.chain().focus().toggleBlockquote().run()"
             :class="{ 'bg-blue-100': editor.isActive('blockquote') }"
             class="p-1.5 hover:bg-gray-100 rounded"
-            title="引用"
+            :title="t('publishWorkflow.quote')"
           >
             <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
               <path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zM12 10a2 2 0 11-4 0 2 2 0 014 0zM16 12a2 2 0 100-4 2 2 0 000 4z"/>
@@ -130,7 +130,7 @@
             @click="editor.chain().focus().toggleCodeBlock().run()"
             :class="{ 'bg-blue-100': editor.isActive('codeBlock') }"
             class="p-1.5 hover:bg-gray-100 rounded"
-            title="代码块"
+            :title="t('publishWorkflow.codeBlock')"
           >
             <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
               <path d="M13.707 3.293a1 1 0 010 1.414L9.414 9l4.293 4.293a1 1 0 01-1.414 1.414l-5-5a1 1 0 010-1.414l5-5a1 1 0 011.414 0z"/>
@@ -143,7 +143,7 @@
           <button
             @click="editor.chain().focus().setHorizontalRule().run()"
             class="p-1.5 hover:bg-gray-100 rounded"
-            title="分割线"
+            :title="t('publishWorkflow.divider')"
           >
             <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
               <path d="M3 10h14v1H3v-1z"/>
@@ -155,7 +155,7 @@
             @click="editor.chain().focus().undo().run()"
             :disabled="!editor.can().undo()"
             class="p-1.5 hover:bg-gray-100 rounded disabled:opacity-30"
-            title="撤销"
+            :title="t('publishWorkflow.undo')"
           >
             <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
               <path d="M7.707 3.293a1 1 0 010 1.414L5.414 7H11a7 7 0 017 7v2a1 1 0 11-2 0v-2a5 5 0 00-5-5H5.414l2.293 2.293a1 1 0 11-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"/>
@@ -167,7 +167,7 @@
             @click="editor.chain().focus().redo().run()"
             :disabled="!editor.can().redo()"
             class="p-1.5 hover:bg-gray-100 rounded disabled:opacity-30"
-            title="重做"
+            :title="t('publishWorkflow.redo')"
           >
             <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
               <path d="M12.293 3.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L14.586 9H9a5 5 0 00-5 5v2a1 1 0 11-2 0v-2a7 7 0 017-7h5.586l-2.293-2.293a1 1 0 010-1.414z"/>
@@ -185,13 +185,13 @@
 
           <!-- 分类 -->
           <div>
-            <label class="block text-xs text-gray-700 mb-1.5">分类 <span class="text-red-500">*</span></label>
-            <CustomSelect v-model="formData.category" :options="categoryOptions" placeholder="请选择" />
+            <label class="block text-xs text-gray-700 mb-1.5">{{ t('publishWorkflow.category') }} <span class="text-red-500">*</span></label>
+            <CustomSelect v-model="formData.category" :options="categoryOptions" :placeholder="t('publishWorkflow.select')" />
           </div>
 
           <!-- 定价模式 -->
           <div>
-            <label class="block text-xs text-gray-700 mb-1.5">定价模式 <span class="text-red-500">*</span></label>
+            <label class="block text-xs text-gray-700 mb-1.5">{{ t('publishWorkflow.pricingMode') }} <span class="text-red-500">*</span></label>
             <div class="space-y-1.5">
               <label
                 v-for="option in pricingOptions"
@@ -210,7 +210,7 @@
 
           <!-- 价格 -->
           <div v-if="formData.pricingModel !== 'free'">
-            <label class="block text-xs text-gray-700 mb-1.5">价格 <span class="text-red-500">*</span></label>
+            <label class="block text-xs text-gray-700 mb-1.5">{{ t('publishWorkflow.price') }} <span class="text-red-500">*</span></label>
             <div class="relative">
               <input
                 v-model.number="formData.milkCoinPrice"
@@ -219,30 +219,30 @@
                 placeholder="0"
                 class="w-full px-3 py-2 pr-12 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
-              <span class="absolute right-3 top-2 text-sm text-gray-500">奶片</span>
+              <span class="absolute right-3 top-2 text-sm text-gray-500">{{ t('publishWorkflow.coins') }}</span>
             </div>
             <div v-if="platformFeeRate > 0" class="mt-2 p-2 bg-amber-50 border border-amber-200 rounded">
               <p class="text-xs text-amber-800">
-                <span class="font-medium">💡 平台费率说明：</span>每笔交易平台收取{{ platformFeeRate }}%手续费
+                {{ t('publishWorkflow.platformFeeNote', { rate: platformFeeRate }) }}
               </p>
               <p v-if="formData.milkCoinPrice > 0" class="text-xs text-amber-700 mt-1">
-                您的实际收益：<span class="font-semibold">{{ (formData.milkCoinPrice * (1 - platformFeeRate / 100)).toFixed(2) }}</span> 奶片/次
+                {{ t('publishWorkflow.actualIncome', { amount: (formData.milkCoinPrice * (1 - platformFeeRate / 100)).toFixed(2) }) }}
               </p>
             </div>
           </div>
 
           <!-- 订阅周期 -->
           <div v-if="formData.pricingModel === 'subscription'">
-            <label class="block text-xs text-gray-700 mb-1.5">订阅周期 <span class="text-red-500">*</span></label>
-            <CustomSelect v-model="formData.subscriptionPeriod" :options="periodOptions" placeholder="请选择" />
+            <label class="block text-xs text-gray-700 mb-1.5">{{ t('publishWorkflow.subscriptionPeriod') }} <span class="text-red-500">*</span></label>
+            <CustomSelect v-model="formData.subscriptionPeriod" :options="periodOptions" :placeholder="t('publishWorkflow.select')" />
           </div>
 
           <!-- 启用库存管理 -->
           <div>
             <div class="flex items-start justify-between">
               <div class="flex-1 pr-3">
-                <span class="text-xs font-medium text-gray-700">启用库存管理</span>
-                <p class="text-xs text-gray-500 mt-0.5">开启后可在工作流列表中批量添加数据资源，购买用户将自动获得分配</p>
+                <span class="text-xs font-medium text-gray-700">{{ t('publishWorkflow.inventoryEnabled') }}</span>
+                <p class="text-xs text-gray-500 mt-0.5">{{ t('publishWorkflow.inventoryEnabledDesc') }}</p>
               </div>
               <!-- Switch Toggle -->
               <div 
@@ -264,7 +264,7 @@
 
           <!-- 标签 -->
           <div>
-            <label class="block text-xs text-gray-700 mb-1.5">标签</label>
+            <label class="block text-xs text-gray-700 mb-1.5">{{ t('publishWorkflow.tags') }}</label>
             <div v-if="formData.tags.length" class="flex flex-wrap gap-1.5 mb-2">
               <span v-for="tag in formData.tags" :key="tag" class="inline-flex items-center px-2 py-0.5 text-xs bg-gray-100 rounded">
                 {{ tag }}
@@ -275,17 +275,17 @@
               <input
                 v-model="tagInput"
                 type="text"
-                placeholder="输入标签"
+                :placeholder="t('publishWorkflow.tagPlaceholder')"
                 class="flex-1 px-3 py-1.5 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                 @keyup.enter="addTag"
               />
-              <button @click="addTag" class="px-3 py-1.5 text-sm bg-gray-100 rounded hover:bg-gray-200">添加</button>
+              <button @click="addTag" class="px-3 py-1.5 text-sm bg-gray-100 rounded hover:bg-gray-200">{{ t('publishWorkflow.addTag') }}</button>
             </div>
           </div>
 
           <!-- 封面图 -->
           <div>
-            <label class="block text-xs text-gray-700 mb-1.5">封面图</label>
+            <label class="block text-xs text-gray-700 mb-1.5">{{ t('publishWorkflow.coverImage') }}</label>
             <div v-if="formData.iconUrl" class="mb-2 text-center">
               <img :src="formData.iconUrl" class="w-full h-32 object-cover mx-auto rounded" />
             </div>
@@ -295,13 +295,13 @@
               :disabled="uploadingIcon"
               class="w-full px-3 py-2 text-sm border rounded hover:bg-gray-50 disabled:opacity-50"
             >
-              {{ uploadingIcon ? '上传中...' : formData.iconUrl ? '更换' : '上传' }}
+              {{ uploadingIcon ? t('publishWorkflow.uploading') : formData.iconUrl ? t('publishWorkflow.replace') : t('publishWorkflow.upload') }}
             </button>
           </div>
 
           <!-- 截图 -->
           <div>
-            <label class="block text-xs text-gray-700 mb-1.5">截图 ({{ formData.screenshots.length }}/20)</label>
+            <label class="block text-xs text-gray-700 mb-1.5">{{ t('publishWorkflow.screenshots', { count: formData.screenshots.length }) }}</label>
             <div v-if="formData.screenshots.length" class="grid grid-cols-3 gap-2 mb-2">
               <div v-for="(url, index) in formData.screenshots" :key="index" class="relative group">
                 <img :src="url" class="w-full h-16 object-cover rounded" />
@@ -317,7 +317,7 @@
               :disabled="uploadingScreenshot || formData.screenshots.length >= 20"
               class="w-full px-3 py-2 text-sm border rounded hover:bg-gray-50 disabled:opacity-50"
             >
-              {{ uploadingScreenshot ? '上传中...' : '添加' }}
+              {{ uploadingScreenshot ? t('publishWorkflow.uploading') : t('publishWorkflow.add') }}
             </button>
           </div>
 
@@ -330,6 +330,7 @@
 
 <script setup>
 import { ref, onMounted, onBeforeUnmount, watch, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRouter, useRoute } from 'vue-router'
 import { useEditor, EditorContent } from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
@@ -345,6 +346,7 @@ import { useUserStore } from '@/stores/user'
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
+const { t } = useI18n()
 
 // 判断是否是管理员
 const isAdmin = computed(() => userStore.user?.is_admin)
@@ -354,7 +356,7 @@ const editor = useEditor({
   extensions: [
     StarterKit,
     Placeholder.configure({
-      placeholder: '在此输入工作流的详细说明...'
+      placeholder: t('publishWorkflow.editorPlaceholder')
     })
   ],
   content: '',
@@ -379,10 +381,10 @@ const editor = useEditor({
 // 标题选项
 const headingLevel = ref('')
 const headingOptions = [
-  { label: '正文', value: '' },
-  { label: '标题 1', value: '1' },
-  { label: '标题 2', value: '2' },
-  { label: '标题 3', value: '3' }
+  { label: t('publishWorkflow.body'), value: '' },
+  { label: t('publishWorkflow.heading1'), value: '1' },
+  { label: t('publishWorkflow.heading2'), value: '2' },
+  { label: t('publishWorkflow.heading3'), value: '3' }
 ]
 
 // 设置标题
@@ -403,14 +405,14 @@ const isEditMode = ref(history.state.edit_mode === true)
 
 // 选项（管理员可以看到邮箱套餐分类）
 const baseCategoryOptions = [
-  { label: '自动化', value: 'automation' },
-  { label: '账号获取', value: 'account' },
-  { label: '文档格式转换', value: 'document' },
-  { label: '其它', value: 'other' }
+  { label: t('publishWorkflow.categoryAutomation'), value: 'automation' },
+  { label: t('publishWorkflow.categoryAccount'), value: 'account' },
+  { label: t('publishWorkflow.categoryDocument'), value: 'document' },
+  { label: t('publishWorkflow.categoryOther'), value: 'other' }
 ]
 
 const adminCategoryOptions = [
-  { label: '邮箱套餐', value: 'mailbox' }
+  { label: t('publishWorkflow.categoryMailbox'), value: 'mailbox' }
 ]
 
 const categoryOptions = computed(() => {
@@ -422,28 +424,28 @@ const categoryOptions = computed(() => {
 
 const pricingOptions = [
   {
-    label: '免费',
+    label: t('publishWorkflow.pricingFree'),
     value: 'free',
-    desc: '免费提供给所有用户使用',
-    badge: '推荐',
+    desc: t('publishWorkflow.pricingFreeDesc'),
+    badge: t('publishWorkflow.pricingFreeBadge'),
     badgeClass: 'bg-green-100 text-green-700'
   },
   {
-    label: '按次付费',
+    label: t('publishWorkflow.pricingPerUse'),
     value: 'per_use',
-    desc: '每次执行收取费用，适合低频使用场景'
+    desc: t('publishWorkflow.pricingPerUseDesc')
   },
   {
-    label: '订阅制',
+    label: t('publishWorkflow.pricingSubscription'),
     value: 'subscription',
-    desc: '按周期订阅使用，适合高频使用场景'
+    desc: t('publishWorkflow.pricingSubscriptionDesc')
   }
 ]
 
 const periodOptions = [
-  { label: '月订阅', value: 'monthly' },
-  { label: '年订阅', value: 'yearly' },
-  { label: '永久使用', value: 'lifetime' }
+  { label: t('publishWorkflow.periodMonthly'), value: 'monthly' },
+  { label: t('publishWorkflow.periodYearly'), value: 'yearly' },
+  { label: t('publishWorkflow.periodLifetime'), value: 'lifetime' }
 ]
 
 // 表单数据
@@ -520,7 +522,7 @@ const handleIconUpload = async (event) => {
 
   // 验证文件大小
   if (file.size > MAX_ICON_SIZE) {
-    showMessage(`图标文件过大，最大支持 ${MAX_ICON_SIZE / 1024 / 1024}MB`, 'error')
+    showMessage(t('publishWorkflow.iconTooLarge', { size: MAX_ICON_SIZE / 1024 / 1024 }), 'error')
     event.target.value = ''
     return
   }
@@ -537,11 +539,11 @@ const handleIconUpload = async (event) => {
     if (res.code === 0) {
       // 后端已返回完整URL，直接使用
       formData.value.iconUrl = res.data.url
-      showMessage('图标上传成功', 'success')
+      showMessage(t('publishWorkflow.iconUploadSuccess'), 'success')
     }
   } catch (error) {
     console.error('上传图标失败:', error)
-    showMessage('上传失败', 'error')
+    showMessage(t('publishWorkflow.uploadFailed'), 'error')
   } finally {
     uploadingIcon.value = false
     event.target.value = ''
@@ -556,7 +558,7 @@ const handleScreenshotsUpload = async (event) => {
   // 检查数量限制
   const remaining = MAX_SCREENSHOTS - formData.value.screenshots.length
   if (remaining <= 0) {
-    showMessage('最多只能上传20张截图', 'warning')
+    showMessage(t('publishWorkflow.screenshotLimit'), 'warning')
     event.target.value = ''
     return
   }
@@ -566,7 +568,7 @@ const handleScreenshotsUpload = async (event) => {
   // 验证文件大小
   for (const file of filesToUpload) {
     if (file.size > MAX_SCREENSHOT_SIZE) {
-      showMessage(`文件 ${file.name} 过大，最大支持 ${MAX_SCREENSHOT_SIZE / 1024 / 1024}MB`, 'error')
+      showMessage(t('publishWorkflow.fileTooLarge', { name: file.name, size: MAX_SCREENSHOT_SIZE / 1024 / 1024 }), 'error')
       event.target.value = ''
       return
     }
@@ -587,10 +589,10 @@ const handleScreenshotsUpload = async (event) => {
         formData.value.screenshots.push(res.data.url)
       }
     }
-    showMessage('截图上传成功', 'success')
+    showMessage(t('publishWorkflow.screenshotUploadSuccess'), 'success')
   } catch (error) {
     console.error('上传截图失败:', error)
-    showMessage('上传失败', 'error')
+    showMessage(t('publishWorkflow.uploadFailed'), 'error')
   } finally {
     uploadingScreenshot.value = false
     event.target.value = ''
@@ -601,7 +603,7 @@ const handleScreenshotsUpload = async (event) => {
 const handleUploadImage = async (file) => {
   // 验证文件大小
   if (file.size > MAX_SCREENSHOT_SIZE) {
-    throw new Error(`图片过大，最大支持 ${MAX_SCREENSHOT_SIZE / 1024 / 1024}MB`)
+    throw new Error(t('publishWorkflow.imageTooLarge', { size: MAX_SCREENSHOT_SIZE / 1024 / 1024 }))
   }
 
   try {
@@ -616,7 +618,7 @@ const handleUploadImage = async (file) => {
       // 后端已返回完整URL，直接使用
       return res.data.url
     }
-    throw new Error(res.message || '上传失败')
+    throw new Error(res.message || t('publishWorkflow.uploadFailed'))
   } catch (error) {
     console.error('上传图片失败:', error)
     throw error
@@ -626,7 +628,7 @@ const handleUploadImage = async (file) => {
 // AI生成
 const generateWithAI = async () => {
   if (!workflowId.value) {
-    showMessage('工作流ID不存在', 'error')
+    showMessage(t('publishWorkflow.workflowIdMissing'), 'error')
     return
   }
 
@@ -639,13 +641,13 @@ const generateWithAI = async () => {
       if (editor.value) {
         editor.value.commands.setContent(res.data.long_description)
       }
-      showMessage('AI生成成功', 'success')
+      showMessage(t('publishWorkflow.aiSuccess'), 'success')
     } else {
-      showMessage(res.message || 'AI生成失败', 'error')
+      showMessage(res.message || t('publishWorkflow.aiFailed'), 'error')
     }
   } catch (error) {
     console.error('AI生成失败:', error)
-    showMessage('AI生成失败', 'error')
+    showMessage(t('publishWorkflow.aiFailed'), 'error')
   } finally {
     generating.value = false
   }
@@ -655,19 +657,19 @@ const generateWithAI = async () => {
 const handleSubmit = async () => {
   // 验证
   if (!formData.value.category) {
-    showMessage('请选择分类', 'warning')
+    showMessage(t('publishWorkflow.selectCategoryWarning'), 'warning')
     return
   }
   if (formData.value.pricingModel !== 'free' && formData.value.milkCoinPrice <= 0) {
-    showMessage('付费工作流的价格必须大于0', 'warning')
+    showMessage(t('publishWorkflow.priceWarning'), 'warning')
     return
   }
   if (formData.value.pricingModel === 'subscription' && !formData.value.subscriptionPeriod) {
-    showMessage('请选择订阅周期', 'warning')
+    showMessage(t('publishWorkflow.periodWarning'), 'warning')
     return
   }
   if (!formData.value.longDescription) {
-    showMessage('请填写详细说明', 'warning')
+    showMessage(t('publishWorkflow.descriptionWarning'), 'warning')
     return
   }
 
@@ -700,7 +702,7 @@ const handleSubmit = async () => {
     }
 
     if (res.code === 0) {
-      const message = isEditMode.value ? '更新成功！' : '提交成功！审核通过后将自动发布到工作流市场'
+      const message = isEditMode.value ? t('publishWorkflow.updateSuccess') : t('publishWorkflow.publishSuccess')
       showMessage(message, 'success')
       setTimeout(() => {
         router.push('/automation/workflows')
@@ -783,11 +785,11 @@ const loadWorkflowInfo = async () => {
       }
     } else {
       console.error('❌ 获取工作流信息失败:', res.message)
-      showMessage(res.message || '获取工作流信息失败', 'error')
+      showMessage(res.message || t('publishWorkflow.workflowInfoFailed'), 'error')
     }
   } catch (error) {
     console.error('❌ 加载工作流信息异常:', error)
-    showMessage('加载工作流信息失败', 'error')
+    showMessage(t('publishWorkflow.workflowInfoFailed'), 'error')
   }
 }
 
@@ -811,7 +813,7 @@ onMounted(async () => {
   console.log('  - isEditMode:', isEditMode.value)
 
   if (!workflowId.value) {
-    showMessage('工作流ID不存在', 'error')
+    showMessage(t('publishWorkflow.workflowIdMissing'), 'error')
     setTimeout(() => {
       router.push('/automation/workflows')
     }, 2000)

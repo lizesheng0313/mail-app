@@ -7,7 +7,7 @@
       <!-- 加载状态 -->
       <div v-if="loading" class="text-center py-12">
         <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
-        <p class="mt-4 text-gray-600">加载中...</p>
+        <p class="mt-4 text-gray-600">{{ t('marketDetail.loading') }}</p>
       </div>
 
       <!-- 工作流详情 -->
@@ -34,9 +34,9 @@
               <div class="flex-1">
                 <h1 class="text-2xl font-bold text-gray-900 mb-2">{{ workflow.name }}</h1>
                 <div class="flex items-center gap-4 text-sm text-gray-600">
-                  <span>作者: {{ workflow.author_name || 'Admin' }}</span>
+                  <span>{{ t('marketDetail.author', { name: workflow.author_name || t('marketDetail.defaultAuthor') }) }}</span>
                   <span>·</span>
-                  <span>分类: {{ getCategoryText(workflow.category) }}</span>
+                  <span>{{ t('marketDetail.category', { name: getCategoryText(workflow.category) }) }}</span>
                 </div>
               </div>
             </div>
@@ -58,13 +58,13 @@
 
           <!-- 截图预览 - 只在有截图时显示 -->
           <div v-if="hasValidScreenshots" class="bg-white rounded-lg shadow p-6">
-            <h3 class="text-lg font-semibold mb-4">截图预览</h3>
+            <h3 class="text-lg font-semibold mb-4">{{ t('marketDetail.screenshots') }}</h3>
             <div class="grid grid-cols-2 gap-4">
               <img
                 v-for="(screenshot, index) in validScreenshots"
                 :key="index"
                 :src="screenshot"
-                :alt="`截图 ${index + 1}`"
+                :alt="t('marketDetail.screenshotAlt', { index: index + 1 })"
                 class="w-full rounded-lg border border-gray-200 cursor-pointer hover:opacity-90 transition-opacity"
                 @click="viewImage(screenshot)"
                 @error="handleImageError($event, index)"
@@ -74,13 +74,13 @@
 
           <!-- 详细说明 -->
           <div v-if="workflow.long_description" class="bg-white rounded-lg shadow p-6">
-            <h3 class="text-lg font-semibold mb-4">详细说明</h3>
+            <h3 class="text-lg font-semibold mb-4">{{ t('marketDetail.details') }}</h3>
             <div class="prose max-w-none" v-html="workflow.long_description"></div>
           </div>
 
           <!-- 用户评价 -->
           <div class="bg-white rounded-lg shadow p-6">
-            <h3 class="text-lg font-semibold mb-6">用户评价 ({{ workflow.review_count || 0 }})</h3>
+            <h3 class="text-lg font-semibold mb-6">{{ t('marketDetail.reviewsTitle', { count: workflow.review_count || 0 }) }}</h3>
 
             <!-- 评论输入框 - 始终显示 -->
             <div class="mb-6">
@@ -92,14 +92,14 @@
                   <textarea
                     v-model="newComment"
                     rows="3"
-                    :placeholder="canReview ? '分享你的使用体验...' : '只有购买并使用过这个工作流才能评论'"
+                    :placeholder="canReview ? t('marketDetail.reviewPlaceholder') : t('marketDetail.reviewLockedPlaceholder')"
                     :disabled="!canReview"
                     class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 resize-none"
                     :class="!canReview ? 'bg-gray-50 cursor-not-allowed' : ''"
                   ></textarea>
                   <div class="flex items-center justify-between mt-2">
                     <div class="flex items-center gap-2">
-                      <span class="text-sm text-gray-600">评分：</span>
+                      <span class="text-sm text-gray-600">{{ t('marketDetail.rating') }}</span>
                       <div class="flex gap-1">
                         <button
                           v-for="i in 5"
@@ -119,11 +119,11 @@
                       :disabled="!canReview || !newComment.trim()"
                       class="px-4 py-2 bg-primary-600 text-white text-sm rounded hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      发表评价
+                      {{ t('marketDetail.submitReview') }}
                     </button>
                   </div>
                   <p v-if="!canReview" class="text-xs text-amber-600 mt-2">
-                    💡 提示：您需要先购买并使用这个工作流才能发表评价
+                    {{ t('marketDetail.reviewHint') }}
                   </p>
                 </div>
               </div>
@@ -140,9 +140,9 @@
                   <div class="flex-1">
                     <div class="flex items-center justify-between mb-2">
                       <div class="flex items-center gap-2">
-                        <span class="font-medium text-gray-900">{{ review.user_name || '匿名用户' }}</span>
+                        <span class="font-medium text-gray-900">{{ review.user_name || t('marketDetail.anonymousUser') }}</span>
                         <!-- 作者标识 -->
-                        <span v-if="review.user_id === workflow.author_id" class="px-2 py-0.5 text-xs bg-primary-100 text-primary-600 rounded">作者</span>
+                        <span v-if="review.user_id === workflow.author_id" class="px-2 py-0.5 text-xs bg-primary-100 text-primary-600 rounded">{{ t('marketDetail.authorBadge') }}</span>
                         <div v-if="review.rating" class="flex">
                           <svg v-for="i in 5" :key="i" :class="i <= review.rating ? 'text-yellow-400' : 'text-gray-300'" class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
                             <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
@@ -157,7 +157,7 @@
                           icon="delete"
                           variant="delete"
                           size="sm"
-                          tooltip="删除评论"
+                          :tooltip="t('marketDetail.deleteReviewTooltip')"
                           @click="deleteReviewById(review.id)"
                         />
                       </div>
@@ -170,7 +170,7 @@
                       @click="replyToReview(review)"
                       class="mt-2 text-sm text-primary-600 hover:text-primary-700"
                     >
-                      回复
+                      {{ t('marketDetail.reply') }}
                     </button>
                     
                     <!-- 子评论（回复） -->
@@ -178,9 +178,9 @@
                       <div v-for="reply in review.replies" :key="reply.id" class="border-l-2 border-gray-200 pl-4">
                         <div class="flex items-center justify-between mb-1">
                           <div class="flex items-center gap-2">
-                            <span class="font-medium text-gray-900 text-sm">{{ reply.user_name || '匿名用户' }}</span>
+                            <span class="font-medium text-gray-900 text-sm">{{ reply.user_name || t('marketDetail.anonymousUser') }}</span>
                             <!-- 作者标识 -->
-                            <span v-if="reply.user_id === workflow.author_id" class="px-2 py-0.5 text-xs bg-primary-100 text-primary-600 rounded">作者</span>
+                            <span v-if="reply.user_id === workflow.author_id" class="px-2 py-0.5 text-xs bg-primary-100 text-primary-600 rounded">{{ t('marketDetail.authorBadge') }}</span>
                             <span class="text-xs text-gray-500">{{ formatDate(reply.created_at) }}</span>
                           </div>
                           <!-- 删除回复按钮 -->
@@ -189,7 +189,7 @@
                             icon="delete"
                             variant="delete"
                             size="xs"
-                            tooltip="删除回复"
+                            :tooltip="t('marketDetail.deleteReplyTooltip')"
                             @click="deleteReviewById(reply.id)"
                           />
                         </div>
@@ -201,7 +201,7 @@
               </div>
             </div>
             <div v-else class="text-center py-8 text-gray-500">
-              暂无评价
+              {{ t('marketDetail.emptyReviews') }}
             </div>
           </div>
         </div>
@@ -216,19 +216,19 @@
               class="w-full px-6 py-3 bg-primary-600 text-white text-base font-medium rounded-lg hover:bg-primary-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
               <span v-if="workflow.inventory_enabled && workflow.inventory_count <= 0">
-                库存已耗尽
+                {{ t('marketDetail.soldOut') }}
               </span>
               <span v-else-if="workflow.pricing_model === 'free'">
-                立即执行（免费）
+                {{ t('marketDetail.executeFree') }}
               </span>
               <span v-else-if="workflow.pricing_model === 'per_use'">
-                立即执行（{{ workflow.milk_coin_price }} 奶片/次）
+                {{ t('marketDetail.executePerUse', { price: workflow.milk_coin_price }) }}
               </span>
               <span v-else-if="workflow.pricing_model === 'subscription'">
-                立即执行（订阅后免费）
+                {{ t('marketDetail.executeSubscription') }}
               </span>
               <span v-else>
-                立即执行（{{ workflow.milk_coin_price }} 奶片）
+                {{ t('marketDetail.executeOneTime', { price: workflow.milk_coin_price }) }}
               </span>
             </button>
 
@@ -240,12 +240,12 @@
               <svg class="w-5 h-5 inline mr-2 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              执行历史
+              {{ t('marketDetail.executionHistory') }}
             </button>
             
             <!-- 库存信息 -->
             <div v-if="workflow.inventory_enabled && workflow.inventory_count !== undefined" class="pt-3 text-center text-sm text-gray-600">
-              剩余库存：<span class="font-semibold text-primary-600">{{ workflow.inventory_count }}</span>
+              {{ t('marketDetail.remainingInventory', { count: workflow.inventory_count }) }}
             </div>
           </div>
         </div>
@@ -291,8 +291,8 @@
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
           <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
         </svg>
-        <p class="text-lg font-medium text-gray-900">工作流执行中...</p>
-        <p class="text-sm text-gray-500 mt-2">请稍候，正在处理您的请求</p>
+        <p class="text-lg font-medium text-gray-900">{{ t('marketDetail.executingTitle') }}</p>
+        <p class="text-sm text-gray-500 mt-2">{{ t('marketDetail.executingSubtitle') }}</p>
       </div>
     </div>
   </div>
@@ -300,6 +300,7 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { getWorkflowDetail } from '@/api/workflowMarket'
 import { createReview, deleteReview } from '@/api/workflowMarket'
@@ -315,10 +316,12 @@ import ActionButton from '@/components/ActionButton/index.vue'
 import ImagePreview from '@/components/ImagePreview/index.vue'
 import { useUserStore } from '@/stores/user'
 import { setPageSeo } from '@/seo'
+import { getCurrentLocale } from '@/i18n'
 
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
+const { t, te } = useI18n()
 
 const workflowId = computed(() => parseInt(route.params.id))
 const workflow = ref(null)
@@ -348,17 +351,17 @@ const updateWorkflowSeo = () => {
     return
   }
 
-  const workflowName = workflow.value.name || '工作流详情'
+  const workflowName = workflow.value.name || t('marketDetail.seoFallbackTitle')
   const workflowDescription =
     workflow.value.description ||
     stripHtml(workflow.value.long_description || '') ||
-    '查看工作流模板的功能说明、价格、作者信息和用户评价。'
+    t('marketDetail.seoFallbackDescription')
   const keywordList = Array.isArray(workflow.value.keywords) ? workflow.value.keywords.filter(Boolean) : []
 
   setPageSeo({
-    title: `${workflowName} - 工作流详情 | 肥猫猫`,
+    title: `${workflowName} - ${t('marketDetail.seoTitleSuffix')} | ${t('seo.siteName')}`,
     description: workflowDescription.slice(0, 160),
-    keywords: ['工作流详情', '邮件自动化', workflowName, ...keywordList].join(', '),
+    keywords: [t('marketDetail.seoKeywordWorkflowDetail'), t('marketDetail.seoKeywordEmailAutomation'), workflowName, ...keywordList].join(', '),
     canonicalPath: route.path,
     ogType: 'website'
   })
@@ -388,19 +391,10 @@ const loadWorkflowDetail = async (showLoading = true) => {
 
   try {
     const res = await getWorkflowDetail(workflowId.value)
-    
-    console.log('Workflow detail response:', res)
-    
+
     if (res.code === 0) {
       workflow.value = res.data
       updateWorkflowSeo()
-
-      console.log('🔍 调试信息:', {
-        author_id: res.data.author_id,
-        user_id: userStore.user?.id,
-        can_review: res.data.can_review,
-        原始数据: res.data
-      })
 
       // 初始化有效截图列表
       if (res.data.screenshots && Array.isArray(res.data.screenshots)) {
@@ -426,7 +420,7 @@ const loadWorkflowDetail = async (showLoading = true) => {
 const executeNow = async () => {
   // 检查登录状态
   if (!userStore.isAuthenticated) {
-    showMessage('请先登录后再执行', 'warning')
+    showMessage(t('marketDetail.loginBeforeExecute'), 'warning')
     router.push('/login')
     return
   }
@@ -446,8 +440,8 @@ const executeNow = async () => {
         if (userBalance < price) {
           confirmDialog.value = {
             visible: true,
-            title: '奶片余额不足',
-            message: `执行此工作流需要 ${price} 奶片,您当前余额为 ${userBalance} 奶片。\n\n请前往财务中心充值后再执行。`,
+            title: t('marketDetail.insufficientCoinsTitle'),
+            message: t('marketDetail.insufficientCoinsMessage', { price, balance: userBalance }),
             type: 'warning',
             loading: false,
             onConfirm: () => {
@@ -467,13 +461,15 @@ const executeNow = async () => {
     }
   }
 
-  let title = '确认执行'
+  let title = t('marketDetail.confirmExecuteTitle')
   let message = ''
 
   if (model === 'per_use') {
-    message = `立即执行工作流"${workflow.value.name}"将扣除 ${price} 奶片。确认执行吗？`
+    message = t('marketDetail.confirmExecutePerUse', { name: workflow.value.name, price })
   } else if (model === 'subscription') {
-    message = `立即执行工作流"${workflow.value.name}"。如果您已订阅，则免费执行；否则需要先订阅。确认执行吗？`
+    message = t('marketDetail.confirmExecuteSubscription', { name: workflow.value.name })
+  } else {
+    message = t('marketDetail.confirmExecuteDefault', { name: workflow.value.name })
   }
 
   confirmDialog.value = {
@@ -496,7 +492,7 @@ const executeNow = async () => {
           if (status === 'completed') {
             executionResultData.value = response.data
             showExecutionResult.value = true
-            showMessage('工作流执行成功！', 'success')
+            showMessage(t('marketDetail.executionSuccess'), 'success')
             // 从后端获取最新库存数量
             if (workflow.value.inventory_enabled) {
               try {
@@ -511,18 +507,18 @@ const executeNow = async () => {
           }
           // 执行失败
           else if (status === 'failed') {
-            showMessage(response.data.error || '工作流执行失败', 'error')
+            showMessage(t('marketDetail.executionFailed'), 'error')
           }
           // 其他状态（executing/pending）
           else {
-            showMessage(response.data.message || '工作流已提交执行', 'info')
+            showMessage(t('marketDetail.executionSubmitted'), 'info')
           }
         } else {
-          showMessage(response.message || '执行失败', 'error')
+          showMessage(t('marketDetail.executionFailed'), 'error')
         }
       } catch (error) {
         console.error('执行失败:', error)
-        showMessage(error.response?.data?.message || '执行失败', 'error')
+        showMessage(t('marketDetail.executionFailed'), 'error')
       } finally {
         confirmDialog.value.loading = false
       }
@@ -538,18 +534,18 @@ const executeNow = async () => {
 const submitReview = async () => {
   // 检查登录状态
   if (!userStore.isAuthenticated) {
-    showMessage('请先登录后再评论', 'warning')
+    showMessage(t('marketDetail.loginBeforeReview'), 'warning')
     router.push('/login')
     return
   }
 
   if (!canReview.value) {
-    showMessage('您需要先购买并使用这个工作流才能评论', 'warning')
+    showMessage(t('marketDetail.purchaseBeforeReview'), 'warning')
     return
   }
 
   if (!newComment.value.trim()) {
-    showMessage('请输入评价内容', 'warning')
+    showMessage(t('marketDetail.reviewContentRequired'), 'warning')
     return
   }
 
@@ -560,17 +556,17 @@ const submitReview = async () => {
     })
 
     if (res.code === 0) {
-      showMessage('评价成功', 'success')
+      showMessage(t('marketDetail.reviewSuccess'), 'success')
       newComment.value = ''
       newRating.value = 5
       // 重新加载评价
       await loadWorkflowDetail()
     } else {
-      showMessage(res.message || '评价失败', 'error')
+      showMessage(t('marketDetail.reviewFailed'), 'error')
     }
   } catch (error) {
     console.error('评价失败:', error)
-    showMessage('评价失败', 'error')
+    showMessage(t('marketDetail.reviewFailed'), 'error')
   }
 }
 
@@ -578,12 +574,15 @@ const submitReview = async () => {
 const replyToReview = async (review) => {
   // 检查登录状态
   if (!userStore.isAuthenticated) {
-    showMessage('请先登录后再回复', 'warning')
+    showMessage(t('marketDetail.loginBeforeReply'), 'warning')
     router.push('/login')
     return
   }
 
-  const comment = await showPrompt(`回复 ${review.user_name || '匿名用户'}`, '回复评论')
+  const comment = await showPrompt(
+    t('marketDetail.replyPromptMessage', { name: review.user_name || t('marketDetail.anonymousUser') }),
+    t('marketDetail.replyPromptTitle')
+  )
   
   if (!comment || comment.trim() === '') {
     return
@@ -597,11 +596,12 @@ const replyToReview = async (review) => {
     })
 
     if (res.code === 0) {
-      showMessage('回复成功', 'success')
+      showMessage(t('marketDetail.replySuccess'), 'success')
       loadWorkflowDetail()
     }
   } catch (error) {
     console.error('回复失败:', error)
+    showMessage(t('marketDetail.replyFailed'), 'error')
   }
 }
 
@@ -616,55 +616,23 @@ const viewImage = (url) => {
 
 // 获取分类文本
 const getCategoryText = (category) => {
-  const texts = {
-    'mailbox': '邮箱套餐',
-    'plugin': '插件',
-    'automation': '自动化',
-    'data': '数据处理',
-    'notification': '通知提醒',
-    'integration': '集成服务',
-    'scraping': '数据采集',
-    'image': '图片处理',
-    'other': '其他'
-  }
-  return texts[category] || category
-}
-
-// 获取定价模式文本
-const getPricingModelText = (model) => {
-  const texts = {
-    'free': '',
-    'one_time': '买断',
-    'subscription': '/月',
-    'per_use': '/次'
-  }
-  return texts[model] || ''
-}
-
-// 获取购买按钮文字
-const getPurchaseButtonText = (model) => {
-  const texts = {
-    'free': '免费使用',
-    'per_use': '按次付费',
-    'subscription': '订阅使用',
-    'one_time': '买断使用'
-  }
-  return texts[model] || '立即使用'
+  const key = `marketDetail.categories.${category || 'other'}`
+  return te(key) ? t(key) : category
 }
 
 // 格式化日期
 const formatDate = (timestamp) => {
   if (!timestamp) return ''
   const date = new Date(timestamp)
-  return date.toLocaleDateString('zh-CN')
+  return date.toLocaleDateString(getCurrentLocale())
 }
 
 // 删除评论
 const deleteReviewById = async (reviewId) => {
   confirmDialog.value = {
     visible: true,
-    title: '确认删除',
-    message: '确定要删除这条评论吗？删除后无法恢复。',
+    title: t('marketDetail.deleteReviewConfirmTitle'),
+    message: t('marketDetail.deleteReviewConfirmMessage'),
     type: 'warning',
     loading: false,
     onConfirm: async () => {
@@ -672,15 +640,15 @@ const deleteReviewById = async (reviewId) => {
       try {
         const res = await deleteReview(workflow.value.id, reviewId)
         if (res.code === 0) {
-          showMessage('评论已删除', 'success')
+          showMessage(t('marketDetail.reviewDeleted'), 'success')
           confirmDialog.value.visible = false
           await loadWorkflowDetail()
         } else {
-          showMessage(res.message || '删除失败', 'error')
+          showMessage(t('marketDetail.deleteFailed'), 'error')
         }
       } catch (error) {
         console.error('删除评论失败:', error)
-        showMessage('删除失败', 'error')
+        showMessage(t('marketDetail.deleteFailed'), 'error')
       } finally {
         confirmDialog.value.loading = false
       }

@@ -13,10 +13,10 @@
             <component :is="iconComponent" class="h-6 w-6" :class="iconColor" />
           </div>
           <div class="ml-4">
-            <h3 class="text-lg font-medium text-black">{{ title }}</h3>
+            <h3 class="text-lg font-medium text-black">{{ resolvedTitle }}</h3>
             <p class="text-sm text-black mt-1">
               {{ message }}
-              <span v-if="showWarning" class="block text-red-600 mt-1">此操作无法撤销。</span>
+              <span v-if="showWarning" class="block text-red-600 mt-1">{{ t('confirmDialog.warning') }}</span>
             </p>
           </div>
         </div>
@@ -29,15 +29,15 @@
             @click="handleConfirm"
             :disabled="loading"
           >
-            <span v-if="loading">{{ loadingText }}...</span>
-            <span v-else>{{ confirmText }}</span>
+            <span v-if="loading">{{ resolvedLoadingText }}...</span>
+            <span v-else>{{ resolvedConfirmText }}</span>
           </button>
           <button
             type="button"
             class="px-4 py-2 text-sm font-medium text-black bg-white border border-gray-300 rounded-md hover:bg-gray-50"
             @click="handleClose"
           >
-            {{ cancelText }}
+            {{ resolvedCancelText }}
           </button>
         </div>
       </div>
@@ -48,6 +48,9 @@
 <script setup>
 import { computed } from 'vue'
 import { ExclamationTriangleIcon } from '@heroicons/vue/24/outline'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps({
   visible: {
@@ -56,7 +59,7 @@ const props = defineProps({
   },
   title: {
     type: String,
-    default: '确认操作'
+    default: ''
   },
   message: {
     type: String,
@@ -69,11 +72,11 @@ const props = defineProps({
   },
   confirmText: {
     type: String,
-    default: '确认'
+    default: ''
   },
   cancelText: {
     type: String,
-    default: '取消'
+    default: ''
   },
   loading: {
     type: Boolean,
@@ -81,7 +84,7 @@ const props = defineProps({
   },
   loadingText: {
     type: String,
-    default: '处理中'
+    default: ''
   },
   showWarning: {
     type: Boolean,
@@ -99,6 +102,11 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['confirm', 'cancel', 'update:visible'])
+
+const resolvedTitle = computed(() => props.title || t('confirmDialog.title'))
+const resolvedConfirmText = computed(() => props.confirmText || t('confirmDialog.confirm'))
+const resolvedCancelText = computed(() => props.cancelText || t('confirmDialog.cancel'))
+const resolvedLoadingText = computed(() => props.loadingText || t('confirmDialog.processing'))
 
 const iconBgClass = computed(() => {
   const classes = {

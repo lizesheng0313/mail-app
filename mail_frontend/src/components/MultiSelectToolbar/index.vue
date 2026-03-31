@@ -11,8 +11,7 @@
           </svg>
         </div>
         <span class="text-sm font-medium text-black whitespace-nowrap">
-          已选 <span class="inline-block min-w-5 text-center font-semibold text-primary-600">{{ selectedCount }}</span>
-          个{{ type === 'mailbox' ? '邮箱' : '邮件' }}
+          {{ selectedSummary }}
         </span>
       </div>
       <div class="h-6 w-px bg-gray-200"></div>
@@ -20,7 +19,7 @@
         <button
           @click="$emit('toggle-all')"
           class="toolbar-action-button text-gray-600 hover:bg-primary-50 hover:text-primary-700"
-          :title="isAllSelected ? '取消全选' : '全选当前列表'"
+          :title="isAllSelected ? t('mailToolbar.deselectAll') : t('mailToolbar.selectCurrentList')"
         >
           <svg
             v-if="isAllSelected"
@@ -40,25 +39,25 @@
           >
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5 2a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          <span>{{ isAllSelected ? '取消全选' : '全选' }}</span>
+          <span>{{ isAllSelected ? t('mailToolbar.deselectAll') : t('mailToolbar.selectAll') }}</span>
         </button>
         <button
           v-if="type === 'mailbox'"
           @click="handleShareClick"
           :disabled="loading || selectedCount === 0"
           class="toolbar-action-button text-primary-600 hover:bg-primary-50 hover:text-primary-700 disabled:cursor-not-allowed disabled:opacity-40"
-          title="批量分享"
+          :title="t('mailToolbar.batchShare')"
         >
           <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path>
           </svg>
-          <span>分享</span>
+          <span>{{ t('mailToolbar.share') }}</span>
         </button>
         <button
           @click="handleDeleteClick"
           :disabled="loading || selectedCount === 0"
           class="toolbar-action-button text-red-600 hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-40"
-          :title="loading ? '删除中...' : '批量删除'"
+          :title="loading ? t('mailToolbar.deleting') : t('mailToolbar.batchDelete')"
         >
           <svg v-if="loading" class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -67,12 +66,12 @@
           <svg v-else class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
           </svg>
-          <span>{{ loading ? '删除中...' : '删除' }}</span>
+          <span>{{ loading ? t('mailToolbar.deleting') : t('mailToolbar.delete') }}</span>
         </button>
         <button
           @click="handleCloseClick"
           class="toolbar-icon-button text-gray-500 hover:bg-gray-100 hover:text-gray-700"
-          title="退出批量"
+          :title="t('mailToolbar.exitBatch')"
         >
           <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -85,6 +84,9 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   selectedCount: number
@@ -100,6 +102,12 @@ const emit = defineEmits<{
   'share-selected': []
   'clear-selection': []
 }>()
+
+const selectedSummary = computed(() => (
+  props.type === 'mailbox'
+    ? t('mailToolbar.selectedMailboxes', { count: props.selectedCount })
+    : t('mailToolbar.selectedEmails', { count: props.selectedCount })
+))
 
 const handleCloseClick = () => {
   emit('clear-selection')

@@ -4,7 +4,7 @@
       <!-- 头部 -->
       <div class="flex items-center justify-between p-6 border-b">
         <h3 class="text-xl font-semibold text-black">
-          执行日志 - {{ trigger?.name }}
+          {{ t('triggerLogs.title', { name: trigger?.name || '' }) }}
         </h3>
         <button
           @click="$emit('close')"
@@ -22,7 +22,7 @@
           :columns="columns"
           :data="logs"
           :loading="loading"
-          empty-text="暂无执行记录"
+          :empty-text="t('triggerLogs.empty')"
         >
           <template #execution_result="{ row }">
             <span class="px-2 py-1 text-xs font-medium rounded" :class="getResultBadgeColor(row.execution_result)">
@@ -69,7 +69,7 @@
           @click="$emit('close')"
           class="px-4 py-2 text-sm font-medium text-black bg-white border border-gray-300 rounded-md hover:bg-gray-50"
         >
-          关闭
+          {{ t('triggerLogs.close') }}
         </button>
       </div>
     </div>
@@ -78,9 +78,12 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { triggerApi } from '@/api/trigger'
 import { formatTimestamp } from '@/utils/timeUtils'
 import AdminDataTable from '@/components/AdminDataTable/index.vue'
+
+const { t } = useI18n()
 
 const props = defineProps({
   trigger: {
@@ -96,11 +99,11 @@ const logs = ref([])
 
 // 表格列配置
 const columns = [
-  { key: 'execution_result', label: '执行结果', width: '120px' },
-  { key: 'email_subject', label: '邮件信息', width: '300px' },
-  { key: 'triggered_workflows', label: '触发的工作流', width: '200px' },
-  { key: 'error_message', label: '错误信息', width: '250px' },
-  { key: 'created_at', label: '执行时间', width: '180px' }
+  { key: 'execution_result', label: t('triggerLogs.result'), width: '120px' },
+  { key: 'email_subject', label: t('triggerLogs.emailInfo'), width: '300px' },
+  { key: 'triggered_workflows', label: t('triggerLogs.triggeredWorkflows'), width: '200px' },
+  { key: 'error_message', label: t('triggerLogs.errorInfo'), width: '250px' },
+  { key: 'created_at', label: t('triggerLogs.executionTime'), width: '180px' }
 ]
 
 // 获取日志
@@ -134,10 +137,10 @@ const formatTime = (timestamp) => {
 // 获取执行结果文本
 const getResultText = (result) => {
   const resultMap = {
-    'success': '成功',
-    'failed': '失败',
-    'no_match': '条件不匹配',
-    'no_triggers': '无触发器'
+    'success': t('triggerLogs.resultSuccess'),
+    'failed': t('triggerLogs.resultFailed'),
+    'no_match': t('triggerLogs.resultNoMatch'),
+    'no_triggers': t('triggerLogs.resultNoTriggers')
   }
   return resultMap[result] || result
 }

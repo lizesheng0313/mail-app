@@ -12,8 +12,8 @@
           <div class="w-20 h-20 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center shadow-lg mb-4 animate-scale-in">
             <CheckCircleIcon class="w-12 h-12 text-white" />
           </div>
-          <h3 class="text-2xl font-bold text-gray-900 mb-1">执行成功</h3>
-          <p class="text-sm text-gray-600">工作流已完成执行</p>
+          <h3 class="text-2xl font-bold text-gray-900 mb-1">{{ t('executionResult.successTitle') }}</h3>
+          <p class="text-sm text-gray-600">{{ t('executionResult.successSubtitle') }}</p>
         </div>
         
         <!-- 关闭按钮 -->
@@ -31,17 +31,17 @@
         <div v-if="accountData" class="space-y-3">
           <div class="flex items-center gap-2 mb-3">
             <ShieldCheckIcon class="w-5 h-5 text-primary-600" />
-            <h4 class="text-base font-semibold text-gray-900">获取的账号</h4>
+            <h4 class="text-base font-semibold text-gray-900">{{ t('executionResult.accountTitle') }}</h4>
           </div>
           
           <!-- 账号数据 -->
           <div class="group bg-gradient-to-r from-gray-50 to-gray-100 hover:from-primary-50 hover:to-primary-100 rounded-xl transition-all duration-200 border border-gray-200 hover:border-primary-300 hover:shadow-md">
             <div class="flex items-center justify-between px-4 py-2 border-b border-gray-200">
-              <p class="text-xs font-medium text-gray-500">账号数据</p>
+              <p class="text-xs font-medium text-gray-500">{{ t('executionResult.accountData') }}</p>
               <button
                 @click="copyToClipboard(accountData)"
                 class="p-1.5 rounded-lg hover:bg-primary-100 hover:text-primary-600 text-gray-500 transition-all duration-200"
-                title="复制全部账号数据"
+                :title="t('executionResult.copyAllData')"
               >
                 <ClipboardDocumentIcon class="w-4 h-4" />
               </button>
@@ -68,9 +68,9 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
             </svg>
           </div>
-          <p class="text-base font-medium text-gray-900 mb-2">邮箱已创建</p>
+          <p class="text-base font-medium text-gray-900 mb-2">{{ t('executionResult.mailboxCreated') }}</p>
           <p class="text-sm text-primary-600 font-mono bg-primary-50 px-4 py-2 rounded-lg inline-block mb-3">{{ mailboxEmail }}</p>
-          <p class="text-sm text-gray-500">请到首页查看您的邮箱</p>
+          <p class="text-sm text-gray-500">{{ t('executionResult.mailboxHint') }}</p>
         </div>
 
         <!-- 无账号信息 -->
@@ -78,7 +78,7 @@
           <svg class="w-12 h-12 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          <p class="text-sm text-gray-500">执行成功，但没有返回账号信息</p>
+          <p class="text-sm text-gray-500">{{ t('executionResult.noAccountInfo') }}</p>
         </div>
       </div>
 
@@ -88,7 +88,7 @@
           @click="$emit('close')"
           class="w-full px-4 py-3 bg-primary-600 text-white rounded-xl hover:bg-primary-700 font-medium transition-colors shadow-sm hover:shadow"
         >
-          知道了
+          {{ t('executionResult.close') }}
         </button>
       </div>
     </div>
@@ -97,8 +97,11 @@
 
 <script setup>
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { showMessage } from '@/utils/message'
 import { CheckCircleIcon, XMarkIcon, ShieldCheckIcon, ClipboardDocumentIcon } from '@heroicons/vue/24/outline'
+
+const { t } = useI18n()
 
 const props = defineProps({
   visible: {
@@ -172,10 +175,10 @@ const accountDataLines = computed(() => {
 const copyToClipboard = async (text) => {
   try {
     await navigator.clipboard.writeText(text)
-    showMessage('已复制到剪贴板', 'success')
+    showMessage(t('executionResult.copied'), 'success')
   } catch (error) {
     console.error('复制失败:', error)
-    showMessage('复制失败', 'error')
+    showMessage(t('executionResult.copyFailed'), 'error')
   }
 }
 </script>

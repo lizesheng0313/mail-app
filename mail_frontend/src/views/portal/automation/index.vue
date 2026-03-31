@@ -19,14 +19,14 @@
               </div>
             </div>
             <div class="ml-6">
-              <h3 class="text-lg font-semibold text-black mb-4">开始您的自动化之旅</h3>
-              <p class="text-primary-700 mb-5 text-base">通过简单的三步流程，创建强大的自动化工作流：</p>
+              <h3 class="text-lg font-semibold text-black mb-4">{{ t('automationDashboard.heroTitle') }}</h3>
+              <p class="text-primary-700 mb-5 text-base">{{ t('automationDashboard.heroDesc') }}</p>
               <div class="flex flex-wrap items-center gap-8">
                 <div class="flex items-center">
                   <div class="flex-shrink-0 w-10 h-10 bg-primary-500 rounded-full flex items-center justify-center text-white text-base font-semibold">1</div>
                   <div class="ml-3">
-                    <div class="text-base font-semibold text-black">设置触发器</div>
-                    <div class="text-sm text-primary-600">定义何时启动自动化</div>
+                    <div class="text-base font-semibold text-black">{{ t('automationDashboard.step1Title') }}</div>
+                    <div class="text-sm text-primary-600">{{ t('automationDashboard.step1Desc') }}</div>
                   </div>
                 </div>
                 <svg class="w-4 h-4 text-primary-500 hidden sm:block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -35,8 +35,8 @@
                 <div class="flex items-center">
                   <div class="flex-shrink-0 w-10 h-10 bg-primary-500 rounded-full flex items-center justify-center text-white text-base font-semibold">2</div>
                   <div class="ml-3">
-                    <div class="text-base font-semibold text-black">配置工作流</div>
-                    <div class="text-sm text-primary-600">设计执行步骤和逻辑</div>
+                    <div class="text-base font-semibold text-black">{{ t('automationDashboard.step2Title') }}</div>
+                    <div class="text-sm text-primary-600">{{ t('automationDashboard.step2Desc') }}</div>
                   </div>
                 </div>
                 <svg class="w-4 h-4 text-primary-500 hidden sm:block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -45,8 +45,8 @@
                 <div class="flex items-center">
                   <div class="flex-shrink-0 w-10 h-10 bg-primary-500 rounded-full flex items-center justify-center text-white text-base font-semibold">3</div>
                   <div class="ml-3">
-                    <div class="text-base font-semibold text-black">选择插件</div>
-                    <div class="text-sm text-primary-600">执行具体的自动化动作</div>
+                    <div class="text-base font-semibold text-black">{{ t('automationDashboard.step3Title') }}</div>
+                    <div class="text-sm text-primary-600">{{ t('automationDashboard.step3Desc') }}</div>
                   </div>
                 </div>
               </div>
@@ -67,8 +67,8 @@
                 </svg>
               </div>
               <div class="ml-4">
-                <h3 class="text-base font-semibold text-black">触发器</h3>
-                <p class="text-sm text-black">自动化触发条件</p>
+                <h3 class="text-base font-semibold text-black">{{ t('automationDashboard.triggersTitle') }}</h3>
+                <p class="text-sm text-black">{{ t('automationDashboard.triggersDesc') }}</p>
               </div>
             </div>
             
@@ -77,11 +77,11 @@
                 <div class="grid grid-cols-2 gap-4">
                   <div class="text-center">
                     <div class="text-2xl font-bold text-black">{{ triggerStats.total }}</div>
-                    <div class="text-sm text-black">总计</div>
+                    <div class="text-sm text-black">{{ t('automationDashboard.total') }}</div>
                   </div>
                   <div class="text-center">
                     <div class="text-2xl font-bold text-primary-600">{{ triggerStats.active }}</div>
-                    <div class="text-sm text-black">活跃</div>
+                    <div class="text-sm text-black">{{ t('automationDashboard.active') }}</div>
                   </div>
                 </div>
                 <div class="flex flex-col space-y-2">
@@ -93,7 +93,7 @@
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                     </svg>
                     <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
-                      创建触发器
+                      {{ t('automationDashboard.createTrigger') }}
                     </div>
                   </button>
                   <router-link
@@ -105,7 +105,7 @@
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
                     <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
-                      管理触发器
+                      {{ t('automationDashboard.manageTriggers') }}
                     </div>
                   </router-link>
                 </div>
@@ -118,8 +118,8 @@
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                     <div class="ml-3">
-                      <p class="text-sm font-medium text-black">定义自动化触发条件</p>
-                      <p class="text-sm text-primary-700 mt-1">根据邮件、时间或事件来启动工作流</p>
+                      <p class="text-sm font-medium text-black">{{ t('automationDashboard.triggerInfoTitle') }}</p>
+                      <p class="text-sm text-primary-700 mt-1">{{ t('automationDashboard.triggerInfoDesc') }}</p>
                     </div>
                   </div>
                 </div>
@@ -138,8 +138,8 @@
                 </svg>
               </div>
               <div class="ml-4">
-                <h3 class="text-base font-semibold text-black">工作流</h3>
-                <p class="text-sm text-black">自动化执行流程</p>
+                <h3 class="text-base font-semibold text-black">{{ t('automationDashboard.workflowsTitle') }}</h3>
+                <p class="text-sm text-black">{{ t('automationDashboard.workflowsDesc') }}</p>
               </div>
             </div>
             
@@ -148,11 +148,11 @@
                 <div class="grid grid-cols-2 gap-4">
                   <div class="text-center">
                     <div class="text-2xl font-bold text-black">{{ workflowStats.total }}</div>
-                    <div class="text-sm text-black">总计</div>
+                    <div class="text-sm text-black">{{ t('automationDashboard.total') }}</div>
                   </div>
                   <div class="text-center">
                     <div class="text-2xl font-bold text-primary-600">{{ workflowStats.active }}</div>
-                    <div class="text-sm text-black">运行中</div>
+                    <div class="text-sm text-black">{{ t('automationDashboard.running') }}</div>
                   </div>
                 </div>
                 <div class="flex flex-col space-y-2">
@@ -164,7 +164,7 @@
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                     </svg>
                     <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
-                      创建工作流
+                      {{ t('automationDashboard.createWorkflow') }}
                     </div>
                   </button>
                   <router-link
@@ -175,7 +175,7 @@
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
                     </svg>
                     <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
-                      管理工作流
+                      {{ t('automationDashboard.manageWorkflows') }}
                     </div>
                   </router-link>
                 </div>
@@ -188,8 +188,8 @@
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                     <div class="ml-3">
-                      <p class="text-sm font-medium text-black">编排自动化流程</p>
-                      <p class="text-sm text-primary-700 mt-1">设计多步骤的执行逻辑和数据处理</p>
+                      <p class="text-sm font-medium text-black">{{ t('automationDashboard.workflowInfoTitle') }}</p>
+                      <p class="text-sm text-primary-700 mt-1">{{ t('automationDashboard.workflowInfoDesc') }}</p>
                     </div>
                   </div>
                 </div>
@@ -208,8 +208,8 @@
                 </svg>
               </div>
               <div class="ml-4">
-                <h3 class="text-base font-semibold text-black">插件</h3>
-                <p class="text-sm text-black">执行自动化动作</p>
+                <h3 class="text-base font-semibold text-black">{{ t('automationDashboard.pluginsTitle') }}</h3>
+                <p class="text-sm text-black">{{ t('automationDashboard.pluginsDesc') }}</p>
               </div>
             </div>
             
@@ -218,11 +218,11 @@
                 <div class="grid grid-cols-2 gap-4">
                   <div class="text-center">
                     <div class="text-2xl font-bold text-black">{{ pluginStats.installed }}</div>
-                    <div class="text-sm text-black">已安装</div>
+                    <div class="text-sm text-black">{{ t('automationDashboard.installed') }}</div>
                   </div>
                   <div class="text-center">
                     <div class="text-2xl font-bold text-primary-600">{{ pluginStats.active }}</div>
-                    <div class="text-sm text-black">启用中</div>
+                    <div class="text-sm text-black">{{ t('automationDashboard.enabled') }}</div>
                   </div>
                 </div>
                 <div class="flex flex-col space-y-2">
@@ -234,7 +234,7 @@
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                     </svg>
                     <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
-                      管理插件
+                      {{ t('automationDashboard.managePlugins') }}
                     </div>
                   </router-link>
                   <router-link
@@ -245,7 +245,7 @@
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
                     </svg>
                     <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
-                      插件商店
+                      {{ t('automationDashboard.pluginStore') }}
                     </div>
                   </router-link>
                 </div>
@@ -258,8 +258,8 @@
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                     <div class="ml-3">
-                      <p class="text-sm font-medium text-black">插件提供执行能力</p>
-                      <p class="text-sm text-primary-700 mt-1">在工作流中调用插件完成具体任务</p>
+                      <p class="text-sm font-medium text-black">{{ t('automationDashboard.pluginInfoTitle') }}</p>
+                      <p class="text-sm text-primary-700 mt-1">{{ t('automationDashboard.pluginInfoDesc') }}</p>
                     </div>
                   </div>
                 </div>
@@ -290,6 +290,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { triggerApi } from '@/api/trigger'
 import { workflowApi } from '@/api/workflow'
@@ -299,6 +300,7 @@ import TriggerModal from '../workflows/components/TriggerModal/index.vue'
 import CreateWorkflowModal from '../workflows/components/CreateWorkflowModal/index.vue'
 
 const router = useRouter()
+const { t } = useI18n()
 
 // 响应式数据
 const loading = ref(false)
@@ -316,10 +318,10 @@ const quickStartTemplates = ref([])
 
 // 触发器类型统计
 const triggerTypes = ref([
-  { type: 'email', label: '邮件触发器', count: 0, color: 'bg-primary-500' },
-  { type: 'schedule', label: '定时触发器', count: 0, color: 'bg-primary-500' },
-  { type: 'webhook', label: 'Webhook', count: 0, color: 'bg-purple-500' },
-  { type: 'manual', label: '手动触发', count: 0, color: 'bg-gray-500' }
+  { type: 'email', label: t('automationDashboard.typeEmail'), count: 0, color: 'bg-primary-500' },
+  { type: 'schedule', label: t('automationDashboard.typeSchedule'), count: 0, color: 'bg-primary-500' },
+  { type: 'webhook', label: t('automationDashboard.typeWebhook'), count: 0, color: 'bg-purple-500' },
+  { type: 'manual', label: t('automationDashboard.typeManual'), count: 0, color: 'bg-gray-500' }
 ])
 
 // 生命周期
@@ -377,10 +379,10 @@ const loadTriggerStats = async () => {
       })
       
       triggerTypes.value = [
-        { type: 'email', label: '邮件触发器', count: typeCount.email || 0, color: 'bg-primary-500' },
-        { type: 'schedule', label: '定时触发器', count: typeCount.schedule || 0, color: 'bg-primary-500' },
-        { type: 'webhook', label: 'Webhook', count: typeCount.webhook || 0, color: 'bg-purple-500' },
-        { type: 'manual', label: '手动触发', count: typeCount.manual || 0, color: 'bg-gray-500' }
+        { type: 'email', label: t('automationDashboard.typeEmail'), count: typeCount.email || 0, color: 'bg-primary-500' },
+        { type: 'schedule', label: t('automationDashboard.typeSchedule'), count: typeCount.schedule || 0, color: 'bg-primary-500' },
+        { type: 'webhook', label: t('automationDashboard.typeWebhook'), count: typeCount.webhook || 0, color: 'bg-purple-500' },
+        { type: 'manual', label: t('automationDashboard.typeManual'), count: typeCount.manual || 0, color: 'bg-gray-500' }
       ]
     }
   } catch (error) {
@@ -388,10 +390,10 @@ const loadTriggerStats = async () => {
     // 设置默认值
     triggerStats.value = { total: 0, active: 0 }
     triggerTypes.value = [
-      { type: 'email', label: '邮件触发器', count: 0, color: 'bg-primary-500' },
-      { type: 'schedule', label: '定时触发器', count: 0, color: 'bg-primary-500' },
-      { type: 'webhook', label: 'Webhook', count: 0, color: 'bg-purple-500' },
-      { type: 'manual', label: '手动触发', count: 0, color: 'bg-gray-500' }
+      { type: 'email', label: t('automationDashboard.typeEmail'), count: 0, color: 'bg-primary-500' },
+      { type: 'schedule', label: t('automationDashboard.typeSchedule'), count: 0, color: 'bg-primary-500' },
+      { type: 'webhook', label: t('automationDashboard.typeWebhook'), count: 0, color: 'bg-purple-500' },
+      { type: 'manual', label: t('automationDashboard.typeManual'), count: 0, color: 'bg-gray-500' }
     ]
   }
 }

@@ -17,7 +17,7 @@
             <CustomSelect
               v-model="group.plugin_id"
               :options="pluginOptions"
-              placeholder="插件选择"
+              :placeholder="t('workflowEditor.pluginSelect')"
               @change="$emit('plugin-change')"
             />
           </div>
@@ -31,7 +31,7 @@
             <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
             </svg>
-            添加步骤
+            {{ t('workflowEditor.addStep') }}
           </button>
           <button
             type="button"
@@ -52,7 +52,7 @@
         <!-- 插件配置 -->
         <div v-if="group.plugin_id">
           <label class="block text-sm font-medium text-black mb-2">
-            插件配置 (JSON)
+            {{ t('workflowEditor.pluginConfig') }}
           </label>
           <textarea
             v-model="group.plugin_config"
@@ -67,7 +67,7 @@
     <!-- 步骤列表 -->
     <div class="p-4">
       <div v-if="group.steps.length === 0" class="text-center py-6 text-black text-sm">
-        <p>该插件暂无步骤，点击上方"添加步骤"开始创建</p>
+        <p>{{ t('workflowEditor.emptySteps') }}</p>
       </div>
 
       <div v-else class="space-y-3">
@@ -92,8 +92,11 @@
 </template>
 
 <script setup>
+import { useI18n } from 'vue-i18n'
 import CustomSelect from '@/components/CustomSelect/index.vue'
 import StepConfigCard from '../StepConfigCard/index.vue'
+
+const { t } = useI18n()
 
 defineProps({
   group: {

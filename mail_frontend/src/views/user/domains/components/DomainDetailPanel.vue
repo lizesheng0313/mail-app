@@ -3,7 +3,7 @@
     <div class="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
       <div class="flex items-center justify-between gap-3">
         <div class="min-w-0">
-          <div class="text-xs text-gray-500">当前域名</div>
+          <div class="text-xs text-gray-500">{{ t('domainsPage.currentDomain') }}</div>
           <div class="truncate text-sm font-medium text-black">{{ detail.domain.domain_name }}</div>
         </div>
         <span
@@ -16,27 +16,29 @@
     </div>
 
     <div class="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
-      <h3 class="text-sm font-semibold text-black mb-3">DNS 配置</h3>
+      <h3 class="text-sm font-semibold text-black mb-3">{{ t('domainsPage.dnsConfig') }}</h3>
       <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200 text-sm">
           <thead>
             <tr class="text-left text-xs uppercase tracking-wide text-gray-500">
-              <th class="pb-3 pr-4 font-medium">主机记录</th>
-              <th class="pb-3 pr-4 font-medium">记录类型</th>
-              <th class="pb-3 pr-4 font-medium">值</th>
-              <th class="pb-3 pr-4 font-medium">优先级</th>
+              <th class="pb-3 pr-4 font-medium">{{ t('domainsPage.hostRecord') }}</th>
+              <th class="pb-3 pr-4 font-medium">{{ t('domainsPage.recordType') }}</th>
+              <th class="pb-3 pr-4 font-medium">{{ t('domainsPage.value') }}</th>
+              <th class="pb-3 pr-4 font-medium">{{ t('domainsPage.priority') }}</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-100">
             <tr v-for="record in detail.dns_instructions || []" :key="getRecordKey(record)">
               <td class="py-3 pr-4 align-top">
                 <div class="flex items-center gap-2">
-                  <div class="max-w-[240px] break-all text-gray-700">{{ formatRecordHost(record) }}</div>
+                  <div class="max-w-[240px] break-all text-gray-700">
+                    {{ formatRecordHost(record) }}
+                  </div>
                   <ActionButton
                     icon="copy"
-                    title="复制主机记录"
+                    :title="t('domainsPage.copyHostRecord')"
                     @click="emit('copy', formatRecordHost(record))"
-                    tooltip="复制主机记录"
+                    :tooltip="t('domainsPage.copyHostRecord')"
                     variant="copy"
                     size="sm"
                   />
@@ -52,7 +54,10 @@
                   >
                     {{ getRecordResultLabel(record) }}
                   </button>
-                  <HoverTooltip v-if="hasRecordDetail(record)" :text="getRecordResultTooltip(record)">
+                  <HoverTooltip
+                    v-if="hasRecordDetail(record)"
+                    :text="getRecordResultTooltip(record)"
+                  >
                     <span
                       class="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full bg-red-100 text-[10px] font-bold text-red-600"
                     >
@@ -66,9 +71,9 @@
                   <div class="max-w-[420px] break-all text-gray-700">{{ record.record_value }}</div>
                   <ActionButton
                     icon="copy"
-                    title="复制记录值"
+                    :title="t('domainsPage.copyValue')"
                     @click="emit('copy', record.record_value)"
-                    tooltip="复制记录值"
+                    :tooltip="t('domainsPage.copyValue')"
                     variant="copy"
                     size="sm"
                   />
@@ -86,15 +91,28 @@
     <div class="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
       <div class="flex items-start justify-between gap-4">
         <div class="flex-1">
-          <div class="text-sm font-medium text-black">未匹配邮箱代收</div>
+          <div class="text-sm font-medium text-black">{{ t('domainsPage.catchAllTitle') }}</div>
           <p class="mt-1 text-xs leading-5 text-gray-500">
-            开启后，验证通过才会启用 <span class="font-mono text-gray-700">{{ getCatchAllMailbox(detail.domain.domain_name) }}</span> 代收；未验证前不会代收。
+            {{
+              t('domainsPage.catchAllDetailDesc', {
+                mailbox: getCatchAllMailbox(detail.domain.domain_name)
+              })
+            }}
           </p>
           <p class="mt-1 text-xs leading-5 text-gray-500">
-            子域名或多级域名是否能代收，取决于 DNS 是否已经把对应子域名或通配子域名的 MX 指到当前收件服务器。
+            {{ t('domainsPage.catchAllDnsDesc') }}
           </p>
-          <p v-if="detail.domain.catch_all_enabled && isVerified" class="mt-1 text-xs text-gray-600">
-            当前代收邮箱：{{ detail.domain.catch_all_mailbox_email || getCatchAllMailbox(detail.domain.domain_name) }}
+          <p
+            v-if="detail.domain.catch_all_enabled && isVerified"
+            class="mt-1 text-xs text-gray-600"
+          >
+            {{
+              t('domainsPage.currentCatchAllMailbox', {
+                mailbox:
+                  detail.domain.catch_all_mailbox_email ||
+                  getCatchAllMailbox(detail.domain.domain_name)
+              })
+            }}
           </p>
         </div>
         <button
@@ -123,10 +141,10 @@
         @click="emit('refresh', Number(detail.domain.id))"
       >
         <span v-if="refreshing" class="inline-flex items-center gap-2">
-          验证中
+          {{ t('domainsPage.verifying') }}
           <BaseIcon name="refresh" size="sm" class="animate-spin" />
         </span>
-        <span v-else>立即验证DNS</span>
+        <span v-else>{{ t('domainsPage.verifyNow') }}</span>
       </button>
     </div>
   </div>
@@ -134,6 +152,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import ActionButton from '@/components/ActionButton/index.vue'
 import BaseIcon from '@/components/BaseIcon/index.vue'
 import HoverTooltip from '@/components/HoverTooltip/index.vue'
@@ -149,27 +168,31 @@ const emit = defineEmits<{
   (e: 'copy', value: string): void
   (e: 'update:catch-all-enabled', value: boolean): void
 }>()
+const { t } = useI18n()
 
-const isVerified = computed(() => String(props.detail?.domain?.verification_status || '').toLowerCase() === 'verified')
+const isVerified = computed(
+  () => String(props.detail?.domain?.verification_status || '').toLowerCase() === 'verified'
+)
 
 const formatRecordHost = (record: any) => {
   const value = String(record?.record_host || '').trim()
   return value || '@'
 }
 
-const getRecordKey = (record: any) => [
-  record?.record_type || '',
-  record?.record_host || '',
-  record?.record_name || '',
-  record?.record_value || '',
-  record?.priority ?? ''
-].join('|')
+const getRecordKey = (record: any) =>
+  [
+    record?.record_type || '',
+    record?.record_host || '',
+    record?.record_name || '',
+    record?.record_value || '',
+    record?.priority ?? ''
+  ].join('|')
 
 const getDomainStatusLabel = (status: string) => {
   const normalized = String(status || '').toLowerCase()
-  if (normalized === 'verified') return '已验证'
-  if (normalized === 'failed') return '验证失败'
-  return '待验证'
+  if (normalized === 'verified') return t('domainsPage.verified')
+  if (normalized === 'failed') return t('domainsPage.verifyFailed')
+  return t('domainsPage.pendingVerify')
 }
 
 const getDomainStatusClass = (status: string) => {
@@ -181,20 +204,20 @@ const getDomainStatusClass = (status: string) => {
 
 const getRecordResultLabel = (record: any) => {
   const status = String(record?.status || '').toLowerCase()
-  if (status === 'valid' || status === 'verified') return '已匹配'
+  if (status === 'valid' || status === 'verified') return t('domainsPage.recordMatched')
   const message = String(record?.check_message || record?.fail_reason || '').trim()
-  if (message.includes('未查询到记录')) return '未找到'
-  if (message.includes('不匹配')) return '值不匹配'
-  if (status === 'invalid' || message) return '未通过'
-  return '待验证'
+  if (message.includes('未查询到记录')) return t('domainsPage.recordNotFound')
+  if (message.includes('不匹配')) return t('domainsPage.recordValueMismatch')
+  if (status === 'invalid' || message) return t('domainsPage.recordNotPassed')
+  return t('domainsPage.pendingVerify')
 }
 
 const getRecordResultTooltip = (record: any) => {
   const status = String(record?.status || '').toLowerCase()
   if (status === 'invalid' || record?.check_message || record?.fail_reason) {
-    return record?.check_message || record?.fail_reason || '记录未匹配'
+    return record?.check_message || record?.fail_reason || t('domainsPage.recordNotMatched')
   }
-  return '等待验证'
+  return t('domainsPage.waitingVerify')
 }
 
 const hasRecordDetail = (record: any) => {
@@ -206,10 +229,12 @@ const hasRecordDetail = (record: any) => {
 const getRecordResultClass = (record: any) => {
   const status = String(record?.status || '').toLowerCase()
   if (status === 'valid' || status === 'verified') return 'bg-green-100 text-green-700'
-  if (status === 'invalid' || record?.check_message || record?.fail_reason) return 'bg-red-100 text-red-700'
+  if (status === 'invalid' || record?.check_message || record?.fail_reason)
+    return 'bg-red-100 text-red-700'
   return 'bg-amber-100 text-amber-700'
 }
 
-const normalizeCatchAllDomain = (domainName?: string) => String(domainName || '').trim() || '你的域名'
+const normalizeCatchAllDomain = (domainName?: string) =>
+  String(domainName || '').trim() || t('domainsPage.yourDomain')
 const getCatchAllMailbox = (domainName?: string) => `admin@${normalizeCatchAllDomain(domainName)}`
 </script>

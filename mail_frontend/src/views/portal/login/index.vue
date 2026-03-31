@@ -400,7 +400,13 @@ const isFormValid = computed(() => {
   }
 })
 
-const isAbnormalAccountError = computed(() => error.value.includes('账户已被禁用'))
+const abnormalAccountKeywords = computed(() => [
+  t('common.accountDisabled'),
+  '账户已被禁用',
+  '帳戶已被停用'
+])
+
+const isAbnormalAccountError = computed(() => abnormalAccountKeywords.value.some(keyword => error.value.includes(keyword)))
 
 const toggleMode = () => {
   isLoginMode.value = !isLoginMode.value

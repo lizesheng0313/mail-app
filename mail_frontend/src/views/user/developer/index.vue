@@ -5,7 +5,7 @@
         v-if="!userStore.isAuthenticated"
         class="rounded-lg border border-yellow-200 bg-yellow-50 p-6 text-sm text-yellow-800"
       >
-        登录后才能创建和查看访问密钥。
+        {{ t('developer.loginRequired') }}
       </div>
 
       <template v-else>
@@ -14,7 +14,7 @@
             <div class="flex items-center space-x-4">
               <BaseInput
                 v-model="filters.keyword"
-                placeholder="搜索密钥名称..."
+                :placeholder="t('developer.searchPlaceholder')"
                 class="w-64"
                 size="sm"
                 @enter="applyFilters"
@@ -29,7 +29,7 @@
               <CustomSelect
                 v-model="filters.status"
                 :options="statusOptions"
-                placeholder="全部状态"
+                :placeholder="t('developer.allStatus')"
                 class="w-40"
               />
 
@@ -37,7 +37,7 @@
                 @click="applyFilters"
                 class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-md text-sm"
               >
-                查询
+                {{ t('developer.query') }}
               </button>
             </div>
 
@@ -45,13 +45,13 @@
               @click="openCreateKeyModal"
               class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-md text-sm"
             >
-              新建访问密钥
+              {{ t('developer.createApiKey') }}
             </button>
           </div>
         </div>
 
         <AdminDataTable
-          title="访问密钥列表"
+          :title="t('developer.apiKeyList')"
           :pagination="pagination"
           :loading="keysLoading"
           :show-page-size-selector="true"
@@ -61,13 +61,13 @@
         >
           <template #thead>
             <tr>
-              <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">名称</th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">密钥前缀</th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">权限范围</th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">状态</th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">最近使用</th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">过期时间</th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">操作</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">{{ t('developer.name') }}</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">{{ t('developer.keyPrefix') }}</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">{{ t('developer.scope') }}</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">{{ t('developer.status') }}</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">{{ t('developer.lastUsed') }}</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">{{ t('developer.expiresAt') }}</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">{{ t('developer.actions') }}</th>
             </tr>
           </template>
 
@@ -101,7 +101,7 @@
                 <div class="flex items-center space-x-2">
                   <ActionButton
                     icon="delete"
-                    tooltip="删除"
+                    :tooltip="t('developer.delete')"
                     variant="delete"
                     @click="openDeleteDialog(item)"
                   />
@@ -111,7 +111,7 @@
 
             <tr v-if="pagedApiKeys.length === 0">
               <td colspan="7" class="px-6 py-12 text-center text-black">
-                暂无访问密钥
+                {{ t('developer.empty') }}
               </td>
             </tr>
           </template>
@@ -121,8 +121,8 @@
 
     <BaseModal
       v-model="showCreateKeyFormModal"
-      title="新建访问密钥"
-      :confirm-text="submittingKey ? '生成中...' : '生成访问密钥'"
+      :title="t('developer.createTitle')"
+      :confirm-text="submittingKey ? t('developer.creating') : t('developer.createAction')"
       :confirm-loading="submittingKey"
       :confirm-disabled="submittingKey"
       @confirm="createApiKey"
@@ -131,40 +131,40 @@
     >
       <div class="space-y-4">
         <div class="rounded-lg bg-gray-50 px-4 py-3 text-sm leading-6 text-gray-600">
-          新密钥只会展示一次。生成后会弹出来让你复制，关掉以后就不再显示。
+          {{ t('developer.createNotice') }}
         </div>
 
-        <BaseInput v-model="keyForm.name" label="密钥名称" placeholder="比如：官网接入、CRM 同步" />
+        <BaseInput v-model="keyForm.name" :label="t('developer.keyName')" :placeholder="t('developer.keyNamePlaceholder')" />
 
         <BaseInput
           v-model="keyForm.expires_at_local"
-          label="过期时间"
+          :label="t('developer.expireTime')"
           type="date"
           :auto-show-picker="true"
-          help-text="不填就是长期有效。"
+          :help-text="t('developer.permanentHint')"
         />
 
         <div>
           <div class="mb-3 flex items-center justify-between gap-3">
-            <p class="text-sm font-medium text-gray-900">权限范围</p>
+            <p class="text-sm font-medium text-gray-900">{{ t('developer.scopeTitle') }}</p>
             <div class="flex items-center gap-2">
               <button
                 type="button"
                 class="rounded-md border border-gray-200 px-3 py-1 text-xs text-gray-600 hover:bg-gray-50"
                 @click="selectRecommendedScopes"
               >
-                推荐权限
+                {{ t('developer.recommendedScopes') }}
               </button>
               <button
                 type="button"
                 class="rounded-md border border-gray-200 px-3 py-1 text-xs text-gray-600 hover:bg-gray-50"
                 @click="selectAllScopes"
               >
-                全选
+                {{ t('developer.selectAll') }}
               </button>
             </div>
           </div>
-          <p class="mb-3 text-xs text-gray-500">默认勾选推荐权限。需要删邮件时，记得勾上“删除邮件”。</p>
+          <p class="mb-3 text-xs text-gray-500">{{ t('developer.scopeHint') }}</p>
           <div class="grid grid-cols-1 gap-2">
             <label
               v-for="scope in availableScopes"
@@ -183,7 +183,7 @@
                 v-if="recommendedScopes.includes(scope)"
                 class="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-gray-500"
               >
-                推荐
+                {{ t('developer.recommended') }}
               </span>
             </label>
           </div>
@@ -193,7 +193,7 @@
 
     <BaseModal
       v-model="showApiKeyModal"
-      title="请立即保存访问密钥"
+      :title="t('developer.saveKeyTitle')"
       :show-footer="false"
       :show-close="false"
       :close-on-click-outside="false"
@@ -202,7 +202,7 @@
     >
       <div class="space-y-4">
         <div class="rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm leading-6 text-yellow-800">
-          这把密钥只会展示这一次。复制后页面会自动清掉，请你自己妥善保存。
+          {{ t('developer.saveKeyNotice') }}
         </div>
 
         <div class="rounded-lg bg-gray-900 px-4 py-4 font-mono text-sm break-all text-white">
@@ -214,13 +214,13 @@
             class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
             @click="closeCreatedKeyModal"
           >
-            我已保存
+            {{ t('developer.saved') }}
           </button>
           <button
             class="px-4 py-2 text-sm font-medium text-white bg-primary-600 border border-transparent rounded-md hover:bg-primary-700"
             @click="copyCreatedKey"
           >
-            复制并关闭
+            {{ t('developer.copyAndClose') }}
           </button>
         </div>
       </div>
@@ -228,10 +228,10 @@
 
     <ConfirmDialog
       :visible="showDeleteConfirm"
-      title="删除访问密钥"
+      :title="t('developer.deleteTitle')"
       :message="deleteConfirmMessage"
       type="danger"
-      confirm-text="删除"
+      :confirm-text="t('developer.delete')"
       :loading="deletingKey"
       @confirm="confirmDeleteApiKey"
       @cancel="closeDeleteDialog"
@@ -242,6 +242,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import ActionButton from '@/components/ActionButton/index.vue'
 import AdminDataTable from '@/components/AdminDataTable/index.vue'
 import BaseInput from '@/components/BaseInput/index.vue'
@@ -251,6 +252,7 @@ import CustomSelect from '@/components/CustomSelect/index.vue'
 import openPlatformApi from '@/services/openPlatformApi'
 import { useUserStore } from '@/stores/user'
 import { showMessage } from '@/utils/message'
+import { getCurrentLocale } from '@/i18n'
 
 type ApiKeyItem = {
   id: number
@@ -267,6 +269,7 @@ type ApiKeyItem = {
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
+const { t } = useI18n()
 
 const keysLoading = ref(false)
 const submittingKey = ref(false)
@@ -328,25 +331,27 @@ const fallbackRecommendedScopes = [
 
 const availableScopes = ref<string[]>([...fallbackAvailableScopes])
 const recommendedScopes = ref<string[]>([...fallbackRecommendedScopes])
+const localizedScopeLabelMap = ref<Record<string, string>>({})
+const listSeparator = computed(() => getCurrentLocale().startsWith('en') ? ', ' : '、')
 
-const statusOptions = [
-  { label: '全部状态', value: '' },
-  { label: '生效中', value: 'active' },
-  { label: '已失效', value: 'invalid' }
-]
+const statusOptions = computed(() => [
+  { label: t('developer.allStatus'), value: '' },
+  { label: t('developer.statusActive'), value: 'active' },
+  { label: t('developer.statusInvalid'), value: 'invalid' }
+])
 
-const scopeLabelMap: Record<string, string> = {
-  'mailbox.read': '读取临时邮箱或域名邮箱',
-  'mailbox.write': '管理临时邮箱或域名邮箱',
-  'external_mailbox.read': '读取第三方邮箱',
-  'external_mailbox.write': '管理第三方邮箱',
-  'smtp_account.read': '读取发信账号',
-  'email.read': '读取邮件列表',
-  'email.body.read': '读取邮件正文',
-  'email.delete': '删除邮件',
-  'verification_code.read': '读取验证码',
-  'workflow.execute': '执行工作流'
-}
+const fallbackScopeLabelMap = computed<Record<string, string>>(() => ({
+  'mailbox.read': t('openPlatform.scopes.mailboxRead'),
+  'mailbox.write': t('openPlatform.scopes.mailboxWrite'),
+  'external_mailbox.read': t('openPlatform.scopes.externalRead'),
+  'external_mailbox.write': t('openPlatform.scopes.externalWrite'),
+  'smtp_account.read': t('openPlatform.scopes.smtpRead'),
+  'email.read': t('openPlatform.scopes.emailRead'),
+  'email.body.read': t('openPlatform.scopes.emailBodyRead'),
+  'email.delete': t('openPlatform.scopes.emailDelete'),
+  'verification_code.read': t('openPlatform.scopes.codeRead'),
+  'workflow.execute': t('openPlatform.scopes.workflowExecute')
+}))
 
 const filteredApiKeys = computed(() => {
   const keyword = appliedFilters.keyword.trim().toLowerCase()
@@ -378,12 +383,12 @@ const pagination = computed(() => ({
 
 const deleteConfirmMessage = computed(() => {
   if (!pendingDeleteKey.value) {
-    return '删除后这把访问密钥会从列表移除，并且不能继续使用，确定继续吗？'
+    return t('developer.deleteMessageFallback')
   }
-  return `确定删除访问密钥【${pendingDeleteKey.value.name}】吗？删除后就不能继续使用了。`
+  return t('developer.deleteMessageNamed', { name: pendingDeleteKey.value.name })
 })
 
-const getScopeLabel = (scope: string) => scopeLabelMap[scope] || scope
+const getScopeLabel = (scope: string) => localizedScopeLabelMap.value[scope] || fallbackScopeLabelMap.value[scope] || scope
 
 const getScopeSummary = (item: ApiKeyItem) => {
   const scopes = (item.scopes || []).filter((scope) => scope !== 'ai.chat')
@@ -392,12 +397,15 @@ const getScopeSummary = (item: ApiKeyItem) => {
     : scopes.map(getScopeLabel)
 
   if (labels.length === 0) return '-'
-  if (labels.length <= 2) return labels.join('、')
-  return `${labels.slice(0, 2).join('、')} 等 ${labels.length} 项`
+  if (labels.length <= 2) return labels.join(listSeparator.value)
+  return t('developer.scopeSummaryMore', {
+    labels: labels.slice(0, 2).join(listSeparator.value),
+    count: labels.length
+  })
 }
 
 const getApiKeyStatusLabel = (value?: string) => {
-  return isApiKeyActive(value) ? '启用中' : '已失效'
+  return isApiKeyActive(value) ? t('developer.statusActive') : t('developer.statusInvalid')
 }
 
 const getApiKeyStatusClass = (value?: string) => {
@@ -468,7 +476,7 @@ const toTimestamp = (value: string) => {
 
 const formatTime = (value?: number) => {
   if (!value) return '-'
-  return new Date(value).toLocaleString('zh-CN', { hour12: false })
+  return new Date(value).toLocaleString(getCurrentLocale(), { hour12: false })
 }
 
 const loadApiKeys = async () => {
@@ -500,6 +508,19 @@ const loadScopeOptions = async () => {
   recommendedScopes.value = Array.isArray(response.data?.recommended_scopes) && response.data.recommended_scopes.length
     ? response.data.recommended_scopes.filter((scope: string) => scope !== 'ai.chat')
     : [...fallbackRecommendedScopes]
+
+  const scopeOptions = [
+    ...(Array.isArray(response.data?.available_scope_options) ? response.data.available_scope_options : []),
+    ...(Array.isArray(response.data?.recommended_scope_options) ? response.data.recommended_scope_options : [])
+  ]
+  localizedScopeLabelMap.value = scopeOptions.reduce((acc: Record<string, string>, option: any) => {
+    const value = String(option?.value || '').trim()
+    const label = String(option?.label || '').trim()
+    if (value && label) {
+      acc[value] = label
+    }
+    return acc
+  }, {})
 }
 
 const resetKeyForm = () => {
@@ -528,16 +549,16 @@ const closeCreateKeyModal = () => {
 
 const createApiKey = async () => {
   if (!keyForm.name.trim()) {
-    showMessage('先填密钥名称', 'warning')
+    showMessage(t('developer.nameRequired'), 'warning')
     return
   }
   if (keyForm.scopes.length === 0) {
-    showMessage('至少勾一个权限', 'warning')
+    showMessage(t('developer.scopeRequired'), 'warning')
     return
   }
   const expiresAtMs = toTimestamp(keyForm.expires_at_local)
   if (expiresAtMs === null) {
-    showMessage('过期时间格式不对，请重新选择', 'warning')
+    showMessage(t('developer.invalidDate'), 'warning')
     return
   }
 
@@ -600,7 +621,7 @@ const copyCreatedKey = async () => {
   if (!createdApiKey.value) return
   await navigator.clipboard.writeText(createdApiKey.value)
   closeCreatedKeyModal()
-  showMessage('访问密钥已复制，请妥善保管', 'success')
+  showMessage(t('developer.copied'), 'success')
 }
 
 const loadSectionData = async () => {

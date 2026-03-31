@@ -37,18 +37,18 @@
           >{{ mailbox.email }}</code>
           <span
             v-if="isProtectedHostedCatchAll(mailbox)"
-            title="未匹配地址默认进入这个邮箱"
+            :title="t('systemMailbox.catchAllTooltip')"
             class="px-1.5 py-0.5 text-xs bg-amber-100 text-amber-800 rounded whitespace-nowrap flex-shrink-0"
           >
-            默认代收
+            {{ t('systemMailbox.catchAllDefault') }}
           </span>
-          <span v-if="isDeletedHostedDomain(mailbox)" class="px-1 py-0.5 text-xs bg-red-100 text-red-800 rounded whitespace-nowrap flex-shrink-0">域名已删除</span>
-          <span v-else-if="isExpired(mailbox)" class="px-1 py-0.5 text-xs bg-red-100 text-red-800 rounded whitespace-nowrap flex-shrink-0">过期</span>
+          <span v-if="isDeletedHostedDomain(mailbox)" class="px-1 py-0.5 text-xs bg-red-100 text-red-800 rounded whitespace-nowrap flex-shrink-0">{{ t('systemMailbox.domainDeleted') }}</span>
+          <span v-else-if="isExpired(mailbox)" class="px-1 py-0.5 text-xs bg-red-100 text-red-800 rounded whitespace-nowrap flex-shrink-0">{{ t('systemMailbox.expired') }}</span>
         </div>
         <div class="mt-1 flex items-center justify-between text-xs text-gray-600">
-          <span>创建：{{ formatDate(mailbox.created_at) }}</span>
+          <span>{{ t('common.createdAt') }}：{{ formatDate(mailbox.created_at) }}</span>
           <span v-if="getDisplayExpiresAt(mailbox)" :class="isExpired(mailbox) ? 'text-red-600 font-medium' : ''">
-            过期：{{ formatDate(getDisplayExpiresAt(mailbox)) }}
+            {{ t('common.expiresAtLabel') }}：{{ formatDate(getDisplayExpiresAt(mailbox)) }}
           </span>
         </div>
         <MailboxTags
@@ -64,7 +64,7 @@
           <button
             type="button"
             class="flex h-8 w-8 items-center justify-center rounded-full text-gray-500 transition-colors hover:bg-white hover:text-gray-700"
-            title="更多操作"
+            :title="t('systemMailbox.moreActions')"
             @click.stop="toggleActionMenu(mailbox.id, $event)"
           >
             <BaseIcon name="more" size="sm" />
@@ -83,7 +83,7 @@
               @click.stop="handleCopyEmail(mailbox.email)"
             >
               <BaseIcon name="copy" size="sm" />
-              复制邮箱
+              {{ t('systemMailbox.copyMailbox') }}
             </button>
             <button
               type="button"
@@ -91,19 +91,19 @@
               @click.stop="handleShareAction(mailbox)"
             >
               <BaseIcon name="share" size="sm" />
-              分享邮箱
+              {{ t('systemMailbox.shareMailbox') }}
             </button>
             <button
               type="button"
               :disabled="isProtectedHostedCatchAll(mailbox)"
-              :title="isProtectedHostedCatchAll(mailbox) ? '代收邮箱不支持删除' : '删除邮箱'"
+              :title="isProtectedHostedCatchAll(mailbox) ? t('systemMailbox.protectedDeleteTooltip') : t('systemMailbox.deleteMailbox')"
               :class="isProtectedHostedCatchAll(mailbox)
                 ? 'flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-400 cursor-not-allowed'
                 : 'flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 transition-colors hover:bg-red-50'"
               @click.stop="handleDeleteAction(mailbox.id)"
             >
               <BaseIcon name="delete" size="sm" />
-              删除邮箱
+              {{ t('systemMailbox.deleteMailbox') }}
             </button>
           </div>
         </template>
@@ -123,8 +123,8 @@
   <ConfirmDialog
     :visible="showConfirm"
     :mask="false"
-    :title="isDeleting.batch ? '批量删除' : '删除邮箱'"
-    :message="isDeleting.batch ? `确定删除 ${isDeleting.ids.length} 个邮箱？` : '确定删除这个邮箱？'"
+    :title="isDeleting.batch ? t('systemMailbox.batchDeleteTitle') : t('systemMailbox.deleteTitle')"
+    :message="isDeleting.batch ? t('systemMailbox.deleteBatchMessage', { count: isDeleting.ids.length }) : t('systemMailbox.deleteSingleMessage')"
     :loading="deleting"
     @confirm="confirmDelete"
     @cancel="showConfirm = false"
@@ -168,7 +168,7 @@ const props = withDefaults(defineProps<{
   onPageChange: null,
   searchable: true,
   searchKeyword: null,
-  searchPlaceholder: '搜索邮箱...',
+  searchPlaceholder: '',
   onSearch: null
 })
 const { t } = useI18n()
@@ -208,6 +208,7 @@ const resolvedTitle = computed(() => {
   if (props.title) return props.title
   return props.mailboxType === 'hosted' ? t('home.hostedMailbox') : t('home.temporaryMailbox')
 })
+const searchPlaceholder = computed(() => props.searchPlaceholder || t('mail.searchMailboxesPlaceholder'))
 
 const getDisplayExpiresAt = (mailbox: any) => {
   const mailboxExpiresAt = Number(mailbox?.expires_at || 0)
@@ -269,9 +270,9 @@ const formatDate = (date: string | number) => {
 const copy = async (text: string) => {
   try {
     await navigator.clipboard.writeText(text)
-    showMessage('已复制')
+    showMessage(t('mail.copied'))
   } catch {
-    showMessage('复制失败', 'error')
+    showMessage(t('mail.copyFailed'), 'error')
   }
 }
 
@@ -334,11 +335,11 @@ const handleBatchDelete = (ids: number[]) => {
     return !targetMailbox || !isProtectedHostedCatchAll(targetMailbox)
   })
   if (!deletableIds.length) {
-    showMessage('代收邮箱不支持删除', 'warning')
+    showMessage(t('systemMailbox.protectedDeleteWarning'), 'warning')
     return
   }
   if (deletableIds.length !== ids.length) {
-    showMessage('代收邮箱已跳过', 'warning')
+    showMessage(t('systemMailbox.skippedCatchAllWarning'), 'warning')
   }
   isDeleting.value = { batch: true, ids: deletableIds }
   showConfirm.value = true
@@ -390,7 +391,7 @@ const confirmDelete = async () => {
     if (isDeleting.value.batch) {
       // 使用批量删除接口
       await unifiedAPI.batchDeleteMailboxes(deletedIds, props.mailboxType)
-      showMessage(`已删除 ${deletedIds.length} 个邮箱`)
+      showMessage(t('systemMailbox.batchDeleted', { count: deletedIds.length }))
       emit('deleted', deletedIds)
       // 批量删除成功后，退出批量模式
       if (mailboxListRef.value?.cancelBatchMode) {
@@ -401,8 +402,8 @@ const confirmDelete = async () => {
         ? await mailboxStore.deleteMailbox(deletedIds[0])
         : await unifiedAPI.deleteMailbox(deletedIds[0], props.mailboxType)
       const success = Boolean(result?.success || result?.code === 0 || result?.data?.code === 0)
-      const errorText = result?.error || result?.message || result?.data?.message || '删除失败'
-      showMessage(success ? '删除成功' : errorText, success ? 'success' : 'error')
+      const errorText = result?.error || result?.message || result?.data?.message || t('systemMailbox.deleteFailed')
+      showMessage(success ? t('systemMailbox.deleteSuccess') : errorText, success ? 'success' : 'error')
       if (success) {
         emit('deleted', deletedIds)
       }

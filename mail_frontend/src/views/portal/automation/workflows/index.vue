@@ -13,7 +13,7 @@
               <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
-              自动化中心
+              {{ t('executionHistory.automationCenter') }}
             </router-link>
           </li>
           <li>
@@ -21,7 +21,7 @@
               <svg class="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
                 <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
               </svg>
-              <span class="ml-1 text-sm font-medium text-black md:ml-2">我的资源</span>
+              <span class="ml-1 text-sm font-medium text-black md:ml-2">{{ t('automationWorkflows.breadcrumbCurrent') }}</span>
             </div>
           </li>
         </ol>
@@ -31,8 +31,8 @@
       <div class="mb-8">
         <div class="flex items-center justify-between">
           <div>
-            <h1 class="text-2xl font-bold text-black">我的资源</h1>
-            <p class="mt-2 text-black">管理我创建和购买的数字资源</p>
+            <h1 class="text-2xl font-bold text-black">{{ t('automationWorkflows.title') }}</h1>
+            <p class="mt-2 text-black">{{ t('automationWorkflows.subtitle') }}</p>
           </div>
           <div class="flex space-x-3">
             <button
@@ -42,7 +42,7 @@
               <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
               </svg>
-              创建工作流
+              {{ t('automationWorkflows.createWorkflow') }}
             </button>
           </div>
         </div>
@@ -59,7 +59,7 @@
               : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
           ]"
         >
-          全部
+          {{ t('automationWorkflows.tabAll') }}
         </button>
         <button
           @click="activeTab = 'owner'"
@@ -70,7 +70,7 @@
               : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
           ]"
         >
-          我创建的
+          {{ t('automationWorkflows.tabOwner') }}
         </button>
         <button
           @click="activeTab = 'purchased'"
@@ -81,7 +81,7 @@
               : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
           ]"
         >
-          我购买的
+          {{ t('automationWorkflows.tabPurchased') }}
         </button>
       </div>
 
@@ -136,12 +136,12 @@
     <!-- 删除确认对话框 -->
     <ConfirmDialog
       v-model:visible="showDeleteConfirm"
-      title="确认删除"
-      :message="`确定要删除工作流 &quot;${workflowToDelete?.name}&quot; 吗？`"
+      :title="t('automationWorkflows.deleteConfirmTitle')"
+      :message="t('automationWorkflows.deleteConfirmMessage', { name: workflowToDelete?.name || '' })"
       type="danger"
-      confirm-text="删除"
+      :confirm-text="t('automationWorkflows.deleteConfirmAction')"
       :loading="deleting"
-      loading-text="删除中"
+      :loading-text="t('automationWorkflows.deleting')"
       @confirm="confirmDeleteWorkflow"
       @cancel="cancelDelete"
     />
@@ -149,12 +149,12 @@
     <!-- 下架确认对话框 -->
     <ConfirmDialog
       v-model:visible="showUnpublishConfirm"
-      title="确认下架"
-      :message="`确定要下架工作流 &quot;${workflowToUnpublish?.name}&quot; 吗？下架后市场中将不再展示此工作流。`"
+      :title="t('automationWorkflows.unpublishConfirmTitle')"
+      :message="t('automationWorkflows.unpublishConfirmMessage', { name: workflowToUnpublish?.name || '' })"
       type="warning"
-      confirm-text="下架"
+      :confirm-text="t('automationWorkflows.unpublishConfirmAction')"
       :loading="unpublishing"
-      loading-text="下架中"
+      :loading-text="t('automationWorkflows.unpublishing')"
       @confirm="confirmUnpublish"
       @cancel="showUnpublishConfirm = false"
     />
@@ -170,10 +170,10 @@
     <!-- 执行确认对话框 -->
     <ConfirmDialog
       :visible="showExecuteConfirm"
-      title="确认执行"
+      :title="t('automationWorkflows.executeConfirmTitle')"
       :message="executeConfirmMessage"
       type="warning"
-      confirm-text="确认执行"
+      :confirm-text="t('automationWorkflows.executeConfirmAction')"
       :loading="executing"
       @confirm="confirmExecuteWorkflow"
       @cancel="showExecuteConfirm = false"
@@ -193,8 +193,8 @@
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
           <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
         </svg>
-        <p class="text-lg font-medium text-gray-900">工作流执行中...</p>
-        <p class="text-sm text-gray-500 mt-2">请稍候，正在处理您的请求</p>
+        <p class="text-lg font-medium text-gray-900">{{ t('automationWorkflows.executingTitle') }}</p>
+        <p class="text-sm text-gray-500 mt-2">{{ t('automationWorkflows.executingSubtitle') }}</p>
       </div>
     </div>
     </div>
@@ -203,6 +203,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { workflowApi } from '@/api/workflow'
 import { unpublishWorkflow, republishWorkflow } from '@/api/workflowMarket'
@@ -215,11 +216,11 @@ import ExecutionHistoryModal from '../../workflows/components/ExecutionHistoryMo
 import InventoryManagementModal from '../../workflows/components/InventoryManagementModal/index.vue'
 import ExecutionResultModal from '../../workflows/components/ExecutionResultModal/index.vue'
 import ConfirmDialog from '@/components/ConfirmDialog/index.vue'
-import ActionButton from '@/components/ActionButton/index.vue'
 import { showMessage } from '@/utils/message'
 
 const route = useRoute()
 const router = useRouter()
+const { t } = useI18n()
 
 // 响应式数据
 const loading = ref(false)
@@ -253,23 +254,23 @@ const workflows = ref([])
 
 // 计算属性
 const executeConfirmMessage = computed(() => {
-  if (!executingWorkflow.value) return '确认执行工作流？'
+  if (!executingWorkflow.value) return t('automationWorkflows.executeConfirmDefault')
   
   const workflow = executingWorkflow.value
   const price = workflow.milk_coin_price || 0
   
   // 按次付费需要提示扣费
   if ((workflow.pricing_model === 'pay_per_use' || workflow.pricing_model === 'per_use') && price > 0) {
-    return `执行工作流将消耗 ${price} 奶片，是否继续？`
+    return t('automationWorkflows.executeConfirmPayPerUse', { price })
   } else if (workflow.pricing_model === 'free' || !workflow.pricing_model) {
-    return `确认执行工作流"${workflow.name}"？`
+    return t('automationWorkflows.executeConfirmFree', { name: workflow.name })
   } else if (workflow.pricing_model === 'subscription') {
-    return `确认执行工作流"${workflow.name}"？（订阅用户免费）`
+    return t('automationWorkflows.executeConfirmSubscription', { name: workflow.name })
   } else if (workflow.pricing_model === 'one_time') {
-    return `确认执行工作流"${workflow.name}"？（已购买，免费执行）`
+    return t('automationWorkflows.executeConfirmOneTime', { name: workflow.name })
   }
   
-  return `确认执行工作流"${workflow.name}"？`
+  return t('automationWorkflows.executeConfirmFree', { name: workflow.name })
 })
 
 const filteredWorkflows = computed(() => {
@@ -345,11 +346,11 @@ const viewWorkflow = async (workflow) => {
       selectedWorkflow.value = res.data
       showDetailDialog.value = true
     } else {
-      showMessage(res.message || '获取工作流详情失败', 'error')
+      showMessage(t('automationWorkflows.loadDetailFailed'), 'error')
     }
   } catch (error) {
     console.error('获取工作流详情失败:', error)
-    showMessage('获取工作流详情失败', 'error')
+    showMessage(t('automationWorkflows.loadDetailFailed'), 'error')
   }
 }
 
@@ -360,23 +361,11 @@ const editWorkflow = async (workflow) => {
       selectedWorkflow.value = res.data
       showCreateDialog.value = true
     } else {
-      showMessage(res.message || '获取工作流详情失败', 'error')
+      showMessage(t('automationWorkflows.loadDetailFailed'), 'error')
     }
   } catch (error) {
     console.error('获取工作流详情失败:', error)
-    showMessage('获取工作流详情失败', 'error')
-  }
-}
-
-const executeWorkflow = async (workflow) => {
-  try {
-    const response = await workflowApi.executeWorkflow(workflow.workflow_id, {})
-    if (response.code === 0) {
-      showMessage(`工作流 "${workflow.name}" 已开始执行`, 'success')
-      console.log('工作流执行成功:', response.data)
-    }
-  } catch (error) {
-    console.error('执行工作流失败:', error)
+    showMessage(t('automationWorkflows.loadDetailFailed'), 'error')
   }
 }
 
@@ -391,7 +380,7 @@ const confirmDeleteWorkflow = async () => {
     const response = await workflowApi.deleteWorkflow(workflowToDelete.value.workflow_id)
     if (response.code === 0) {
       workflows.value = workflows.value.filter(w => w.id !== workflowToDelete.value.id)
-      showMessage('工作流已删除', 'success')
+      showMessage(t('automationWorkflows.deleteSuccess'), 'success')
       console.log(`工作流 ${workflowToDelete.value.name} 已删除`)
     }
   } catch (error) {
@@ -463,15 +452,15 @@ const confirmUnpublish = async () => {
   try {
     const res = await unpublishWorkflow(workflowToUnpublish.value.workflow_id)
     if (res.code === 0) {
-      showMessage('工作流已下架', 'success')
+      showMessage(t('automationWorkflows.unpublishSuccess'), 'success')
       showUnpublishConfirm.value = false
       fetchWorkflows()
     } else {
-      showMessage(res.message || '下架失败', 'error')
+      showMessage(t('automationWorkflows.unpublishFailed'), 'error')
     }
   } catch (error) {
     console.error('下架失败:', error)
-    showMessage('下架失败', 'error')
+    showMessage(t('automationWorkflows.unpublishFailed'), 'error')
   } finally {
     unpublishing.value = false
     workflowToUnpublish.value = null
@@ -483,14 +472,14 @@ const handleRepublish = async (workflow) => {
   try {
     const res = await republishWorkflow(workflow.workflow_id)
     if (res.code === 0) {
-      showMessage('工作流已重新上架', 'success')
+      showMessage(t('automationWorkflows.republishSuccess'), 'success')
       fetchWorkflows()
     } else {
-      showMessage(res.message || '重新上架失败', 'error')
+      showMessage(t('automationWorkflows.republishFailed'), 'error')
     }
   } catch (error) {
     console.error('重新上架失败:', error)
-    showMessage('重新上架失败', 'error')
+    showMessage(t('automationWorkflows.republishFailed'), 'error')
   }
 }
 
@@ -530,15 +519,15 @@ const confirmExecuteWorkflow = async () => {
       if (status === 'completed') {
         executionResultData.value = response.data
         showExecutionResult.value = true
-        showMessage('工作流执行成功！', 'success')
+        showMessage(t('marketDetail.executionSuccess'), 'success')
       }
       // 执行失败
       else if (status === 'failed') {
-        showMessage(response.data.error || '工作流执行失败', 'error')
+        showMessage(t('marketDetail.executionFailed'), 'error')
       }
       // 其他状态（executing/pending）
       else {
-        showMessage(response.data.message || '工作流已提交执行', 'info')
+        showMessage(t('marketDetail.executionSubmitted'), 'info')
       }
     }
   } catch (error) {

@@ -14,14 +14,14 @@
           <svg class="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path>
           </svg>
-          <h1 class="text-lg font-semibold text-gray-900">邮箱分享</h1>
-          <span v-if="mailboxCount > 0" class="text-sm text-gray-500">({{ mailboxCount }} 个邮箱)</span>
+          <h1 class="text-lg font-semibold text-gray-900">{{ t('sharePage.title') }}</h1>
+          <span v-if="mailboxCount > 0" class="text-sm text-gray-500">({{ t('sharePage.mailboxCount', { count: mailboxCount }) }})</span>
         </div>
         <div v-if="expireAt" class="flex items-center gap-2 text-sm text-gray-500">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
           </svg>
-          <span>有效期至：{{ formatDate(expireAt) }}</span>
+          <span>{{ t('sharePage.validUntil', { date: formatDate(expireAt) }) }}</span>
         </div>
       </div>
     </template>
@@ -31,7 +31,7 @@
       <div v-if="loading" class="flex items-center justify-center h-full">
         <div class="text-center">
           <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
-          <p class="mt-2 text-sm text-gray-600">加载中...</p>
+          <p class="mt-2 text-sm text-gray-600">{{ t('common.loading') }}</p>
         </div>
       </div>
 
@@ -46,10 +46,10 @@
 
       <MailboxList
         v-else
-        title="我的邮箱"
+        :title="t('sharePage.myMailboxes')"
         :mailboxes="mailboxes"
         :selectedId="selectedMailbox?.id"
-        emptyText="暂无邮箱"
+        :emptyText="t('sharePage.noMailbox')"
         @select="handleSelectMailbox"
       >
         <template #content="{ mailboxes, selectedId, onSelect }">
@@ -67,9 +67,9 @@
                   <code class="text-sm text-gray-900 truncate">{{ mailbox.email || mailbox.email_address }}</code>
                 </div>
                 <div class="text-xs text-gray-600 mt-1 flex items-center justify-between">
-                  <span>创建：{{ formatDate(mailbox.created_at || mailbox.created_at_ms) }}</span>
+                  <span>{{ t('common.createdAt') }}：{{ formatDate(mailbox.created_at || mailbox.created_at_ms) }}</span>
                   <span v-if="mailboxType === 'system' && mailbox.expires_at_ms" class="text-orange-600">
-                    过期：{{ formatDate(mailbox.expires_at_ms) }}
+                    {{ t('common.expiresAtLabel') }}：{{ formatDate(mailbox.expires_at_ms) }}
                   </span>
                 </div>
               </div>
@@ -77,7 +77,7 @@
                 <ActionButton
                   icon="copy"
                   variant="copy"
-                  tooltip="复制邮箱"
+                  :tooltip="t('sharePage.copyMailbox')"
                   @click.stop="copyMailboxAddress(mailbox.email || mailbox.email_address)"
                 />
               </div>
@@ -90,7 +90,7 @@
     <!-- 中栏：邮件列表 -->
     <template #middle>
       <EmailList
-        title="我的邮件"
+        :title="t('mail.myEmails')"
         :emails="emails"
         :selectedId="selectedEmail?.id"
         :showPagination="totalPages > 1"
@@ -103,7 +103,7 @@
             @click="handleSelectMailbox(null)"
             class="px-2 py-1 text-xs text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors whitespace-nowrap"
           >
-            查看全部
+            {{ t('sharePage.viewAll') }}
           </button>
         </template>
 
@@ -121,7 +121,7 @@
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
-            {{ fetching ? '收取中...' : '收取全部' }}
+            {{ fetching ? t('sharePage.fetchingAll') : t('sharePage.fetchAll') }}
           </button>
         </template>
 
@@ -129,7 +129,7 @@
           <div v-if="loadingEmails" class="flex items-center justify-center h-full">
             <div class="text-center">
               <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
-              <p class="mt-2 text-sm text-gray-600">加载邮件中...</p>
+              <p class="mt-2 text-sm text-gray-600">{{ t('sharePage.loadingEmails') }}</p>
             </div>
           </div>
           <EmailItem
@@ -169,6 +169,7 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import PageHeader from '@/components/PageHeader/index.vue'
 import ThreeColumnLayout from '@/components/Mail/Layout/ThreeColumnLayout.vue'
 import MailboxList from '@/components/Mail/MailboxList/MailboxList.vue'
@@ -180,8 +181,10 @@ import Pagination from '@/components/Pagination/index.vue'
 import ActionButton from '@/components/ActionButton/index.vue'
 import { mailboxShareAPI } from '@/api/mailboxShare'
 import { showMessage } from '@/utils/message'
+import { getCurrentLocale } from '@/i18n'
 
 const route = useRoute()
+const { t } = useI18n()
 
 const loading = ref(true)
 const error = ref('')
@@ -248,7 +251,7 @@ const stopAutoRefresh = () => {
 const loadShareInfo = async () => {
   const shareToken = route.params.token
   if (!shareToken) {
-    error.value = '分享链接无效'
+    error.value = t('sharePage.invalidLink')
     loading.value = false
     return
   }
@@ -265,16 +268,16 @@ const loadShareInfo = async () => {
       // 启动自动刷新
       startAutoRefresh()
     } else {
-      error.value = res.message || '获取分享信息失败'
+      error.value = res.message || t('sharePage.loadShareFailed')
     }
   } catch (err) {
     console.error('加载分享信息失败:', err)
     if (err.response?.status === 404) {
-      error.value = '分享不存在'
+      error.value = t('sharePage.shareNotFound')
     } else if (err.response?.status === 410) {
-      error.value = '分享已过期'
+      error.value = t('sharePage.shareExpired')
     } else {
-      error.value = err.response?.data?.detail || '加载失败'
+      error.value = err.response?.data?.detail || t('sharePage.loadFailed')
     }
   } finally {
     loading.value = false
@@ -296,11 +299,11 @@ const loadEmails = async () => {
       totalPages.value = res.data.pagination?.total_pages || 1
       // 不自动选中第一封邮件，保持空状态
     } else {
-      showMessage(res.message || '加载邮件失败', 'error')
+      showMessage(res.message || t('sharePage.loadEmailsFailed'), 'error')
     }
   } catch (err) {
     console.error('加载邮件失败:', err)
-    showMessage('加载邮件失败', 'error')
+    showMessage(t('sharePage.loadEmailsFailed'), 'error')
   } finally {
     loadingEmails.value = false
   }
@@ -339,7 +342,7 @@ const handleSelectEmail = async (email) => {
     }
   } catch (err) {
     console.error('获取邮件详情失败:', err)
-    showMessage('获取邮件详情失败', 'error')
+    showMessage(t('sharePage.loadEmailDetailFailed'), 'error')
   }
 }
 
@@ -356,15 +359,15 @@ const handleFetchAll = async () => {
   try {
     const res = await mailboxShareAPI.fetchShareEmails(shareToken)
     if (res.code === 0) {
-      showMessage(`收取成功，新增 ${res.data.new_emails} 封邮件`, 'success')
+      showMessage(t('sharePage.fetchAllSuccess', { count: res.data.new_emails }), 'success')
       // 刷新邮件列表
       await loadEmails()
     } else {
-      showMessage(res.message || '收取邮件失败', 'error')
+      showMessage(res.message || t('externalMailbox.fetchFailed'), 'error')
     }
   } catch (err) {
     console.error('收取邮件失败:', err)
-    showMessage(err.response?.data?.detail || '收取邮件失败', 'error')
+    showMessage(err.response?.data?.detail || t('externalMailbox.fetchFailed'), 'error')
   } finally {
     fetching.value = false
   }
@@ -372,7 +375,7 @@ const handleFetchAll = async () => {
 
 const copyMailboxAddress = (email) => {
   navigator.clipboard.writeText(email)
-  showMessage('邮箱地址已复制', 'success')
+  showMessage(t('sharePage.copied'), 'success')
 }
 
 const formatDate = (dateStr) => {
@@ -383,7 +386,7 @@ const formatDate = (dateStr) => {
   } else {
     date = new Date(dateStr)
   }
-  return date.toLocaleString('zh-CN', {
+  return date.toLocaleString(getCurrentLocale(), {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',

@@ -2,15 +2,15 @@
   <div class="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
     <div class="flex items-start justify-between gap-4">
       <div class="flex-1">
-        <div class="text-sm font-medium text-black">未匹配邮箱代收</div>
+        <div class="text-sm font-medium text-black">{{ t('domainsPage.catchAllTitle') }}</div>
         <p class="mt-1 text-xs leading-5 text-gray-500">
-          开启后，未创建地址的邮件会统一收到 <span class="font-mono text-gray-700">{{ getCatchAllMailbox(domainName) }}</span>；关闭后不收。
+          {{ t('domainsPage.catchAllCreateDesc', { mailbox: getCatchAllMailbox(domainName) }) }}
         </p>
         <p class="mt-1 text-xs leading-5 text-gray-500">
-          子域名或多级域名是否能代收，取决于 DNS 是否已经把对应子域名或通配子域名的 MX 指到当前收件服务器。
+          {{ t('domainsPage.catchAllDnsDesc') }}
         </p>
         <p v-if="showMailboxLine && enabled" class="mt-1 text-xs leading-5 text-gray-600">
-          代收邮箱：<span class="font-mono text-gray-700">{{ getCatchAllMailbox(domainName) }}</span>
+          {{ t('domainsPage.catchAllMailbox', { mailbox: getCatchAllMailbox(domainName) }) }}
         </p>
       </div>
       <button
@@ -33,19 +33,26 @@
 </template>
 
 <script setup lang="ts">
-withDefaults(defineProps<{
-  domainName?: string
-  enabled: boolean
-  showMailboxLine?: boolean
-}>(), {
-  domainName: '',
-  showMailboxLine: false,
-})
+import { useI18n } from 'vue-i18n'
+
+withDefaults(
+  defineProps<{
+    domainName?: string
+    enabled: boolean
+    showMailboxLine?: boolean
+  }>(),
+  {
+    domainName: '',
+    showMailboxLine: false
+  }
+)
 
 const emit = defineEmits<{
   (e: 'update:enabled', value: boolean): void
 }>()
+const { t } = useI18n()
 
-const normalizeCatchAllDomain = (domainName?: string) => String(domainName || '').trim() || '你的域名'
+const normalizeCatchAllDomain = (domainName?: string) =>
+  String(domainName || '').trim() || t('domainsPage.yourDomain')
 const getCatchAllMailbox = (domainName?: string) => `admin@${normalizeCatchAllDomain(domainName)}`
 </script>

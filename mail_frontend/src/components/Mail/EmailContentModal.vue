@@ -12,7 +12,7 @@
         >
           <!-- 头部 -->
           <div class="flex items-center justify-between p-4 border-b border-gray-200">
-            <h2 class="text-lg font-semibold text-gray-900">{{ email?.subject || '(无主题)' }}</h2>
+            <h2 class="text-lg font-semibold text-gray-900">{{ email?.subject || t('emailDetail.noSubject') }}</h2>
             <button
               @click="closeModal"
               class="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded hover:bg-gray-100"
@@ -26,15 +26,15 @@
           <!-- 邮件信息 -->
           <div class="p-4 border-b border-gray-200 space-y-2 text-sm">
             <div class="flex">
-              <span class="w-20 text-gray-600 flex-shrink-0">发件人:</span>
+              <span class="w-20 text-gray-600 flex-shrink-0">{{ t('common.sender') }}:</span>
               <span class="flex-1 text-gray-900">{{ email?.from_addr }}</span>
             </div>
             <div class="flex">
-              <span class="w-20 text-gray-600 flex-shrink-0">收件人:</span>
+              <span class="w-20 text-gray-600 flex-shrink-0">{{ t('common.recipient') }}:</span>
               <span class="flex-1 text-gray-900">{{ email?.to_addr }}</span>
             </div>
             <div class="flex">
-              <span class="w-20 text-gray-600 flex-shrink-0">时间:</span>
+              <span class="w-20 text-gray-600 flex-shrink-0">{{ t('common.time') }}:</span>
               <span class="flex-1 text-gray-900">{{ formatDate(email?.received_at) }}</span>
             </div>
           </div>
@@ -50,7 +50,7 @@
               @load="handleIframeLoad"
             ></iframe>
             <div v-else-if="hasTextContent" class="whitespace-pre-wrap text-gray-900">{{ textContent }}</div>
-            <div v-else class="text-gray-400 text-center py-8">无邮件内容</div>
+            <div v-else class="text-gray-400 text-center py-8">{{ t('emailDetail.emptyContent') }}</div>
           </div>
         </div>
       </div>
@@ -60,6 +60,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { formatTimestamp } from '@/utils/timeUtils'
 import { isTauri } from '@/services/api'
 
@@ -87,6 +88,7 @@ const props = defineProps<Props>()
 const emit = defineEmits<{
   'update:visible': [value: boolean]
 }>()
+const { t } = useI18n()
 
 const closeModal = () => {
   emit('update:visible', false)
@@ -254,7 +256,7 @@ const addIframeOpenHint = (embeddedFrame: HTMLIFrameElement, iframeDoc: Document
 
   const hint = iframeDoc.createElement('a')
   hint.href = url
-  hint.textContent = '嵌入页面可能无法直接操作，点此在系统浏览器打开'
+  hint.textContent = t('emailDetail.openInBrowserHint')
   hint.style.display = 'inline-block'
   hint.style.marginBottom = '8px'
   hint.style.padding = '6px 10px'

@@ -17,7 +17,7 @@
           <!-- 头部 -->
           <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200">
             <h3 class="text-lg font-semibold text-gray-900">
-              {{ title }}
+              {{ resolvedTitle }}
             </h3>
             <button
               v-if="showClose"
@@ -42,7 +42,7 @@
               @click="handleCancel"
               class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors"
             >
-              {{ cancelText }}
+              {{ resolvedCancelText }}
             </button>
             <button
               v-if="showConfirm"
@@ -52,7 +52,7 @@
               :disabled="confirmLoading || confirmDisabled"
             >
               <span v-if="confirmLoading" class="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></span>
-              {{ confirmText }}
+              {{ resolvedConfirmText }}
             </button>
           </div>
         </div>
@@ -63,6 +63,9 @@
 
 <script setup>
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps({
   modelValue: {
@@ -71,7 +74,7 @@ const props = defineProps({
   },
   title: {
     type: String,
-    default: '提示'
+    default: ''
   },
   size: {
     type: String,
@@ -96,11 +99,11 @@ const props = defineProps({
   },
   cancelText: {
     type: String,
-    default: '取消'
+    default: ''
   },
   confirmText: {
     type: String,
-    default: '确定'
+    default: ''
   },
   confirmLoading: {
     type: Boolean,
@@ -117,6 +120,10 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['update:modelValue', 'confirm', 'cancel', 'close'])
+
+const resolvedTitle = computed(() => props.title || t('common.tip'))
+const resolvedCancelText = computed(() => props.cancelText || t('common.cancel'))
+const resolvedConfirmText = computed(() => props.confirmText || t('common.confirm'))
 
 const sizeClass = computed(() => {
   const sizes = {

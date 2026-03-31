@@ -3,11 +3,11 @@
     <PageHeader />
     
     <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <h1 class="text-2xl font-bold text-gray-900 mb-6">个人中心</h1>
+      <h1 class="text-2xl font-bold text-gray-900 mb-6">{{ t('profile.title') }}</h1>
       
       <!-- 基本信息卡片 -->
       <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-        <h2 class="text-lg font-semibold text-gray-900 mb-4">基本信息</h2>
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">{{ t('profile.basicInfo') }}</h2>
         
         <div class="space-y-4">
           <div class="flex items-center justify-between py-3 border-b border-gray-100">
@@ -16,7 +16,7 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
               </svg>
               <div>
-                <div class="text-sm text-gray-500">邮箱</div>
+                <div class="text-sm text-gray-500">{{ t('profile.emailLabel') }}</div>
                 <div class="text-base text-gray-900">{{ userInfo?.email || '-' }}</div>
               </div>
             </div>
@@ -28,7 +28,7 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
               </svg>
               <div>
-                <div class="text-sm text-gray-500">注册时间</div>
+                <div class="text-sm text-gray-500">{{ t('profile.registeredAt') }}</div>
                 <div class="text-base text-gray-900">{{ formatDate(userInfo?.created_at) || '-' }}</div>
               </div>
             </div>
@@ -38,7 +38,7 @@
 
       <!-- 奶片充值卡片 -->
       <div id="recharge" class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-        <h2 class="text-lg font-semibold text-gray-900 mb-4">奶片充值</h2>
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">{{ t('profile.rechargeTitle') }}</h2>
         
         <div class="space-y-4">
           <!-- 当前余额 -->
@@ -50,15 +50,15 @@
                 </svg>
               </div>
               <div>
-                <div class="text-sm text-gray-600">当前余额</div>
-                <div class="text-2xl font-bold text-primary-600">{{ userInfo?.milk_coins || 0 }} <span class="text-base font-normal text-gray-600">奶片</span></div>
+                <div class="text-sm text-gray-600">{{ t('profile.currentBalance') }}</div>
+                <div class="text-2xl font-bold text-primary-600">{{ userInfo?.milk_coins || 0 }} <span class="text-base font-normal text-gray-600">{{ t('profile.coinUnit') }}</span></div>
               </div>
             </div>
           </div>
 
           <!-- 充值金额输入 -->
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">充值金额（元）</label>
+            <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('profile.rechargeAmount') }}</label>
             <div class="relative">
               <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <span class="text-gray-500">¥</span>
@@ -68,19 +68,19 @@
                 type="number"
                 min="1"
                 step="1"
-                placeholder="请输入充值金额"
+                :placeholder="t('profile.rechargePlaceholder')"
                 class="block w-full pl-8 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 @keypress.enter="handleRecharge"
               />
             </div>
             <div class="mt-2 text-xs text-gray-500">
-              * 1元 = 1奶片，最低充值1元
+              {{ t('profile.rechargeHint') }}
             </div>
           </div>
 
           <!-- 快捷金额 -->
           <div>
-            <div class="text-sm font-medium text-gray-700 mb-2">快捷选择</div>
+            <div class="text-sm font-medium text-gray-700 mb-2">{{ t('profile.quickSelect') }}</div>
             <div class="grid grid-cols-4 gap-2">
               <button
                 v-for="amount in [10, 50, 100, 200]"
@@ -104,7 +104,7 @@
             :disabled="!rechargeAmount || rechargeAmount < 1 || recharging"
             class="w-full py-3 px-4 bg-primary-600 hover:bg-primary-700 disabled:bg-gray-400 text-white font-medium rounded-lg transition-colors disabled:cursor-not-allowed"
           >
-            {{ recharging ? '处理中...' : '立即充值' }}
+            {{ recharging ? t('confirmDialog.processing') : t('profile.rechargeNow') }}
           </button>
         </div>
       </div>
@@ -112,7 +112,7 @@
       <!-- Google 账号绑定卡片 -->
       <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div class="flex items-center justify-between mb-4">
-          <h2 class="text-lg font-semibold text-gray-900">第三方账号绑定</h2>
+          <h2 class="text-lg font-semibold text-gray-900">{{ t('profile.thirdPartyBinding') }}</h2>
         </div>
         
         <div class="space-y-4">
@@ -123,7 +123,7 @@
               <div v-if="googleBound && googleInfo?.google_avatar" class="relative">
                 <img 
                   :src="googleInfo.google_avatar" 
-                  alt="Google 头像"
+                  :alt="t('profile.googleAccount')"
                   class="w-10 h-10 rounded-full border border-gray-200"
                 />
                 <div class="absolute -bottom-1 -right-1 w-5 h-5 bg-white rounded-full flex items-center justify-center shadow-sm">
@@ -144,13 +144,13 @@
                 </svg>
               </div>
               <div>
-                <div class="text-base font-medium text-gray-900">Google 账号</div>
-                <div v-if="loading" class="text-sm text-gray-500">加载中...</div>
+                <div class="text-base font-medium text-gray-900">{{ t('profile.googleAccount') }}</div>
+                <div v-if="loading" class="text-sm text-gray-500">{{ t('common.loading') }}</div>
                 <div v-else-if="googleBound" class="flex items-center space-x-2">
                   <span class="text-sm text-gray-600">{{ googleInfo?.google_email }}</span>
                   <span v-if="googleInfo?.google_name" class="text-sm text-gray-400">({{ googleInfo.google_name }})</span>
                 </div>
-                <div v-else class="text-sm text-gray-500">未绑定</div>
+                <div v-else class="text-sm text-gray-500">{{ t('profile.unbound') }}</div>
               </div>
             </div>
             
@@ -160,7 +160,7 @@
                 <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
                   <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
                 </svg>
-                已绑定
+                {{ t('profile.bound') }}
               </span>
               <button
                 v-else
@@ -168,7 +168,7 @@
                 :disabled="bindLoading"
                 class="px-4 py-2 text-sm font-medium text-primary-600 hover:text-primary-700 border border-primary-600 rounded-lg hover:bg-primary-50 transition-colors disabled:opacity-50"
               >
-                {{ bindLoading ? '跳转中...' : '立即绑定' }}
+                {{ bindLoading ? t('profile.bindingRedirect') : t('profile.bindNow') }}
               </button>
             </div>
           </div>
@@ -179,13 +179,13 @@
               <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                 <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
               </svg>
-              <span>解绑后将无法使用 Google 一键登录</span>
+              <span>{{ t('profile.unbindHint') }}</span>
             </div>
             <button
               @click="showUnbindDialog = true"
               class="px-4 py-2 text-sm font-medium text-red-600 hover:text-red-700 border border-red-600 rounded-lg hover:bg-red-50 transition-colors"
             >
-              解除绑定
+              {{ t('profile.unbind') }}
             </button>
           </div>
         </div>
@@ -205,13 +205,13 @@
     <!-- 解绑确认弹窗 -->
     <ConfirmDialog
       v-model:visible="showUnbindDialog"
-      title="解除 Google 账号绑定"
-      message="确定要解除 Google 账号绑定吗？解绑后将无法使用 Google 一键登录。"
+      :title="t('profile.unbindTitle')"
+      :message="t('profile.unbindMessage')"
       type="warning"
-      confirmText="确认解绑"
-      cancelText="取消"
+      :confirmText="t('profile.confirmUnbind')"
+      :cancelText="t('common.cancel')"
       :loading="unbindLoading"
-      loadingText="解绑中"
+      :loadingText="t('profile.unbinding')"
       :show-warning="true"
       @confirm="handleUnbindConfirm"
     />
@@ -220,24 +220,24 @@
     <div v-if="showQrCode" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50" @click="cancelRecharge">
       <div class="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4" @click.stop>
         <div class="p-6 text-center">
-          <h3 class="text-xl font-bold text-gray-900 mb-2">请使用支付宝扫码支付</h3>
-          <div class="text-sm text-gray-600 mb-4">充值金额：<span class="text-2xl font-bold text-primary-600">¥{{ rechargeAmount }}</span></div>
+          <h3 class="text-xl font-bold text-gray-900 mb-2">{{ t('profile.alipayTitle') }}</h3>
+          <div class="text-sm text-gray-600 mb-4">{{ t('profile.rechargeAmountLabel') }}<span class="text-2xl font-bold text-primary-600">¥{{ rechargeAmount }}</span></div>
           <div class="mb-4 p-4 bg-white border-2 border-gray-200 rounded-lg inline-block">
-            <img :src="qrCodeUrl" alt="支付二维码" class="w-64 h-64">
+            <img :src="qrCodeUrl" :alt="t('profile.paymentQrAlt')" class="w-64 h-64">
           </div>
-          <p class="text-xs text-gray-500 mb-6">请在15分钟内完成支付，支付成功后会自动充值奶片</p>
+          <p class="text-xs text-gray-500 mb-6">{{ t('profile.paymentHint') }}</p>
           <div class="flex space-x-3">
             <button
               @click="cancelRecharge"
               class="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
             >
-              取消支付
+              {{ t('profile.cancelPayment') }}
             </button>
             <button
               @click="checkOrderStatus"
               class="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
             >
-              我已支付
+              {{ t('profile.paid') }}
             </button>
           </div>
         </div>
@@ -249,16 +249,19 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useUserStore } from '@/stores/user'
 import authAPI from '@/api/auth'
 import userAPI from '@/api/user'
 import PageHeader from '@/components/PageHeader/index.vue'
 import ConfirmDialog from '@/components/ConfirmDialog/index.vue'
 import { isTauri } from '@/services/api'
+import { getCurrentLocale } from '@/i18n'
 
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
+const { t } = useI18n()
 
 const loading = ref(true)
 const bindLoading = ref(false)
@@ -298,7 +301,7 @@ const getInitial = (email: string | undefined) => {
 const formatDate = (dateString: string | undefined) => {
   if (!dateString) return '-'
   const date = new Date(dateString)
-  return date.toLocaleString('zh-CN', {
+  return date.toLocaleString(getCurrentLocale(), {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -360,10 +363,10 @@ const bindGoogle = async () => {
       // 跳转到 Google 授权页面
       window.location.href = result.data.auth_url
     } else {
-      showMessage(result.message || '获取授权链接失败', 'error')
+      showMessage(result.message || t('login.getAuthLinkFailed'), 'error')
     }
   } catch (error) {
-    showMessage('网络错误，请稍后重试', 'error')
+    showMessage(t('common.networkErrorRetry'), 'error')
   } finally {
     bindLoading.value = false
   }
@@ -376,16 +379,16 @@ const handleUnbindConfirm = async () => {
     const result = await authAPI.unbindGoogle()
     
     if (result.code === 0) {
-      showMessage('解绑成功', 'success')
+      showMessage(t('profile.unbindSuccess'), 'success')
       googleBound.value = false
       googleInfo.value = null
       showUnbindDialog.value = false
     } else {
-      showMessage(result.message || '解绑失败', 'error')
+      showMessage(result.message || t('profile.unbindFailed'), 'error')
       showUnbindDialog.value = false
     }
   } catch (error) {
-    showMessage('网络错误，请稍后重试', 'error')
+    showMessage(t('common.networkErrorRetry'), 'error')
     showUnbindDialog.value = false
   } finally {
     unbindLoading.value = false
@@ -401,7 +404,7 @@ const handleGoogleBindRoute = async () => {
   }
 
   if (bindSuccess) {
-    showMessage('Google 绑定成功', 'success')
+    showMessage(t('profile.bindSuccess'), 'success')
     await loadUserInfo()
   } else if (typeof bindError === 'string' && bindError) {
     showMessage(bindError, 'error')
@@ -416,7 +419,7 @@ const handleGoogleBindRoute = async () => {
 // 处理充值
 const handleRecharge = async () => {
   if (!rechargeAmount.value || rechargeAmount.value < 1) {
-    showMessage('请输入正确的充值金额', 'error')
+    showMessage(t('profile.invalidAmount'), 'error')
     return
   }
 
@@ -446,10 +449,10 @@ const handleRecharge = async () => {
       // 开始轮询订单状态
       startPollingOrderStatus()
     } else {
-      showMessage(result.message || '创建订单失败', 'error')
+      showMessage(result.message || t('profile.createOrderFailed'), 'error')
     }
   } catch (error) {
-    showMessage('网络错误，请稍后重试', 'error')
+    showMessage(t('common.networkErrorRetry'), 'error')
     console.error(error)
   } finally {
     recharging.value = false
@@ -483,7 +486,7 @@ const checkOrderStatus = async () => {
       }
       
       showQrCode.value = false
-      showMessage('充值成功！', 'success')
+      showMessage(t('profile.rechargeSuccess'), 'success')
       
       // 刷新用户信息
       await loadUserInfo()

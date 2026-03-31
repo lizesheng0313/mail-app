@@ -4,7 +4,7 @@
       <!-- 头部 -->
       <div class="flex items-center justify-between p-6 border-b">
         <h3 class="text-xl font-semibold text-black">
-          快速自动化
+          {{ t('automationModal.title') }}
         </h3>
         <button
           @click="$emit('close')"
@@ -24,37 +24,37 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label for="name" class="block text-sm font-medium text-black mb-2">
-                  自动化名称 *
+                  {{ t('automationModal.name') }} *
                 </label>
                 <BaseInput
                   id="name"
                   v-model="form.name"
                   type="text"
                   required
-                  placeholder="输入自动化名称"
+                  :placeholder="t('automationModal.namePlaceholder')"
                 />
               </div>
               <div>
                 <label for="type" class="block text-sm font-medium text-black mb-2">
-                  自动化类型 *
+                  {{ t('automationModal.type') }} *
                 </label>
                 <CustomSelect
                   v-model="form.type"
                   :options="automationTypeOptions"
-                  placeholder="选择自动化类型"
+                  :placeholder="t('automationModal.selectType')"
                   @update:modelValue="handleTypeChange"
                 />
               </div>
             </div>
             <div class="mt-4">
               <label for="description" class="block text-sm font-medium text-black mb-2">
-                描述
+                {{ t('automationModal.description') }}
               </label>
               <BaseTextarea
                 id="description"
                 v-model="form.description"
                 rows="3"
-                placeholder="输入自动化描述"
+                :placeholder="t('automationModal.descriptionPlaceholder')"
               />
             </div>
           </div>
@@ -67,15 +67,15 @@
 
           <!-- 邮件处理配置 -->
           <div v-if="form.type === 'email_processing'" class="mb-6">
-            <h4 class="text-lg font-medium text-black mb-4">邮件处理配置</h4>
+            <h4 class="text-lg font-medium text-black mb-4">{{ t('automationModal.emailProcessingConfig') }}</h4>
             
             <!-- 获取邮件配置 -->
             <div class="mb-4">
-              <h5 class="text-sm font-medium text-black mb-3">获取邮件设置</h5>
+              <h5 class="text-sm font-medium text-black mb-3">{{ t('automationModal.fetchSettings') }}</h5>
               <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label class="block text-sm font-medium text-black mb-1">
-                    邮箱文件夹
+                    {{ t('automationModal.folder') }}
                   </label>
                   <BaseInput
                     v-model="form.config.fetch_params.folder"
@@ -86,7 +86,7 @@
                 </div>
                 <div>
                   <label class="block text-sm font-medium text-black mb-1">
-                    获取数量
+                    {{ t('automationModal.limit') }}
                   </label>
                   <BaseInput
                     v-model="form.config.fetch_params.limit"
@@ -105,7 +105,7 @@
                     class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
                   >
                   <label for="unread_only" class="ml-2 block text-sm text-black">
-                    仅未读邮件
+                    {{ t('automationModal.unreadOnly') }}
                   </label>
                 </div>
               </div>
@@ -113,7 +113,7 @@
 
             <!-- 处理规则配置 -->
             <div class="mb-4">
-              <h5 class="text-sm font-medium text-black mb-3">处理规则</h5>
+              <h5 class="text-sm font-medium text-black mb-3">{{ t('automationModal.rules') }}</h5>
               <div class="space-y-3">
                 <div
                   v-for="(rule, index) in form.config.process_params.rules"
@@ -123,13 +123,13 @@
                   <input
                     v-model="rule.condition"
                     type="text"
-                    placeholder="条件 (如: subject contains '重要')"
+                    :placeholder="t('automationModal.ruleConditionPlaceholder')"
                     class="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 text-sm"
                   >
                   <input
                     v-model="rule.action"
                     type="text"
-                    placeholder="动作 (如: move_to_folder('重要')"
+                    :placeholder="t('automationModal.ruleActionPlaceholder')"
                     class="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 text-sm"
                   >
                   <button
@@ -150,7 +150,7 @@
                   <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                   </svg>
-                  添加规则
+                  {{ t('automationModal.addRule') }}
                 </button>
               </div>
             </div>
@@ -158,27 +158,27 @@
 
           <!-- 网页爬取配置 -->
           <div v-if="form.type === 'web_crawling'" class="mb-6">
-            <h4 class="text-lg font-medium text-black mb-4">网页爬取配置</h4>
+            <h4 class="text-lg font-medium text-black mb-4">{{ t('automationModal.webCrawlingConfig') }}</h4>
             
             <!-- 爬取设置 -->
             <div class="mb-4">
-              <h5 class="text-sm font-medium text-black mb-3">爬取设置</h5>
+              <h5 class="text-sm font-medium text-black mb-3">{{ t('automationModal.crawlSettings') }}</h5>
               <div class="grid grid-cols-1 gap-4">
                 <div>
                   <label class="block text-sm font-medium text-black mb-1">
-                    目标URL列表 (每行一个)
+                    {{ t('automationModal.targetUrls') }}
                   </label>
                   <textarea
                     v-model="urlsText"
                     rows="4"
                     class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 text-sm"
-                    placeholder="https://example.com&#10;https://example2.com"
+                    :placeholder="t('automationModal.targetUrlsPlaceholder')"
                   ></textarea>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label class="block text-sm font-medium text-black mb-1">
-                      超时时间(秒)
+                      {{ t('automationModal.timeoutSeconds') }}
                     </label>
                     <input
                       v-model.number="form.config.crawl_params.timeout"
@@ -196,17 +196,17 @@
                       class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
                     >
                     <label for="use_proxy" class="ml-2 block text-sm text-black">
-                      使用代理
+                      {{ t('automationModal.useProxy') }}
                     </label>
                   </div>
                   <div v-if="form.config.use_proxy">
                     <label class="block text-sm font-medium text-black mb-1">
-                      代理池
+                      {{ t('automationModal.proxyPool') }}
                     </label>
                     <CustomSelect
                       v-model="form.config.proxy_pool_id"
                       :options="proxyPoolOptions"
-                      placeholder="选择代理池"
+                      :placeholder="t('automationModal.selectProxyPool')"
                     />
                   </div>
                 </div>
@@ -215,27 +215,27 @@
 
             <!-- 数据处理设置 -->
             <div class="mb-4">
-              <h5 class="text-sm font-medium text-black mb-3">数据处理设置</h5>
+              <h5 class="text-sm font-medium text-black mb-3">{{ t('automationModal.dataProcessing') }}</h5>
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label class="block text-sm font-medium text-black mb-1">
-                    输出格式
+                    {{ t('automationModal.outputFormat') }}
                   </label>
                   <CustomSelect
                     v-model="form.config.process_params.output_format"
                     :options="outputFormatOptions"
-                    placeholder="选择输出格式"
+                    :placeholder="t('automationModal.selectOutputFormat')"
                   />
                 </div>
                 <div>
                   <label class="block text-sm font-medium text-black mb-1">
-                    提取规则 (JSON格式)
+                    {{ t('automationModal.extractRules') }}
                   </label>
                   <textarea
                     v-model="extractRulesText"
                     rows="3"
                     class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 text-sm font-mono"
-                    placeholder='[{"selector": "h1", "field": "title"}]'
+                    :placeholder="t('automationModal.extractRulesPlaceholder')"
                   ></textarea>
                 </div>
               </div>
@@ -244,40 +244,40 @@
 
           <!-- 文件处理配置 -->
           <div v-if="form.type === 'file_processing'" class="mb-6">
-            <h4 class="text-lg font-medium text-black mb-4">文件处理配置</h4>
+            <h4 class="text-lg font-medium text-black mb-4">{{ t('automationModal.fileProcessingConfig') }}</h4>
             
             <div class="grid grid-cols-1 gap-4">
               <div>
                 <label class="block text-sm font-medium text-black mb-1">
-                  文件路径列表 (每行一个)
+                  {{ t('automationModal.filePaths') }}
                 </label>
                 <textarea
                   v-model="filePathsText"
                   rows="4"
                   class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 text-sm"
-                  placeholder="/path/to/file1.txt&#10;/path/to/file2.txt"
+                  :placeholder="t('automationModal.filePathsPlaceholder')"
                 ></textarea>
               </div>
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label class="block text-sm font-medium text-black mb-1">
-                    文件类型过滤
+                    {{ t('automationModal.fileTypeFilter') }}
                   </label>
                   <input
                     v-model="fileTypesText"
                     type="text"
                     class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 text-sm"
-                    placeholder="txt,pdf,doc (用逗号分隔)"
+                    :placeholder="t('automationModal.fileTypePlaceholder')"
                   >
                 </div>
                 <div>
                   <label class="block text-sm font-medium text-black mb-1">
-                    输出格式
+                    {{ t('automationModal.outputFormat') }}
                   </label>
                   <CustomSelect
                     v-model="form.config.process_params.output_format"
                     :options="outputFormatOptions"
-                    placeholder="选择输出格式"
+                    :placeholder="t('automationModal.selectOutputFormat')"
                   />
                 </div>
               </div>
@@ -291,14 +291,14 @@
               @click="$emit('close')"
               class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-black hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
             >
-              取消
+              {{ t('common.cancel') }}
             </button>
             <button
               type="submit"
               :disabled="loading"
               class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {{ loading ? '创建中...' : '创建自动化' }}
+              {{ loading ? t('automationModal.creating') : t('automationModal.create') }}
             </button>
           </div>
         </form>
@@ -309,6 +309,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import BaseInput from '@/components/BaseInput/index.vue'
 import BaseTextarea from '@/components/BaseTextarea/index.vue'
 import CustomSelect from '@/components/CustomSelect/index.vue'
@@ -317,6 +318,7 @@ import { proxyApi } from '@/api/proxy'
 import { showMessage } from '@/utils/message'
 
 const emit = defineEmits(['close', 'created'])
+const { t } = useI18n()
 
 // 响应式数据
 const loading = ref(false)
@@ -358,15 +360,35 @@ const filePathsText = ref('')
 const fileTypesText = ref('')
 
 // 计算属性
+const localizedAutomationTypeMeta = computed(() => ({
+  email_processing: {
+    name: t('automationModal.typeEmailProcessingName'),
+    description: t('automationModal.typeEmailProcessingDescription')
+  },
+  web_crawling: {
+    name: t('automationModal.typeWebCrawlingName'),
+    description: t('automationModal.typeWebCrawlingDescription')
+  },
+  file_processing: {
+    name: t('automationModal.typeFileProcessingName'),
+    description: t('automationModal.typeFileProcessingDescription')
+  }
+}))
+
 const automationTypeOptions = computed(() => {
   return Object.keys(automationTypes.value).map(key => ({
-    label: automationTypes.value[key].name,
+    label: localizedAutomationTypeMeta.value[key]?.name || automationTypes.value[key].name,
     value: key
   }))
 })
 
 const selectedTypeInfo = computed(() => {
-  return form.value.type ? automationTypes.value[form.value.type] : null
+  if (!form.value.type) return null
+
+  return {
+    ...automationTypes.value[form.value.type],
+    ...localizedAutomationTypeMeta.value[form.value.type]
+  }
 })
 
 const outputFormatOptions = [
@@ -383,19 +405,13 @@ const proxyPoolOptions = computed(() => {
   }))
 })
 
-const reuseOptions = [
-  { label: '永不重复', value: 'no_reuse' },
-  { label: '基于时间间隔', value: 'time_based' },
-  { label: '基于使用次数', value: 'count_based' }
-]
-
 // 方法
 const fetchAutomationTypes = async () => {
   try {
     const response = await workflowApi.getAutomationTypes()
     automationTypes.value = response.data || {}
   } catch (error) {
-    showMessage('获取自动化类型失败', 'error')
+    showMessage(t('automationModal.fetchTypesFailed'), 'error')
   }
 }
 
@@ -450,7 +466,7 @@ const handleSubmit = async () => {
       try {
         config.process_params.extract_rules = JSON.parse(extractRulesText.value || '[]')
       } catch (e) {
-        throw new Error('提取规则格式不正确')
+        throw new Error(t('automationModal.invalidExtractRules'))
       }
     } else if (form.value.type === 'file_processing') {
       // 处理文件路径列表
@@ -474,11 +490,11 @@ const handleSubmit = async () => {
     }
 
     await workflowApi.createAutomation(data)
-    showMessage('自动化工作流创建成功', 'success')
+    showMessage(t('automationModal.createSuccess'), 'success')
     emit('created')
 
   } catch (error) {
-    showMessage(error.message || '创建自动化失败', 'error')
+    showMessage(error?.message || t('automationModal.createFailed'), 'error')
   } finally {
     loading.value = false
   }

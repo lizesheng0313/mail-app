@@ -4,7 +4,7 @@
       <!-- 头部 -->
       <div class="flex items-center justify-between p-6 border-b">
         <h3 class="text-xl font-semibold text-black">
-          {{ isEditMode ? '编辑工作流' : '创建工作流' }}
+          {{ isEditMode ? t('workflowEditor.titleEdit') : t('workflowEditor.titleCreate') }}
         </h3>
         <button
           @click="$emit('close')"
@@ -21,30 +21,30 @@
         <form @submit.prevent="handleSubmit">
           <!-- 基本信息 -->
           <div class="mb-6">
-            <h4 class="text-lg font-medium text-black mb-4">基本信息</h4>
+            <h4 class="text-lg font-medium text-black mb-4">{{ t('workflowEditor.basicInfo') }}</h4>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label for="name" class="block text-sm font-medium text-black mb-2">
-                  工作流名称 *
+                  {{ t('workflowEditor.name') }} *
                 </label>
                 <BaseInput
                   id="name"
                   v-model="form.name"
                   type="text"
                   required
-                  placeholder="输入工作流名称"
+                  :placeholder="t('workflowEditor.namePlaceholder')"
                   :error="errors.name"
                 />
               </div>
               <div>
                 <label for="description" class="block text-sm font-medium text-black mb-2">
-                  描述
+                  {{ t('workflowEditor.description') }}
                 </label>
                 <BaseInput
                   id="description"
                   v-model="form.description"
                   type="text"
-                  placeholder="输入工作流描述"
+                  :placeholder="t('workflowEditor.descriptionPlaceholder')"
                 />
               </div>
             </div>
@@ -53,7 +53,7 @@
           <!-- 工作流插件 -->
           <div class="mb-6">
             <div class="flex items-center justify-between mb-4">
-              <h4 class="text-lg font-medium text-black">工作流插件</h4>
+              <h4 class="text-lg font-medium text-black">{{ t('workflowEditor.plugins') }}</h4>
               <button
                 type="button"
                 @click="addPluginGroup"
@@ -62,7 +62,7 @@
                 <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                 </svg>
-                添加插件
+                {{ t('workflowEditor.addPlugin') }}
               </button>
             </div>
 
@@ -71,7 +71,7 @@
               <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
               </svg>
-              <p class="mt-2">暂无插件，点击"添加插件"开始创建</p>
+              <p class="mt-2">{{ t('workflowEditor.emptyPlugins') }}</p>
             </div>
 
             <div v-else class="space-y-6">
@@ -116,14 +116,14 @@
               @click="$emit('close')"
               class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-black hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
             >
-              取消
+              {{ t('workflowEditor.cancel') }}
             </button>
             <button
               type="submit"
               :disabled="loading"
               class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {{ loading ? (isEditMode ? '保存中...' : '创建中...') : (isEditMode ? '保存工作流' : '创建工作流') }}
+              {{ loading ? (isEditMode ? t('workflowEditor.saving') : t('workflowEditor.creating')) : (isEditMode ? t('workflowEditor.save') : t('workflowEditor.create')) }}
             </button>
           </div>
         </form>
@@ -134,9 +134,8 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import BaseInput from '@/components/BaseInput/index.vue'
-import BaseTextarea from '@/components/BaseTextarea/index.vue'
-import CustomSelect from '@/components/CustomSelect/index.vue'
 import PluginConfigCard from '../PluginConfigCard/index.vue'
 import { workflowApi } from '@/api/workflow'
 import { pluginApi } from '@/api/plugin'
@@ -150,6 +149,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['close', 'created'])
+const { t } = useI18n()
 
 // 响应式数据
 const loading = ref(false)
@@ -222,14 +222,14 @@ const fetchPlugins = async () => {
     // 如果有内置actions，添加"内置操作"选项
     if (builtinActions.value.length > 0) {
       pluginOptions.value = [
-        { label: '内置操作', value: 'builtin', isBuiltin: true },
+        { label: t('workflowEditor.builtinOption'), value: 'builtin', isBuiltin: true },
         ...pluginOptionsData
       ]
     } else {
       pluginOptions.value = pluginOptionsData
     }
   } catch (error) {
-    showMessage('获取插件列表失败', 'error')
+    showMessage(t('workflowEditor.fetchPluginsFailed'), 'error')
   }
 }
 
@@ -359,7 +359,7 @@ const onActionChange = (step) => {
 // 添加插件（跳转到插件管理）
 const addPlugin = (step) => {
   // 这里可以打开插件商店或插件管理页面
-  showMessage('请前往插件管理页面安装新插件', 'info')
+  showMessage(t('workflowEditor.installPluginHint'), 'info')
 }
 
 // 插件组管理方法
@@ -451,7 +451,7 @@ const onGroupPluginChange = async (groupIndex) => {
   if (group.plugin_id) {
     // 如果选择的是"内置操作"，不设置名称，等待选择具体的内置action
     if (group.plugin_id === 'builtin') {
-      group.name = '内置操作（请选择具体操作）'
+      group.name = t('workflowEditor.builtinSelectSpecific')
       // 不清空步骤，让用户继续选择具体的内置action
       return
     }
@@ -590,7 +590,7 @@ const handleSubmit = async () => {
 
     // 验证表单
     if (!form.value.name.trim()) {
-      errors.value.name = '请输入工作流名称'
+      errors.value.name = t('workflowEditor.namePlaceholder')
       return
     }
 
@@ -605,25 +605,25 @@ const handleSubmit = async () => {
     let hasError = false
     form.value.plugin_groups.forEach((group, groupIndex) => {
       if (!group.plugin_id) {
-        errors.value[`plugin_${groupIndex}`] = '请选择插件'
+        errors.value[`plugin_${groupIndex}`] = t('workflowEditor.selectPluginRequired')
         hasError = true
       }
       
       if (group.steps.length === 0) {
-        errors.value[`steps_${groupIndex}`] = '请至少添加一个步骤'
+        errors.value[`steps_${groupIndex}`] = t('workflowEditor.atLeastOneStep')
         hasError = true
       }
       
       group.steps.forEach((step, stepIndex) => {
         if (!step.action_key) {
-          errors.value[`action_${groupIndex}_${stepIndex}`] = '请选择动作'
+          errors.value[`action_${groupIndex}_${stepIndex}`] = t('workflowEditor.selectActionRequired')
           hasError = true
         }
       })
     })
     
     if (hasError) {
-      showMessage('请完善表单信息', 'error')
+      showMessage(t('workflowEditor.completeForm'), 'error')
       return
     }
 
@@ -633,8 +633,8 @@ const handleSubmit = async () => {
 
     form.value.plugin_groups.forEach((group, groupIndex) => {
       if (group.steps.length === 0) {
-        showMessage(`插件组 ${groupIndex + 1} 必须包含至少一个步骤`, 'error')
-        throw new Error('插件组步骤不能为空')
+        showMessage(t('workflowEditor.pluginGroupMustHaveStep', { index: groupIndex + 1 }), 'error')
+        throw new Error(t('workflowEditor.pluginGroupStepsEmpty'))
       }
 
       group.steps.forEach((step, stepIndex) => {
@@ -670,7 +670,7 @@ const handleSubmit = async () => {
         
         steps.push({
           step_id: step.step_id,
-          name: step.name || `${group.name || `插件组${groupIndex + 1}`} - 步骤${stepIndex + 1}`,
+          name: step.name || `${group.name || t('workflowEditor.pluginGroup', { index: groupIndex + 1 })} - ${t('workflowEditor.step', { index: stepIndex + 1 })}`,
           description: step.description,
           plugin_id: finalPluginId,
           action: step.action_key,
@@ -698,18 +698,18 @@ const handleSubmit = async () => {
     if (isEditMode.value) {
       // 编辑模式：调用更新API
       await workflowApi.updateWorkflow(props.workflow.workflow_id, data)
-      showMessage('工作流保存成功', 'success')
+      showMessage(t('workflowEditor.saveSuccess'), 'success')
     } else {
       // 创建模式：调用创建API
       await workflowApi.createWorkflow(data)
-      showMessage('工作流创建成功', 'success')
+      showMessage(t('workflowEditor.createSuccess'), 'success')
     }
     
     emit('created')
     emit('close') // 自动关闭弹窗
 
   } catch (error) {
-    showMessage(error.message || '创建工作流失败', 'error')
+    showMessage(error.message || t('workflowEditor.createFailed'), 'error')
   } finally {
     loading.value = false
   }
@@ -746,9 +746,9 @@ const convertWorkflowToForm = (workflow) => {
       let groupName = groupKey
       
       if (groupKey === 'builtin') {
-        groupName = '内置操作'
+        groupName = t('workflowEditor.builtinOption')
       } else if (groupKey.startsWith('legacy')) {
-        groupName = step.name || `步骤${index + 1}`
+        groupName = step.name || t('workflowEditor.step', { index: index + 1 })
       } else {
         // 普通插件
         const plugin = plugins.value.find(p => p.plugin_id === step.plugin_id)

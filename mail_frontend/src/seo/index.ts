@@ -88,7 +88,7 @@ const upsertLink = (rel: string, href: string) => {
 
 export const applyPageSeo = (seo: PageSeo) => {
   const canonicalUrl = buildCanonicalUrl(seo.canonicalPath || '/')
-  const locale = seo.lang === 'en' ? 'en_US' : 'zh_CN'
+  const locale = seo.lang === 'en' ? 'en_US' : seo.lang === 'zh-TW' ? 'zh_TW' : 'zh_CN'
 
   document.documentElement.setAttribute('lang', seo.lang || DEFAULT_SEO.lang || 'zh-CN')
   document.title = seo.title

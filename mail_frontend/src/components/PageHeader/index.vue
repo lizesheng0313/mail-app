@@ -78,7 +78,7 @@
             </nav>
 
             <LanguageSwitcher />
-              
+
             <!-- 用户信息 -->
             <div v-if="userStore.isAuthenticated" class="flex items-center space-x-4">
               <!-- 公告按钮 -->
@@ -465,7 +465,7 @@ const formatTime = (timestamp: number) => {
   if (hours < 24) return t('common.hoursAgo', { count: hours })
   if (days < 7) return t('common.daysAgo', { count: days })
 
-  return date.toLocaleDateString(locale.value === 'en' ? 'en-US' : 'zh-CN')
+  return date.toLocaleDateString(locale.value)
 }
 
 // 处理退出登录

@@ -9,22 +9,22 @@
               <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
             </svg>
           </div>
-          <h3 class="update-title">发现新版本</h3>
+          <h3 class="update-title">{{ t('appUpdater.newVersion') }}</h3>
         </div>
-        <p class="update-desc">v{{ version }} 已发布，建议立即更新以获得最佳体验</p>
+        <p class="update-desc">{{ t('appUpdater.newVersionDesc', { version }) }}</p>
         <div v-if="notes.trim()" class="update-notes">
-          <div class="update-notes-title">更新内容</div>
+          <div class="update-notes-title">{{ t('appUpdater.notesTitle') }}</div>
           <pre class="update-notes-body">{{ notes }}</pre>
         </div>
         <div class="update-actions">
-          <button class="btn-later" @click="dismiss">稍后再说</button>
-          <button class="btn-update" @click="startUpdate">立即更新</button>
+          <button class="btn-later" @click="dismiss">{{ t('appUpdater.later') }}</button>
+          <button class="btn-update" @click="startUpdate">{{ t('appUpdater.updateNow') }}</button>
         </div>
       </template>
 
       <!-- 下载进度（仅插件模式） -->
       <template v-if="phase === 'downloading'">
-        <h3 class="update-title">正在更新</h3>
+        <h3 class="update-title">{{ t('appUpdater.updating') }}</h3>
         <div class="progress-wrap">
           <div class="progress-bar">
             <div class="progress-fill" :style="{ width: percent + '%' }"></div>
@@ -41,11 +41,11 @@
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
           </svg>
         </div>
-        <h3 class="update-title">更新失败</h3>
+        <h3 class="update-title">{{ t('appUpdater.updateFailed') }}</h3>
         <p class="update-desc">{{ errorMsg }}</p>
         <div class="update-actions">
-          <button class="btn-later" @click="dismiss">取消</button>
-          <button class="btn-update" @click="startUpdate">重试</button>
+          <button class="btn-later" @click="dismiss">{{ t('appUpdater.cancel') }}</button>
+          <button class="btn-update" @click="startUpdate">{{ t('appUpdater.retry') }}</button>
         </div>
       </template>
     </div>
@@ -54,14 +54,16 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import api, { isTauri } from '@/services/api'
 
+const { t } = useI18n()
 const showModal = ref(false)
 const phase = ref<'confirm' | 'downloading' | 'error'>('confirm')
 const version = ref('')
 const notes = ref('')
 const percent = ref(0)
-const hint = ref('准备下载...')
+const hint = ref(t('appUpdater.preparingDownload'))
 const errorMsg = ref('')
 
 let pendingUpdate: any = null
@@ -91,12 +93,13 @@ function dismiss() {
   showModal.value = false
   pendingUpdate = null
   notes.value = ''
+  hint.value = t('appUpdater.preparingDownload')
 }
 
 async function startUpdate() {
   phase.value = 'downloading'
   percent.value = 0
-  hint.value = '准备下载...'
+  hint.value = t('appUpdater.preparingDownload')
 
   try {
     if (updateMode === 'plugin' && pendingUpdate) {
@@ -106,7 +109,7 @@ async function startUpdate() {
       await pendingUpdate.downloadAndInstall((event: any) => {
         if (event.event === 'Started') {
           total = event.data.contentLength || 0
-          hint.value = '正在下载...'
+          hint.value = t('appUpdater.downloading')
         } else if (event.event === 'Progress') {
           downloaded += event.data.chunkLength || 0
           percent.value = total > 0 ? Math.round((downloaded / total) * 100) : 0
@@ -115,7 +118,7 @@ async function startUpdate() {
           hint.value = `${mb} MB / ${totalMb} MB`
         } else if (event.event === 'Finished') {
           percent.value = 100
-          hint.value = '下载完成，正在安装...'
+          hint.value = t('appUpdater.downloadCompleteInstalling')
         }
       })
     } else {
@@ -129,7 +132,7 @@ async function startUpdate() {
         const payload = event.payload
         if (payload.event === 'Started') {
           total = payload.data?.contentLength || 0
-          hint.value = '正在下载...'
+          hint.value = t('appUpdater.downloading')
         } else if (payload.event === 'Progress') {
           downloaded += payload.data?.chunkLength || 0
           percent.value = total > 0 ? Math.round((downloaded / total) * 100) : 0
@@ -138,7 +141,7 @@ async function startUpdate() {
           hint.value = `${mb} MB / ${totalMb} MB`
         } else if (payload.event === 'Finished') {
           percent.value = 100
-          hint.value = '下载完成，正在安装...'
+          hint.value = t('appUpdater.downloadCompleteInstalling')
         }
       })
 
@@ -149,7 +152,7 @@ async function startUpdate() {
       }
     }
 
-    hint.value = '安装完成，正在重启...'
+    hint.value = t('appUpdater.installCompleteRestarting')
     const { relaunch } = await import('@tauri-apps/plugin-process')
     await relaunch()
   } catch (e: any) {

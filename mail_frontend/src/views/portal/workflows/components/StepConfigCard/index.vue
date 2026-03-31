@@ -9,7 +9,7 @@
         <input
           v-model="step.note"
           type="text"
-          placeholder="备注：描述这个步骤是做什么的..."
+          :placeholder="t('workflowEditor.notePlaceholder')"
           class="flex-1 px-2 py-1 text-xs text-black border border-gray-200 rounded focus:outline-none focus:border-primary-500 placeholder-gray-400"
         />
       </div>
@@ -19,7 +19,7 @@
           type="button"
           @click="$emit('insert-before')"
           class="text-primary-500 hover:text-primary-700"
-          title="在此之前插入新步骤"
+          :title="t('workflowEditor.insertBefore')"
         >
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
@@ -31,7 +31,7 @@
           @click="$emit('move-up')"
           :disabled="stepIndex === 0"
           :class="stepIndex === 0 ? 'text-gray-300 cursor-not-allowed' : 'text-black hover:text-black'"
-          title="上移"
+          :title="t('workflowEditor.moveUp')"
         >
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" />
@@ -43,7 +43,7 @@
           @click="$emit('move-down')"
           :disabled="stepIndex === totalSteps - 1"
           :class="stepIndex === totalSteps - 1 ? 'text-gray-300 cursor-not-allowed' : 'text-black hover:text-black'"
-          title="下移"
+          :title="t('workflowEditor.moveDown')"
         >
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
@@ -54,7 +54,7 @@
           type="button"
           @click="$emit('remove')"
           class="text-red-400 hover:text-red-600"
-          title="删除"
+          :title="t('workflowEditor.remove')"
         >
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -68,12 +68,12 @@
       <!-- 动作选择 -->
       <div v-if="group.plugin_id">
         <label class="block text-xs font-medium text-black mb-1">
-          插件动作
+          {{ t('workflowEditor.pluginAction') }}
         </label>
         <CustomSelect
           v-model="step.action_key"
           :options="getPluginActionOptions(group.plugin_id)"
-          placeholder="选择插件动作"
+          :placeholder="t('workflowEditor.pluginActionPlaceholder')"
           @change="$emit('action-change')"
         />
       </div>
@@ -83,7 +83,7 @@
     <div v-if="step.action_key" class="mt-3">
       <div class="mb-2">
         <label class="block text-xs font-medium text-black">
-          动作参数
+          {{ t('workflowEditor.actionParameters') }}
         </label>
       </div>
       
@@ -118,7 +118,7 @@
                 v-if="isArrayOrStringParam(paramSchema) && paramKey === 'selector'"
                 v-model="selectorTextInput"
                 @blur="updateSelectorParam()"
-                :placeholder="paramSchema.hint || '单个选择器或多个选择器（每行一个）'"
+                :placeholder="paramSchema.hint || t('workflowEditor.selectorPlaceholder')"
                 class="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary-500"
                 rows="3"
               />
@@ -127,7 +127,7 @@
                 v-else-if="isArrayOrStringParam(paramSchema) && paramKey === 'text_list'"
                 v-model="textListInput"
                 @blur="updateTextListParam()"
-                :placeholder="paramSchema.hint || '每行一个文本'"
+                :placeholder="paramSchema.hint || t('workflowEditor.textListPlaceholder')"
                 class="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary-500"
                 rows="3"
               />
@@ -164,14 +164,14 @@
                   ></div>
                 </div>
                 <span class="ml-2 text-xs text-black">
-                  {{ (step.parameters[paramKey] ?? paramSchema.default ?? false) ? '是' : '否' }}
+                  {{ (step.parameters[paramKey] ?? paramSchema.default ?? false) ? t('workflowEditor.yes') : t('workflowEditor.no') }}
                 </span>
               </label>
               <CustomSelect
                 v-else-if="paramSchema.enum"
                 :model-value="step.parameters[paramKey] ?? paramSchema.default ?? ''"
                 :options="paramSchema.enum.map(val => ({ value: val, label: getEnumLabel(paramKey, val) }))"
-                :placeholder="getEnumLabel(paramKey, paramSchema.default) || '请选择'"
+                :placeholder="getEnumLabel(paramKey, paramSchema.default) || t('workflowEditor.select')"
                 @update:model-value="val => step.parameters[paramKey] = val"
               />
             </div>
@@ -186,7 +186,7 @@
                 @click="toggleObjectParam(paramKey)"
                 class="text-xs text-primary-600 hover:text-primary-700"
               >
-                {{ isObjectExpanded(paramKey) ? '收起' : '展开' }}
+                {{ isObjectExpanded(paramKey) ? t('workflowEditor.collapse') : t('workflowEditor.expand') }}
               </button>
             </div>
             <div v-if="isObjectExpanded(paramKey)" class="space-y-2 mt-2">
@@ -213,7 +213,7 @@
                     v-else-if="subSchema.type === 'array' && subSchema.items?.type === 'string'"
                     v-model="arrayInputs[`${paramKey}.${subKey}`]"
                     @blur="updateArrayParam(paramKey, subKey)"
-                    :placeholder="'每行一个，例如:\ngoogle.com\ngithub.com'"
+                    :placeholder="t('workflowEditor.nestedArrayPlaceholder')"
                     class="w-full px-2 py-1 border border-gray-300 rounded text-xs"
                     rows="3"
                   />
@@ -241,7 +241,7 @@
           >
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
           </svg>
-          <span>输出名称（可选）</span>
+          <span>{{ t('workflowEditor.outputNameOptional') }}</span>
         </label>
         <span v-if="!isOutputNameExpanded && step.output_name" class="text-xs text-black">
           {{ step.output_name }}
@@ -251,12 +251,12 @@
         <BaseInput
           v-model="step.output_name"
           type="text"
-          placeholder="变量名，后续步骤可通过此变量引用"
+          :placeholder="t('workflowEditor.outputNamePlaceholder')"
           size="sm"
           class="text-xs"
         />
         <p class="text-xs text-black mt-1">
-          引用方式: <span class="text-primary-600 font-medium bg-primary-50 px-1 rounded">${{ '{' }}{{ step.output_name || '输出名称' }}{{ '}' }}</span>
+          {{ t('workflowEditor.outputReference', { name: step.output_name || t('workflowEditor.outputNameFallback') }) }}
         </p>
       </div>
     </div>
@@ -265,8 +265,11 @@
 
 <script setup>
 import { ref, reactive } from 'vue'
+import { useI18n } from 'vue-i18n'
 import CustomSelect from '@/components/CustomSelect/index.vue'
 import BaseInput from '@/components/BaseInput/index.vue'
+
+const { t } = useI18n()
 
 const props = defineProps({
   step: {
@@ -422,56 +425,51 @@ const updateArrayParam = (paramKey, subKey) => {
 
 // 获取动作名称
 const getActionName = (group, step) => {
-  if (!group.plugin_id || !step.action_key) return '输出名称'
+  if (!group.plugin_id || !step.action_key) return t('workflowEditor.outputNameFallback')
   
   const actionOptions = props.getPluginActionOptions(group.plugin_id)
   const action = actionOptions.find(opt => opt.value === step.action_key)
-  return action ? action.label : '输出名称'
+  return action ? action.label : t('workflowEditor.outputNameFallback')
 }
 
 // 枚举值中英文映射
-const enumLabelMap = {
-  // delay_type 延迟类型
-  'delay_type': {
-    'fixed': '固定延迟',
-    'random': '随机延迟'
+const enumLabelMap = () => ({
+  delay_type: {
+    fixed: t('workflowEditor.enumDelayFixed'),
+    random: t('workflowEditor.enumDelayRandom')
   },
-  // direction 滚动方向
-  'direction': {
-    'up': '向上',
-    'down': '向下',
-    'top': '顶部',
-    'bottom': '底部'
+  direction: {
+    up: t('workflowEditor.enumUp'),
+    down: t('workflowEditor.enumDown'),
+    top: t('workflowEditor.enumTop'),
+    bottom: t('workflowEditor.enumBottom')
   },
-  // source 来源
-  'source': {
-    'body': '正文',
-    'html_body': 'HTML正文',
-    'subject': '主题',
-    'all': '全部'
+  source: {
+    body: t('workflowEditor.enumBody'),
+    html_body: t('workflowEditor.enumHtmlBody'),
+    subject: t('workflowEditor.enumSubject'),
+    all: t('workflowEditor.enumAll')
   },
-  // format 格式
-  'format': {
-    'any': '任意',
-    'mobile': '手机',
-    'landline': '座机'
+  format: {
+    any: t('workflowEditor.enumAny'),
+    mobile: t('workflowEditor.enumMobile'),
+    landline: t('workflowEditor.enumLandline')
   },
-  // code_type 验证码类型
-  'code_type': {
-    'any': '任意',
-    'digits': '纯数字',
-    'letters': '纯字母',
-    'mixed': '混合'
+  code_type: {
+    any: t('workflowEditor.enumAny'),
+    digits: t('workflowEditor.enumDigits'),
+    letters: t('workflowEditor.enumLetters'),
+    mixed: t('workflowEditor.enumMixed')
   }
-}
+})
 
 // 获取枚举值的中文显示
 const getEnumLabel = (paramKey, value) => {
   if (!value) return value
   
-  // 查找映射表
-  if (enumLabelMap[paramKey] && enumLabelMap[paramKey][value]) {
-    return enumLabelMap[paramKey][value]
+  const map = enumLabelMap()
+  if (map[paramKey] && map[paramKey][value]) {
+    return map[paramKey][value]
   }
   
   // 没有映射则返回原值

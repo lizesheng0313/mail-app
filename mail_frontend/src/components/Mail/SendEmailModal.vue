@@ -1,24 +1,24 @@
 <template>
   <BaseModal
     v-model="localVisible"
-    title="批量发送邮件"
+    :title="t('sendEmail.title')"
     size="lg"
     :confirmLoading="sending"
     :showConfirm="isDesktop"
-    :confirmText="isDesktop ? '发送' : '请在桌面端使用'"
+    :confirmText="isDesktop ? t('sendEmail.send') : t('sendEmail.desktopOnly')"
     @confirm="handleSend"
     @close="handleClose"
   >
     <div class="space-y-4">
       <!-- 发件邮箱选择 -->
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">发件邮箱</label>
+        <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('sendEmail.fromMailbox') }}</label>
         <select
           v-model="form.mailboxId"
           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
           :disabled="!!presetMailboxId"
         >
-          <option value="">请选择发件邮箱</option>
+          <option value="">{{ t('sendEmail.selectFromMailbox') }}</option>
           <option 
             v-for="mailbox in availableMailboxes" 
             :key="mailbox.id" 
@@ -29,11 +29,11 @@
         </select>
         <!-- 没有可用邮箱的提示 -->
         <p v-if="availableMailboxes.length === 0 && mailboxes.length > 0" class="mt-2 text-sm text-amber-600">
-          ⚠️ 没有可用于发送的邮箱，请先配置可用的 SMTP 发件账号。
+          {{ t('sendEmail.noSendMailbox') }}
         </p>
         <!-- 显示不可用的邮箱 -->
         <div v-if="unavailableMailboxes.length > 0" class="mt-2">
-          <p class="text-xs text-gray-500 mb-1">以下邮箱未配置可用 SMTP 发件账号，无法发送：</p>
+          <p class="text-xs text-gray-500 mb-1">{{ t('sendEmail.unavailableMailboxes') }}</p>
           <div class="flex flex-wrap gap-1">
             <span 
               v-for="mailbox in unavailableMailboxes" 
@@ -49,12 +49,12 @@
       <!-- 收件人 -->
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1">
-          收件人 <span class="text-red-500">*</span>
+          {{ t('sendEmail.recipient') }} <span class="text-red-500">*</span>
         </label>
         <input
           v-model="form.to"
           type="text"
-          placeholder="多个收件人用逗号分隔"
+          :placeholder="t('sendEmail.recipientPlaceholder')"
           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
         />
       </div>
@@ -62,20 +62,20 @@
       <!-- 抄送 -->
       <div class="grid grid-cols-2 gap-4">
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">抄送 (CC)</label>
+          <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('sendEmail.cc') }}</label>
           <input
             v-model="form.cc"
             type="text"
-            placeholder="多个用逗号分隔"
+            :placeholder="t('sendEmail.ccPlaceholder')"
             class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
           />
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">密送 (BCC)</label>
+          <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('sendEmail.bcc') }}</label>
           <input
             v-model="form.bcc"
             type="text"
-            placeholder="多个用逗号分隔"
+            :placeholder="t('sendEmail.bccPlaceholder')"
             class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
           />
         </div>
@@ -84,12 +84,12 @@
       <!-- 主题 -->
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1">
-          主题 <span class="text-red-500">*</span>
+          {{ t('sendEmail.subject') }} <span class="text-red-500">*</span>
         </label>
         <input
           v-model="form.subject"
           type="text"
-          placeholder="请输入邮件主题"
+          :placeholder="t('sendEmail.subjectPlaceholder')"
           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
         />
       </div>
@@ -97,12 +97,12 @@
       <!-- 正文 -->
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1">
-          正文 <span class="text-red-500">*</span>
+          {{ t('sendEmail.body') }} <span class="text-red-500">*</span>
         </label>
         <textarea
           v-model="form.content"
           rows="8"
-          placeholder="请输入邮件正文..."
+          :placeholder="t('sendEmail.bodyPlaceholder')"
           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 resize-none"
         ></textarea>
       </div>
@@ -114,18 +114,18 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
           </svg>
           <p class="text-sm text-blue-700">
-            邮件将通过您选择的第三方邮箱 SMTP 服务器发送，请确保邮箱已正确配置授权码。
+            {{ t('sendEmail.sendHint') }}
           </p>
         </div>
       </div>
       <div v-else class="mt-2 flex items-center text-xs text-amber-600 gap-2">
-        <span>第三方发件功能仅支持桌面端，请下载桌面客户端使用。</span>
+        <span>{{ t('sendEmail.desktopHint') }}</span>
         <button
           type="button"
           class="px-2 py-0.5 text-xs rounded border border-primary-500 text-primary-600 hover:bg-primary-50"
           @click="downloadDesktop"
         >
-          下载桌面端
+          {{ t('sendEmail.downloadDesktop') }}
         </button>
       </div>
     </div>
@@ -134,6 +134,7 @@
 
 <script setup>
 import { ref, watch, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { isTauri } from '@/services/api'
 import BaseModal from '@/components/BaseModal/index.vue'
 import smtpAccountsAPI from '@/api/smtpAccounts'
@@ -178,6 +179,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['update:visible', 'sent'])
+const { t } = useI18n()
 
 const isDesktop = computed(() => isTauri())
 
@@ -264,24 +266,24 @@ const downloadDesktop = () => {
 
 const handleSend = async () => {
   if (!isDesktop.value) {
-    showMessage('第三方发件功能仅支持桌面端，请下载桌面客户端使用', 'warning')
+    showMessage(t('sendEmail.desktopHint'), 'warning')
     return
   }
   // 验证表单
   if (!form.value.mailboxId) {
-    showMessage('请选择发件邮箱', 'error')
+    showMessage(t('sendEmail.selectMailboxError'), 'error')
     return
   }
   if (!form.value.to.trim()) {
-    showMessage('请输入收件人地址', 'error')
+    showMessage(t('sendEmail.recipientRequired'), 'error')
     return
   }
   if (!form.value.subject.trim()) {
-    showMessage('请输入邮件主题', 'error')
+    showMessage(t('sendEmail.subjectRequired'), 'error')
     return
   }
   if (!form.value.content.trim()) {
-    showMessage('请输入邮件正文', 'error')
+    showMessage(t('sendEmail.bodyRequired'), 'error')
     return
   }
 
@@ -290,7 +292,7 @@ const handleSend = async () => {
   const recipients = form.value.to.split(',').map(e => e.trim()).filter(e => e)
   const invalidEmails = recipients.filter(e => !emailRegex.test(e))
   if (invalidEmails.length > 0) {
-    showMessage(`收件人邮箱格式不正确: ${invalidEmails.join(', ')}`, 'error')
+    showMessage(t('sendEmail.invalidRecipients', { emails: invalidEmails.join(', ') }), 'error')
     return
   }
 
@@ -299,19 +301,19 @@ const handleSend = async () => {
   try {
     const selectedMailbox = props.mailboxes.find((mailbox) => mailbox.id === form.value.mailboxId)
     if (!selectedMailbox) {
-      showMessage('发件邮箱不存在', 'error')
+      showMessage(t('sendEmail.senderNotFound'), 'error')
       return
     }
 
     const smtpAccount = getActiveSmtpAccount(selectedMailbox)
     if (!smtpAccount) {
-      showMessage('该邮箱未配置可用 SMTP 发件账号', 'error')
+      showMessage(t('sendEmail.smtpUnavailable'), 'error')
       return
     }
 
     const tauriInvoke = await getTauriInvoke()
     if (!tauriInvoke) {
-      showMessage('第三方发件功能仅支持桌面端，请下载桌面客户端使用', 'warning')
+      showMessage(t('sendEmail.desktopHint'), 'warning')
       return
     }
 
@@ -340,20 +342,20 @@ const handleSend = async () => {
         }]
       })
       if (saveResponse.code !== 0) {
-        showMessage('邮件已发送，但发送记录同步失败', 'warning')
+        showMessage(t('sendEmail.syncRecordFailed'), 'warning')
       }
     } catch (error) {
       console.error('保存发送记录失败:', error)
-      showMessage('邮件已发送，但发送记录同步失败', 'warning')
+      showMessage(t('sendEmail.syncRecordFailed'), 'warning')
     }
 
-    showMessage('邮件发送成功', 'success')
+    showMessage(t('sendEmail.sendSuccess'), 'success')
     emit('sent')
     handleClose()
   } catch (error) {
     console.error('发送失败:', error)
-    const message = error?.message || error?.toString?.() || '发送失败'
-    showMessage(message.startsWith('发送失败') ? message : `发送失败: ${message}`, 'error')
+    const message = error?.message || error?.toString?.() || t('sendEmail.sendFailed')
+    showMessage(message.startsWith(t('sendEmail.sendFailed')) ? message : `${t('sendEmail.sendFailed')}: ${message}`, 'error')
   } finally {
     sending.value = false
   }

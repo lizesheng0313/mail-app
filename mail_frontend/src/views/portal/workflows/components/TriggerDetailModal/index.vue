@@ -31,27 +31,27 @@
           <div class="lg:col-span-2">
             <!-- 基本信息 -->
             <div class="mb-6">
-              <h4 class="text-lg font-semibold text-black mb-4">基本信息</h4>
+              <h4 class="text-lg font-semibold text-black mb-4">{{ t('triggerDetail.basicInfo') }}</h4>
               <div class="bg-gray-50 rounded-lg p-4">
                 <div class="grid grid-cols-2 gap-4 text-sm">
                   <div>
-                    <span class="text-black">触发器ID:</span>
+                    <span class="text-black">{{ t('triggerDetail.triggerId') }}:</span>
                     <span class="ml-2 font-mono text-black">{{ trigger?.id }}</span>
                   </div>
                   <div>
-                    <span class="text-black">类型:</span>
+                    <span class="text-black">{{ t('triggerDetail.type') }}:</span>
                     <span :class="getTriggerTypeClass(trigger?.trigger_type)" class="ml-2 inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full">
                       {{ getTriggerTypeLabel(trigger?.trigger_type) }}
                     </span>
                   </div>
                   <div>
-                    <span class="text-black">状态:</span>
+                    <span class="text-black">{{ t('triggerDetail.status') }}:</span>
                     <span :class="trigger?.is_enabled ? 'text-primary-600' : 'text-red-600'" class="ml-2 font-medium">
-                      {{ trigger?.is_enabled ? '启用' : '禁用' }}
+                      {{ trigger?.is_enabled ? t('triggerDetail.enabled') : t('triggerDetail.disabled') }}
                     </span>
                   </div>
                   <div>
-                    <span class="text-black">工作流:</span>
+                    <span class="text-black">{{ t('triggerDetail.workflow') }}:</span>
                     <span class="ml-2 text-black">{{ getWorkflowName() }}</span>
                   </div>
                 </div>
@@ -60,7 +60,7 @@
 
             <!-- 触发器配置 -->
             <div class="mb-6">
-              <h4 class="text-lg font-semibold text-black mb-4">触发器配置</h4>
+              <h4 class="text-lg font-semibold text-black mb-4">{{ t('triggerDetail.config') }}</h4>
               
               <!-- 邮件触发配置 -->
               <div v-if="trigger?.trigger_type === 'email'" class="border border-gray-200 rounded-lg p-4 bg-white">
@@ -74,9 +74,9 @@
                   </div>
                   <div class="flex-1 min-w-0">
                     <div class="flex items-center justify-between">
-                      <h5 class="text-sm font-medium text-black">邮件触发条件</h5>
+                      <h5 class="text-sm font-medium text-black">{{ t('triggerDetail.emailConditions') }}</h5>
                       <div class="flex items-center space-x-2 text-xs">
-                        <span class="text-black">配置方式:</span>
+                        <span class="text-black">{{ t('triggerDetail.configMode') }}:</span>
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-100 text-primary-800">
                           {{ getEmailConfigMode() }}
                         </span>
@@ -87,12 +87,12 @@
                     <div v-if="isSimpleMode()" class="mt-3">
                       <div class="grid grid-cols-2 gap-4 text-xs">
                         <div>
-                          <span class="text-black">匹配类型:</span>
+                          <span class="text-black">{{ t('triggerDetail.matchType') }}:</span>
                           <span class="ml-1 text-black">{{ getMatchTypeLabel() }}</span>
                         </div>
                         <div>
-                          <span class="text-black">匹配内容:</span>
-                          <span class="ml-1 text-black">{{ trigger?.trigger_config?.match_content || '未配置' }}</span>
+                          <span class="text-black">{{ t('triggerDetail.matchContent') }}:</span>
+                          <span class="ml-1 text-black">{{ trigger?.trigger_config?.match_content || t('triggerDetail.unconfigured') }}</span>
                         </div>
                       </div>
                     </div>
@@ -101,23 +101,23 @@
                     <div v-else class="mt-3">
                       <div class="grid grid-cols-2 gap-4 text-xs">
                         <div>
-                          <span class="text-black">规则逻辑:</span>
+                          <span class="text-black">{{ t('triggerDetail.ruleLogic') }}:</span>
                           <span class="ml-1 text-black">{{ trigger?.trigger_config?.rules?.logic?.toUpperCase() || 'AND' }}</span>
                         </div>
                         <div>
-                          <span class="text-black">规则数量:</span>
-                          <span class="ml-1 text-black">{{ (trigger?.trigger_config?.rules?.conditions || []).length }} 条</span>
+                          <span class="text-black">{{ t('triggerDetail.ruleCount') }}:</span>
+                          <span class="ml-1 text-black">{{ t('triggerDetail.ruleCountValue', { count: (trigger?.trigger_config?.rules?.conditions || []).length }) }}</span>
                         </div>
                       </div>
                       
                       <div v-if="trigger?.trigger_config?.rules?.conditions && trigger?.trigger_config?.rules?.conditions.length > 0" class="mt-3">
                         <details class="group">
                           <summary class="cursor-pointer text-xs text-primary-600 hover:text-primary-700">
-                            查看规则详情
+                            {{ t('triggerDetail.viewRuleDetails') }}
                           </summary>
                           <div class="mt-2 bg-gray-100 p-2 rounded space-y-1">
                             <div v-for="(condition, index) in trigger?.trigger_config?.rules?.conditions" :key="index" class="text-xs text-black">
-                              规则 {{ index + 1 }}: {{ formatCondition(condition) }}
+                              {{ t('triggerDetail.ruleIndex', { index: index + 1, value: formatCondition(condition) }) }}
                             </div>
                           </div>
                         </details>
@@ -138,16 +138,16 @@
                     </div>
                   </div>
                   <div class="flex-1 min-w-0">
-                    <h5 class="text-sm font-medium text-black">定时触发设置</h5>
+                    <h5 class="text-sm font-medium text-black">{{ t('triggerDetail.scheduleSettings') }}</h5>
                     <div class="mt-3 grid grid-cols-2 gap-4 text-xs">
                       <div>
-                        <span class="text-black">Cron表达式:</span>
+                        <span class="text-black">{{ t('triggerDetail.cronExpression') }}:</span>
                         <code class="ml-1 bg-gray-100 px-1 py-0.5 rounded text-black">
-                          {{ trigger?.trigger_config?.cron_expression || '未配置' }}
+                          {{ trigger?.trigger_config?.cron_expression || t('triggerDetail.unconfigured') }}
                         </code>
                       </div>
                       <div>
-                        <span class="text-black">时区:</span>
+                        <span class="text-black">{{ t('triggerDetail.timezone') }}:</span>
                         <span class="ml-1 text-black">{{ trigger?.trigger_config?.timezone || 'Asia/Shanghai' }}</span>
                       </div>
                     </div>
@@ -166,17 +166,17 @@
                     </div>
                   </div>
                   <div class="flex-1 min-w-0">
-                    <h5 class="text-sm font-medium text-black">Webhook设置</h5>
+                    <h5 class="text-sm font-medium text-black">{{ t('triggerDetail.webhookSettings') }}</h5>
                     <div class="mt-3 space-y-2 text-xs">
                       <div>
-                        <span class="text-black block mb-1">Webhook URL:</span>
+                        <span class="text-black block mb-1">{{ t('triggerDetail.webhookUrl') }}:</span>
                         <code class="bg-gray-100 px-2 py-1 rounded text-black block break-all">
-                          {{ trigger?.trigger_config?.webhook_url || '未配置' }}
+                          {{ trigger?.trigger_config?.webhook_url || t('triggerDetail.unconfigured') }}
                         </code>
                       </div>
                       <div>
-                        <span class="text-black">密钥状态:</span>
-                        <span class="ml-1 text-black">{{ trigger?.trigger_config?.secret ? '已配置' : '未配置' }}</span>
+                        <span class="text-black">{{ t('triggerDetail.secretStatus') }}:</span>
+                        <span class="ml-1 text-black">{{ trigger?.trigger_config?.secret ? t('triggerDetail.configured') : t('triggerDetail.unconfigured') }}</span>
                       </div>
                     </div>
                   </div>
@@ -194,8 +194,8 @@
                     </div>
                   </div>
                   <div class="flex-1 min-w-0">
-                    <h5 class="text-sm font-medium text-black">手动触发</h5>
-                    <p class="mt-1 text-xs text-black">此触发器需要手动执行，无需额外配置</p>
+                    <h5 class="text-sm font-medium text-black">{{ t('triggerDetail.manualTriggerTitle') }}</h5>
+                    <p class="mt-1 text-xs text-black">{{ t('triggerDetail.manualTriggerDesc') }}</p>
                   </div>
                 </div>
               </div>
@@ -203,18 +203,18 @@
               <!-- 未知类型 -->
               <div v-else class="border border-gray-200 rounded-lg p-4 bg-white">
                 <div class="text-center py-4">
-                  <p class="text-sm text-black">未知的触发器类型</p>
+                  <p class="text-sm text-black">{{ t('triggerDetail.unknownType') }}</p>
                 </div>
               </div>
             </div>
 
             <!-- 完整配置 -->
             <div class="mb-6">
-              <h4 class="text-lg font-semibold text-black mb-4">完整配置</h4>
+              <h4 class="text-lg font-semibold text-black mb-4">{{ t('triggerDetail.fullConfig') }}</h4>
               <div class="bg-gray-50 rounded-lg p-4">
                 <details class="group">
                   <summary class="cursor-pointer text-sm text-primary-600 hover:text-primary-700">
-                    查看JSON配置
+                    {{ t('triggerDetail.viewJsonConfig') }}
                   </summary>
                   <div class="mt-2 bg-gray-900 rounded-lg p-3">
                     <pre class="text-success-400 text-xs overflow-x-auto">{{ JSON.stringify(trigger?.trigger_config || {}, null, 2) }}</pre>
@@ -229,48 +229,48 @@
             <div class="sticky top-6 space-y-6">
               <!-- 快速操作 -->
               <div class="bg-white border border-gray-200 rounded-lg p-4">
-                <h4 class="text-sm font-medium text-black mb-3">快速操作</h4>
+                <h4 class="text-sm font-medium text-black mb-3">{{ t('triggerDetail.quickActions') }}</h4>
                 <div class="space-y-2">
                   <button
                     v-if="trigger?.trigger_type === 'manual'"
                     @click="manualTrigger"
                     :disabled="triggering"
                     class="w-full inline-flex items-center justify-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50"
-                  >
-                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1m4 0h1m-6 4h1m4 0h1m-6-8h1m4 0h1M9 18h6" />
-                    </svg>
-                    {{ triggering ? '触发中...' : '立即触发' }}
+                    >
+                      <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1m4 0h1m-6 4h1m4 0h1m-6-8h1m4 0h1M9 18h6" />
+                      </svg>
+                    {{ triggering ? t('triggerDetail.triggering') : t('triggerDetail.triggerNow') }}
                   </button>
                 </div>
               </div>
 
               <!-- 统计信息 -->
               <div class="bg-white border border-gray-200 rounded-lg p-4">
-                <h4 class="text-sm font-medium text-black mb-3">统计信息</h4>
+                <h4 class="text-sm font-medium text-black mb-3">{{ t('triggerDetail.stats') }}</h4>
                 <div class="space-y-3">
                   <div class="flex justify-between text-sm">
-                    <span class="text-black">触发器ID:</span>
+                    <span class="text-black">{{ t('triggerDetail.triggerId') }}:</span>
                     <span class="text-black font-mono text-xs">{{ trigger?.id }}</span>
                   </div>
                   <div class="flex justify-between text-sm">
-                    <span class="text-black">创建时间:</span>
+                    <span class="text-black">{{ t('triggerDetail.createdAt') }}:</span>
                     <span class="text-black">{{ formatDate(trigger?.created_at) }}</span>
                   </div>
                   <div class="flex justify-between text-sm">
-                    <span class="text-black">更新时间:</span>
+                    <span class="text-black">{{ t('triggerDetail.updatedAt') }}:</span>
                     <span class="text-black">{{ formatDate(trigger?.updated_at) }}</span>
                   </div>
                   <div class="flex justify-between text-sm">
-                    <span class="text-black">工作流ID:</span>
-                    <span class="text-black font-mono text-xs">{{ trigger?.workflow_id || '无' }}</span>
+                    <span class="text-black">{{ t('triggerDetail.workflowId') }}:</span>
+                    <span class="text-black font-mono text-xs">{{ trigger?.workflow_id || t('triggerDetail.none') }}</span>
                   </div>
                 </div>
               </div>
 
               <!-- 关联工作流 -->
               <div v-if="trigger?.workflow_id" class="bg-white border border-gray-200 rounded-lg p-4">
-                <h4 class="text-sm font-medium text-black mb-3">关联工作流</h4>
+                <h4 class="text-sm font-medium text-black mb-3">{{ t('triggerDetail.relatedWorkflow') }}</h4>
                 <div class="bg-gradient-to-r from-info-container-from to-info-container-to border border-info-container-border rounded-lg p-3">
                   <div class="flex items-center space-x-3">
                     <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-600 to-primary-700 flex items-center justify-center text-xs font-semibold text-white">
@@ -278,7 +278,7 @@
                     </div>
                     <div class="flex-1 min-w-0">
                       <p class="text-sm font-medium text-success-800">{{ getWorkflowName() }}</p>
-                      <p class="text-xs text-primary-700">关联的自动化工作流</p>
+                      <p class="text-xs text-primary-700">{{ t('triggerDetail.relatedWorkflowDesc') }}</p>
                     </div>
                   </div>
                 </div>
@@ -293,9 +293,11 @@
 
 <script setup>
 import { ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { triggerApi } from '@/api/trigger'
 import { showMessage } from '@/utils/message'
+import { getCurrentLocale } from '@/i18n'
 
 const props = defineProps({
   trigger: {
@@ -305,6 +307,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['close', 'view-logs'])
+const { t } = useI18n()
 
 const router = useRouter()
 
@@ -314,7 +317,7 @@ const triggering = ref(false)
 // 方法
 const getWorkflowName = () => {
   if (!props.trigger?.workflow_id) {
-    return '无关联工作流'
+    return t('triggerDetail.noRelatedWorkflow')
   }
   
   // 直接从触发器对象中获取工作流名称
@@ -322,7 +325,7 @@ const getWorkflowName = () => {
     return props.trigger.workflow_info.name
   }
   
-  return '未知工作流'
+  return t('triggerDetail.unknownWorkflow')
 }
 
 const getEmailConfigMode = () => {
@@ -331,12 +334,12 @@ const getEmailConfigMode = () => {
   if (props.trigger?.trigger_config?.rules?.conditions && 
       Array.isArray(props.trigger.trigger_config.rules.conditions) && 
       props.trigger.trigger_config.rules.conditions.length > 0) {
-    return '高级规则'
+    return t('triggerDetail.advancedMode')
   } else if (props.trigger?.trigger_config?.match_content?.trim()) {
     // 只有当 match_content 有实际内容时才算简单匹配
-    return '简单匹配'
+    return t('triggerDetail.simpleMode')
   }
-  return '未配置'
+  return t('triggerDetail.unconfigured')
 }
 
 const isSimpleMode = () => {
@@ -352,17 +355,17 @@ const isSimpleMode = () => {
 const getMatchTypeLabel = () => {
   const matchType = props.trigger?.trigger_config?.match_type
   const typeMap = {
-    'sender_contains': '发件人包含',
-    'recipient_contains': '收件人包含', 
-    'subject_contains': '主题包含',
-    'content_contains': '内容包含'
+    'sender_contains': t('triggerDetail.matchSender'),
+    'recipient_contains': t('triggerDetail.matchRecipient'), 
+    'subject_contains': t('triggerDetail.matchSubject'),
+    'content_contains': t('triggerDetail.matchBody')
   }
-  return typeMap[matchType] || matchType || '未配置'
+  return typeMap[matchType] || matchType || t('triggerDetail.unconfigured')
 }
 
 const formatCondition = (condition) => {
   // 格式化高级规则中的条件显示
-  if (!condition) return '无效条件'
+  if (!condition) return t('triggerDetail.invalidCondition')
   
   // 根据条件结构格式化显示
   if (typeof condition === 'object') {
@@ -373,22 +376,22 @@ const formatCondition = (condition) => {
     
     // 字段映射
     const fieldMap = {
-      'email.sender': '邮件发件人',
-      'email.recipient': '邮件收件人', 
-      'email.subject': '邮件主题',
-      'email.body': '邮件内容',
-      'email.content': '邮件正文'
+      'email.sender': t('triggerDetail.fieldSender'),
+      'email.recipient': t('triggerDetail.fieldRecipient'), 
+      'email.subject': t('triggerDetail.fieldSubject'),
+      'email.body': t('triggerDetail.fieldBody'),
+      'email.content': t('triggerDetail.fieldContent')
     }
     
     // 操作符映射
     const operatorMap = {
-      'contains': '包含',
-      'equals': '等于',
-      'starts_with': '开头是',
-      'ends_with': '结尾是',
-      'regex': '匹配正则',
-      'not_contains': '不包含',
-      'not_equals': '不等于'
+      'contains': t('triggerDetail.opContains'),
+      'equals': t('triggerDetail.opEquals'),
+      'starts_with': t('triggerDetail.opStartsWith'),
+      'ends_with': t('triggerDetail.opEndsWith'),
+      'regex': t('triggerDetail.opRegex'),
+      'not_contains': t('triggerDetail.opNotContains'),
+      'not_equals': t('triggerDetail.opNotEquals')
     }
     
     const fieldName = fieldMap[field] || field
@@ -398,9 +401,9 @@ const formatCondition = (condition) => {
     
     // 添加大小写敏感信息
     if (caseSensitive === false) {
-      result += ' (忽略大小写)'
+      result += ` ${t('triggerDetail.caseInsensitive')}`
     } else if (caseSensitive === true) {
-      result += ' (区分大小写)'
+      result += ` ${t('triggerDetail.caseSensitive')}`
     }
     
     return result
@@ -423,12 +426,12 @@ const manualTrigger = async () => {
     triggering.value = true
     const response = await triggerApi.triggerManual(props.trigger.id)
     if (response.code === 0) {
-      showMessage('触发器执行成功', 'success')
+      showMessage(t('triggerDetail.manualSuccess'), 'success')
     } else {
-      showMessage('触发器执行失败: ' + response.message, 'error')
+      showMessage(t('triggerDetail.manualFailed'), 'error')
     }
   } catch (error) {
-    showMessage('触发器执行失败', 'error')
+    showMessage(t('triggerDetail.manualFailed'), 'error')
   } finally {
     triggering.value = false
   }
@@ -436,10 +439,10 @@ const manualTrigger = async () => {
 
 const getTriggerTypeLabel = (type) => {
   const typeMap = {
-    email: '邮件触发',
-    schedule: '定时触发',
-    webhook: 'Webhook触发',
-    manual: '手动触发'
+    email: t('triggerDetail.typeEmail'),
+    schedule: t('triggerDetail.typeSchedule'),
+    webhook: t('triggerDetail.typeWebhook'),
+    manual: t('triggerDetail.typeManual')
   }
   return typeMap[type] || type
 }
@@ -455,8 +458,8 @@ const getTriggerTypeClass = (type) => {
 }
 
 const formatDate = (timestamp) => {
-  if (!timestamp) return '未知'
+  if (!timestamp) return t('common.unknown')
   // timestamp是毫秒级时间戳
-  return new Date(timestamp).toLocaleString('zh-CN')
+  return new Date(timestamp).toLocaleString(getCurrentLocale())
 }
 </script>

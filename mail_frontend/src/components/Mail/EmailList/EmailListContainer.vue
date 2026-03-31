@@ -39,6 +39,9 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
+
 interface Props {
   title: string
   isEmpty?: boolean
@@ -46,9 +49,13 @@ interface Props {
   showPagination?: boolean
 }
 
-withDefaults(defineProps<Props>(), {
+const props = withDefaults(defineProps<Props>(), {
   isEmpty: false,
-  emptyText: '暂无邮件',
+  emptyText: '',
   showPagination: false
 })
+
+const { t } = useI18n()
+
+const emptyText = computed(() => props.emptyText || t('mail.noEmails'))
 </script>

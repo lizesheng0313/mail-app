@@ -13,7 +13,7 @@
                 <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
                 </svg>
-                自动化中心
+                {{ t('executionHistory.automationCenter') }}
               </router-link>
             </li>
             <li>
@@ -21,7 +21,7 @@
                 <svg class="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
                   <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
                 </svg>
-                <router-link to="/automation/workflows" class="ml-1 text-sm font-medium text-black hover:text-primary-600 md:ml-2">工作流管理</router-link>
+                <router-link to="/automation/workflows" class="ml-1 text-sm font-medium text-black hover:text-primary-600 md:ml-2">{{ t('executionHistory.workflowManagement') }}</router-link>
               </div>
             </li>
             <li>
@@ -29,7 +29,7 @@
                 <svg class="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
                   <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
                 </svg>
-                <span class="ml-1 text-sm font-medium text-black md:ml-2">执行历史</span>
+                <span class="ml-1 text-sm font-medium text-black md:ml-2">{{ t('executionHistory.breadcrumb') }}</span>
               </div>
             </li>
           </ol>
@@ -39,9 +39,9 @@
         <div class="mb-8">
           <div class="flex items-center justify-between">
             <div>
-              <h1 class="text-2xl font-bold text-black">工作流执行历史</h1>
-              <p class="mt-2 text-black" v-if="currentWorkflowName">工作流：{{ currentWorkflowName }}</p>
-              <p class="mt-2 text-black" v-else>查看工作流的执行记录和详细日志</p>
+              <h1 class="text-2xl font-bold text-black">{{ t('executionHistory.title') }}</h1>
+              <p class="mt-2 text-black" v-if="currentWorkflowName">{{ t('executionHistory.workflowLabel', { name: currentWorkflowName }) }}</p>
+              <p class="mt-2 text-black" v-else>{{ t('executionHistory.subtitle') }}</p>
             </div>
           </div>
         </div>
@@ -53,7 +53,7 @@
             <div class="w-64">
               <BaseInput
                 v-model="searchQuery"
-                placeholder="搜索工作流或执行ID..."
+                :placeholder="t('executionHistory.searchPlaceholder')"
                 show-clear
               >
                 <template #left-icon>
@@ -86,7 +86,7 @@
                 :disabled="loading"
                 class="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                查询
+                {{ t('executionHistory.search') }}
               </button>
             </div>
           </div>
@@ -96,36 +96,36 @@
         <div class="bg-white shadow rounded-lg overflow-hidden">
           <div v-if="loading" class="p-8 text-center">
             <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500 mx-auto"></div>
-            <p class="mt-2 text-black">加载中...</p>
+            <p class="mt-2 text-black">{{ t('executionHistory.loading') }}</p>
           </div>
           
           <div v-else-if="!currentWorkflowId" class="p-8 text-center text-black">
             <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
             </svg>
-            <h3 class="mt-2 text-sm font-medium text-black">未指定工作流</h3>
-            <p class="mt-1 text-sm text-black">请从工作流详情页面访问执行日志</p>
+            <h3 class="mt-2 text-sm font-medium text-black">{{ t('executionHistory.noWorkflow') }}</h3>
+            <p class="mt-1 text-sm text-black">{{ t('executionHistory.noWorkflowDesc') }}</p>
           </div>
           
           <div v-else-if="executions.length === 0" class="p-8 text-center text-black">
             <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
             </svg>
-            <h3 class="mt-2 text-sm font-medium text-black">暂无执行记录</h3>
-            <p class="mt-1 text-sm text-black">目前没有找到符合条件的工作流执行记录</p>
+            <h3 class="mt-2 text-sm font-medium text-black">{{ t('executionHistory.empty') }}</h3>
+            <p class="mt-1 text-sm text-black">{{ t('executionHistory.emptyDesc') }}</p>
           </div>
           
           <div v-else>
             <table class="min-w-full divide-y divide-gray-200">
               <thead class="bg-gray-50">
                 <tr>
-                  <th v-if="isPublishedWorkflow" class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">交易号</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">执行者</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">触发邮件</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">状态</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">耗时</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">开始时间</th>
-                  <th class="px-6 py-3 text-right text-xs font-medium text-black uppercase tracking-wider">操作</th>
+                  <th v-if="isPublishedWorkflow" class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">{{ t('executionHistory.orderNo') }}</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">{{ t('executionHistory.executor') }}</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">{{ t('executionHistory.triggerEmail') }}</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">{{ t('executionHistory.status') }}</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">{{ t('executionHistory.duration') }}</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">{{ t('executionHistory.startTime') }}</th>
+                  <th class="px-6 py-3 text-right text-xs font-medium text-black uppercase tracking-wider">{{ t('executionHistory.actions') }}</th>
                 </tr>
               </thead>
               <tbody class="bg-white divide-y divide-gray-200">
@@ -139,7 +139,7 @@
                   <td class="px-6 py-4">
                     <template v-if="execution.email_id">
                       <div class="text-sm text-black truncate max-w-[200px]" :title="execution.email_subject">
-                        {{ execution.email_subject || '(无主题)' }}
+                        {{ execution.email_subject || t('executionHistory.untitled') }}
                       </div>
                       <div class="text-xs text-gray-400 mt-0.5">
                         {{ formatTime(execution.email_received_at) }}
@@ -164,14 +164,14 @@
                       <ActionButton
                         v-if="execution.status === 'failed' || execution.status === 'cancelled'"
                         icon="refresh"
-                        tooltip="重新执行"
+                        :tooltip="t('executionHistory.retryTooltip')"
                         variant="warning"
                         @click="retryExecution(execution)"
                       />
                       <!-- 详情按钮 -->
                       <ActionButton
                         icon="view"
-                        tooltip="查看详情"
+                        :tooltip="t('executionHistory.detailTooltip')"
                         variant="primary"
                         @click="viewExecutionDetail(execution)"
                       />
@@ -186,10 +186,10 @@
         <!-- 重新执行确认对话框 -->
         <ConfirmDialog
           :visible="showRetryConfirm"
-          title="确认重新执行"
+          :title="t('executionHistory.retryDialogTitle')"
           :message="retryConfirmMessage"
           type="warning"
-          confirm-text="确认执行"
+          :confirm-text="t('executionHistory.retryDialogConfirm')"
           :loading="retrying"
           @confirm="confirmRetry"
           @cancel="showRetryConfirm = false"
@@ -206,7 +206,7 @@
         <div v-if="showLogsModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
           <div class="relative top-10 mx-auto p-5 border w-11/12 max-w-7xl shadow-lg rounded-md bg-white">
             <div class="flex justify-between items-center mb-4">
-              <h3 class="text-lg font-medium text-black">执行日志</h3>
+              <h3 class="text-lg font-medium text-black">{{ t('executionHistory.logsTitle') }}</h3>
               <button @click="showLogsModal = false" class="text-gray-400 hover:text-black">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -218,11 +218,11 @@
             <div class="max-h-[70vh] overflow-y-auto">
               <div v-if="loadingLogs" class="p-8 text-center">
                 <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-primary-500 mx-auto"></div>
-                <p class="mt-2 text-black">加载日志中...</p>
+                <p class="mt-2 text-black">{{ t('executionHistory.loadingLogs') }}</p>
               </div>
               
               <div v-else-if="executionLogs.length === 0" class="p-8 text-center text-black">
-                暂无日志记录
+                {{ t('executionHistory.noLogs') }}
               </div>
               
               <div v-else class="space-y-2">
@@ -239,7 +239,7 @@
                       <p class="text-sm text-black whitespace-pre-wrap break-words">{{ log.log_message }}</p>
                       <div v-if="log.log_data && Object.keys(log.log_data).length > 0" class="mt-2">
                         <details class="text-xs">
-                          <summary class="cursor-pointer text-black">详细数据</summary>
+                          <summary class="cursor-pointer text-black">{{ t('executionHistory.detailData') }}</summary>
                           <div class="mt-1 p-2 bg-gray-100 rounded overflow-x-auto">
                             <pre class="text-black whitespace-pre min-w-0">{{ JSON.stringify(log.log_data, null, 2) }}</pre>
                           </div>
@@ -262,6 +262,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import { workflowApi } from '@/api/workflow'
 import PageHeader from '@/components/PageHeader/index.vue'
@@ -273,6 +274,8 @@ import ConfirmDialog from '@/components/ConfirmDialog/index.vue'
 import ExecutionResultModal from '@/views/portal/workflows/components/ExecutionResultModal/index.vue'
 import { showMessage } from '@/utils/message'
 import { formatTimestamp } from '@/utils/timeUtils'
+
+const { t } = useI18n()
 
 // 获取路由信息
 const route = useRoute()
@@ -308,42 +311,42 @@ const timeRange = ref('')
 const pageSize = ref('50')
 
 // 下拉选项
-const statusOptions = [
-  { label: '所有状态', value: '' },
-  { label: '执行中', value: 'running' },
-  { label: '成功', value: 'success' },
-  { label: '失败', value: 'failed' },
-  { label: '已取消', value: 'cancelled' }
-]
+const statusOptions = computed(() => [
+  { label: t('executionHistory.allStatuses'), value: '' },
+  { label: t('executionHistory.statusRunning'), value: 'running' },
+  { label: t('executionHistory.statusSuccess'), value: 'success' },
+  { label: t('executionHistory.statusFailed'), value: 'failed' },
+  { label: t('executionHistory.statusCancelled'), value: 'cancelled' }
+])
 
-const timeRangeOptions = [
-  { label: '全部时间', value: '' },
-  { label: '最近1小时', value: '1h' },
-  { label: '最近24小时', value: '24h' },
-  { label: '最近7天', value: '7d' },
-  { label: '最近30天', value: '30d' }
-]
+const timeRangeOptions = computed(() => [
+  { label: t('executionHistory.allTime'), value: '' },
+  { label: t('executionHistory.last1Hour'), value: '1h' },
+  { label: t('executionHistory.last24Hours'), value: '24h' },
+  { label: t('executionHistory.last7Days'), value: '7d' },
+  { label: t('executionHistory.last30Days'), value: '30d' }
+])
 
 // 计算属性
 const retryConfirmMessage = computed(() => {
-  if (!retryingExecution.value) return '确认重新执行工作流？'
+  if (!retryingExecution.value) return t('executionHistory.retryConfirmDefault')
   
   const workflow = workflows.value.find(w => w.workflow_id === retryingExecution.value.workflow_id)
-  if (!workflow) return '确认重新执行工作流？'
+  if (!workflow) return t('executionHistory.retryConfirmDefault')
   
   const price = workflow.milk_coin_price || 0
   const hasInventory = workflow.inventory_enabled && workflow.inventory_count > 0
   
-  let message = `确认重新执行工作流"${workflow.name}"？`
+  let message = t('executionHistory.retryConfirmName', { name: workflow.name })
   
   // 按次付费需要提示扣费
   if ((workflow.pricing_model === 'pay_per_use' || workflow.pricing_model === 'per_use') && price > 0) {
-    message = `执行工作流将消耗 ${price} 奶片`
+    message = t('executionHistory.retryConsume', { price })
   }
   
   // 有库存账号提示
   if (hasInventory) {
-    message += `\n\n当前可用账号库存：${workflow.inventory_count} 个`
+    message += `\n\n${t('executionHistory.inventoryAvailable', { count: workflow.inventory_count })}`
   }
   
   return message
@@ -436,7 +439,7 @@ const fetchExecutions = async () => {
     
   } catch (error) {
     console.error('加载执行历史失败:', error)
-    showMessage('加载执行历史失败', 'error')
+    showMessage(t('executionHistory.loadHistoryFailed'), 'error')
     executions.value = []
   } finally {
     loading.value = false
@@ -476,7 +479,7 @@ const viewExecutionLogs = async (execution) => {
   } catch (error) {
     console.error('加载执行日志失败:', error)
     executionLogs.value = []
-    showMessage('加载执行日志失败', 'error')
+    showMessage(t('executionHistory.loadLogsFailed'), 'error')
   } finally {
     loadingLogs.value = false
   }
@@ -489,11 +492,11 @@ const getWorkflowName = (workflowId) => {
 
 const getStatusText = (status) => {
   const statusMap = {
-    'created': '等待中',
-    'running': '执行中', 
-    'success': '成功',
-    'failed': '失败',
-    'cancelled': '已取消'
+    'created': t('executionHistory.statusCreated'),
+    'running': t('executionHistory.statusRunning'),
+    'success': t('executionHistory.statusSuccess'),
+    'failed': t('executionHistory.statusFailed'),
+    'cancelled': t('executionHistory.statusCancelled')
   }
   return statusMap[status] || status
 }
@@ -569,17 +572,17 @@ const confirmRetry = async () => {
         showExecutionResult.value = true
       } else {
         // 没有账号，只显示提示
-        showMessage(response.message || '工作流执行成功', 'success')
+        showMessage(response.message || t('executionHistory.executionSuccess'), 'success')
       }
       
       // 刷新执行列表
       await fetchExecutions()
     } else {
-      showMessage(response.message || '重试失败', 'error')
+      showMessage(response.message || t('executionHistory.retryFailed'), 'error')
     }
   } catch (error) {
     console.error('重试工作流失败:', error)
-    showMessage('重试工作流失败', 'error')
+    showMessage(t('executionHistory.retryFailed'), 'error')
   } finally {
     retrying.value = false
     retryingExecution.value = null
@@ -589,9 +592,9 @@ const confirmRetry = async () => {
 const copyToClipboard = async (text) => {
   try {
     await navigator.clipboard.writeText(text)
-    showMessage('已复制到剪贴板', 'success')
+    showMessage(t('executionHistory.copied'), 'success')
   } catch (error) {
-    showMessage('复制失败', 'error')
+    showMessage(t('executionHistory.copyFailed'), 'error')
   }
 }
 

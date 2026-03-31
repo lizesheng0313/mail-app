@@ -2,6 +2,11 @@
  * 时间处理工具函数
  * 前端统一处理时间格式化和时区转换
  */
+import { getCurrentLocale, i18n } from '@/i18n'
+
+const formatWithLocale = (value, options, method = 'toLocaleString') => {
+  return value[method](getCurrentLocale(), options)
+}
 
 /**
  * 将毫秒时间戳转换为本地时间字符串
@@ -19,12 +24,12 @@ export function formatTimestamp(timestamp, format = 'datetime') {
   
   switch (format) {
     case 'date':
-      return date.toLocaleDateString()
+      return formatWithLocale(date, undefined, 'toLocaleDateString')
     case 'time':
-      return date.toLocaleTimeString()
+      return formatWithLocale(date, undefined, 'toLocaleTimeString')
     case 'datetime':
     default:
-      return date.toLocaleString()
+      return formatWithLocale(date)
   }
 }
 
@@ -39,7 +44,7 @@ export function formatRelativeTime(timestamp) {
   const now = Date.now()
   const diff = now - timestamp
   
-  if (diff < 0) return '未来时间'
+  if (diff < 0) return i18n.global.t('common.futureTime')
   
   const seconds = Math.floor(diff / 1000)
   const minutes = Math.floor(seconds / 60)
@@ -49,13 +54,13 @@ export function formatRelativeTime(timestamp) {
   const months = Math.floor(days / 30)
   const years = Math.floor(days / 365)
   
-  if (seconds < 60) return '刚刚'
-  if (minutes < 60) return `${minutes}分钟前`
-  if (hours < 24) return `${hours}小时前`
-  if (days < 7) return `${days}天前`
-  if (weeks < 4) return `${weeks}周前`
-  if (months < 12) return `${months}个月前`
-  return `${years}年前`
+  if (seconds < 60) return i18n.global.t('common.justNow')
+  if (minutes < 60) return i18n.global.t('common.minutesAgo', { count: minutes })
+  if (hours < 24) return i18n.global.t('common.hoursAgo', { count: hours })
+  if (days < 7) return i18n.global.t('common.daysAgo', { count: days })
+  if (weeks < 4) return i18n.global.t('common.weeksAgo', { count: weeks })
+  if (months < 12) return i18n.global.t('common.monthsAgo', { count: months })
+  return i18n.global.t('common.yearsAgo', { count: years })
 }
 
 /**
@@ -96,11 +101,15 @@ export function getTimezoneName() {
  */
 export function formatDuration(duration) {
   if (!duration || duration === 0) return '0ms'
+  const locale = getCurrentLocale()
+  const isEnglish = locale.startsWith('en')
+  const minuteUnit = isEnglish ? 'min' : locale === 'zh-TW' ? '分鐘' : '分钟'
+  const hourUnit = isEnglish ? 'h' : locale === 'zh-TW' ? '小時' : '小时'
   
   if (duration < 1000) return `${duration}ms`
   if (duration < 60000) return `${(duration / 1000).toFixed(1)}s`
-  if (duration < 3600000) return `${(duration / 60000).toFixed(1)}分钟`
-  return `${(duration / 3600000).toFixed(1)}小时`
+  if (duration < 3600000) return `${(duration / 60000).toFixed(1)}${minuteUnit}`
+  return `${(duration / 3600000).toFixed(1)}${hourUnit}`
 }
 
 /**
