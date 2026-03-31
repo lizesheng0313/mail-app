@@ -8,13 +8,19 @@
           <button
             @click="switchMailboxType('system')"
             :class="[
-              'px-6 py-2 text-sm font-medium border-b-2 transition-colors',
+              'px-6 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2',
               mailboxType === 'system'
                 ? 'text-primary-600 border-primary-600'
                 : 'text-gray-500 border-transparent hover:text-gray-700 hover:border-gray-300'
             ]"
           >
             {{ t('home.temporaryMailbox') }}
+            <span
+              v-if="tempMailboxMaintenanceMode"
+              class="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700"
+            >
+              维护中
+            </span>
           </button>
           <button
             @click="switchMailboxType('hosted')"
@@ -46,10 +52,10 @@
           <button
             v-if="mailboxType === 'system'"
             @click="allocateMailbox"
-            :disabled="mailboxStore.loading"
+            :disabled="mailboxStore.loading || tempMailboxMaintenanceMode"
             class="px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {{ mailboxStore.loading ? t('home.generating') : t('home.createMailbox') }}
+            {{ tempMailboxMaintenanceMode ? '临时邮箱维护中' : mailboxStore.loading ? t('home.generating') : t('home.createMailbox') }}
           </button>
 
           <button
@@ -118,6 +124,12 @@
             {{ currentView === 'send-email' ? t('home.backInbox') : t('home.bulkSend') }}
           </button>
         </div>
+        <div
+          v-if="mailboxType === 'system' && tempMailboxMaintenanceMode"
+          class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"
+        >
+          {{ tempMailboxMaintenanceText }}
+        </div>
       </div>
       <section v-else class="rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm">
         <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -153,11 +165,15 @@
 
     <!-- 左栏：邮箱 -->
     <template #left>
-      <TempMailbox v-if="!userStore.isAuthenticated" />
+      <TempMailbox
+        v-if="!userStore.isAuthenticated"
+        :maintenance-mode="tempMailboxMaintenanceMode"
+        :maintenance-message="tempMailboxMaintenanceText"
+      />
 
       <!-- 系统邮箱和外部邮箱（两套独立组件，用v-show切换）-->
       <div v-else class="h-full">
-        <div v-show="mailboxType === 'system'" class="h-full">
+        <div v-show="mailboxType === 'system'" class="relative h-full">
           <SystemMailboxList
             ref="systemMailboxListRef"
             @select="handleSelectMailbox"
@@ -165,6 +181,20 @@
             @deleted="handleSystemMailboxesDeleted"
             @batch-mode-start="handleMailboxBatchStart"
           />
+          <div
+            v-if="tempMailboxMaintenanceMode"
+            class="absolute inset-0 z-20 flex items-center justify-center rounded-2xl bg-white/88 backdrop-blur-sm"
+          >
+            <div class="mx-6 max-w-sm rounded-2xl border border-amber-200 bg-white px-5 py-6 text-center shadow-lg">
+              <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 text-amber-600">
+                <BaseIcon name="warning" size="lg" />
+              </div>
+              <div class="mt-4 text-base font-semibold text-gray-900">系统升级中</div>
+              <div class="mt-2 text-sm leading-6 text-gray-600">
+                {{ tempMailboxMaintenanceText }}
+              </div>
+            </div>
+          </div>
         </div>
 
         <div v-show="mailboxType === 'hosted'" class="h-full">
@@ -212,7 +242,7 @@
     <!-- 中栏：邮件（两套独立列表）-->
     <template #middle v-if="currentView === 'emails'">
       <!-- 临时邮箱邮件列表 -->
-      <div v-show="mailboxType === 'system'" class="h-full">
+      <div v-show="mailboxType === 'system'" class="relative h-full">
         <EmailList
           ref="systemEmailListRef"
           :title="t('mail.inbox')"
@@ -295,6 +325,20 @@
             />
           </template>
         </EmailList>
+        <div
+          v-if="tempMailboxMaintenanceMode"
+          class="absolute inset-0 z-20 flex items-center justify-center rounded-2xl bg-white/88 backdrop-blur-sm"
+        >
+          <div class="mx-6 max-w-sm rounded-2xl border border-amber-200 bg-white px-5 py-6 text-center shadow-lg">
+            <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 text-amber-600">
+              <BaseIcon name="warning" size="lg" />
+            </div>
+            <div class="mt-4 text-base font-semibold text-gray-900">系统升级中</div>
+            <div class="mt-2 text-sm leading-6 text-gray-600">
+              {{ tempMailboxMaintenanceText }}
+            </div>
+          </div>
+        </div>
       </div>
 
       <div v-show="mailboxType === 'hosted'" class="h-full">
@@ -615,6 +659,8 @@ import { unifiedAPI } from '@/api/unified'
 import { emailAPI } from '@/api/email'
 
 const { t } = useI18n()
+const tempMailboxMaintenanceMode = true
+const tempMailboxMaintenanceText = '系统升级中，临时邮箱暂时不可用'
 
 const OAUTH2_DOMAINS: Record<string, string> = {
   'gmail.com': 'google',
@@ -1407,6 +1453,10 @@ const handleMailboxBatchStart = () => {
 
 // 切换邮箱类型
 const switchMailboxType = (type: 'system' | 'hosted' | 'external') => {
+  if (type === 'system' && tempMailboxMaintenanceMode) {
+    showMessage(tempMailboxMaintenanceText, 'warning')
+  }
+
   currentView.value = 'emails'
   // 保存当前Tab的选中邮件
   if (mailboxType.value === 'system') {
@@ -2045,6 +2095,10 @@ const refreshSystemEmails = async (options?: { minSpinMs?: number }) => {
     return
   }
 
+  if (tempMailboxMaintenanceMode) {
+    return
+  }
+
   refreshingSystemEmails.value = true
   const refreshStartedAt = Date.now()
 
@@ -2134,6 +2188,10 @@ const refreshHostedEmails = async () => {
 }
 
 const handleImmediateRefreshSystemEmails = async () => {
+  if (tempMailboxMaintenanceMode) {
+    showMessage(tempMailboxMaintenanceText, 'warning')
+    return
+  }
   hideRefreshTooltip()
   autoRefresh.restart()
   await refreshSystemEmails({ minSpinMs: MANUAL_REFRESH_MIN_SPIN_MS })
@@ -2506,8 +2564,14 @@ onMounted(async () => {
   if (userStore.isAuthenticated) {
     // 加载邮箱列表
     await mailboxStore.fetchMailboxes()
-    // 同时加载所有邮件（不选择特定邮箱）
-    await mailStore.fetchUserEmails()
+    if (!tempMailboxMaintenanceMode) {
+      // 同时加载所有邮件（不选择特定邮箱）
+      await mailStore.fetchUserEmails()
+    } else {
+      mailStore.selectedEmail = null
+      selectedMailboxId.value = null
+      showOnlyUnread.value = false
+    }
     await loadHostedDomainSummary()
     await loadSmtpAccounts()
 
@@ -2545,6 +2609,10 @@ onBeforeUnmount(() => {
 
 // 生成系统邮箱
 const allocateMailbox = async () => {
+  if (tempMailboxMaintenanceMode) {
+    showMessage(tempMailboxMaintenanceText, 'warning')
+    return
+  }
   const result = await mailboxStore.allocateMailbox()
   if (result.success) {
     // 刷新用户信息以更新剩余邮箱数量
@@ -2560,6 +2628,10 @@ const allocateMailbox = async () => {
 
 // 选择系统邮箱
 const handleSelectMailbox = async (mailbox: any) => {
+  if (tempMailboxMaintenanceMode) {
+    showMessage(tempMailboxMaintenanceText, 'warning')
+    return
+  }
   selectedMailboxId.value = mailbox.id
   mailStore.selectedEmail = null
   mailStore.currentPage = 1
@@ -3105,6 +3177,10 @@ const handleRefreshExternalEmails = async () => {
 
 // 返回全部邮件
 const backToAllEmails = async () => {
+  if (tempMailboxMaintenanceMode) {
+    showMessage(tempMailboxMaintenanceText, 'warning')
+    return
+  }
   selectedMailboxId.value = null
   showOnlyUnread.value = false
   await mailStore.fetchUserEmails(1, 20, false, undefined)
@@ -3112,6 +3188,10 @@ const backToAllEmails = async () => {
 
 // 切换仅显示未读
 const toggleUnreadFilter = async () => {
+  if (tempMailboxMaintenanceMode) {
+    showMessage(tempMailboxMaintenanceText, 'warning')
+    return
+  }
   showOnlyUnread.value = !showOnlyUnread.value
   mailStore.currentPage = 1 // 重置页码
   const params = {
@@ -3146,6 +3226,10 @@ const formatDate = (date: string) => {
 
 // 搜索系统邮件
 const handleSearchEmails = async (keyword: string) => {
+  if (tempMailboxMaintenanceMode) {
+    showMessage(tempMailboxMaintenanceText, 'warning')
+    return
+  }
   mailStore.searchKeyword = keyword
   const params: any = { page: 1, page_size: 20 }
   if (showOnlyUnread.value) params.unread = true
