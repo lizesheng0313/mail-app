@@ -4,31 +4,7 @@
       <h2 class="text-base font-semibold text-black">{{ t('mail.myMailbox') }}</h2>
     </div>
 
-    <div
-      v-if="maintenanceMode"
-      class="rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50 p-5 shadow-sm"
-    >
-      <div class="flex items-start gap-3">
-        <div class="mt-0.5 rounded-full bg-amber-100 p-2 text-amber-600">
-          <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-            />
-          </svg>
-        </div>
-        <div class="min-w-0">
-          <h3 class="text-sm font-semibold text-amber-900">系统升级中</h3>
-          <p class="mt-1 text-sm leading-6 text-amber-800">
-            {{ maintenanceMessage }}
-          </p>
-        </div>
-      </div>
-    </div>
-    
-    <div v-else-if="mailboxStore.loading" class="flex items-center justify-center py-8">
+    <div v-if="mailboxStore.loading" class="flex items-center justify-center py-8">
       <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
       <span class="ml-2 text-gray-600">{{ t('mail.loadingTempMailbox') }}</span>
     </div>
@@ -61,26 +37,12 @@ import ActionButton from '@/components/ActionButton/index.vue'
 import { showMessage } from '@/utils/message'
 import { formatTimestamp } from '@/utils/timeUtils'
 
-const props = withDefaults(
-  defineProps<{
-    maintenanceMode?: boolean
-    maintenanceMessage?: string
-  }>(),
-  {
-    maintenanceMode: false,
-    maintenanceMessage: '正在发版，临时邮箱暂时不可用'
-  }
-)
-
 const { t } = useI18n()
 const mailboxStore = useMailboxStore()
 const mailStore = useMailStore()
 
 // 自动获取临时邮箱和邮件
 onMounted(async () => {
-  if (props.maintenanceMode) {
-    return
-  }
   if (!mailboxStore.tempMailbox) {
     const result = await mailboxStore.getTempMailbox()
     if (result.success && mailboxStore.tempMailbox?.id) {
