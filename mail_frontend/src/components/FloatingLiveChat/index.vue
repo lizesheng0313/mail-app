@@ -58,7 +58,7 @@
             >
               <div
                 class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold shadow-sm"
-                :class="isSelf(item) ? 'bg-primary-600 text-white' : 'bg-primary-100 text-primary-700'"
+                :class="isSelf(item) ? 'bg-primary-600 text-white' : getOtherAvatarClass(item)"
               >
                 {{ item.user.avatar_text }}
               </div>
@@ -73,8 +73,8 @@
                 >
                   <span class="font-medium text-gray-700">{{ item.user.display_name }}</span>
                   <span
-                    v-if="item.user.is_admin"
-                    class="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700"
+                  v-if="item.user.is_admin"
+                  class="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700"
                   >
                     管理员
                   </span>
@@ -85,7 +85,7 @@
                   class="max-w-full rounded-[22px] px-4 py-3 text-sm leading-6 shadow-sm"
                   :class="isSelf(item)
                     ? 'rounded-br-md bg-primary-600 text-white'
-                    : 'rounded-bl-md bg-white text-gray-800 ring-1 ring-primary-100'"
+                    : getOtherBubbleClass(item)"
                 >
                   <p class="whitespace-pre-wrap break-words text-left">{{ item.content }}</p>
                 </div>
@@ -236,6 +236,37 @@ const statusDotClass = computed(() => {
 })
 
 const isSelf = (item: LiveChatMessage) => item.user.id === selfUserId.value
+
+const OTHER_AVATAR_STYLES = [
+  'border border-sky-200 bg-sky-50 text-sky-700',
+  'border border-violet-200 bg-violet-50 text-violet-700',
+  'border border-amber-200 bg-amber-50 text-amber-700',
+  'border border-emerald-200 bg-emerald-50 text-emerald-700',
+  'border border-rose-200 bg-rose-50 text-rose-700',
+  'border border-cyan-200 bg-cyan-50 text-cyan-700'
+]
+
+const OTHER_BUBBLE_STYLES = [
+  'rounded-bl-md bg-sky-50 text-slate-800 ring-1 ring-sky-100',
+  'rounded-bl-md bg-violet-50 text-slate-800 ring-1 ring-violet-100',
+  'rounded-bl-md bg-amber-50 text-slate-800 ring-1 ring-amber-100',
+  'rounded-bl-md bg-emerald-50 text-slate-800 ring-1 ring-emerald-100',
+  'rounded-bl-md bg-rose-50 text-slate-800 ring-1 ring-rose-100',
+  'rounded-bl-md bg-cyan-50 text-slate-800 ring-1 ring-cyan-100'
+]
+
+const getOtherStyleIndex = (item: LiveChatMessage) => {
+  const userId = Number(item.user?.id || 0)
+  return Math.abs(userId) % OTHER_AVATAR_STYLES.length
+}
+
+const getOtherAvatarClass = (item: LiveChatMessage) => {
+  return OTHER_AVATAR_STYLES[getOtherStyleIndex(item)]
+}
+
+const getOtherBubbleClass = (item: LiveChatMessage) => {
+  return OTHER_BUBBLE_STYLES[getOtherStyleIndex(item)]
+}
 
 const toggleVisible = async () => {
   visible.value = !visible.value
