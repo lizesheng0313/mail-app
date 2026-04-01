@@ -39,6 +39,19 @@ const getBaseURL = () => {
 
 // 导出 isTauri 供其他地方使用
 export { isTauri }
+export const getApiBaseURL = () => getBaseURL()
+
+export const buildWebSocketURL = (path: string) => {
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`
+  const baseURL = getBaseURL()
+
+  if (baseURL.startsWith('http://') || baseURL.startsWith('https://')) {
+    return `${baseURL.replace(/^http/, 'ws')}${normalizedPath}`
+  }
+
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  return `${protocol}//${window.location.host}${baseURL}${normalizedPath}`
+}
 
 // 获取服务器基础URL（供 Tauri 命令使用）
 export const getServerUrl = () => getBaseURL()

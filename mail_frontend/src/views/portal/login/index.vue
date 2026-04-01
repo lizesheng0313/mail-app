@@ -228,12 +228,6 @@
                 <p class="text-sm font-medium text-orange-900">{{ t('login.abnormalTitle') }}</p>
                 <p class="mt-1 text-sm text-orange-800">{{ t('login.abnormalDesc') }}</p>
                 <div class="mt-3 flex flex-wrap gap-2">
-                  <a
-                    href="/user/feedback"
-                    class="inline-flex items-center rounded-lg bg-primary-600 px-3 py-2 text-xs font-medium text-white hover:bg-primary-700"
-                  >
-                    {{ t('login.submitFeedback') }}
-                  </a>
                   <button
                     type="button"
                     @click="copySupportWechat"

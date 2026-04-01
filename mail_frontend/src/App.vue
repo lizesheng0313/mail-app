@@ -1,7 +1,7 @@
 <template>
   <div id="app">
     <RouterView />
-    <FloatingAI />
+    <FloatingLiveChat />
     <SystemMaintenance ref="maintenanceRef" />
     <AppUpdater ref="updaterRef" />
   </div>
@@ -12,8 +12,9 @@ import { RouterView, useRouter } from 'vue-router'
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useUserStore } from '@/stores/user'
 import { usePageTracking } from '@/composables/usePageTracking'
+import { useOnlineSession } from '@/composables/useOnlineSession'
 import { useDesktopOAuthKeepAlive } from '@/composables/useDesktopOAuthKeepAlive'
-import FloatingAI from '@/components/FloatingAI/index.vue'
+import FloatingLiveChat from '@/components/FloatingLiveChat/index.vue'
 import SystemMaintenance from '@/components/SystemMaintenance/index.vue'
 import AppUpdater from '@/components/AppUpdater/index.vue'
 import { registerMaintenanceCallback, isTauri } from '@/services/api'
@@ -28,6 +29,7 @@ const desktopOAuthKeepAlive = useDesktopOAuthKeepAlive()
 
 // 启用页面访问统计
 usePageTracking()
+useOnlineSession()
 
 // 应用启动时检查认证状态
 onMounted(async () => {

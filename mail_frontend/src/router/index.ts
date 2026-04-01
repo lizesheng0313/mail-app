@@ -7,7 +7,6 @@ const Login = () => import('@/views/portal/login/index.vue')
 const GoogleSuccess = () => import('@/views/portal/auth/GoogleSuccess.vue')
 const GoogleChoose = () => import('@/views/portal/auth/GoogleChoose.vue')
 const Profile = () => import('@/views/portal/profile/index.vue')
-const Feedback = () => import('@/views/portal/feedback/index.vue')
 const OpenPlatformPage = () => import('@/views/portal/open-platform/index.vue')
 const PluginManagement = () => import('@/views/portal/plugins/index.vue')
 const PluginStore = () => import('@/views/portal/plugin-store/index.vue')
@@ -26,7 +25,6 @@ const TermsOfServicePage = () => import('@/views/portal/legal/TermsOfService.vue
 // 管理后台组件 - 只有管理员访问时才加载
 const AdminLayout = () => import('@/layouts/AdminLayout.vue')
 const DomainManage = () => import('@/views/admin/domain/index.vue')
-const FeedbackManage = () => import('@/views/admin/feedbackManage/index.vue')
 const MonitoringDashboard = () => import('@/views/admin/monitoring/index.vue')
 const AdminProxyManagement = () => import('@/views/admin/proxy-management/index.vue')
 const AdminUserManagement = () => import('@/views/admin/user-management/index.vue')
@@ -105,10 +103,6 @@ const router = createRouter({
       meta: { requiresAuth: true }
     },
     {
-      path: '/feedback',
-      redirect: '/user/feedback'
-    },
-    {
       path: '/open-platform/:section?',
       name: 'open-platform',
       component: OpenPlatformPage,
@@ -164,10 +158,22 @@ const router = createRouter({
     },
 
     {
-      path: '/proxy',
-      name: 'proxy',
+      path: '/mailbox-proxy',
+      name: 'mailbox-proxy',
       component: ProxyManagement,
       meta: { requiresAuth: true }
+    },
+    {
+      path: '/batch-workbench',
+      redirect: '/mailbox-proxy'
+    },
+    {
+      path: '/batch-send',
+      redirect: '/mailbox-proxy'
+    },
+    {
+      path: '/proxy',
+      redirect: '/mailbox-proxy'
     },
     {
       path: '/payment',
@@ -311,11 +317,6 @@ const router = createRouter({
           component: UserAnnouncements
         },
         {
-          path: 'feedback',
-          name: 'user-feedback',
-          component: Feedback
-        },
-        {
           path: 'developer',
           redirect: '/user/developer/api-keys'
         },
@@ -336,11 +337,6 @@ const router = createRouter({
           path: 'domains',
           name: 'admin-domains',
           component: DomainManage
-        },
-        {
-          path: 'feedback',
-          name: 'admin-feedback',
-          component: FeedbackManage
         },
         {
           path: 'monitoring',

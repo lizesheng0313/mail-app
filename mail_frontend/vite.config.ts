@@ -18,12 +18,14 @@ export default defineConfig({
       '/mail-api': {  // 更新代理路径
         target: 'http://localhost:8088',
         changeOrigin: true,
-        secure: false
+        secure: false,
+        ws: true
       },
       '/open': {
         target: 'http://localhost:8088',
         changeOrigin: true,
-        secure: false
+        secure: false,
+        ws: true
       }
     }
   },

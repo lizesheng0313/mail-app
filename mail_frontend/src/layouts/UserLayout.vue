@@ -152,21 +152,6 @@ const menuSections = computed(() => [
               })
             ])
         }
-      },
-      {
-        path: '/user/feedback',
-        label: t('userLayout.feedback'),
-        icon: {
-          render: () =>
-            h('svg', { fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' }, [
-              h('path', {
-                'stroke-linecap': 'round',
-                'stroke-linejoin': 'round',
-                'stroke-width': '2',
-                d: 'M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-4l-4 4v-4z'
-              })
-            ])
-        }
       }
     ]
   },
@@ -207,8 +192,7 @@ const currentPageTitle = computed(() => {
     '/user/purchases': t('userLayout.transactions'),
     '/user/finance': t('userLayout.financeCenter'),
     '/user/settings': t('userLayout.personalSettings'),
-    '/user/announcements': t('userLayout.announcements'),
-    '/user/feedback': t('userLayout.feedback')
+    '/user/announcements': t('userLayout.announcements')
   }
   return titles[route.path] || t('userLayout.workspaceTitle')
 })
@@ -222,8 +206,7 @@ const pageDescription = computed(() => {
     '/user/purchases': t('userLayout.transactionsDescription'),
     '/user/finance': t('userLayout.financeCenterDescription'),
     '/user/settings': t('userLayout.personalSettingsDescription'),
-    '/user/announcements': t('userLayout.announcementsDescription'),
-    '/user/feedback': t('userLayout.feedbackDescription')
+    '/user/announcements': t('userLayout.announcementsDescription')
   }
   return descriptions[route.path] || t('userLayout.workspaceDescription')
 })

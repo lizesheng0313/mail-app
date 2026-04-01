@@ -77,6 +77,107 @@
         </div>
       </div>
 
+      <div class="bg-white rounded-lg shadow-sm border p-6">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-semibold text-black">业务监控</h3>
+          <CustomSelect
+            v-model="businessStatsDays"
+            :options="[
+              { value: '7', label: '最近7天' },
+              { value: '14', label: '最近14天' },
+              { value: '30', label: '最近30天' }
+            ]"
+            @update:modelValue="loadBusinessStats"
+          />
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+          <div class="rounded-lg bg-orange-50 border border-orange-100 p-4">
+            <p class="text-sm text-black">当前在线人数</p>
+            <p class="mt-2 text-2xl font-bold text-black">{{ businessStats.summary?.online_users_now || 0 }}</p>
+            <p class="mt-1 text-xs text-black">
+              桌面端 {{ businessStats.summary?.desktop_online_users_now || 0 }} / Web {{ businessStats.summary?.web_online_users_now || 0 }}
+            </p>
+          </div>
+
+          <div class="rounded-lg bg-blue-50 border border-blue-100 p-4">
+            <p class="text-sm text-black">桌面端今日使用人数</p>
+            <p class="mt-2 text-2xl font-bold text-black">{{ businessStats.summary?.desktop_active_users_today || 0 }}</p>
+            <p class="mt-1 text-xs text-black">按日去重</p>
+          </div>
+
+          <div class="rounded-lg bg-emerald-50 border border-emerald-100 p-4">
+            <p class="text-sm text-black">域名邮箱使用人数</p>
+            <p class="mt-2 text-2xl font-bold text-black">{{ businessStats.summary?.hosted_enabled_users || 0 }}</p>
+            <p class="mt-1 text-xs text-black">已启用邮箱用户</p>
+          </div>
+
+          <div class="rounded-lg bg-violet-50 border border-violet-100 p-4">
+            <p class="text-sm text-black">API 今日使用人数</p>
+            <p class="mt-2 text-2xl font-bold text-black">{{ businessStats.summary?.api_active_users_today || 0 }}</p>
+            <p class="mt-1 text-xs text-black">调用量 {{ businessStats.summary?.api_calls_today || 0 }}</p>
+          </div>
+
+          <div class="rounded-lg bg-cyan-50 border border-cyan-100 p-4">
+            <p class="text-sm text-black">域名邮箱今日收件</p>
+            <p class="mt-2 text-2xl font-bold text-black">{{ businessStats.summary?.hosted_received_today || 0 }}</p>
+            <p class="mt-1 text-xs text-black">用户数 {{ businessStats.summary?.hosted_enabled_users || 0 }}</p>
+          </div>
+
+          <div class="rounded-lg bg-fuchsia-50 border border-fuchsia-100 p-4">
+            <p class="text-sm text-black">第三方邮箱今日收件</p>
+            <p class="mt-2 text-2xl font-bold text-black">{{ businessStats.summary?.external_received_today || 0 }}</p>
+            <p class="mt-1 text-xs text-black">使用人数 {{ businessStats.summary?.external_enabled_users || 0 }}</p>
+          </div>
+
+          <div class="rounded-lg bg-amber-50 border border-amber-100 p-4">
+            <p class="text-sm text-black">临时邮箱今日收件</p>
+            <p class="mt-2 text-2xl font-bold text-black">{{ businessStats.summary?.system_received_today || 0 }}</p>
+            <p class="mt-1 text-xs text-black">使用人数 {{ businessStats.summary?.system_enabled_users || 0 }}</p>
+          </div>
+
+          <div class="rounded-lg bg-slate-50 border border-slate-100 p-4">
+            <p class="text-sm text-black">API 已启用用户</p>
+            <p class="mt-2 text-2xl font-bold text-black">{{ businessStats.summary?.api_enabled_users || 0 }}</p>
+            <p class="mt-1 text-xs text-black">今日活跃 Key {{ businessStats.summary?.api_active_keys_today || 0 }}</p>
+          </div>
+        </div>
+
+        <div v-if="businessStats.trend?.length" class="mt-6 overflow-x-auto">
+          <table class="min-w-full divide-y divide-gray-200 text-sm">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-4 py-3 text-left font-medium text-black">日期</th>
+                <th class="px-4 py-3 text-left font-medium text-black">桌面端人数</th>
+                <th class="px-4 py-3 text-left font-medium text-black">域名收件</th>
+                <th class="px-4 py-3 text-left font-medium text-black">第三方收件</th>
+                <th class="px-4 py-3 text-left font-medium text-black">临时收件</th>
+                <th class="px-4 py-3 text-left font-medium text-black">API 调用</th>
+                <th class="px-4 py-3 text-left font-medium text-black">API 用户</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100 bg-white">
+              <tr v-for="item in businessStats.trend || []" :key="item.date">
+                <td class="px-4 py-3 text-black">{{ item.date }}</td>
+                <td class="px-4 py-3 text-black">{{ item.desktop_active_users || 0 }}</td>
+                <td class="px-4 py-3 text-black">{{ item.hosted_received || 0 }}</td>
+                <td class="px-4 py-3 text-black">{{ item.external_received || 0 }}</td>
+                <td class="px-4 py-3 text-black">{{ item.system_received || 0 }}</td>
+                <td class="px-4 py-3 text-black">{{ item.api_calls || 0 }}</td>
+                <td class="px-4 py-3 text-black">{{ item.api_active_users || 0 }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div
+          v-else
+          class="mt-6 rounded-lg border border-dashed border-gray-200 bg-gray-50 px-4 py-8 text-center text-sm text-gray-500"
+        >
+          最近 {{ businessStatsDays }} 天暂无业务趋势数据
+        </div>
+      </div>
+
       <!-- 图表区域 -->
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
@@ -279,12 +380,14 @@ const userStats = ref<any>({})
 const emailActivity = ref<any>({})
 const pageAnalytics = ref<any>({})
 const geoDistribution = ref<any>({})  // 新增地理分布数据
+const businessStats = ref<any>({ summary: {}, trend: [] })
 
 // 图表参数
 const userStatsDays = ref('7')
 const emailStatsDays = ref('7')
 const pageAnalyticsDays = ref('7')
 const geoMode = ref('china')  // 默认显示中国地图
+const businessStatsDays = ref('7')
 
 // 图表实例
 const userTrendChart = ref<HTMLDivElement>()
@@ -295,6 +398,7 @@ let userChart: echarts.ECharts | null = null
 let mailboxChart: echarts.ECharts | null = null
 let pvUvChart: echarts.ECharts | null = null
 let mapChart: echarts.ECharts | null = null
+let onlineRefreshTimer: number | null = null
 
 
 
@@ -398,6 +502,39 @@ const loadPageAnalytics = async () => {
   }
 }
 
+const loadBusinessStats = async () => {
+  try {
+    const response: any = await monitoringAPI.getBusinessStats(parseInt(businessStatsDays.value))
+    if (response.code === 0) {
+      businessStats.value = response.data
+    } else {
+      showMessage(response.message || '获取业务监控失败', 'error')
+    }
+  } catch (error) {
+    console.error('加载业务监控失败:', error)
+  }
+}
+
+const refreshOnlineCount = async () => {
+  try {
+    const response: any = await monitoringAPI.getOnlineCount()
+    if (response.code === 0) {
+      const onlineData = response.data || {}
+      businessStats.value = {
+        ...businessStats.value,
+        summary: {
+          ...(businessStats.value.summary || {}),
+          online_users_now: onlineData.online_users || 0,
+          desktop_online_users_now: onlineData.desktop_online_users || 0,
+          web_online_users_now: onlineData.web_online_users || 0
+        }
+      }
+    }
+  } catch (error) {
+    console.error('刷新在线人数失败:', error)
+  }
+}
+
 // 加载地理分布数据
 const loadGeoDistribution = async () => {
   try {
@@ -476,6 +613,7 @@ const loadAllData = async () => {
       loadUserStats(),
       loadEmailActivity(),
       loadPageAnalytics(),
+      loadBusinessStats(),
       loadGeoDistribution(),
       preloadWorldMapData() // 预加载世界地图数据，提高切换速度
     ])
@@ -511,6 +649,9 @@ onMounted(async () => {
   // 等待DOM完全渲染
   await nextTick()
   await loadAllData()
+  onlineRefreshTimer = window.setInterval(() => {
+    refreshOnlineCount()
+  }, 15000)
   // 监听窗口大小变化
   window.addEventListener('resize', handleResize)
 })
@@ -531,6 +672,10 @@ onUnmounted(() => {
   }
   if (mapChart) {
     mapChart.dispose()
+  }
+  if (onlineRefreshTimer) {
+    window.clearInterval(onlineRefreshTimer)
+    onlineRefreshTimer = null
   }
 })
 </script>

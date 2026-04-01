@@ -84,13 +84,6 @@
               >
                 用户列表
               </router-link>
-              <router-link
-                to="/admin/feedback"
-                class="block px-3 py-2 text-sm rounded-md hover:bg-gray-50 transition-colors"
-                :class="$route.path === '/admin/feedback' ? 'bg-primary-50 text-primary-700 font-medium' : 'text-gray-600 hover:text-gray-900'"
-              >
-                用户反馈
-              </router-link>
             </div>
           </div>
 
@@ -298,7 +291,7 @@ const autoExpandMenu = () => {
   const path = route.path
   if (['/admin/domains', '/admin/proxy', '/admin/announcements'].includes(path)) {
     expandedMenus.system = true
-  } else if (['/admin/users', '/admin/feedback'].includes(path)) {
+  } else if (['/admin/users'].includes(path)) {
     expandedMenus.user = true
   } else if (['/admin/workflow-review'].includes(path)) {
     expandedMenus.workflow = true
@@ -323,7 +316,6 @@ watch(() => route.path, () => {
 const pageTitle = computed(() => {
   const titles: Record<string, string> = {
     '/admin/domains': '域名管理',
-    '/admin/feedback': '用户反馈',
     '/admin/monitoring': '系统监控',
     '/admin/proxy': '代理管理',
     '/admin/users': '用户列表',
@@ -340,7 +332,6 @@ const pageTitle = computed(() => {
 const pageDescription = computed(() => {
   const descriptions: Record<string, string> = {
     '/admin/domains': '管理邮箱域名配置',
-    '/admin/feedback': '管理用户反馈和问题建议',
     '/admin/monitoring': '实时监控系统运行状态和性能指标',
     '/admin/proxy': '管理付费代理配置和使用监控',
     '/admin/users': '查看和管理用户账户及代理权限',
