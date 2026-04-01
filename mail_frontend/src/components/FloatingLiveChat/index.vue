@@ -49,36 +49,46 @@
           <div
             v-for="item in messages"
             :key="item.id"
-            class="flex items-start gap-3"
-            :class="isSelf(item) ? 'flex-row-reverse' : ''"
+            class="flex w-full"
+            :class="isSelf(item) ? 'justify-end' : 'justify-start'"
           >
             <div
-              class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold"
-              :class="isSelf(item) ? 'bg-primary-600 text-white' : 'bg-primary-100 text-primary-700'"
+              class="flex max-w-[88%] items-end gap-3"
+              :class="isSelf(item) ? 'flex-row-reverse' : ''"
             >
-              {{ item.user.avatar_text }}
-            </div>
-
-            <div
-              class="flex max-w-[82%] flex-col"
-              :class="isSelf(item) ? 'items-end text-right' : 'items-start'"
-            >
-              <div class="mb-1 flex items-center gap-2 text-xs text-gray-400" :class="isSelf(item) ? 'justify-end' : ''">
-                <span class="font-medium text-gray-700">{{ item.user.display_name }}</span>
-                <span
-                  v-if="item.user.is_admin"
-                  class="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700"
-                >
-                  管理员
-                </span>
-                <span>{{ formatTime(item.created_at_ms) }}</span>
+              <div
+                class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold shadow-sm"
+                :class="isSelf(item) ? 'bg-primary-600 text-white' : 'bg-primary-100 text-primary-700'"
+              >
+                {{ item.user.avatar_text }}
               </div>
 
               <div
-                class="max-w-full rounded-2xl px-4 py-3 text-sm leading-6 shadow-sm"
-                :class="isSelf(item) ? 'bg-primary-600 text-white' : 'bg-white text-gray-800 ring-1 ring-primary-100'"
+                class="flex min-w-0 flex-col"
+                :class="isSelf(item) ? 'items-end text-right' : 'items-start'"
               >
-                <p class="whitespace-pre-wrap break-words">{{ item.content }}</p>
+                <div
+                  class="mb-1 flex items-center gap-2 text-xs text-gray-400"
+                  :class="isSelf(item) ? 'justify-end' : 'justify-start'"
+                >
+                  <span class="font-medium text-gray-700">{{ item.user.display_name }}</span>
+                  <span
+                    v-if="item.user.is_admin"
+                    class="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700"
+                  >
+                    管理员
+                  </span>
+                  <span>{{ formatTime(item.created_at_ms) }}</span>
+                </div>
+
+                <div
+                  class="max-w-full rounded-[22px] px-4 py-3 text-sm leading-6 shadow-sm"
+                  :class="isSelf(item)
+                    ? 'rounded-br-md bg-primary-600 text-white'
+                    : 'rounded-bl-md bg-white text-gray-800 ring-1 ring-primary-100'"
+                >
+                  <p class="whitespace-pre-wrap break-words">{{ item.content }}</p>
+                </div>
               </div>
             </div>
           </div>
