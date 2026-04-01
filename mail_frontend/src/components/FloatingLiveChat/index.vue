@@ -65,7 +65,7 @@
 
               <div
                 class="flex min-w-0 flex-col"
-                :class="isSelf(item) ? 'items-end text-right' : 'items-start'"
+                :class="isSelf(item) ? 'items-end' : 'items-start'"
               >
                 <div
                   class="mb-1 flex items-center gap-2 text-xs text-gray-400"
@@ -87,7 +87,7 @@
                     ? 'rounded-br-md bg-primary-600 text-white'
                     : 'rounded-bl-md bg-white text-gray-800 ring-1 ring-primary-100'"
                 >
-                  <p class="whitespace-pre-wrap break-words">{{ item.content }}</p>
+                  <p class="whitespace-pre-wrap break-words text-left">{{ item.content }}</p>
                 </div>
               </div>
             </div>
