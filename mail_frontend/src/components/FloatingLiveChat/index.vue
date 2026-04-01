@@ -34,7 +34,22 @@
         <div
           ref="messageContainerRef"
           class="min-h-0 flex-1 space-y-4 overflow-y-auto bg-gradient-to-b from-primary-50 via-white to-gray-50 px-4 py-4"
+          @scroll="handleMessageScroll"
         >
+          <div
+            v-if="loadingMoreHistory"
+            class="rounded-2xl border border-gray-200 bg-white px-4 py-3 text-center text-sm text-gray-500"
+          >
+            正在加载更早聊天记录...
+          </div>
+
+          <div
+            v-else-if="hasMoreHistory && messages.length > 0"
+            class="text-center text-xs text-gray-400"
+          >
+            上滑加载更早消息
+          </div>
+
           <div
             v-if="!userStore.isAuthenticated"
             class="rounded-2xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm leading-6 text-yellow-800"
@@ -203,10 +218,12 @@ const visible = ref(false)
 const draft = ref('')
 const messages = ref<LiveChatMessage[]>([])
 const loadingHistory = ref(false)
+const loadingMoreHistory = ref(false)
 const onlineCount = ref(0)
 const unreadCount = ref(0)
 const connectionStatus = ref<'idle' | 'connecting' | 'connected' | 'error'>('idle')
 const messageContainerRef = ref<HTMLElement | null>(null)
+const hasMoreHistory = ref(false)
 
 let socket: WebSocket | null = null
 let reconnectTimer: number | null = null
@@ -214,6 +231,8 @@ let onlineCountTimer: number | null = null
 let historyLoaded = false
 let manualClose = false
 let socketConnecting = false
+let historyRequest: Promise<void> | null = null
+let historyCursor = 0
 
 const selfUserId = computed(() => Number(userStore.user?.id || 0))
 const canSend = computed(() => userStore.isAuthenticated && connectionStatus.value === 'connected')
@@ -292,6 +311,7 @@ const upsertMessage = (message: LiveChatMessage) => {
     return
   }
   messages.value.push(message)
+  hasMoreHistory.value = hasMoreHistory.value || messages.value.length >= 60
 }
 
 const scrollToBottom = async () => {
@@ -372,25 +392,80 @@ const cleanupSocket = () => {
 
 const loadHistory = async (force = false) => {
   if (historyLoaded && !force) return
+  if (historyRequest && !force) return historyRequest
 
-  loadingHistory.value = true
+  historyRequest = (async () => {
+    loadingHistory.value = true
+    try {
+      const response: any = await api.get('/live-chat/messages', {
+        params: { limit: 60 },
+        suppressErrorMessage: true
+      })
+      if (response.code === 0) {
+        messages.value = Array.isArray(response.data?.items) ? response.data.items : []
+        historyCursor = Number(response.data?.next_before_message_id || messages.value[0]?.id || 0)
+        hasMoreHistory.value = Boolean(response.data?.has_more)
+        onlineCount.value = Number(response.data?.online_count || 0)
+        unreadCount.value = userStore.isAuthenticated && !visible.value
+          ? Number(response.data?.unread_count || 0)
+          : 0
+        historyLoaded = true
+      }
+    } catch (error) {
+      connectionStatus.value = 'error'
+    } finally {
+      loadingHistory.value = false
+      historyRequest = null
+    }
+  })()
+
+  return historyRequest
+}
+
+const loadOlderHistory = async () => {
+  if (loadingMoreHistory.value || loadingHistory.value || !hasMoreHistory.value) return
+  const beforeMessageId = Number(historyCursor || messages.value[0]?.id || 0)
+  if (beforeMessageId <= 0) return
+
+  const element = messageContainerRef.value
+  const previousScrollHeight = element?.scrollHeight || 0
+  const previousScrollTop = element?.scrollTop || 0
+
+  loadingMoreHistory.value = true
   try {
     const response: any = await api.get('/live-chat/messages', {
-      params: { limit: 60 },
+      params: {
+        limit: 60,
+        before_message_id: beforeMessageId
+      },
       suppressErrorMessage: true
     })
     if (response.code === 0) {
-      messages.value = Array.isArray(response.data?.items) ? response.data.items : []
-      onlineCount.value = Number(response.data?.online_count || 0)
-      unreadCount.value = userStore.isAuthenticated && !visible.value
-        ? Number(response.data?.unread_count || 0)
-        : 0
-      historyLoaded = true
+      const olderItems = Array.isArray(response.data?.items) ? response.data.items : []
+      if (olderItems.length > 0) {
+        const existingIds = new Set(messages.value.map((item) => item.id))
+        const mergedItems = olderItems.filter((item: LiveChatMessage) => !existingIds.has(item.id))
+        messages.value = [...mergedItems, ...messages.value]
+      }
+      historyCursor = Number(response.data?.next_before_message_id || messages.value[0]?.id || 0)
+      hasMoreHistory.value = Boolean(response.data?.has_more)
+
+      await nextTick()
+      if (element) {
+        const nextScrollHeight = element.scrollHeight
+        element.scrollTop = nextScrollHeight - previousScrollHeight + previousScrollTop
+      }
     }
-  } catch (error) {
-    connectionStatus.value = 'error'
   } finally {
-    loadingHistory.value = false
+    loadingMoreHistory.value = false
+  }
+}
+
+const handleMessageScroll = () => {
+  const element = messageContainerRef.value
+  if (!element || !visible.value) return
+  if (element.scrollTop <= 60) {
+    void loadOlderHistory()
   }
 }
 
@@ -424,7 +499,6 @@ const connectSocket = async () => {
   const token = localStorage.getItem('token')
   socketConnecting = true
 
-  await loadHistory()
   void refreshOnlineCount()
   startOnlineCountPolling()
 
@@ -529,9 +603,13 @@ const formatTime = (timestamp: number) => {
 
 watch(
   () => userStore.isAuthenticated,
-  (isAuthenticated) => {
+  (isAuthenticated, previousValue) => {
+    if (isAuthenticated === previousValue && historyLoaded) return
     cleanupSocket()
     historyLoaded = false
+    historyRequest = null
+    historyCursor = 0
+    hasMoreHistory.value = false
     unreadCount.value = 0
     void loadHistory(true)
     void refreshOnlineCount()
