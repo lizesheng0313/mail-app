@@ -78,14 +78,14 @@ fi
 
 NOTES=$(printf '%s' "$RELEASE_BODY" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read(), ensure_ascii=False))')
 
-# macOS 更新清单 (universal-apple-darwin)
+# macOS 更新清单
 if [ -n "$SIG_FILE" ]; then
     SIGNATURE=$(cat "$SIG_FILE")
     PUB_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
     MANIFEST="{\"version\":\"${VERSION}\",\"notes\":${NOTES},\"pub_date\":\"${PUB_DATE}\",\"url\":\"https://zjkdongao.cn/downloads/mail-desktop.app.tar.gz\",\"signature\":\"${SIGNATURE}\"}"
-    ssh ${SERVER_USER}@${SERVER_HOST} "mkdir -p ${UPDATE_PATH}/universal-apple-darwin ${UPDATE_PATH}/aarch64-apple-darwin ${UPDATE_PATH}/x86_64-apple-darwin"
-    printf '%s' "$MANIFEST" | ssh ${SERVER_USER}@${SERVER_HOST} "tee ${UPDATE_PATH}/universal-apple-darwin/latest ${UPDATE_PATH}/aarch64-apple-darwin/latest ${UPDATE_PATH}/x86_64-apple-darwin/latest > /dev/null"
-    echo "✅ macOS 更新清单已生成（latest -> ${VERSION}，覆盖 universal/aarch64/x86_64）"
+    ssh ${SERVER_USER}@${SERVER_HOST} "mkdir -p ${UPDATE_PATH}/darwin-aarch64 ${UPDATE_PATH}/darwin-x86_64 ${UPDATE_PATH}/universal-apple-darwin ${UPDATE_PATH}/aarch64-apple-darwin ${UPDATE_PATH}/x86_64-apple-darwin"
+    printf '%s' "$MANIFEST" | ssh ${SERVER_USER}@${SERVER_HOST} "tee ${UPDATE_PATH}/darwin-aarch64/latest ${UPDATE_PATH}/darwin-x86_64/latest ${UPDATE_PATH}/universal-apple-darwin/latest ${UPDATE_PATH}/aarch64-apple-darwin/latest ${UPDATE_PATH}/x86_64-apple-darwin/latest > /dev/null"
+    echo "✅ macOS 更新清单已生成（latest -> ${VERSION}，覆盖新旧目标目录）"
 fi
 
 # Windows 更新清单 (x86_64-pc-windows-msvc)

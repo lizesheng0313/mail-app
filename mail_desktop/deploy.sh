@@ -148,10 +148,13 @@ if [ -f "$SIG_FILE" ]; then
     # 本地生成清单 JSON（扁平格式，因为 endpoint 已包含 {{target}}）
     MANIFEST="{\"version\":\"${VERSION}\",\"notes\":${NOTES},\"pub_date\":\"${PUB_DATE}\",\"url\":\"https://zjkdongao.cn/downloads/${REMOTE_TAR_GZ_NAME}\",\"signature\":\"${SIGNATURE}\"}"
 
-    # 上传清单（告诉旧版本的用户有新版本可用）
-    echo "$MANIFEST" | ssh ${SERVER_USER}@${SERVER_HOST} "cat > ${UPDATE_PATH}/darwin-aarch64/${CURRENT_VERSION}"
-    echo "$MANIFEST" | ssh ${SERVER_USER}@${SERVER_HOST} "cat > ${UPDATE_PATH}/darwin-x86_64/${CURRENT_VERSION}"
-    echo "✅ 更新清单已生成（${CURRENT_VERSION} -> ${VERSION}）"
+    # 上传清单：当前客户端读取 /desktop-updates/{{target}}/latest
+    # 同时兼容保留旧目录名，避免历史客户端升级链路断掉
+    ssh ${SERVER_USER}@${SERVER_HOST} \
+        "mkdir -p ${UPDATE_PATH}/darwin-aarch64 ${UPDATE_PATH}/darwin-x86_64 ${UPDATE_PATH}/universal-apple-darwin ${UPDATE_PATH}/aarch64-apple-darwin ${UPDATE_PATH}/x86_64-apple-darwin"
+    printf '%s' "$MANIFEST" | ssh ${SERVER_USER}@${SERVER_HOST} \
+        "tee ${UPDATE_PATH}/darwin-aarch64/latest ${UPDATE_PATH}/darwin-x86_64/latest ${UPDATE_PATH}/universal-apple-darwin/latest ${UPDATE_PATH}/aarch64-apple-darwin/latest ${UPDATE_PATH}/x86_64-apple-darwin/latest > /dev/null"
+    echo "✅ 更新清单已生成（latest -> ${VERSION}）"
 else
     echo "⚠️ 未找到签名文件，跳过更新清单"
 fi
