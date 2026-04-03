@@ -1,7 +1,7 @@
 <template>
   <div>
     <!-- 顶部导航 -->
-    <PageHeader />
+    <PageHeader v-if="!isWorkspaceView" />
     
     <div class="min-h-screen bg-gray-50 py-8">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -9,7 +9,7 @@
       <nav class="flex mb-6" aria-label="Breadcrumb">
         <ol class="inline-flex items-center space-x-1 md:space-x-3">
           <li class="inline-flex items-center">
-            <router-link to="/automation" class="inline-flex items-center text-sm font-medium text-black hover:text-primary-600">
+            <router-link :to="automationHomePath" class="inline-flex items-center text-sm font-medium text-black hover:text-primary-600">
               <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
@@ -221,6 +221,8 @@ import { showMessage } from '@/utils/message'
 const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
+const isWorkspaceView = computed(() => route.path.startsWith('/user/'))
+const automationHomePath = computed(() => (isWorkspaceView.value ? '/user/automation' : '/automation'))
 
 // 响应式数据
 const loading = ref(false)

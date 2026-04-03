@@ -575,6 +575,12 @@ const en = {
     workspaceTitle: 'Workspace',
     userRole: 'User',
     backHome: 'Back to Home',
+    automation: 'Automation',
+    automationDashboard: 'Automation Overview',
+    automationWorkflows: 'My Workflows',
+    automationTriggers: 'Trigger Management',
+    myPlugins: 'My Plugins',
+    pluginStore: 'Plugin Store',
     developerAccess: 'Developer Access',
     apiKeys: 'API Keys',
     hostedMailbox: 'Domain Mailboxes',
@@ -589,6 +595,16 @@ const en = {
     personalSettings: 'Profile Settings',
     apiKeysDescription:
       'Manage API keys directly like other list pages. Creation is done in a modal.',
+    automationDashboardDescription:
+      'View triggers, workflows, and plugin usage in one place.',
+    automationWorkflowsDescription:
+      'Manage workflows you created and purchased.',
+    automationTriggersDescription:
+      'Manage automation triggers and execution conditions.',
+    myPluginsDescription:
+      'Manage installed plugins and enabled status.',
+    pluginStoreDescription:
+      'Browse and install available plugins.',
     myDomainsDescription:
       'Connect your own domain, complete DNS verification, and create receiving addresses.',
     transactionsDescription: 'View all coin transaction records.',

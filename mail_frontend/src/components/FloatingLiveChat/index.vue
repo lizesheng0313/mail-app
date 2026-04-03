@@ -184,8 +184,9 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import { io, type Socket } from 'socket.io-client'
 
-import api, { buildWebSocketURL } from '@/services/api'
+import api, { getApiBaseURL } from '@/services/api'
 import { useUserStore } from '@/stores/user'
 import { showMessage } from '@/utils/message'
 
@@ -225,8 +226,7 @@ const connectionStatus = ref<'idle' | 'connecting' | 'connected' | 'error'>('idl
 const messageContainerRef = ref<HTMLElement | null>(null)
 const hasMoreHistory = ref(false)
 
-let socket: WebSocket | null = null
-let reconnectTimer: number | null = null
+let socket: Socket | null = null
 let onlineCountTimer: number | null = null
 let historyLoaded = false
 let manualClose = false
@@ -234,6 +234,7 @@ let socketConnecting = false
 let historyRequest: Promise<void> | null = null
 let historyCursor = 0
 let summaryRequest: Promise<void> | null = null
+const SOCKET_IO_PATH = '/mail-api/v1/live-chat/socket.io'
 
 const selfUserId = computed(() => Number(userStore.user?.id || 0))
 const canSend = computed(() => userStore.isAuthenticated && connectionStatus.value === 'connected')
@@ -286,6 +287,14 @@ const getOtherAvatarClass = (item: LiveChatMessage) => {
 
 const getOtherBubbleClass = (item: LiveChatMessage) => {
   return OTHER_BUBBLE_STYLES[getOtherStyleIndex(item)]
+}
+
+const getSocketServerURL = () => {
+  const apiBaseURL = getApiBaseURL()
+  if (apiBaseURL.startsWith('http://') || apiBaseURL.startsWith('https://')) {
+    return apiBaseURL.replace(/\/mail-api\/v1$/, '')
+  }
+  return window.location.origin
 }
 
 const toggleVisible = async () => {
@@ -350,7 +359,7 @@ const loadSummary = async () => {
           : 0
       }
     } catch (error) {
-      connectionStatus.value = 'error'
+      console.error('加载聊天室摘要失败:', error)
     } finally {
       summaryRequest = null
     }
@@ -392,26 +401,15 @@ const stopOnlineCountPolling = () => {
   onlineCountTimer = null
 }
 
-const scheduleReconnect = () => {
-  if (reconnectTimer) return
-  reconnectTimer = window.setTimeout(() => {
-    reconnectTimer = null
-    void connectSocket()
-  }, 2000)
-}
-
 const cleanupSocket = () => {
-  if (reconnectTimer) {
-    window.clearTimeout(reconnectTimer)
-    reconnectTimer = null
-  }
-
   if (socket) {
     const currentSocket = socket
     socket = null
     manualClose = true
-    currentSocket.close()
+    currentSocket.removeAllListeners()
+    currentSocket.disconnect()
   }
+  socketConnecting = false
   connectionStatus.value = 'idle'
 }
 
@@ -437,7 +435,7 @@ const loadHistory = async (force = false) => {
         historyLoaded = true
       }
     } catch (error) {
-      connectionStatus.value = 'error'
+      console.error('加载聊天室历史失败:', error)
     } finally {
       loadingHistory.value = false
       historyRequest = null
@@ -519,7 +517,7 @@ const handleSocketPayload = async (payload: SocketPayload) => {
 
 const connectSocket = async () => {
   if (socketConnecting) return
-  if (socket && [WebSocket.OPEN, WebSocket.CONNECTING].includes(socket.readyState)) return
+  if (socket && socket.connected) return
 
   const token = localStorage.getItem('token')
   socketConnecting = true
@@ -531,32 +529,35 @@ const connectSocket = async () => {
   manualClose = false
   connectionStatus.value = 'connecting'
 
-  const socketUrl = token
-    ? `${buildWebSocketURL('/live-chat/ws')}?token=${encodeURIComponent(token)}`
-    : buildWebSocketURL('/live-chat/ws')
-  const nextSocket = new WebSocket(socketUrl)
+  const nextSocket = io(getSocketServerURL(), {
+    path: SOCKET_IO_PATH,
+    transports: ['websocket'],
+    auth: token ? { token } : {},
+    withCredentials: true,
+    reconnection: true,
+    reconnectionAttempts: Infinity,
+    reconnectionDelay: 2000,
+    reconnectionDelayMax: 5000,
+    timeout: 8000
+  })
   socket = nextSocket
 
-  nextSocket.onopen = () => {
+  nextSocket.on('connect', () => {
     socketConnecting = false
     connectionStatus.value = 'connected'
-  }
+  })
 
-  nextSocket.onmessage = (event) => {
-    try {
-      const payload = JSON.parse(event.data) as SocketPayload
-      void handleSocketPayload(payload)
-    } catch (error) {
-      console.error('聊天室消息解析失败:', error)
-    }
-  }
+  nextSocket.on('chat_event', (payload: SocketPayload) => {
+    void handleSocketPayload(payload)
+  })
 
-  nextSocket.onerror = () => {
+  nextSocket.on('connect_error', (error: any) => {
     socketConnecting = false
     connectionStatus.value = 'error'
-  }
+    console.error('Socket.IO 连接失败:', error)
+  })
 
-  nextSocket.onclose = () => {
+  nextSocket.on('disconnect', () => {
     socketConnecting = false
     if (socket === nextSocket) {
       socket = null
@@ -566,8 +567,7 @@ const connectSocket = async () => {
       return
     }
     connectionStatus.value = 'error'
-    scheduleReconnect()
-  }
+  })
 }
 
 const submitMessage = () => {
@@ -579,13 +579,13 @@ const submitMessage = () => {
     return
   }
 
-  if (!socket || socket.readyState !== WebSocket.OPEN) {
+  if (!socket || !socket.connected) {
     showMessage('聊天室连接中，请稍后再试', 'warning')
     void connectSocket()
     return
   }
 
-  socket.send(JSON.stringify({ type: 'message', content }))
+  socket.emit('chat_event', { type: 'message', content })
   draft.value = ''
 }
 

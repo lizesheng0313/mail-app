@@ -283,9 +283,34 @@ const router = createRouter({
     {
       path: '/user',
       component: UserLayout,
-      redirect: '/user/purchases',
+      redirect: '/user/automation',
       meta: { requiresAuth: true },
       children: [
+        {
+          path: 'automation',
+          name: 'user-automation',
+          component: AutomationCenter
+        },
+        {
+          path: 'automation/triggers',
+          name: 'user-automation-triggers',
+          component: AutomationTriggers
+        },
+        {
+          path: 'automation/workflows',
+          name: 'user-automation-workflows',
+          component: AutomationWorkflows
+        },
+        {
+          path: 'automation/plugins',
+          name: 'user-automation-plugins',
+          component: PluginManagement
+        },
+        {
+          path: 'automation/plugin-store',
+          name: 'user-automation-plugin-store',
+          component: PluginStore
+        },
         {
           path: 'purchases',
           name: 'user-purchases',

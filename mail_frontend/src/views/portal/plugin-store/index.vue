@@ -1,7 +1,7 @@
 <template>
   <div>
     <!-- 顶部导航 -->
-    <PageHeader />
+    <PageHeader v-if="!isWorkspaceView" />
     
     <div class="min-h-screen bg-gray-50">
     <!-- 页面头部 -->
@@ -10,7 +10,7 @@
         <div class="flex items-center justify-between h-16">
           <div class="flex items-center space-x-4">
             <button
-              @click="$router.go(-1)"
+              @click="handleBack"
               class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-black bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
             >
               <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -249,7 +249,7 @@
 
 <script setup>
 import { ref, onMounted, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import PageHeader from '@/components/PageHeader/index.vue'
 import BaseInput from '@/components/BaseInput/index.vue'
 import PluginCard from './components/PluginCard/index.vue'
@@ -262,6 +262,8 @@ import { pluginApi } from '@/api/plugin'
 import { showMessage } from '@/utils/message'
 
 const router = useRouter()
+const route = useRoute()
+const isWorkspaceView = computed(() => route.path.startsWith('/user/'))
 
 // 响应式数据
 const loading = ref(false)
@@ -337,6 +339,14 @@ const visiblePages = computed(() => {
   }
   return pages
 })
+
+const handleBack = () => {
+  if (isWorkspaceView.value) {
+    router.push('/user/automation/plugins')
+    return
+  }
+  router.go(-1)
+}
 
 // 获取插件列表
 const fetchPlugins = async () => {

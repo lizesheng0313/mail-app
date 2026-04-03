@@ -1,7 +1,7 @@
 <template>
   <div>
     <!-- 顶部导航 -->
-    <PageHeader />
+    <PageHeader v-if="!isWorkspaceView" />
     
     <div class="bg-gray-50 pb-20">
   
@@ -97,7 +97,7 @@
                     </div>
                   </button>
                   <router-link
-                    to="/automation/triggers"
+                    :to="triggerListPath"
                     class="relative group inline-flex items-center justify-center w-8 h-8 bg-primary-50 text-primary-700 rounded-lg hover:bg-primary-100 transition-colors"
                   >
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -168,7 +168,7 @@
                     </div>
                   </button>
                   <router-link
-                    to="/automation/workflows"
+                    :to="workflowListPath"
                     class="relative group inline-flex items-center justify-center w-8 h-8 bg-primary-50 text-primary-700 rounded-lg hover:bg-primary-100 transition-colors"
                   >
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -227,7 +227,7 @@
                 </div>
                 <div class="flex flex-col space-y-2">
                   <router-link
-                    to="/plugins"
+                    :to="pluginsPath"
                     class="relative group inline-flex items-center justify-center w-8 h-8 bg-primary-50 text-primary-700 rounded-lg hover:bg-primary-100 transition-colors"
                   >
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -238,7 +238,7 @@
                     </div>
                   </router-link>
                   <router-link
-                    to="/plugin-store"
+                    :to="pluginStorePath"
                     class="relative group inline-flex items-center justify-center w-8 h-8 border border-success-200 text-primary-600 rounded-lg hover:bg-primary-50 transition-colors z-20"
                   >
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -291,7 +291,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { triggerApi } from '@/api/trigger'
 import { workflowApi } from '@/api/workflow'
 import { pluginApi } from '@/api/plugin'
@@ -300,7 +300,13 @@ import TriggerModal from '../workflows/components/TriggerModal/index.vue'
 import CreateWorkflowModal from '../workflows/components/CreateWorkflowModal/index.vue'
 
 const router = useRouter()
+const route = useRoute()
 const { t } = useI18n()
+const isWorkspaceView = computed(() => route.path.startsWith('/user/'))
+const triggerListPath = computed(() => (isWorkspaceView.value ? '/user/automation/triggers' : '/automation/triggers'))
+const workflowListPath = computed(() => (isWorkspaceView.value ? '/user/automation/workflows' : '/automation/workflows'))
+const pluginsPath = computed(() => (isWorkspaceView.value ? '/user/automation/plugins' : '/plugins'))
+const pluginStorePath = computed(() => (isWorkspaceView.value ? '/user/automation/plugin-store' : '/plugin-store'))
 
 // 响应式数据
 const loading = ref(false)
@@ -419,7 +425,7 @@ const createFromTemplate = async (template) => {
   try {
     console.log('从模板创建:', template)
     // 跳转到对应的创建流程
-    router.push('/automation/workflows/create?template=' + template.id)
+    router.push(workflowListPath.value + '?template=' + template.id)
   } catch (error) {
     console.error('从模板创建失败:', error)
   }

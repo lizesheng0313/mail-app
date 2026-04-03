@@ -1,7 +1,7 @@
 <template>
   <div>
     <!-- 顶部导航 -->
-    <PageHeader />
+    <PageHeader v-if="!isWorkspaceView" />
     
     <div class="min-h-screen bg-gray-50">
     <!-- 页面头部 -->
@@ -14,7 +14,7 @@
           </div>
           <div class="flex space-x-3">
             <button
-              @click="router.push('/plugin-store')"
+              @click="router.push(pluginStorePath)"
               class="inline-flex items-center btn-primary text-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
             >
               <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -56,7 +56,7 @@
             <p class="mt-1 text-sm text-black">开始安装您的第一个插件</p>
             <div class="mt-6">
               <router-link
-                to="/plugin-store"
+                :to="pluginStorePath"
                 class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700"
               >
                 去插件商店看看
@@ -130,8 +130,8 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, onMounted, computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import PageHeader from '@/components/PageHeader/index.vue'
 import PluginCard from './components/PluginCard/index.vue'
 import PluginStoreDetailModal from '../plugin-store/components/PluginStoreDetailModal/index.vue'
@@ -141,6 +141,9 @@ import { pluginApi } from '@/api/plugin'
 import { showMessage } from '@/utils/message'
 
 const router = useRouter()
+const route = useRoute()
+const isWorkspaceView = computed(() => route.path.startsWith('/user/'))
+const pluginStorePath = computed(() => (isWorkspaceView.value ? '/user/automation/plugin-store' : '/plugin-store'))
 const loading = ref(false)
 const myPlugins = ref([])
 
