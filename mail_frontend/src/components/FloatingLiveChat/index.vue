@@ -233,6 +233,7 @@ let manualClose = false
 let socketConnecting = false
 let historyRequest: Promise<void> | null = null
 let historyCursor = 0
+let summaryRequest: Promise<void> | null = null
 
 const selfUserId = computed(() => Number(userStore.user?.id || 0))
 const canSend = computed(() => userStore.isAuthenticated && connectionStatus.value === 'connected')
@@ -290,7 +291,7 @@ const getOtherBubbleClass = (item: LiveChatMessage) => {
 const toggleVisible = async () => {
   visible.value = !visible.value
   if (visible.value) {
-    await loadHistory(true)
+    await loadHistory(!historyLoaded)
     await scrollToBottom()
     if (userStore.isAuthenticated) {
       await markMessagesRead()
@@ -332,6 +333,30 @@ const refreshOnlineCount = async () => {
   } catch (error) {
     console.error('刷新聊天室在线人数失败:', error)
   }
+}
+
+const loadSummary = async () => {
+  if (summaryRequest) return summaryRequest
+
+  summaryRequest = (async () => {
+    try {
+      const response: any = await api.get('/live-chat/summary', {
+        suppressErrorMessage: true
+      })
+      if (response.code === 0) {
+        onlineCount.value = Number(response.data?.online_count || 0)
+        unreadCount.value = userStore.isAuthenticated && !visible.value
+          ? Number(response.data?.unread_count || 0)
+          : 0
+      }
+    } catch (error) {
+      connectionStatus.value = 'error'
+    } finally {
+      summaryRequest = null
+    }
+  })()
+
+  return summaryRequest
 }
 
 const markMessagesRead = async (messageId?: number) => {
@@ -608,10 +633,15 @@ watch(
     cleanupSocket()
     historyLoaded = false
     historyRequest = null
+    summaryRequest = null
     historyCursor = 0
     hasMoreHistory.value = false
     unreadCount.value = 0
-    void loadHistory(true)
+    if (visible.value) {
+      void loadHistory(true)
+    } else {
+      void loadSummary()
+    }
     void refreshOnlineCount()
     void connectSocket()
   },

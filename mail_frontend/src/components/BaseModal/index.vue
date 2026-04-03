@@ -3,7 +3,7 @@
     <Transition name="modal">
       <div
         v-if="modelValue"
-        class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto"
+        class="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto px-4 py-20 sm:py-10"
         @click.self="handleBackdropClick"
       >
         <!-- 背景遮罩 -->
@@ -11,7 +11,7 @@
 
         <!-- 弹窗内容 -->
         <div
-          class="relative bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] flex flex-col"
+          class="relative bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[calc(100vh-5rem)] sm:max-h-[calc(100vh-3rem)] flex flex-col"
           :class="sizeClass"
         >
           <!-- 头部 -->

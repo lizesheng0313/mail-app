@@ -52,7 +52,7 @@
           </span>
         </div>
         <MailboxTags
-          v-if="enableTags && mailbox.id in tagsData"
+          v-if="mailbox.id in tagsData"
           :mailbox-id="mailbox.id"
           :mailbox-type="mailboxType"
           :editable="!batchMode"
@@ -151,7 +151,6 @@ const props = withDefaults(defineProps<{
   title?: string
   mailboxes?: any[] | null
   showPagination?: boolean
-  enableTags?: boolean
   pagination?: Record<string, any> | null
   onPageChange?: ((page: number) => void | Promise<void>) | null
   searchable?: boolean
@@ -163,7 +162,6 @@ const props = withDefaults(defineProps<{
   title: '',
   mailboxes: null,
   showPagination: true,
-  enableTags: true,
   pagination: null,
   onPageChange: null,
   searchable: true,
@@ -235,10 +233,6 @@ const isProtectedHostedCatchAll = (mailbox: any) =>
 
 // 批量加载邮箱标签数据
 const loadTagsData = async () => {
-  if (!props.enableTags) {
-    tagsData.value = {}
-    return
-  }
   try {
     const ids = resolvedMailboxes.value.map((m: any) => Number(m.id))
     if (ids.length === 0) return
@@ -254,7 +248,7 @@ const loadTagsData = async () => {
 
 // 监听邮箱列表变化，加载标签
 watch(resolvedMailboxes, (newMailboxes) => {
-  if (props.enableTags && newMailboxes.length > 0) {
+  if (newMailboxes.length > 0) {
     loadTagsData()
   } else if (!newMailboxes.length) {
     tagsData.value = {}

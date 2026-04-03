@@ -49,7 +49,15 @@
             :disabled="mailboxStore.loading"
             class="px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {{ mailboxStore.loading ? t('home.generating') : t('home.createMailbox') }}
+            {{ mailboxStore.loading ? t('home.claiming') : t('home.freeClaimMailbox') }}
+          </button>
+
+          <button
+            v-if="mailboxType === 'system'"
+            @click="showCustomGenerateModal = true"
+            class="px-4 py-2 border border-primary-200 bg-primary-50 text-primary-700 text-sm font-medium rounded-lg hover:bg-primary-100 transition-colors"
+          >
+            {{ t('home.customGenerate') }}
           </button>
 
           <button
@@ -58,7 +66,7 @@
             :disabled="mailboxStore.loading"
             class="px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 transition-colors"
           >
-            {{ mailboxStore.loading ? t('home.generating') : t('home.createMailbox') }}
+            {{ mailboxStore.loading ? t('home.claiming') : t('home.freeClaimMailbox') }}
           </button>
 
           <button
@@ -181,7 +189,6 @@
             }"
             :on-page-change="handleHostedMailboxPageChange"
             :on-search="handleHostedMailboxSearch"
-            :enable-tags="false"
             @select="handleSelectHostedMailbox"
             @share="handleShareMailboxes"
             @deleted="handleHostedMailboxesDeleted"
@@ -556,6 +563,10 @@
     @update:visible="showSendEmailModal = $event"
     @sent="handleEmailSent"
   />
+  <CustomGenerateModal
+    v-model:visible="showCustomGenerateModal"
+    @success="handleCustomGenerateSuccess"
+  />
 </template>
 
 <script setup lang="ts">
@@ -598,6 +609,7 @@ import {
   normalizeAIToolTrace
 } from '@/utils/aiUiSync'
 import { hostedDomainAPI } from '@/api/hostedDomain'
+import CustomGenerateModal from '@/components/Mail/SystemMailbox/CustomGenerateModal.vue'
 import { getCurrentLocale } from '@/i18n'
 import wxProgramImg from '@/assets/img/wx_program.jpg'
 
@@ -665,6 +677,7 @@ const pendingOAuthBootstrapEmails = ref<string[]>([])
 const showDownloadDialog = ref(false)
 const downloadDialogTitle = ref(t('home.desktopRequiredTitle'))
 const downloadDialogMessage = ref(t('home.desktopRequiredMessage'))
+const showCustomGenerateModal = ref(false)
 const showDeleteConfirm = ref(false)
 const deleting = ref(false)
 const deletingIds = ref<number[]>([])
@@ -2556,6 +2569,14 @@ const allocateMailbox = async () => {
       : result.error || t('home.allocateMailboxFailed'),
     result.success ? 'success' : 'error'
   )
+}
+
+const handleCustomGenerateSuccess = async () => {
+  await Promise.all([
+    mailboxStore.fetchMailboxes(),
+    mailStore.fetchUserEmails(),
+    userStore.updateUserProfile()
+  ])
 }
 
 // 选择系统邮箱

@@ -2,7 +2,7 @@
   <Teleport to="body">
     <div
       v-if="visible"
-      class="fixed inset-0 z-[80] flex items-center justify-center px-4"
+      class="fixed inset-0 z-[140] flex items-center justify-center px-4"
       :class="mask ? 'bg-black/45' : 'pointer-events-none bg-transparent'"
     >
       <!-- 弹窗内容 -->

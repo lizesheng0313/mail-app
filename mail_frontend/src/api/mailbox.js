@@ -14,6 +14,12 @@ export const mailboxAPI = {
   // 创建邮箱（注册用户）
   allocateMailbox: (data = {}) => api.post('/mailboxes/', data),
 
+  // 获取系统域名列表（指定生成使用）
+  getSystemDomains: () => api.get('/mailboxes/system-domains'),
+
+  // 指定规则批量生成系统邮箱
+  customGenerateSystemMailboxes: (data = {}) => api.post('/mailboxes/system/custom-generate', data),
+
   // 获取用户邮箱列表
   getMailboxes: (params = {}) => api.get('/mailboxes/', { params }),
 
