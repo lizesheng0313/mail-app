@@ -628,14 +628,22 @@ import { emailAPI } from '@/api/email'
 
 const { t } = useI18n()
 
-const OAUTH2_DOMAINS: Record<string, string> = {
-  'gmail.com': 'google',
-  'googlemail.com': 'google',
-  'outlook.com': 'microsoft',
-  'hotmail.com': 'microsoft',
-  'live.com': 'microsoft',
-  'live.cn': 'microsoft',
-  'msn.com': 'microsoft'
+const GOOGLE_OAUTH_DOMAIN_SUFFIXES = ['gmail.com', 'googlemail.com']
+const MICROSOFT_OAUTH_DOMAIN_SUFFIXES = ['outlook.', 'hotmail.', 'live.', 'msn.', 'live.cn']
+
+const resolveOAuthProviderByDomain = (domain: string) => {
+  const normalizedDomain = String(domain || '').toLowerCase().trim()
+  if (!normalizedDomain) return ''
+
+  if (GOOGLE_OAUTH_DOMAIN_SUFFIXES.some((suffix) => normalizedDomain === suffix || normalizedDomain.endsWith(`.${suffix}`))) {
+    return 'google'
+  }
+
+  if (MICROSOFT_OAUTH_DOMAIN_SUFFIXES.some((suffix) => normalizedDomain === suffix || normalizedDomain.startsWith(suffix) || normalizedDomain.endsWith(`.${suffix}`))) {
+    return 'microsoft'
+  }
+
+  return ''
 }
 
 const resolveOAuthProviderByEmail = (email: string, fallback = '') => {
@@ -645,7 +653,7 @@ const resolveOAuthProviderByEmail = (email: string, fallback = '') => {
   }
 
   const domain = (email.split('@')[1] || '').toLowerCase()
-  return OAUTH2_DOMAINS[domain] || ''
+  return resolveOAuthProviderByDomain(domain)
 }
 
 const userStore = useUserStore()
@@ -1725,7 +1733,7 @@ const handleBatchAddAccounts = async (accounts: any[]) => {
     // 所有邮箱都先尝试密码登录
     for (const account of normalAccounts) {
       const domain = account.email.split('@')[1]?.toLowerCase()
-      const oauthProvider = domain ? OAUTH2_DOMAINS[domain] : null
+      const oauthProvider = domain ? resolveOAuthProviderByDomain(domain) : null
 
       try {
         // 传递完整的账号数据（包括协议和自定义服务器配置）

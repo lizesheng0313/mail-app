@@ -10,7 +10,6 @@ const Profile = () => import('@/views/portal/profile/index.vue')
 const OpenPlatformPage = () => import('@/views/portal/open-platform/index.vue')
 const PluginManagement = () => import('@/views/portal/plugins/index.vue')
 const PluginStore = () => import('@/views/portal/plugin-store/index.vue')
-const AutomationCenter = () => import('@/views/portal/automation/index.vue')
 const AutomationTriggers = () => import('@/views/portal/automation/triggers/index.vue')
 const AutomationWorkflows = () => import('@/views/portal/automation/workflows/index.vue')
 const PublishWorkflow = () => import('@/views/portal/workflows/publish/index.vue')
@@ -129,7 +128,7 @@ const router = createRouter({
     {
       path: '/automation',
       name: 'automation',
-      component: AutomationCenter,
+      redirect: '/automation/triggers',
       meta: { requiresAuth: true }
     },
     {
@@ -283,13 +282,13 @@ const router = createRouter({
     {
       path: '/user',
       component: UserLayout,
-      redirect: '/user/automation',
+      redirect: '/user/automation/triggers',
       meta: { requiresAuth: true },
       children: [
         {
           path: 'automation',
           name: 'user-automation',
-          component: AutomationCenter
+          redirect: '/user/automation/triggers'
         },
         {
           path: 'automation/triggers',
@@ -308,6 +307,10 @@ const router = createRouter({
         },
         {
           path: 'automation/plugin-store',
+          redirect: '/user/automation/plugins/store'
+        },
+        {
+          path: 'automation/plugins/store',
           name: 'user-automation-plugin-store',
           component: PluginStore
         },

@@ -3,14 +3,18 @@
     <!-- 左侧菜单 -->
     <div class="w-64 bg-white shadow-lg flex flex-col">
       <!-- 头部Logo -->
-      <div class="flex items-center px-6 border-b border-gray-200" style="height: 87px;">
+      <router-link
+        to="/"
+        class="flex items-center px-6 border-b border-gray-200 transition-colors hover:bg-gray-50"
+        style="height: 87px;"
+      >
         <div class="h-8 w-8 bg-primary-600 rounded-lg flex items-center justify-center">
           <svg class="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
           </svg>
         </div>
         <h1 class="ml-3 text-lg font-semibold text-gray-900">管理后台</h1>
-      </div>
+      </router-link>
 
       <!-- 菜单列表 - 可滚动区域 -->
       <nav class="flex-1 overflow-y-auto py-4">

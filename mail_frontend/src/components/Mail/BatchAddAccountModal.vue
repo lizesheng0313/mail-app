@@ -1,5 +1,5 @@
 <template>
-  <Teleport to="body">
+  <Teleport to="#app">
     <div v-if="visible" class="fixed inset-0 z-50 p-4 sm:p-6">
       <div class="mx-auto flex h-full w-full max-w-4xl items-center justify-center">
         <div class="w-full overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/5 max-h-[86vh] flex flex-col">
@@ -319,15 +319,28 @@ watch(() => props.visible, (visible) => {
 })
 
 // ===== 输入模式方法 =====
-const OAUTH_TOKEN_DOMAINS = new Set([
-  'gmail.com',
-  'googlemail.com',
-  'outlook.com',
-  'hotmail.com',
-  'live.com',
-  'live.cn',
-  'msn.com'
-])
+const GOOGLE_OAUTH_TOKEN_DOMAIN_SUFFIXES = ['gmail.com', 'googlemail.com']
+const MICROSOFT_OAUTH_TOKEN_DOMAIN_SUFFIXES = ['outlook.', 'hotmail.', 'live.', 'msn.', 'live.cn']
+
+const isOAuthTokenDomain = (domain: string) => {
+  const normalizedDomain = String(domain || '').toLowerCase().trim()
+  if (!normalizedDomain) return false
+
+  if (
+    GOOGLE_OAUTH_TOKEN_DOMAIN_SUFFIXES.some(
+      (suffix) => normalizedDomain === suffix || normalizedDomain.endsWith(`.${suffix}`)
+    )
+  ) {
+    return true
+  }
+
+  return MICROSOFT_OAUTH_TOKEN_DOMAIN_SUFFIXES.some(
+    (suffix) =>
+      normalizedDomain === suffix ||
+      normalizedDomain.startsWith(suffix) ||
+      normalizedDomain.endsWith(`.${suffix}`)
+  )
+}
 
 const parseAccounts = () => {
   const mode = loginMode.value
@@ -347,7 +360,7 @@ const parseAccounts = () => {
       const domain = (email.split('@')[1] || '').toLowerCase()
 
       // 4段格式：邮箱----密码----Client_ID----Refresh_Token（OAuth Token 批量导入）
-      if (parts.length >= 4 && OAUTH_TOKEN_DOMAINS.has(domain)) {
+      if (parts.length >= 4 && isOAuthTokenDomain(domain)) {
         const password = parts[1].trim()
         const oauthClientId = parts[2].trim()
         const oauthRefreshToken = parts[3].trim()

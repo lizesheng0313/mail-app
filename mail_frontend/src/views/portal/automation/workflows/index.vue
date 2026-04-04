@@ -3,97 +3,54 @@
     <!-- 顶部导航 -->
     <PageHeader v-if="!isWorkspaceView" />
     
-    <div class="min-h-screen bg-gray-50 py-8">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <!-- 面包屑导航 -->
-      <nav class="flex mb-6" aria-label="Breadcrumb">
-        <ol class="inline-flex items-center space-x-1 md:space-x-3">
-          <li class="inline-flex items-center">
-            <router-link :to="automationHomePath" class="inline-flex items-center text-sm font-medium text-black hover:text-primary-600">
-              <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-              {{ t('executionHistory.automationCenter') }}
-            </router-link>
-          </li>
-          <li>
-            <div class="flex items-center">
-              <svg class="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
-              </svg>
-              <span class="ml-1 text-sm font-medium text-black md:ml-2">{{ t('automationWorkflows.breadcrumbCurrent') }}</span>
-            </div>
-          </li>
-        </ol>
-      </nav>
-
-      <!-- 页面头部 -->
-      <div class="mb-8">
-        <div class="flex items-center justify-between">
-          <div>
-            <h1 class="text-2xl font-bold text-black">{{ t('automationWorkflows.title') }}</h1>
-            <p class="mt-2 text-black">{{ t('automationWorkflows.subtitle') }}</p>
-          </div>
-          <div class="flex space-x-3">
-            <button
-              @click="showCreateDialog = true"
-              class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+    <div class="space-y-6">
+      <div class="bg-white rounded-lg shadow-sm border p-6">
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div class="flex flex-wrap items-center gap-4">
+            <BaseInput
+              v-model="searchQuery"
+              :placeholder="t('workflowFilters.searchPlaceholder')"
+              class="w-64"
+              size="sm"
+              @enter="fetchWorkflows"
             >
-              <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-              </svg>
-              {{ t('automationWorkflows.createWorkflow') }}
+              <template #left-icon>
+                <svg class="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </template>
+            </BaseInput>
+
+            <CustomSelect
+              v-model="statusFilter"
+              :options="statusOptions"
+              :placeholder="t('workflowFilters.allStatuses')"
+            />
+
+            <CustomSelect
+              v-model="activeTab"
+              :options="ownershipOptions"
+              :placeholder="t('automationWorkflows.tabAll')"
+            />
+
+            <button
+              @click="fetchWorkflows"
+              :disabled="loading"
+              class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-md text-sm disabled:opacity-50"
+            >
+              {{ t('workflowFilters.search') }}
             </button>
           </div>
+
+          <button
+            @click="showCreateDialog = true"
+            class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-md text-sm"
+          >
+            {{ t('automationWorkflows.createWorkflow') }}
+          </button>
         </div>
       </div>
 
-      <!-- Tab 切换 -->
-      <div class="bg-white rounded-lg shadow-sm p-1 inline-flex mb-4">
-        <button
-          @click="activeTab = 'all'"
-          :class="[
-            'px-5 py-2 rounded-md font-medium text-sm transition-all',
-            activeTab === 'all'
-              ? 'bg-primary-600 text-white shadow-md'
-              : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-          ]"
-        >
-          {{ t('automationWorkflows.tabAll') }}
-        </button>
-        <button
-          @click="activeTab = 'owner'"
-          :class="[
-            'px-5 py-2 rounded-md font-medium text-sm transition-all',
-            activeTab === 'owner'
-              ? 'bg-primary-600 text-white shadow-md'
-              : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-          ]"
-        >
-          {{ t('automationWorkflows.tabOwner') }}
-        </button>
-        <button
-          @click="activeTab = 'purchased'"
-          :class="[
-            'px-5 py-2 rounded-md font-medium text-sm transition-all',
-            activeTab === 'purchased'
-              ? 'bg-primary-600 text-white shadow-md'
-              : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-          ]"
-        >
-          {{ t('automationWorkflows.tabPurchased') }}
-        </button>
-      </div>
-
-      <!-- 筛选栏 -->
-      <WorkflowFilters
-        v-model:search-query="searchQuery"
-        v-model:status-filter="statusFilter"
-        :loading="loading"
-        @refresh="fetchWorkflows"
-      />
-
-      <!-- 工作流列表 -->
       <WorkflowTable
         :workflows="filteredWorkflows"
         :loading="loading"
@@ -197,7 +154,6 @@
         <p class="text-sm text-gray-500 mt-2">{{ t('automationWorkflows.executingSubtitle') }}</p>
       </div>
     </div>
-    </div>
   </div>
 </template>
 
@@ -208,7 +164,6 @@ import { useRoute, useRouter } from 'vue-router'
 import { workflowApi } from '@/api/workflow'
 import { unpublishWorkflow, republishWorkflow } from '@/api/workflowMarket'
 import PageHeader from '@/components/PageHeader/index.vue'
-import WorkflowFilters from '../../workflows/components/WorkflowFilters/index.vue'
 import WorkflowTable from '../../workflows/components/WorkflowTable/index.vue'
 import CreateWorkflowModal from '../../workflows/components/CreateWorkflowModal/index.vue'
 import WorkflowDetailModal from '../../workflows/components/WorkflowDetailModal/index.vue'
@@ -216,13 +171,14 @@ import ExecutionHistoryModal from '../../workflows/components/ExecutionHistoryMo
 import InventoryManagementModal from '../../workflows/components/InventoryManagementModal/index.vue'
 import ExecutionResultModal from '../../workflows/components/ExecutionResultModal/index.vue'
 import ConfirmDialog from '@/components/ConfirmDialog/index.vue'
+import BaseInput from '@/components/BaseInput/index.vue'
+import CustomSelect from '@/components/CustomSelect/index.vue'
 import { showMessage } from '@/utils/message'
 
 const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
 const isWorkspaceView = computed(() => route.path.startsWith('/user/'))
-const automationHomePath = computed(() => (isWorkspaceView.value ? '/user/automation' : '/automation'))
 
 // 响应式数据
 const loading = ref(false)
@@ -253,6 +209,19 @@ const statusFilter = ref('')
 const activeTab = ref('all')
 
 const workflows = ref([])
+
+const statusOptions = computed(() => [
+  { label: t('workflowFilters.allStatuses'), value: '' },
+  { label: t('workflowList.statusActive'), value: 'active' },
+  { label: t('workflowList.statusInactive'), value: 'inactive' },
+  { label: t('workflowList.statusDraft'), value: 'draft' }
+])
+
+const ownershipOptions = computed(() => [
+  { label: t('automationWorkflows.tabAll'), value: 'all' },
+  { label: t('automationWorkflows.tabOwner'), value: 'owner' },
+  { label: t('automationWorkflows.tabPurchased'), value: 'purchased' }
+])
 
 // 计算属性
 const executeConfirmMessage = computed(() => {

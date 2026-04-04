@@ -3,54 +3,10 @@
     <!-- 顶部导航 -->
     <PageHeader v-if="!isWorkspaceView" />
     
-    <div class="min-h-screen bg-gray-50 py-8">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <!-- 面包屑导航 -->
-      <nav class="flex mb-6" aria-label="Breadcrumb">
-        <ol class="inline-flex items-center space-x-1 md:space-x-3">
-          <li class="inline-flex items-center">
-            <router-link :to="automationHomePath" class="inline-flex items-center text-sm font-medium text-black hover:text-primary-600">
-              <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-              {{ t('executionHistory.automationCenter') }}
-            </router-link>
-          </li>
-          <li>
-            <div class="flex items-center">
-              <svg class="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
-              </svg>
-              <span class="ml-1 text-sm font-medium text-black md:ml-2">{{ t('triggerManagement.breadcrumb') }}</span>
-            </div>
-          </li>
-        </ol>
-      </nav>
-
-      <!-- 页面头部 -->
-      <div class="mb-8">
-        <div class="flex items-center justify-between">
-          <div>
-            <h1 class="text-2xl font-bold text-black">{{ t('triggerManagement.title') }}</h1>
-            <p class="mt-2 text-black">{{ t('triggerManagement.subtitle') }}</p>
-          </div>
-          <div class="flex space-x-3">
-            <button
-              @click="showCreateDialog = true"
-              class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
-            >
-              <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-              </svg>
-              {{ t('triggerManagement.create') }}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- 筛选栏 -->
-      <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
-        <div class="flex flex-wrap items-center gap-4">
+    <div class="space-y-6">
+      <div class="bg-white rounded-lg shadow-sm border p-6">
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div class="flex flex-wrap items-center gap-4">
           <!-- 搜索框 -->
           <div class="w-64">
             <BaseInput
@@ -91,36 +47,20 @@
               {{ t('triggerManagement.search') }}
             </button>
           </div>
+          </div>
+
+          <button
+            @click="showCreateDialog = true"
+            class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-md text-sm"
+          >
+            {{ t('triggerManagement.create') }}
+          </button>
         </div>
       </div>
 
       <!-- 触发器列表 -->
-      <div class="bg-white shadow rounded-lg">
-        <div class="px-6 py-4 border-b border-gray-200">
-          <h2 class="text-lg font-medium text-black">{{ t('triggerManagement.listTitle') }}</h2>
-        </div>
-
-        <div v-if="loading" class="text-center py-12">
-          <div class="inline-flex items-center">
-            <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-primary-500" fill="none" viewBox="0 0 24 24">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            {{ t('triggerManagement.loading') }}
-          </div>
-        </div>
-
-        <div v-else-if="filteredTriggers.length === 0" class="text-center py-12">
-          <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-          </svg>
-          <h3 class="mt-2 text-sm font-medium text-black">{{ t('triggerManagement.emptyTitle') }}</h3>
-          <p class="mt-1 text-sm text-black">{{ t('triggerManagement.emptyDesc') }}</p>
-        </div>
-
-        <div v-else class="overflow-hidden">
-          <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-50">
+      <AdminDataTable :title="t('triggerManagement.listTitle')" :loading="loading" :column-count="5">
+        <template #thead>
               <tr>
                 <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
                   {{ t('triggerManagement.info') }}
@@ -138,9 +78,10 @@
                   {{ t('triggerManagement.actions') }}
                 </th>
               </tr>
-            </thead>
-            <tbody class="bg-white divide-y divide-gray-200">
-              <tr v-for="trigger in filteredTriggers" :key="trigger.id">
+        </template>
+
+        <template #tbody>
+              <tr v-for="trigger in filteredTriggers" :key="trigger.id" class="hover:bg-gray-50">
                 <td class="px-6 py-4 whitespace-nowrap">
                   <div class="flex items-center">
                     <div :class="`flex-shrink-0 h-10 w-10 rounded-lg flex items-center justify-center ${getTriggerIconBg(trigger.trigger_type)}`">
@@ -208,10 +149,14 @@
                   </div>
                 </td>
               </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
+
+              <tr v-if="!filteredTriggers.length">
+                <td colspan="5" class="px-6 py-12 text-center text-black">
+                  {{ t('triggerManagement.emptyDesc') }}
+                </td>
+              </tr>
+        </template>
+      </AdminDataTable>
     </div>
 
     <!-- 创建触发器对话框 -->
@@ -262,7 +207,6 @@
           </div>
         </div>
       </div>
-    </div>
     </div>
   </div>
 
@@ -368,6 +312,7 @@ import PageHeader from '@/components/PageHeader/index.vue'
 import BaseInput from '@/components/BaseInput/index.vue'
 import CustomSelect from '@/components/CustomSelect/index.vue'
 import ActionButton from '@/components/ActionButton/index.vue'
+import AdminDataTable from '@/components/AdminDataTable/index.vue'
 import { triggerApi } from '@/api/trigger'
 import { showMessage } from '@/utils/message'
 import ConfirmDialog from '@/components/ConfirmDialog/index.vue'
@@ -378,7 +323,6 @@ import { getCurrentLocale } from '@/i18n'
 const { t } = useI18n()
 const route = useRoute()
 const isWorkspaceView = computed(() => route.path.startsWith('/user/'))
-const automationHomePath = computed(() => (isWorkspaceView.value ? '/user/automation' : '/automation'))
 
 // 响应式数据
 const loading = ref(false)

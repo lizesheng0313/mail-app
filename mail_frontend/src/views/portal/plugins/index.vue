@@ -4,30 +4,6 @@
     <PageHeader v-if="!isWorkspaceView" />
     
     <div class="min-h-screen bg-gray-50">
-    <!-- 页面头部 -->
-    <div class="bg-white shadow-sm border-b border-gray-200">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div class="flex justify-between items-center">
-          <div>
-            <h1 style="font-size: 14px;" class="font-bold text-black">我的插件</h1>
-            <p class="mt-1 text-sm text-black">管理和配置您的插件</p>
-          </div>
-          <div class="flex space-x-3">
-            <button
-              @click="router.push(pluginStorePath)"
-              class="inline-flex items-center btn-primary text-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
-            >
-              <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-              </svg>
-              插件商店
-            </button>
-
-          </div>
-        </div>
-      </div>
-    </div>
-
     <!-- 主要内容 -->
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <!-- 我的插件 -->
@@ -35,9 +11,17 @@
         <div class="px-6 py-4 border-b border-gray-200">
           <div class="flex justify-between items-center">
             <h2 style="font-size: 14px;" class="font-medium text-black">我的插件</h2>
-            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-100 text-success-800">
-              {{ myPlugins.length }} 个插件
-            </span>
+            <div class="flex items-center gap-3">
+              <router-link
+                :to="pluginStorePath"
+                class="inline-flex items-center px-4 py-2 rounded-md border border-primary-200 bg-primary-50 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-100"
+              >
+                插件商店
+              </router-link>
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-100 text-success-800">
+                {{ myPlugins.length }} 个插件
+              </span>
+            </div>
           </div>
         </div>
 
@@ -143,7 +127,7 @@ import { showMessage } from '@/utils/message'
 const router = useRouter()
 const route = useRoute()
 const isWorkspaceView = computed(() => route.path.startsWith('/user/'))
-const pluginStorePath = computed(() => (isWorkspaceView.value ? '/user/automation/plugin-store' : '/plugin-store'))
+const pluginStorePath = computed(() => (isWorkspaceView.value ? '/user/automation/plugins/store' : '/plugin-store'))
 const loading = ref(false)
 const myPlugins = ref([])
 

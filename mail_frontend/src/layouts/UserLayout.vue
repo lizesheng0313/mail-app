@@ -64,8 +64,8 @@ const menuSections = computed(() => [
     name: t('userLayout.automation'),
     items: [
       {
-        path: '/user/automation',
-        label: t('userLayout.automationDashboard'),
+        path: '/user/automation/triggers',
+        label: t('userLayout.automationTriggers'),
         icon: {
           render: () =>
             h('svg', { fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' }, [
@@ -94,21 +94,6 @@ const menuSections = computed(() => [
         }
       },
       {
-        path: '/user/automation/triggers',
-        label: t('userLayout.automationTriggers'),
-        icon: {
-          render: () =>
-            h('svg', { fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' }, [
-              h('path', {
-                'stroke-linecap': 'round',
-                'stroke-linejoin': 'round',
-                'stroke-width': '2',
-                d: 'M13 10V3L4 14h7v7l9-11h-7z'
-              })
-            ])
-        }
-      },
-      {
         path: '/user/automation/plugins',
         label: t('userLayout.myPlugins'),
         icon: {
@@ -119,21 +104,6 @@ const menuSections = computed(() => [
                 'stroke-linejoin': 'round',
                 'stroke-width': '2',
                 d: 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4'
-              })
-            ])
-        }
-      },
-      {
-        path: '/user/automation/plugin-store',
-        label: t('userLayout.pluginStore'),
-        icon: {
-          render: () =>
-            h('svg', { fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' }, [
-              h('path', {
-                'stroke-linecap': 'round',
-                'stroke-linejoin': 'round',
-                'stroke-width': '2',
-                d: 'M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z'
               })
             ])
         }
@@ -265,11 +235,10 @@ const menuSections = computed(() => [
 
 // 当前页面标题
 const currentPageTitle = computed(() => {
-  if (route.path === '/user/automation') return t('userLayout.automationDashboard')
   if (route.path === '/user/automation/workflows') return t('userLayout.automationWorkflows')
   if (route.path === '/user/automation/triggers') return t('userLayout.automationTriggers')
   if (route.path === '/user/automation/plugins') return t('userLayout.myPlugins')
-  if (route.path === '/user/automation/plugin-store') return t('userLayout.pluginStore')
+  if (route.path === '/user/automation/plugins/store') return t('userLayout.pluginStore')
   if (route.path.startsWith('/user/developer/api-keys')) return t('userLayout.apiKeys')
 
   const titles = {
@@ -284,11 +253,10 @@ const currentPageTitle = computed(() => {
 
 // 页面描述
 const pageDescription = computed(() => {
-  if (route.path === '/user/automation') return t('userLayout.automationDashboardDescription')
   if (route.path === '/user/automation/workflows') return t('userLayout.automationWorkflowsDescription')
   if (route.path === '/user/automation/triggers') return t('userLayout.automationTriggersDescription')
   if (route.path === '/user/automation/plugins') return t('userLayout.myPluginsDescription')
-  if (route.path === '/user/automation/plugin-store') return t('userLayout.pluginStoreDescription')
+  if (route.path === '/user/automation/plugins/store') return t('userLayout.pluginStoreDescription')
   if (route.path.startsWith('/user/developer/api-keys')) return t('userLayout.apiKeysDescription')
 
   const descriptions = {

@@ -3,38 +3,7 @@
     <!-- 顶部导航 -->
     <PageHeader />
     
-    <div class="bg-gray-50 pb-8">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <!-- 面包屑导航 -->
-        <nav class="flex mb-6" aria-label="Breadcrumb">
-          <ol class="inline-flex items-center space-x-1 md:space-x-3">
-            <li class="inline-flex items-center">
-              <router-link to="/automation" class="inline-flex items-center text-sm font-medium text-black hover:text-primary-600">
-                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-                {{ t('executionHistory.automationCenter') }}
-              </router-link>
-            </li>
-            <li>
-              <div class="flex items-center">
-                <svg class="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
-                </svg>
-                <router-link to="/automation/workflows" class="ml-1 text-sm font-medium text-black hover:text-primary-600 md:ml-2">{{ t('executionHistory.workflowManagement') }}</router-link>
-              </div>
-            </li>
-            <li>
-              <div class="flex items-center">
-                <svg class="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
-                </svg>
-                <span class="ml-1 text-sm font-medium text-black md:ml-2">{{ t('executionHistory.breadcrumb') }}</span>
-              </div>
-            </li>
-          </ol>
-        </nav>
-
+    <div class="space-y-6">
         <!-- 页面头部 -->
         <div class="mb-8">
           <div class="flex items-center justify-between">
@@ -47,7 +16,7 @@
         </div>
 
         <!-- 筛选和搜索 -->
-        <div class="mb-6 bg-white p-4 rounded-lg shadow">
+        <div class="bg-white rounded-lg shadow-sm border p-6">
           <div class="flex flex-wrap items-center gap-4">
             <!-- 搜索框 -->
             <div class="w-64">
@@ -93,31 +62,16 @@
         </div>
 
         <!-- 执行记录列表 -->
-        <div class="bg-white shadow rounded-lg overflow-hidden">
-          <div v-if="loading" class="p-8 text-center">
-            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500 mx-auto"></div>
-            <p class="mt-2 text-black">{{ t('executionHistory.loading') }}</p>
-          </div>
-          
-          <div v-else-if="!currentWorkflowId" class="p-8 text-center text-black">
+        <div v-if="!currentWorkflowId" class="bg-white shadow rounded-lg overflow-hidden p-8 text-center text-black">
             <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
             </svg>
             <h3 class="mt-2 text-sm font-medium text-black">{{ t('executionHistory.noWorkflow') }}</h3>
             <p class="mt-1 text-sm text-black">{{ t('executionHistory.noWorkflowDesc') }}</p>
-          </div>
-          
-          <div v-else-if="executions.length === 0" class="p-8 text-center text-black">
-            <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-            </svg>
-            <h3 class="mt-2 text-sm font-medium text-black">{{ t('executionHistory.empty') }}</h3>
-            <p class="mt-1 text-sm text-black">{{ t('executionHistory.emptyDesc') }}</p>
-          </div>
-          
-          <div v-else>
-            <table class="min-w-full divide-y divide-gray-200">
-              <thead class="bg-gray-50">
+        </div>
+
+        <AdminDataTable v-else :title="t('executionHistory.executions')" :loading="loading" :column-count="isPublishedWorkflow ? 7 : 6">
+          <template #thead>
                 <tr>
                   <th v-if="isPublishedWorkflow" class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">{{ t('executionHistory.orderNo') }}</th>
                   <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">{{ t('executionHistory.executor') }}</th>
@@ -127,8 +81,9 @@
                   <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">{{ t('executionHistory.startTime') }}</th>
                   <th class="px-6 py-3 text-right text-xs font-medium text-black uppercase tracking-wider">{{ t('executionHistory.actions') }}</th>
                 </tr>
-              </thead>
-              <tbody class="bg-white divide-y divide-gray-200">
+          </template>
+
+          <template #tbody>
                 <tr v-for="execution in executions" :key="execution.execution_id" class="hover:bg-gray-50">
                   <td v-if="isPublishedWorkflow" class="px-6 py-4">
                     <div class="text-sm text-black">{{ execution.order_no || '-' }}</div>
@@ -178,10 +133,14 @@
                     </div>
                   </td>
                 </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
+
+                <tr v-if="!executions.length">
+                  <td :colspan="isPublishedWorkflow ? 7 : 6" class="px-6 py-12 text-center text-black">
+                    {{ t('executionHistory.emptyDesc') }}
+                  </td>
+                </tr>
+          </template>
+        </AdminDataTable>
 
         <!-- 重新执行确认对话框 -->
         <ConfirmDialog
@@ -255,7 +214,6 @@
             </div>
           </div>
         </div>
-      </div>
     </div>
   </div>
 </template>
@@ -270,6 +228,7 @@ import BaseInput from '@/components/BaseInput/index.vue'
 import CustomSelect from '@/components/CustomSelect/index.vue'
 import ActionButton from '@/components/ActionButton/index.vue'
 import BaseIcon from '@/components/BaseIcon/index.vue'
+import AdminDataTable from '@/components/AdminDataTable/index.vue'
 import ConfirmDialog from '@/components/ConfirmDialog/index.vue'
 import ExecutionResultModal from '@/views/portal/workflows/components/ExecutionResultModal/index.vue'
 import { showMessage } from '@/utils/message'

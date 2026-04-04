@@ -1,30 +1,6 @@
 <template>
-  <div class="bg-white shadow rounded-lg">
-    <div class="px-6 py-4 border-b border-gray-200">
-      <h2 class="text-lg font-medium text-black">{{ t('workflowList.title') }}</h2>
-    </div>
-
-    <div v-if="loading" class="text-center py-12">
-      <div class="inline-flex items-center">
-        <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-primary-500" fill="none" viewBox="0 0 24 24">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
-        {{ t('workflowList.loading') }}
-      </div>
-    </div>
-
-    <div v-else-if="workflows.length === 0" class="text-center py-12">
-      <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-      </svg>
-      <h3 class="mt-2 text-sm font-medium text-black">{{ t('workflowList.emptyTitle') }}</h3>
-      <p class="mt-1 text-sm text-black">{{ t('workflowList.emptyDesc') }}</p>
-    </div>
-
-    <div v-else class="overflow-x-auto">
-      <table class="min-w-full divide-y divide-gray-200">
-        <thead class="bg-gray-50">
+  <AdminDataTable :title="t('workflowList.title')" :loading="loading" :column-count="5">
+    <template #thead>
           <tr>
             <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
               {{ t('workflowList.info') }}
@@ -42,8 +18,9 @@
               {{ t('workflowList.actions') }}
             </th>
           </tr>
-        </thead>
-        <tbody class="bg-white divide-y divide-gray-200">
+    </template>
+
+    <template #tbody>
           <tr
             v-for="workflow in workflows"
             :key="workflow.workflow_id"
@@ -220,16 +197,21 @@
               </div>
             </td>
           </tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
+
+          <tr v-if="!workflows.length">
+            <td colspan="5" class="px-6 py-12 text-center text-black">
+              {{ t('workflowList.emptyDesc') }}
+            </td>
+          </tr>
+    </template>
+  </AdminDataTable>
 </template>
 
 <script setup>
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import ActionButton from '@/components/ActionButton/index.vue'
+import AdminDataTable from '@/components/AdminDataTable/index.vue'
 
 const router = useRouter()
 const { t } = useI18n()

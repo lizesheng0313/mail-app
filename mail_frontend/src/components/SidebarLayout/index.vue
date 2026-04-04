@@ -3,12 +3,16 @@
     <!-- 左侧菜单 -->
     <div class="w-64 bg-white shadow-lg">
       <!-- 头部Logo -->
-      <div class="flex items-center px-6 border-b border-gray-200" style="height: 87px;">
+      <router-link
+        to="/"
+        class="flex items-center px-6 border-b border-gray-200 transition-colors hover:bg-gray-50"
+        style="height: 87px;"
+      >
         <div class="h-8 w-8 bg-primary-600 rounded-lg flex items-center justify-center">
           <component :is="logoIcon" class="h-5 w-5 text-white" />
         </div>
         <h1 class="ml-3 text-lg font-semibold text-gray-900">{{ title }}</h1>
-      </div>
+      </router-link>
 
       <!-- 菜单列表 -->
       <nav class="mt-6">

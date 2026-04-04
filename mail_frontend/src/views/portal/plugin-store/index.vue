@@ -4,210 +4,196 @@
     <PageHeader v-if="!isWorkspaceView" />
     
     <div class="min-h-screen bg-gray-50">
-    <!-- 页面头部 -->
-    <div class="bg-white shadow-sm border-b">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex items-center justify-between h-16">
-          <div class="flex items-center space-x-4">
-            <button
-              @click="handleBack"
-              class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-black bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
-            >
-              <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-              </svg>
-              返回
-            </button>
-            <h1 style="font-size: 14px;" class="font-bold text-black">插件商店</h1>
-          </div>
-          
-          <!-- 搜索框 -->
-          <div class="flex-1 max-w-lg mx-8">
-            <BaseInput
-              v-model="searchQuery"
-              @enter="handleSearch"
-              type="text"
-              placeholder="搜索插件..."
-              size="sm"
-            >
-              <template #left-icon>
-                <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              </template>
-            </BaseInput>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- 主要内容 -->
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <!-- 筛选和排序 -->
-      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 space-y-4 sm:space-y-0">
-        <div class="flex flex-wrap items-center gap-4">
-          <!-- 分类筛选 -->
-          <div class="min-w-32">
-            <CustomSelect
-              v-model="selectedCategory"
-              :options="categoryOptions"
-              placeholder="所有分类"
-              @update:modelValue="handleCategoryChange"
-            />
-          </div>
-
-          <!-- 类型筛选 -->
-          <div class="min-w-32">
-            <CustomSelect
-              v-model="selectedType"
-              :options="typeOptions"
-              placeholder="所有类型"
-              @update:modelValue="handleTypeChange"
-            />
-          </div>
-
-          <!-- 价格筛选 -->
-          <div class="min-w-32">
-            <CustomSelect
-              v-model="priceFilter"
-              :options="priceOptions"
-              placeholder="所有价格"
-              @update:modelValue="handlePriceChange"
-            />
-          </div>
-        </div>
-
-        <!-- 排序 -->
-        <div class="flex items-center space-x-2">
-          <span class="text-sm text-black">排序:</span>
-          <div class="min-w-32">
-            <CustomSelect
-              v-model="sortBy"
-              :options="sortOptions"
-              @update:modelValue="handleSortChange"
-            />
-          </div>
-        </div>
-      </div>
-
-      <!-- 加载状态 -->
-      <div v-if="loading" class="flex justify-center items-center py-12">
-        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
-        <span class="ml-2 text-black">加载中...</span>
-      </div>
-
-      <!-- 插件网格 -->
-      <div v-else-if="plugins.length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-8">
-        <PluginCard
-          v-for="plugin in plugins"
-          :key="plugin.plugin_id"
-          :plugin="plugin"
-          :show-price="true"
-          @click="showPluginDetail(plugin)"
-          class="cursor-pointer hover:shadow-lg transition-shadow"
-        >
-          <template #actions="{ plugin }">
-            <div class="mt-4">
-              <!-- 已安装的插件 -->
-              <button
-                v-if="isPluginInstalled(plugin.plugin_id)"
-                disabled
-                class="w-full bg-gray-100 text-black font-medium py-2 px-4 rounded-lg cursor-not-allowed text-sm"
-              >
-                已安装
-              </button>
-              <!-- 未安装的插件 -->
-              <button
-                v-else
-                @click.stop="handlePluginAction(plugin)"
-                :disabled="installing === plugin.plugin_id"
-                class="w-full btn-primary text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <span v-if="installing === plugin.plugin_id">处理中...</span>
-                <span v-else-if="plugin.is_free">免费安装</span>
-                <span v-else-if="plugin.user_has_authorization">立即安装</span>
-                <span v-else>立即购买</span>
-              </button>
+      <!-- 页面头部 -->
+      <div class="bg-white shadow-sm border-b">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div class="flex flex-col gap-4 py-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h1 style="font-size: 14px;" class="font-bold text-black">插件商店</h1>
+              <p class="mt-1 text-sm text-black">浏览和安装可用插件</p>
             </div>
-          </template>
-        </PluginCard>
-      </div>
 
-      <!-- 空状态 -->
-      <div v-else class="text-center py-12">
-        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2 2v-5m16 0h-2M4 13h2m13-8l-4 4m0 0l-4-4m4 4V3" />
-        </svg>
-        <h3 class="mt-2 text-sm font-medium text-black">暂无插件</h3>
-        <p class="mt-1 text-sm text-black">没有找到符合条件的插件</p>
-      </div>
-
-      <!-- 分页 -->
-      <div v-if="totalPages > 1" class="mt-8 flex items-center justify-between">
-        <div class="flex-1 flex justify-between sm:hidden">
-          <button
-            @click="changePage(currentPage - 1)"
-            :disabled="currentPage <= 1"
-            class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-black bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            上一页
-          </button>
-          <button
-            @click="changePage(currentPage + 1)"
-            :disabled="currentPage >= totalPages"
-            class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-black bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            下一页
-          </button>
-        </div>
-        <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-          <div>
-            <p class="text-sm text-black">
-              显示第 <span class="font-medium">{{ (currentPage - 1) * pageSize + 1 }}</span> 到 
-              <span class="font-medium">{{ Math.min(currentPage * pageSize, totalCount) }}</span> 项，
-              共 <span class="font-medium">{{ totalCount }}</span> 项
-            </p>
-          </div>
-          <div>
-            <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
-              <button
-                @click="changePage(currentPage - 1)"
-                :disabled="currentPage <= 1"
-                class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-black hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            <div class="w-full lg:max-w-lg">
+              <BaseInput
+                v-model="searchQuery"
+                @enter="handleSearch"
+                type="text"
+                placeholder="搜索插件..."
+                size="sm"
               >
-                <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
-                </svg>
-              </button>
-              
-              <button
-                v-for="page in visiblePages"
-                :key="page"
-                @click="changePage(page)"
-                :class="[
-                  'relative inline-flex items-center px-4 py-2 border text-sm font-medium',
-                  page === currentPage
-                    ? 'z-10 bg-primary-50 border-primary-500 text-primary-700'
-                    : 'bg-white border-gray-300 text-black hover:bg-gray-50'
-                ]"
-              >
-                {{ page }}
-              </button>
-              
-              <button
-                @click="changePage(currentPage + 1)"
-                :disabled="currentPage >= totalPages"
-                class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-black hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
-                </svg>
-              </button>
-            </nav>
+                <template #left-icon>
+                  <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </template>
+              </BaseInput>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+
+      <!-- 主要内容 -->
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- 筛选和排序 -->
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 space-y-4 sm:space-y-0">
+          <div class="flex flex-wrap items-center gap-4">
+            <div class="min-w-32">
+              <CustomSelect
+                v-model="selectedCategory"
+                :options="categoryOptions"
+                placeholder="所有分类"
+                @update:modelValue="handleCategoryChange"
+              />
+            </div>
+
+            <div class="min-w-32">
+              <CustomSelect
+                v-model="selectedType"
+                :options="typeOptions"
+                placeholder="所有类型"
+                @update:modelValue="handleTypeChange"
+              />
+            </div>
+
+            <div class="min-w-32">
+              <CustomSelect
+                v-model="priceFilter"
+                :options="priceOptions"
+                placeholder="所有价格"
+                @update:modelValue="handlePriceChange"
+              />
+            </div>
+          </div>
+
+          <div class="flex items-center space-x-2">
+            <span class="text-sm text-black">排序:</span>
+            <div class="min-w-32">
+              <CustomSelect
+                v-model="sortBy"
+                :options="sortOptions"
+                @update:modelValue="handleSortChange"
+              />
+            </div>
+          </div>
+        </div>
+
+        <!-- 加载状态 -->
+        <div v-if="loading" class="flex justify-center items-center py-12">
+          <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+          <span class="ml-2 text-black">加载中...</span>
+        </div>
+
+        <!-- 插件网格 -->
+        <div v-else-if="plugins.length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-8">
+          <PluginCard
+            v-for="plugin in plugins"
+            :key="plugin.plugin_id"
+            :plugin="plugin"
+            :show-price="true"
+            @click="showPluginDetail(plugin)"
+            class="cursor-pointer hover:shadow-lg transition-shadow"
+          >
+            <template #actions="{ plugin }">
+              <div class="mt-4">
+                <button
+                  v-if="isPluginInstalled(plugin.plugin_id)"
+                  disabled
+                  class="w-full bg-gray-100 text-black font-medium py-2 px-4 rounded-lg cursor-not-allowed text-sm"
+                >
+                  已安装
+                </button>
+                <button
+                  v-else
+                  @click.stop="handlePluginAction(plugin)"
+                  :disabled="installing === plugin.plugin_id"
+                  class="w-full btn-primary text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <span v-if="installing === plugin.plugin_id">处理中...</span>
+                  <span v-else-if="plugin.is_free">免费安装</span>
+                  <span v-else-if="plugin.user_has_authorization">立即安装</span>
+                  <span v-else>立即购买</span>
+                </button>
+              </div>
+            </template>
+          </PluginCard>
+        </div>
+
+        <!-- 空状态 -->
+        <div v-else class="text-center py-12">
+          <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2 2v-5m16 0h-2M4 13h2m13-8l-4 4m0 0l-4-4m4 4V3" />
+          </svg>
+          <h3 class="mt-2 text-sm font-medium text-black">暂无插件</h3>
+          <p class="mt-1 text-sm text-black">没有找到符合条件的插件</p>
+        </div>
+
+        <!-- 分页 -->
+        <div v-if="totalPages > 1" class="mt-8 flex items-center justify-between">
+          <div class="flex-1 flex justify-between sm:hidden">
+            <button
+              @click="changePage(currentPage - 1)"
+              :disabled="currentPage <= 1"
+              class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-black bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              上一页
+            </button>
+            <button
+              @click="changePage(currentPage + 1)"
+              :disabled="currentPage >= totalPages"
+              class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-black bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              下一页
+            </button>
+          </div>
+          <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+            <div>
+              <p class="text-sm text-black">
+                显示第 <span class="font-medium">{{ (currentPage - 1) * pageSize + 1 }}</span> 到 
+                <span class="font-medium">{{ Math.min(currentPage * pageSize, totalCount) }}</span> 项，
+                共 <span class="font-medium">{{ totalCount }}</span> 项
+              </p>
+            </div>
+
+            <div>
+              <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+                <button
+                  @click="changePage(currentPage - 1)"
+                  :disabled="currentPage <= 1"
+                  class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-black hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
+                  </svg>
+                </button>
+
+                <button
+                  v-for="page in visiblePages"
+                  :key="page"
+                  @click="changePage(page)"
+                  :class="[
+                    'relative inline-flex items-center px-4 py-2 border text-sm font-medium',
+                    page === currentPage
+                      ? 'z-10 bg-primary-50 border-primary-500 text-primary-700'
+                      : 'bg-white border-gray-300 text-black hover:bg-gray-50'
+                  ]"
+                >
+                  {{ page }}
+                </button>
+
+                <button
+                  @click="changePage(currentPage + 1)"
+                  :disabled="currentPage >= totalPages"
+                  class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-black hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+                  </svg>
+                </button>
+              </nav>
+            </div>
+          </div>
+        </div>
+      </div>
 
     <!-- 插件详情对话框 -->
     <PluginStoreDetailModal
@@ -340,14 +326,6 @@ const visiblePages = computed(() => {
   return pages
 })
 
-const handleBack = () => {
-  if (isWorkspaceView.value) {
-    router.push('/user/automation/plugins')
-    return
-  }
-  router.go(-1)
-}
-
 // 获取插件列表
 const fetchPlugins = async () => {
   try {
@@ -367,9 +345,10 @@ const fetchPlugins = async () => {
     const response = await pluginApi.getStorePlugins(params)
     
     if (response.code === 0) {
-      plugins.value = response.data.plugins
-      totalPages.value = Math.ceil(response.data.total / pageSize)
-      totalCount.value = response.data.total
+      const pagination = response.data.pagination || {}
+      plugins.value = response.data.plugins || []
+      totalCount.value = pagination.total_count ?? response.data.total ?? plugins.value.length
+      totalPages.value = pagination.total_pages ?? Math.ceil(totalCount.value / pageSize)
     } else {
       showMessage(response.message, 'error')
     }
