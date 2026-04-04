@@ -933,7 +933,7 @@ const zhCN = {
     title: '批量添加第三方邮箱',
     inputLabel: '输入账号（每行一个）',
     inputPlaceholder:
-      '每行一个，支持格式：\n邮箱----授权码\n邮箱 授权码\n邮箱----密码----Client_ID----Refresh_Token\n\n示例：\nuser@163.com----abc123\nuser@qq.com pwd456\nuser@outlook.com----pwd----client_id----refresh_token',
+      '每行一个，支持格式：\n邮箱----授权码\n邮箱 授权码\n邮箱----密码----Client_ID----Refresh_Token\n\n示例：\nuser[at]163.com----abc123\nuser[at]qq.com pwd456\nuser[at]outlook.com----pwd----client_id----refresh_token',
     resultLabel: '添加结果',
     resultEmpty: '添加结果将显示在这里',
     loginMode: '登录方式：',
@@ -978,7 +978,7 @@ const zhCN = {
     importDescription: '支持普通账号和 OAuth Token 导入。成功后只入账号池，不收件。',
     inputLabel: '账号内容',
     inputPlaceholder:
-      '每行一个，支持格式：\n邮箱----授权码\n邮箱 授权码\n邮箱----密码----Client_ID----Refresh_Token\n\n示例：\nuser@163.com----abc123\nuser@qq.com pwd456\nuser@outlook.com----pwd----client_id----refresh_token',
+      '每行一个，支持格式：\n邮箱----授权码\n邮箱 授权码\n邮箱----密码----Client_ID----Refresh_Token\n\n示例：\nuser[at]163.com----abc123\nuser[at]qq.com pwd456\nuser[at]outlook.com----pwd----client_id----refresh_token',
     loginMode: '登录方式',
     autoMode: '自动识别',
     customMode: '自定义服务器',

@@ -615,10 +615,16 @@ import wxProgramImg from '@/assets/img/wx_program.jpg'
 
 // 获取 Tauri invoke（按需加载，避免竞态）
 async function getTauriInvoke() {
-  if (!isTauri()) return null
   try {
     const { invoke } = await import('@tauri-apps/api/core')
-    return invoke
+    if (typeof invoke !== 'function') return null
+
+    if (isTauri()) {
+      return invoke
+    }
+
+    const runtimeReady = await invoke<boolean>('is_tauri').catch(() => false)
+    return runtimeReady ? invoke : null
   } catch {
     return null
   }
@@ -1473,8 +1479,9 @@ const switchMailboxType = (type: 'system' | 'hosted' | 'external') => {
 }
 
 // 批量登录 - 打开添加账号弹窗
-const handleBatchLogin = () => {
-  if (!isTauri()) {
+const handleBatchLogin = async () => {
+  const tauriInvoke = await getTauriInvoke()
+  if (!tauriInvoke) {
     openDesktopDownloadDialog()
     return
   }
@@ -2981,20 +2988,10 @@ const fetchAllExternalEmails = async (options: { silent?: boolean } = {}) => {
       async (account: any) => {
         try {
           if (account.auth_type === 'oauth2') {
-            console.log('[ExternalFetch] desktop oauth2 local fetch start', {
-              mailboxId: account.id,
-              email: account.email,
-              provider: account.oauth_provider
-            })
             const newCount = await fetchOAuthMailboxOnceById(tauriInvoke, account.id, {
               account
             })
             bootstrapOAuthEmailSet.delete(normalizeMailboxEmail(account.email))
-            console.log('[ExternalFetch] desktop oauth2 local fetch result', {
-              mailboxId: account.id,
-              email: account.email,
-              count: newCount
-            })
             return { success: true, newCount }
           }
 

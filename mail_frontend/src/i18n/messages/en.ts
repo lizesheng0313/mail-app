@@ -966,7 +966,7 @@ const en = {
     title: 'Bulk Add External Mailboxes',
     inputLabel: 'Accounts (one per line)',
     inputPlaceholder:
-      'One account per line. Supported formats:\nemail----app-password\nemail password\nemail----password----Client_ID----Refresh_Token\n\nExamples:\nuser@163.com----abc123\nuser@qq.com pwd456\nuser@outlook.com----pwd----client_id----refresh_token',
+      'One account per line. Supported formats:\nemail----app-password\nemail password\nemail----password----Client_ID----Refresh_Token\n\nExamples:\nuser[at]163.com----abc123\nuser[at]qq.com pwd456\nuser[at]outlook.com----pwd----client_id----refresh_token',
     resultLabel: 'Results',
     resultEmpty: 'Results will appear here',
     loginMode: 'Login mode:',
@@ -1013,7 +1013,7 @@ const en = {
     importDescription: 'Supports regular accounts and OAuth token import. Successful accounts enter the pool only and will not fetch emails.',
     inputLabel: 'Account input',
     inputPlaceholder:
-      'One per line. Supported formats:\nemail----password\nemail password\nemail----password----Client_ID----Refresh_Token\n\nExample:\nuser@163.com----abc123\nuser@qq.com pwd456\nuser@outlook.com----pwd----client_id----refresh_token',
+      'One per line. Supported formats:\nemail----password\nemail password\nemail----password----Client_ID----Refresh_Token\n\nExample:\nuser[at]163.com----abc123\nuser[at]qq.com pwd456\nuser[at]outlook.com----pwd----client_id----refresh_token',
     loginMode: 'Login mode',
     autoMode: 'Auto detect',
     customMode: 'Custom server',

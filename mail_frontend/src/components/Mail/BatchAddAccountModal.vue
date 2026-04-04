@@ -1,5 +1,5 @@
 <template>
-  <Teleport to="#app">
+  <Teleport to="body">
     <div v-if="visible" class="fixed inset-0 z-50 p-4 sm:p-6">
       <div class="mx-auto flex h-full w-full max-w-4xl items-center justify-center">
         <div class="w-full overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/5 max-h-[86vh] flex flex-col">

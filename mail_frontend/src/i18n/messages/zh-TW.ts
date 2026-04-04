@@ -933,7 +933,7 @@ const zhTW = {
     title: '批量添加第三方郵箱',
     inputLabel: '輸入帳號（每行一個）',
     inputPlaceholder:
-      '每行一個，支援格式：\n郵箱----授權碼\n郵箱 授權碼\n郵箱----密碼----Client_ID----Refresh_Token\n\n示例：\nuser@163.com----abc123\nuser@qq.com pwd456\nuser@outlook.com----pwd----client_id----refresh_token',
+      '每行一個，支援格式：\n郵箱----授權碼\n郵箱 授權碼\n郵箱----密碼----Client_ID----Refresh_Token\n\n示例：\nuser[at]163.com----abc123\nuser[at]qq.com pwd456\nuser[at]outlook.com----pwd----client_id----refresh_token',
     resultLabel: '添加結果',
     resultEmpty: '添加結果將顯示在這裡',
     loginMode: '登入方式：',
@@ -978,7 +978,7 @@ const zhTW = {
     importDescription: '支援普通帳號和 OAuth Token 匯入。成功後只進帳號池，不收件。',
     inputLabel: '帳號內容',
     inputPlaceholder:
-      '每行一個，支援格式：\n郵箱----授權碼\n郵箱 授權碼\n郵箱----密碼----Client_ID----Refresh_Token\n\n示例：\nuser@163.com----abc123\nuser@qq.com pwd456\nuser@outlook.com----pwd----client_id----refresh_token',
+      '每行一個，支援格式：\n郵箱----授權碼\n郵箱 授權碼\n郵箱----密碼----Client_ID----Refresh_Token\n\n示例：\nuser[at]163.com----abc123\nuser[at]qq.com pwd456\nuser[at]outlook.com----pwd----client_id----refresh_token',
     loginMode: '登入方式',
     autoMode: '自動識別',
     customMode: '自訂伺服器',
