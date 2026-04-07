@@ -117,8 +117,7 @@ const en = {
     passwordMismatch: 'The two passwords do not match',
     passwordMatched: 'Passwords match',
     abnormalTitle: 'Account issue detected',
-    abnormalDesc:
-      'If you believe your account is normal, contact support on WeChat.',
+    abnormalDesc: 'If you believe your account is normal, contact support on WeChat.',
     submitFeedback: 'Submit feedback',
     copyWechat: 'Copy WeChat ID',
     wechatLabel: 'WeChat: {wechat}',
@@ -595,16 +594,11 @@ const en = {
     personalSettings: 'Profile Settings',
     apiKeysDescription:
       'Manage API keys directly like other list pages. Creation is done in a modal.',
-    automationDashboardDescription:
-      'View triggers, workflows, and plugin usage in one place.',
-    automationWorkflowsDescription:
-      'Manage workflows you created and purchased.',
-    automationTriggersDescription:
-      'Manage automation triggers and execution conditions.',
-    myPluginsDescription:
-      'Manage installed plugins and enabled status.',
-    pluginStoreDescription:
-      'Browse and install available plugins.',
+    automationDashboardDescription: 'View triggers, workflows, and plugin usage in one place.',
+    automationWorkflowsDescription: 'Manage workflows you created and purchased.',
+    automationTriggersDescription: 'Manage automation triggers and execution conditions.',
+    myPluginsDescription: 'Manage installed plugins and enabled status.',
+    pluginStoreDescription: 'Browse and install available plugins.',
     myDomainsDescription:
       'Connect your own domain, complete DNS verification, and create receiving addresses.',
     transactionsDescription: 'View all coin transaction records.',
@@ -1005,12 +999,15 @@ const en = {
   },
   batchWorkbench: {
     title: 'Batch Workbench',
-    subtitle: 'Start with account import, bulk verification, and retry flow without fetching emails.',
-    desktopHint: 'Password-based mailbox verification relies on the desktop client. You can still manage results and the account pool here.',
+    subtitle:
+      'Start with account import, bulk verification, and retry flow without fetching emails.',
+    desktopHint:
+      'Password-based mailbox verification relies on the desktop client. You can still manage results and the account pool here.',
     desktopOnly: 'Use the desktop client for bulk verification',
     refreshList: 'Refresh account pool',
     importTitle: 'Import And Verify',
-    importDescription: 'Supports regular accounts and OAuth token import. Successful accounts enter the pool only and will not fetch emails.',
+    importDescription:
+      'Supports regular accounts and OAuth token import. Successful accounts enter the pool only and will not fetch emails.',
     inputLabel: 'Account input',
     inputPlaceholder:
       'One per line. Supported formats:\nemail----password\nemail password\nemail----password----Client_ID----Refresh_Token\n\nExample:\nuser[at]163.com----abc123\nuser[at]qq.com pwd456\nuser[at]outlook.com----pwd----client_id----refresh_token',
@@ -1027,7 +1024,8 @@ const en = {
     progress: 'Current progress',
     progressText: '{current}/{total} · {label}',
     resultTitle: 'Run Results',
-    resultDescription: 'Only the latest execution results are kept so failed items can be retried quickly.',
+    resultDescription:
+      'Only the latest execution results are kept so failed items can be retried quickly.',
     resultEmpty: 'No execution records yet',
     resultSuccess: 'Success {count}',
     resultError: 'Failed {count}',
@@ -1317,6 +1315,7 @@ const en = {
     emptyDesc: 'No workflow execution records matched the current filters',
     orderNo: 'Order No.',
     executor: 'Executor',
+    account: 'Account',
     triggerEmail: 'Trigger Email',
     status: 'Status',
     duration: 'Duration',
@@ -1351,6 +1350,9 @@ const en = {
     loadLogsFailed: 'Failed to load execution logs',
     executionSuccess: 'Workflow executed successfully',
     retryFailed: 'Failed to retry workflow',
+    accountCount: '{count} accounts',
+    viewAccount: 'View account',
+    copyAccount: 'Copy account',
     copied: 'Copied to clipboard',
     copyFailed: 'Copy failed'
   },
@@ -1359,7 +1361,10 @@ const en = {
     successSubtitle: 'The workflow has finished running',
     accountTitle: 'Retrieved Account',
     accountData: 'Account Data',
+    accountCount: '{count} accounts',
     copyAllData: 'Copy all account data',
+    copySingleAccount: 'Copy this account',
+    accountItem: 'Account {index}',
     mailboxCreated: 'Mailbox Created',
     mailboxHint: 'Check your mailbox on the home page',
     noAccountInfo: 'The workflow completed successfully, but no account information was returned',
@@ -1526,7 +1531,9 @@ const en = {
     executeSubscription: 'Run Now (Free with subscription)',
     executeOneTime: 'Run Now ({price} coins)',
     executionHistory: 'Execution History',
+    quantityLabel: 'Quantity',
     remainingInventory: 'Available inventory: {count}',
+    totalPrice: 'Total: {totalPrice} coins',
     executingTitle: 'Running workflow...',
     executingSubtitle: 'Please wait while your request is being processed',
     seoFallbackTitle: 'Workflow Details',
@@ -1538,14 +1545,23 @@ const en = {
     insufficientCoinsTitle: 'Not enough coins',
     insufficientCoinsMessage:
       'Running this workflow requires {price} coins. Your balance is {balance} coins.\n\nGo to Finance to recharge and try again.',
+    insufficientCoinsMessageMultiple:
+      'This run will execute {count} times at {price} coins each, for a total of {totalPrice} coins. Your balance is {balance} coins.\n\nGo to Finance to recharge and try again.',
     confirmExecuteTitle: 'Confirm Run',
     confirmExecutePerUse: 'Run workflow "{name}" now and spend {price} coins?',
+    confirmExecutePerUseMultiple:
+      'Run workflow "{name}" {count} times now and spend {totalPrice} coins total ({price} coins each)?',
     confirmExecuteSubscription:
       'Run workflow "{name}" now? Subscribers can use it for free; otherwise you need a subscription first.',
+    confirmExecuteSubscriptionMultiple:
+      'Run workflow "{name}" {count} times now? Subscribers can use it for free; otherwise you need a subscription first.',
     confirmExecuteDefault: 'Run workflow "{name}" now?',
+    confirmExecuteDefaultMultiple: 'Run workflow "{name}" {count} times now?',
     executionSuccess: 'Workflow ran successfully',
     executionFailed: 'Failed to run workflow',
     executionSubmitted: 'Workflow was submitted',
+    executionBatchSummary:
+      'Submitted {count} runs: completed {completed}, processing {submitted}, failed {failed}',
     loginBeforeReview: 'Sign in before leaving a review',
     purchaseBeforeReview: 'You need to purchase and use this workflow before leaving a review',
     reviewContentRequired: 'Enter review content',

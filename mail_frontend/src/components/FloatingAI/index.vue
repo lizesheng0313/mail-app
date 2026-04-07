@@ -408,6 +408,72 @@ const getLatestTraceItem = (item?: ChatItem | null) => {
   return traceItems[traceItems.length - 1] || null
 }
 
+const runClientExecutableTool = async (traceItem: any, options: { targetMessageId?: number; originalMessage?: string } = {}) => {
+  const loadingMessage = buildLoadingMessage()
+  appendMessage(loadingMessage)
+  await scrollToBottom()
+  sending.value = true
+  try {
+    const executed = await executeDesktopAiTool(traceItem)
+    if (options.targetMessageId) {
+      const target = messages.value.find((item) => item.id === options.targetMessageId)
+      if (target) {
+        replaceMessage(options.targetMessageId, {
+          ...target,
+          content: executed.reply,
+          tool: executed,
+          toolTrace: [executed],
+          mode: 'desktop_local_execution',
+          needsConfirmation: false
+        })
+      }
+      messages.value = messages.value.filter((item) => item.id !== loadingMessage.id)
+    } else {
+      replaceMessage(loadingMessage.id, {
+        id: loadingMessage.id,
+        role: 'assistant',
+        content: executed.reply,
+        tool: executed,
+        toolTrace: [executed],
+        mode: 'desktop_local_execution',
+        needsConfirmation: false,
+        originalMessage: options.originalMessage
+      })
+    }
+    dispatchAIUiSync({
+      tool: executed,
+      toolTrace: [executed],
+      uiActions: []
+    })
+    await scrollToBottom()
+    return true
+  } catch (error: any) {
+    const errorMessage = error?.message || error?.toString?.() || '桌面端本地执行失败，请稍后重试'
+    if (options.targetMessageId) {
+      const target = messages.value.find((item) => item.id === options.targetMessageId)
+      if (target) {
+        replaceMessage(options.targetMessageId, {
+          ...target,
+          content: errorMessage,
+          needsConfirmation: false
+        })
+      }
+      messages.value = messages.value.filter((item) => item.id !== loadingMessage.id)
+    } else {
+      replaceMessage(loadingMessage.id, {
+        id: loadingMessage.id,
+        role: 'assistant',
+        content: errorMessage,
+        needsConfirmation: false
+      })
+    }
+    await scrollToBottom()
+    return false
+  } finally {
+    sending.value = false
+  }
+}
+
 const buildConfirmationDetailsFromTrace = (item?: ChatItem | null) => {
   const traceItem = getLatestTraceItem(item)
   if (!traceItem) return []
@@ -566,7 +632,7 @@ const submitMessage = async (confirm = false, overrideMessage?: string) => {
       messages.value = messages.value.filter((item) => item.id !== loadingMessage.id)
       return
     }
-    replaceMessage(loadingMessage.id, {
+    const nextMessage = {
       id: loadingMessage.id,
       role: 'assistant',
       content: data.reply || '已处理完成',
@@ -576,7 +642,21 @@ const submitMessage = async (confirm = false, overrideMessage?: string) => {
       needsConfirmation: Boolean(data.needs_confirmation),
       originalMessage: message,
       confirmation: data.confirmation
-    })
+    }
+    replaceMessage(loadingMessage.id, nextMessage)
+    const latestTrace = getLatestTraceItem(nextMessage)
+    if (
+      latestTrace &&
+      !nextMessage.needsConfirmation &&
+      !latestTrace?.result?.blocked &&
+      isClientExecutableDesktopAiTool(latestTrace)
+    ) {
+      await runClientExecutableTool(latestTrace, {
+        targetMessageId: loadingMessage.id,
+        originalMessage: message
+      })
+      return
+    }
     dispatchAIUiSync({
       tool: data.tool,
       toolTrace: data.tool_trace,
@@ -597,46 +677,9 @@ const confirmAction = async (item?: ChatItem) => {
   }
 
   const latestTrace = getLatestTraceItem(item)
-  if (latestTrace && isClientExecutableDesktopAiTool(latestTrace)) {
-    const loadingMessage = buildLoadingMessage()
-    appendMessage(loadingMessage)
-    await scrollToBottom()
-    sending.value = true
-    try {
-      const executed = await executeDesktopAiTool(latestTrace)
-      replaceMessage(item.id, {
-        ...item,
-        needsConfirmation: false
-      })
-      replaceMessage(loadingMessage.id, {
-        id: loadingMessage.id,
-        role: 'assistant',
-        content: executed.reply,
-        tool: executed,
-        toolTrace: [executed],
-        mode: 'desktop_local_execution',
-        needsConfirmation: false,
-        originalMessage: item.originalMessage
-      })
-      dispatchAIUiSync({
-        tool: executed,
-        toolTrace: [executed],
-        uiActions: []
-      })
-      await scrollToBottom()
-      return
-    } catch (error: any) {
-      replaceMessage(loadingMessage.id, {
-        id: loadingMessage.id,
-        role: 'assistant',
-        content: error?.message || error?.toString?.() || '发送失败，请稍后重试',
-        needsConfirmation: false
-      })
-      await scrollToBottom()
-      return
-    } finally {
-      sending.value = false
-    }
+  if (latestTrace && !latestTrace?.result?.blocked && isClientExecutableDesktopAiTool(latestTrace)) {
+    await runClientExecutableTool(latestTrace, { targetMessageId: item.id, originalMessage: item.originalMessage })
+    return
   }
 
   if (!item.originalMessage) {

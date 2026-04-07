@@ -73,11 +73,11 @@ export interface WorkflowStatistics {
 
 class WorkflowService {
   // ==================== 基础工作流管理 ====================
-  
+
   /**
    * 获取工作流列表
    */
-  async getWorkflows(): Promise<{ workflows: WorkflowConfig[], total: number }> {
+  async getWorkflows(): Promise<{ workflows: WorkflowConfig[]; total: number }> {
     const response = await apiClient.get('/workflows/')
     return response.data
   }
@@ -93,7 +93,12 @@ class WorkflowService {
   /**
    * 创建工作流
    */
-  async createWorkflow(workflow: Omit<WorkflowConfig, 'workflow_id' | 'version' | 'author' | 'created_at' | 'updated_at'>): Promise<{ workflow_id: string }> {
+  async createWorkflow(
+    workflow: Omit<
+      WorkflowConfig,
+      'workflow_id' | 'version' | 'author' | 'created_at' | 'updated_at'
+    >
+  ): Promise<{ workflow_id: string }> {
     const response = await apiClient.post('/workflows/', workflow)
     return response.data.data
   }
@@ -115,9 +120,15 @@ class WorkflowService {
   /**
    * 执行工作流（同步）
    */
-  async executeWorkflow(workflowId: string, variables?: Record<string, any>): Promise<any> {
+  async executeWorkflow(
+    workflowId: string,
+    variables?: Record<string, any>,
+    options: { emailId?: number; count?: number } = {}
+  ): Promise<any> {
     const response = await apiClient.post(`/workflows/${workflowId}/execute`, {
-      variables
+      variables,
+      email_id: options.emailId,
+      count: options.count
     })
     return response.data.data
   }
@@ -127,7 +138,9 @@ class WorkflowService {
   /**
    * 调用工作流（异步）
    */
-  async callWorkflow(request: WorkflowCallRequest): Promise<{ call_id: string, status: string, estimated_duration: number }> {
+  async callWorkflow(
+    request: WorkflowCallRequest
+  ): Promise<{ call_id: string; status: string; estimated_duration: number }> {
     const response = await apiClient.post('/workflows/call', request)
     return response.data.data
   }
@@ -155,7 +168,7 @@ class WorkflowService {
     status?: string
     limit?: number
     offset?: number
-  }): Promise<{ calls: WorkflowCallResponse[], total: number }> {
+  }): Promise<{ calls: WorkflowCallResponse[]; total: number }> {
     const response = await apiClient.get('/workflows/calls', { params })
     return response.data.data
   }
@@ -165,7 +178,10 @@ class WorkflowService {
   /**
    * 设置工作流权限
    */
-  async setPermission(workflowId: string, permission: Omit<WorkflowPermission, 'workflow_id'>): Promise<void> {
+  async setPermission(
+    workflowId: string,
+    permission: Omit<WorkflowPermission, 'workflow_id'>
+  ): Promise<void> {
     await apiClient.post(`/workflows/${workflowId}/permissions`, {
       workflow_id: workflowId,
       ...permission
@@ -175,7 +191,7 @@ class WorkflowService {
   /**
    * 获取工作流权限
    */
-  async getPermissions(workflowId: string): Promise<{ workflow_id: string, permissions: any[] }> {
+  async getPermissions(workflowId: string): Promise<{ workflow_id: string; permissions: any[] }> {
     const response = await apiClient.get(`/workflows/${workflowId}/permissions`)
     return response.data.data
   }
@@ -183,7 +199,10 @@ class WorkflowService {
   /**
    * 移除权限
    */
-  async removePermission(workflowId: string, params: { user_id?: string, role?: string }): Promise<void> {
+  async removePermission(
+    workflowId: string,
+    params: { user_id?: string; role?: string }
+  ): Promise<void> {
     await apiClient.delete(`/workflows/${workflowId}/permissions`, { params })
   }
 
@@ -237,7 +256,10 @@ class WorkflowService {
   /**
    * 获取执行历史
    */
-  async getExecutionHistory(workflowId: string, limit = 100): Promise<{ executions: any[], total: number }> {
+  async getExecutionHistory(
+    workflowId: string,
+    limit = 100
+  ): Promise<{ executions: any[]; total: number }> {
     const response = await apiClient.get(`/workflows/${workflowId}/executions`, {
       params: { limit }
     })
@@ -288,7 +310,7 @@ class WorkflowService {
     }
 
     // 统计各种状态的数量
-    calls.calls.forEach(call => {
+    calls.calls.forEach((call) => {
       switch (call.status) {
         case 'running':
           statistics.running++
@@ -314,10 +336,13 @@ class WorkflowService {
   /**
    * 轮询调用状态直到完成
    */
-  async pollCallStatus(callId: string, onUpdate?: (status: WorkflowCallResponse) => void): Promise<WorkflowCallResponse> {
+  async pollCallStatus(
+    callId: string,
+    onUpdate?: (status: WorkflowCallResponse) => void
+  ): Promise<WorkflowCallResponse> {
     const poll = async (): Promise<WorkflowCallResponse> => {
       const status = await this.getCallStatus(callId)
-      
+
       if (onUpdate) {
         onUpdate(status)
       }
@@ -327,7 +352,7 @@ class WorkflowService {
       }
 
       // 等待2秒后继续轮询
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      await new Promise((resolve) => setTimeout(resolve, 2000))
       return poll()
     }
 
@@ -337,10 +362,10 @@ class WorkflowService {
   /**
    * 批量调用工作流
    */
-  async batchCallWorkflows(requests: WorkflowCallRequest[]): Promise<{ call_id: string, status: string }[]> {
-    const results = await Promise.allSettled(
-      requests.map(request => this.callWorkflow(request))
-    )
+  async batchCallWorkflows(
+    requests: WorkflowCallRequest[]
+  ): Promise<{ call_id: string; status: string }[]> {
+    const results = await Promise.allSettled(requests.map((request) => this.callWorkflow(request)))
 
     return results.map((result, index) => {
       if (result.status === 'fulfilled') {

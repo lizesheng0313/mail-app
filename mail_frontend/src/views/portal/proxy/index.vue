@@ -1,335 +1,303 @@
 <template>
   <div>
-    <!-- 顶部导航 -->
     <PageHeader />
-    
-    <div class="p-6">
-    <!-- 页面标题 -->
-    <div class="mb-6">
-      <h1 style="font-size: 14px;" class="font-bold text-black">{{ t('proxyPage.title') }}</h1>
-      <p class="mt-1 text-sm text-black">{{ t('proxyPage.subtitle') }}</p>
-    </div>
 
-    <!-- 统计卡片 -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-      <div class="bg-white rounded-lg shadow p-6">
-        <div class="flex items-center">
-          <div class="flex-shrink-0">
-            <div class="w-8 h-8 bg-primary-100 rounded-lg flex items-center justify-center">
-              <svg class="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-          </div>
-          <div class="ml-4">
-            <p class="text-sm font-medium text-black">{{ t('proxyPage.availableProxies') }}</p>
-            <p style="font-size: 14px;" class="font-semibold text-black">{{ stats.total_proxies || 0 }}</p>
-          </div>
+    <div class="min-h-screen bg-gray-50 px-6 py-8">
+      <div class="mx-auto max-w-7xl space-y-6">
+        <div>
+          <h1 class="text-xl font-bold text-black">{{ t('proxyPage.title') }}</h1>
+          <p class="mt-1 text-sm text-black">这里只管理第三方邮箱代理：默认代理、微软代理和单邮箱覆盖。</p>
         </div>
-      </div>
 
-      <div class="bg-white rounded-lg shadow p-6">
-        <div class="flex items-center">
-          <div class="flex-shrink-0">
-            <div class="w-8 h-8 bg-primary-100 rounded-lg flex items-center justify-center">
-              <svg class="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-              </svg>
+        <section class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+          <div class="border-b border-gray-200 px-6 py-4">
+            <h2 class="text-sm font-semibold text-black">默认规则</h2>
+          </div>
+          <div class="grid gap-4 px-6 py-5 lg:grid-cols-4">
+            <label class="flex items-center gap-2 text-sm text-black">
+              <input v-model="settings.enabled" type="checkbox" class="h-4 w-4 accent-primary-600">
+              启用邮箱代理
+            </label>
+            <label class="flex items-center gap-2 text-sm text-black">
+              <input v-model="settings.fallback_to_direct" type="checkbox" class="h-4 w-4 accent-primary-600">
+              无代理时允许直连
+            </label>
+            <div>
+              <div class="mb-2 text-sm text-black">默认代理</div>
+              <CustomSelect v-model="settings.default_proxy_id" :options="proxyOptions" placeholder="不使用默认代理" />
+            </div>
+            <div>
+              <div class="mb-2 text-sm text-black">微软专用代理</div>
+              <CustomSelect v-model="settings.microsoft_proxy_id" :options="proxyOptions" placeholder="不单独指定" />
             </div>
           </div>
-          <div class="ml-4">
-            <p class="text-sm font-medium text-black">{{ t('proxyPage.dailyUsage') }}</p>
-            <p style="font-size: 14px;" class="font-semibold text-black">{{ stats.daily_usage || 0 }}</p>
+          <div class="border-t border-gray-200 px-6 py-4">
+            <button
+              :disabled="savingSettings"
+              @click="handleSaveSettings"
+              class="inline-flex items-center rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-700 disabled:opacity-50"
+            >
+              {{ savingSettings ? '保存中...' : '保存规则' }}
+            </button>
           </div>
-        </div>
-      </div>
+        </section>
 
-      <div class="bg-white rounded-lg shadow p-6">
-        <div class="flex items-center">
-          <div class="flex-shrink-0">
-            <div class="w-8 h-8 bg-yellow-100 rounded-lg flex items-center justify-center">
-              <svg class="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
+        <section class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+          <div class="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+            <h2 class="text-sm font-semibold text-black">邮箱覆盖</h2>
+            <input
+              v-model="searchKeyword"
+              type="text"
+              placeholder="搜索邮箱"
+              class="w-64 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+              @keyup.enter="loadMailboxes(1)"
+            >
           </div>
-          <div class="ml-4">
-            <p class="text-sm font-medium text-black">{{ t('proxyPage.avgResponse') }}</p>
-            <p style="font-size: 14px;" class="font-semibold text-black">{{ Math.round(stats.avg_response_time || 0) }}ms</p>
-          </div>
-        </div>
-      </div>
 
-      <div class="bg-white rounded-lg shadow p-6">
-        <div class="flex items-center">
-          <div class="flex-shrink-0">
-            <div class="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
-              <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-              </svg>
-            </div>
-          </div>
-          <div class="ml-4">
-            <p class="text-sm font-medium text-black">{{ t('proxyPage.successRate') }}</p>
-            <p style="font-size: 14px;" class="font-semibold text-black">{{ Math.round(stats.success_rate || 0) }}%</p>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- 主要内容区域 -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <!-- 左侧：代理池列表 -->
-      <div class="lg:col-span-2">
-        <div class="bg-white rounded-lg shadow">
-            <div class="px-6 py-4 border-b border-gray-200">
-            <h3 style="font-size: 14px;" class="font-medium text-black">{{ t('proxyPage.poolTitle') }}</h3>
-          </div>
-          <div class="p-6">
-            <div v-if="loading" class="text-center py-8">
-              <div class="inline-flex items-center">
-                <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-primary-500" fill="none" viewBox="0 0 24 24">
-                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                {{ t('proxyPage.loading') }}
-              </div>
-            </div>
-
-            <div v-else-if="proxyPools.length === 0" class="text-center py-8">
-              <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
-              </svg>
-              <h3 class="mt-2 text-sm font-medium text-black">{{ t('proxyPage.noPools') }}</h3>
-              <p class="mt-1 text-sm text-black">{{ t('proxyPage.noPoolsDesc') }}</p>
-            </div>
-
-            <div v-else class="space-y-4">
-              <div
-                v-for="pool in proxyPools"
-                :key="pool.id"
-                class="border border-gray-200 rounded-lg p-4 hover:bg-gray-50"
-              >
-                <div class="flex items-center justify-between">
-                  <div>
-                    <h4 class="text-sm font-medium text-black">{{ pool.pool_name }}</h4>
-                    <p class="text-sm text-black">{{ pool.provider || t('proxyPage.unknownProvider') }}</p>
-                  </div>
-                  <div class="flex items-center space-x-4 text-sm text-black">
-                    <span>{{ pool.pool_type.toUpperCase() }}</span>
-                    <span>{{ t('proxyPage.proxyCount', { count: pool.proxy_count || 0 }) }}</span>
-                    <span
-                      class="inline-flex px-2 py-1 text-xs font-semibold rounded-full"
-                      :class="pool.is_active ? 'bg-primary-100 text-success-800' : 'bg-red-100 text-red-800'"
+          <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-black">邮箱</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-black">当前生效</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-black">覆盖模式</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-black">指定代理</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-black">操作</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-200 bg-white">
+                <tr v-if="loadingMailboxes">
+                  <td colspan="5" class="px-6 py-8 text-center text-sm text-black">加载中...</td>
+                </tr>
+                <tr v-else-if="mailboxRows.length === 0">
+                  <td colspan="5" class="px-6 py-8 text-center text-sm text-black">暂无第三方邮箱</td>
+                </tr>
+                <tr v-for="item in mailboxRows" :key="item.id">
+                  <td class="px-6 py-4 text-sm text-black">
+                    <div class="font-medium">{{ item.email }}</div>
+                    <div class="mt-1 text-xs text-gray-500">
+                      {{ item.oauth_provider || item.provider || '-' }} · {{ item.auth_type || 'password' }}
+                    </div>
+                  </td>
+                  <td class="px-6 py-4 text-sm text-black">
+                    <div>{{ formatEffectiveProxy(item.effective_proxy) }}</div>
+                    <div class="mt-1 text-xs text-gray-500">{{ formatSource(item.effective_proxy?.source) }}</div>
+                  </td>
+                  <td class="px-6 py-4">
+                    <CustomSelect
+                      v-model="rowStates[item.id].proxy_mode"
+                      :options="overrideModeOptions"
+                      placeholder="继承默认规则"
+                    />
+                  </td>
+                  <td class="px-6 py-4">
+                    <CustomSelect
+                      v-model="rowStates[item.id].proxy_id"
+                      :options="proxyOptions"
+                      :disabled="rowStates[item.id].proxy_mode !== 'direct'"
+                      placeholder="选择代理"
+                    />
+                  </td>
+                  <td class="px-6 py-4">
+                    <button
+                      :disabled="savingMailboxId === item.id"
+                      @click="handleSaveMailbox(item.id)"
+                      class="inline-flex items-center rounded-lg border border-gray-300 px-3 py-2 text-sm text-black transition-colors hover:bg-gray-50 disabled:opacity-50"
                     >
-                      {{ pool.is_active ? t('proxyPage.active') : t('proxyPage.inactive') }}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
+                      {{ savingMailboxId === item.id ? '保存中...' : '保存' }}
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
-        </div>
+        </section>
+
+        <section class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+          <div class="border-b border-gray-200 px-6 py-4">
+            <h2 class="text-sm font-semibold text-black">可用代理</h2>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-black">名称</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-black">服务商</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-black">地区</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-black">出口</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-200 bg-white">
+                <tr v-if="proxyOptionsRaw.length === 0">
+                  <td colspan="4" class="px-6 py-8 text-center text-sm text-black">暂无可用代理</td>
+                </tr>
+                <tr v-for="proxy in proxyOptionsRaw" :key="proxy.id">
+                  <td class="px-6 py-4 text-sm text-black">{{ proxy.name || `代理 #${proxy.id}` }}</td>
+                  <td class="px-6 py-4 text-sm text-black">{{ proxy.provider || '-' }}</td>
+                  <td class="px-6 py-4 text-sm text-black">{{ proxy.location || '-' }}</td>
+                  <td class="px-6 py-4 text-sm text-black">{{ proxy.endpoint || '-' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
       </div>
-
-      <!-- 右侧：代理策略设置 -->
-      <div class="lg:col-span-1">
-        <div class="bg-white rounded-lg shadow">
-          <div class="px-6 py-4 border-b border-gray-200">
-            <h3 style="font-size: 14px;" class="font-medium text-black">{{ t('proxyPage.strategyTitle') }}</h3>
-          </div>
-          <div class="p-6">
-            <form @submit.prevent="updateStrategy">
-              <div class="space-y-4">
-                <!-- IP重用策略 -->
-                <div>
-                  <label class="block text-sm font-medium text-black mb-2">
-                    {{ t('proxyPage.ipReusePolicy') }}
-                  </label>
-                  <CustomSelect
-                    v-model="strategy.ip_reuse_policy"
-                    :options="reuseOptions"
-                    :placeholder="t('proxyPage.chooseReusePolicy')"
-                  />
-                </div>
-
-                <!-- 时间间隔设置 -->
-                <div v-if="strategy.ip_reuse_policy === 'time_based'">
-                  <label class="block text-sm font-medium text-black mb-2">
-                    {{ t('proxyPage.reuseIntervalHours') }}
-                  </label>
-                  <input
-                    v-model.number="strategy.reuse_interval_hours"
-                    type="number"
-                    min="1"
-                    max="8760"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-                  >
-                  <p class="mt-1 text-xs text-black">
-                    {{ t('proxyPage.currentDays', { days: Math.round(strategy.reuse_interval_hours / 24) }) }}
-                  </p>
-                </div>
-
-                <!-- 次数限制设置 -->
-                <div v-if="strategy.ip_reuse_policy === 'count_based'">
-                  <label class="block text-sm font-medium text-black mb-2">
-                    {{ t('proxyPage.maxReuseCount') }}
-                  </label>
-                  <input
-                    v-model.number="strategy.max_reuse_count"
-                    type="number"
-                    min="1"
-                    max="100"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-                  >
-                </div>
-
-                <!-- 质量要求 -->
-                <div>
-                  <label class="block text-sm font-medium text-black mb-2">
-                    {{ t('proxyPage.minSuccessRate') }}
-                  </label>
-                  <input
-                    v-model.number="strategy.min_success_rate"
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="0.1"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-                  >
-                </div>
-
-                <!-- 并发限制 -->
-                <div>
-                  <label class="block text-sm font-medium text-black mb-2">
-                    {{ t('proxyPage.concurrentLimit') }}
-                  </label>
-                  <input
-                    v-model.number="strategy.concurrent_limit"
-                    type="number"
-                    min="1"
-                    max="20"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-                  >
-                </div>
-
-                <!-- 每日限制 -->
-                <div>
-                  <label class="block text-sm font-medium text-black mb-2">
-                    {{ t('proxyPage.dailyLimit') }}
-                  </label>
-                  <input
-                    v-model.number="strategy.daily_limit"
-                    type="number"
-                    min="1"
-                    max="10000"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-                  >
-                </div>
-
-                <!-- 保存按钮 -->
-                <div class="pt-4">
-                  <button
-                    type="submit"
-                    :disabled="updating"
-                    class="w-full inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50"
-                  >
-                    {{ updating ? t('proxyPage.saving') : t('proxyPage.save') }}
-                  </button>
-                </div>
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
-    </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import PageHeader from '@/components/PageHeader/index.vue'
 import CustomSelect from '@/components/CustomSelect/index.vue'
-import { proxyApi } from '@/api/proxy'
+import mailboxProxyApi from '@/api/mailboxProxy'
 import { showMessage } from '@/utils/message'
+
 const { t } = useI18n()
 
-// 响应式数据
-const loading = ref(false)
-const updating = ref(false)
-const stats = ref({})
-const proxyPools = ref([])
-const strategy = ref({
-  strategy_name: 'default',
-  ip_reuse_policy: 'time_based',
-  reuse_interval_hours: 72,
-  max_reuse_count: 10,
-  min_success_rate: 80.0,
-  concurrent_limit: 3,
-  daily_limit: 1000
+const savingSettings = ref(false)
+const savingMailboxId = ref(null)
+const loadingMailboxes = ref(false)
+const searchKeyword = ref('')
+
+const settings = ref({
+  enabled: true,
+  fallback_to_direct: true,
+  default_proxy_id: null,
+  microsoft_proxy_id: null
 })
 
-// 重用策略选项
-const reuseOptions = computed(() => [
-  { label: t('proxyPage.noReuse'), value: 'no_reuse' },
-  { label: t('proxyPage.timeBased'), value: 'time_based' },
-  { label: t('proxyPage.countBased'), value: 'count_based' },
-  { label: t('proxyPage.customStrategy'), value: 'custom' }
+const proxyOptionsRaw = ref([])
+const mailboxRows = ref([])
+const rowStates = ref({})
+
+const proxyOptions = computed(() => [
+  { label: '不选择', value: null },
+  ...proxyOptionsRaw.value.map((item) => ({
+    label: item.endpoint ? `${item.name || `代理 #${item.id}`} (${item.endpoint})` : item.name || `代理 #${item.id}`,
+    value: item.id
+  }))
 ])
 
-// 方法
-const fetchStats = async () => {
-  try {
-    const response = await proxyApi.getProxyStats()
-    stats.value = response.data || {}
-  } catch (error) {
-    console.error('获取代理统计失败:', error)
+const overrideModeOptions = [
+  { label: '继承默认规则', value: 'inherit' },
+  { label: '指定代理', value: 'direct' },
+  { label: '禁用代理', value: 'disabled' }
+]
+
+const buildRowState = (item) => ({
+  proxy_mode: item.proxy_mode || 'inherit',
+  proxy_id: item.proxy_id ?? null
+})
+
+const loadOptions = async () => {
+  const response = await mailboxProxyApi.getOptions()
+  const data = response.data || {}
+  settings.value = {
+    enabled: Boolean(data.settings?.enabled),
+    fallback_to_direct: data.settings?.fallback_to_direct !== false,
+    default_proxy_id: data.settings?.default_proxy_id ?? null,
+    microsoft_proxy_id: data.settings?.microsoft_proxy_id ?? null
   }
+  proxyOptionsRaw.value = Array.isArray(data.proxies) ? data.proxies : []
 }
 
-const fetchProxyPools = async () => {
+const loadMailboxes = async (page = 1) => {
   try {
-    loading.value = true
-    const response = await proxyApi.getProxyPools()
-    proxyPools.value = response.data?.pools || []
-  } catch (error) {
-    console.error('获取代理池失败:', error)
-    showMessage(t('proxyPage.loadPoolsFailed'), 'error')
-  } finally {
-    loading.value = false
-  }
-}
-
-const fetchStrategy = async () => {
-  try {
-    const response = await proxyApi.getUserProxyStrategy()
-    if (response.data) {
-      strategy.value = { ...strategy.value, ...response.data }
+    loadingMailboxes.value = true
+    const response = await mailboxProxyApi.getMailboxes({
+      page,
+      page_size: 50,
+      search: searchKeyword.value.trim()
+    })
+    mailboxRows.value = response.data?.items || []
+    const nextStates = {}
+    for (const item of mailboxRows.value) {
+      nextStates[item.id] = buildRowState(item)
     }
+    rowStates.value = nextStates
   } catch (error) {
-    console.error('获取代理策略失败:', error)
-  }
-}
-
-const updateStrategy = async () => {
-  try {
-    updating.value = true
-    await proxyApi.updateUserProxyStrategy(strategy.value)
-    showMessage(t('proxyPage.updateSuccess'), 'success')
-  } catch (error) {
-    console.error('更新代理策略失败:', error)
-    showMessage(t('proxyPage.updateFailed'), 'error')
+    showMessage('加载邮箱代理列表失败', 'error')
   } finally {
-    updating.value = false
+    loadingMailboxes.value = false
   }
 }
 
-// 生命周期
-onMounted(() => {
-  fetchStats()
-  fetchProxyPools()
-  fetchStrategy()
+const handleSaveSettings = async () => {
+  try {
+    savingSettings.value = true
+    const response = await mailboxProxyApi.saveSettings(settings.value)
+    settings.value = {
+      enabled: Boolean(response.data?.enabled),
+      fallback_to_direct: response.data?.fallback_to_direct !== false,
+      default_proxy_id: response.data?.default_proxy_id ?? null,
+      microsoft_proxy_id: response.data?.microsoft_proxy_id ?? null
+    }
+    showMessage('邮箱代理规则已保存', 'success')
+    await loadMailboxes(1)
+  } catch (error) {
+    showMessage('保存邮箱代理规则失败', 'error')
+  } finally {
+    savingSettings.value = false
+  }
+}
+
+const handleSaveMailbox = async (mailboxId) => {
+  const rowState = rowStates.value[mailboxId]
+  if (!rowState) return
+
+  try {
+    savingMailboxId.value = mailboxId
+    const response = await mailboxProxyApi.saveMailboxOverride(mailboxId, rowState)
+    const index = mailboxRows.value.findIndex((item) => item.id === mailboxId)
+    if (index !== -1) {
+      mailboxRows.value[index] = {
+        ...mailboxRows.value[index],
+        proxy_mode: rowState.proxy_mode,
+        proxy_id: rowState.proxy_id,
+        effective_proxy: response.data?.effective_proxy
+          ? {
+              source: response.data.effective_proxy.source,
+              id: response.data.effective_proxy.proxy_id,
+              name: response.data.effective_proxy.name,
+              provider: response.data.effective_proxy.provider,
+              location: response.data.effective_proxy.location,
+              endpoint: response.data.effective_proxy.host && response.data.effective_proxy.port
+                ? `${response.data.effective_proxy.host}:${response.data.effective_proxy.port}`
+                : null
+            }
+          : null
+      }
+    }
+    showMessage('邮箱代理覆盖已保存', 'success')
+  } catch (error) {
+    showMessage('保存邮箱代理覆盖失败', 'error')
+  } finally {
+    savingMailboxId.value = null
+  }
+}
+
+const formatSource = (source) => {
+  const sourceMap = {
+    mailbox_direct: '单邮箱指定',
+    mailbox_disabled: '单邮箱禁用',
+    microsoft_default: '微软默认代理',
+    user_default: '默认代理',
+    disabled: '已关闭',
+    none: '未命中'
+  }
+  return sourceMap[source] || '-'
+}
+
+const formatEffectiveProxy = (effectiveProxy) => {
+  if (!effectiveProxy) return '直连'
+  const label = effectiveProxy.name || `代理 #${effectiveProxy.id}`
+  return effectiveProxy.endpoint ? `${label} · ${effectiveProxy.endpoint}` : label
+}
+
+onMounted(async () => {
+  await loadOptions()
+  await loadMailboxes(1)
 })
 </script>

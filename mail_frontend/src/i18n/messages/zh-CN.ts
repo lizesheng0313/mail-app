@@ -1279,6 +1279,7 @@ const zhCN = {
     emptyDesc: '目前没有找到符合条件的工作流执行记录',
     orderNo: '交易号',
     executor: '执行者',
+    account: '账号',
     triggerEmail: '触发邮件',
     status: '状态',
     duration: '耗时',
@@ -1313,6 +1314,9 @@ const zhCN = {
     loadLogsFailed: '加载执行日志失败',
     executionSuccess: '工作流执行成功',
     retryFailed: '重试工作流失败',
+    accountCount: '共 {count} 个',
+    viewAccount: '查看账号',
+    copyAccount: '复制账号',
     copied: '已复制到剪贴板',
     copyFailed: '复制失败'
   },
@@ -1321,7 +1325,10 @@ const zhCN = {
     successSubtitle: '工作流已完成执行',
     accountTitle: '获取的账号',
     accountData: '账号数据',
+    accountCount: '共 {count} 个',
     copyAllData: '复制全部账号数据',
+    copySingleAccount: '复制此账号',
+    accountItem: '账号 {index}',
     mailboxCreated: '邮箱已创建',
     mailboxHint: '请到首页查看您的邮箱',
     noAccountInfo: '执行成功，但没有返回账号信息',
@@ -1485,7 +1492,9 @@ const zhCN = {
     executeSubscription: '立即执行（订阅后免费）',
     executeOneTime: '立即执行（{price} 奶片）',
     executionHistory: '执行历史',
+    quantityLabel: '数量',
     remainingInventory: '剩余库存：{count}',
+    totalPrice: '合计：{totalPrice} 奶片',
     executingTitle: '工作流执行中...',
     executingSubtitle: '请稍候，正在处理您的请求',
     seoFallbackTitle: '工作流详情',
@@ -1497,14 +1506,23 @@ const zhCN = {
     insufficientCoinsTitle: '奶片余额不足',
     insufficientCoinsMessage:
       '执行此工作流需要 {price} 奶片，您当前余额为 {balance} 奶片。\n\n请前往财务中心充值后再执行。',
+    insufficientCoinsMessageMultiple:
+      '本次要执行 {count} 次，每次 {price} 奶片，共需要 {totalPrice} 奶片，您当前余额为 {balance} 奶片。\n\n请前往财务中心充值后再执行。',
     confirmExecuteTitle: '确认执行',
     confirmExecutePerUse: '立即执行工作流 "{name}" 将扣除 {price} 奶片。确认执行吗？',
+    confirmExecutePerUseMultiple:
+      '立即执行工作流 "{name}" {count} 次，将扣除 {totalPrice} 奶片（{price} 奶片/次）。确认执行吗？',
     confirmExecuteSubscription:
       '立即执行工作流 "{name}"。如果您已订阅，则免费执行；否则需要先订阅。确认执行吗？',
+    confirmExecuteSubscriptionMultiple:
+      '立即执行工作流 "{name}" {count} 次。如果您已订阅，则免费执行；否则需要先订阅。确认执行吗？',
     confirmExecuteDefault: '确认立即执行工作流 "{name}"？',
+    confirmExecuteDefaultMultiple: '确认立即执行工作流 "{name}" {count} 次？',
     executionSuccess: '工作流执行成功',
     executionFailed: '执行失败',
     executionSubmitted: '工作流已提交执行',
+    executionBatchSummary:
+      '已提交 {count} 次执行，完成 {completed} 次，处理中 {submitted} 次，失败 {failed} 次',
     loginBeforeReview: '请先登录后再评论',
     purchaseBeforeReview: '您需要先购买并使用这个工作流才能评论',
     reviewContentRequired: '请输入评价内容',

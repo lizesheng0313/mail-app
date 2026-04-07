@@ -1,44 +1,83 @@
 <template>
-  <div class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-    <div class="relative top-10 mx-auto p-0 border max-w-5xl shadow-lg rounded-lg bg-white">
+  <div class="fixed inset-0 z-[160] flex items-center justify-center bg-gray-600 bg-opacity-50 p-4">
+    <div
+      class="relative w-full max-w-6xl rounded-lg border bg-white p-0 shadow-lg max-h-[90vh] overflow-hidden"
+    >
       <!-- 头部 -->
       <div class="flex items-center justify-between p-6 border-b">
         <h3 class="text-xl font-semibold text-black">
           {{ t('executionHistory.breadcrumb') }}
         </h3>
-        <button
-          @click="$emit('close')"
-          class="text-gray-400 hover:text-black"
-        >
+        <button @click="$emit('close')" class="text-gray-400 hover:text-black">
           <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M6 18L18 6M6 6l12 12"
+            />
           </svg>
         </button>
       </div>
 
       <!-- 内容 -->
-      <div class="p-6">
+      <div class="max-h-[calc(90vh-88px)] overflow-y-auto p-6">
         <AdminDataTable
           :loading="loading"
           :pagination="{ total: total, page: page, pageSize: pageSize, totalPages: totalPages }"
-          :column-count="6"
+          :column-count="7"
           @page-change="changePage"
         >
           <template #thead>
             <tr>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('executionHistory.status') }}</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('executionHistory.orderNo') }}</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('executionHistory.executor') }}</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('executionHistory.startTime') }}</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('executionHistory.duration') }}</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('executionHistory.actions') }}</th>
+              <th
+                class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              >
+                {{ t('executionHistory.status') }}
+              </th>
+              <th
+                class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              >
+                {{ t('executionHistory.orderNo') }}
+              </th>
+              <th
+                class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              >
+                {{ t('executionHistory.executor') }}
+              </th>
+              <th
+                class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              >
+                {{ t('executionHistory.startTime') }}
+              </th>
+              <th
+                class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              >
+                {{ t('executionHistory.duration') }}
+              </th>
+              <th
+                class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              >
+                {{ t('executionHistory.account') }}
+              </th>
+              <th
+                class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              >
+                {{ t('executionHistory.actions') }}
+              </th>
             </tr>
           </template>
           <template #tbody>
             <tr v-if="executions.length === 0">
-              <td colspan="6" class="px-4 py-8 text-center text-gray-500">{{ t('executionHistory.empty') }}</td>
+              <td colspan="7" class="px-4 py-8 text-center text-gray-500">
+                {{ t('executionHistory.empty') }}
+              </td>
             </tr>
-            <tr v-for="execution in executions" :key="execution.execution_id" class="hover:bg-gray-50">
+            <tr
+              v-for="execution in executions"
+              :key="execution.history_key || execution.execution_id"
+              class="hover:bg-gray-50"
+            >
               <td class="px-4 py-3 whitespace-nowrap">
                 <span
                   class="inline-flex px-2 py-1 text-xs font-semibold rounded-full"
@@ -59,23 +98,34 @@
               <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
                 {{ formatDuration(execution.duration) }}
               </td>
-              <td class="px-4 py-3 whitespace-nowrap text-sm">
-                <div class="flex items-center space-x-2">
+              <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                <div
+                  v-if="hasInventoryAccount(execution)"
+                  class="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700"
+                >
+                  {{ t('executionHistory.accountCount', { count: getExecutionAccounts(execution).length }) }}
+                </div>
+                <span v-else>-</span>
+              </td>
+              <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                <div class="flex items-center gap-2">
+                  <button
+                    v-if="hasInventoryAccount(execution)"
+                    type="button"
+                    class="font-medium text-primary-600 hover:text-primary-900"
+                    @click="openAccountDialog(execution)"
+                  >
+                    {{ t('executionHistory.viewAccount') }}
+                  </button>
                   <ActionButton
-                    icon="view"
-                    variant="primary"
-                    size="sm"
-                    :tooltip="t('executionHistory.detailTooltip')"
-                    @click="viewExecutionDetail(execution)"
-                  />
-                  <ActionButton
-                    v-if="execution.status === 'failed' && marketStatus !== 'published'"
+                    v-else-if="execution.status === 'failed' && marketStatus !== 'published'"
                     icon="refresh"
                     variant="warning"
                     size="sm"
                     :tooltip="t('executionHistory.retryTooltip')"
                     @click="retryExecution(execution)"
                   />
+                  <span v-else>-</span>
                 </div>
               </td>
             </tr>
@@ -97,11 +147,10 @@
     @cancel="showRetryConfirm = false"
   />
 
-  <!-- 执行结果弹窗 -->
   <ExecutionResultModal
-    :visible="showResultModal"
-    :execution-data="resultData"
-    @close="showResultModal = false"
+    :visible="showAccountDialog"
+    :execution-data="selectedExecution"
+    @close="showAccountDialog = false"
   />
 </template>
 
@@ -111,9 +160,9 @@ import { useI18n } from 'vue-i18n'
 import { workflowApi } from '@/api/workflow'
 import { showMessage } from '@/utils/message'
 import ConfirmDialog from '@/components/ConfirmDialog/index.vue'
-import ExecutionResultModal from '../ExecutionResultModal/index.vue'
 import ActionButton from '@/components/ActionButton/index.vue'
 import AdminDataTable from '@/components/AdminDataTable/index.vue'
+import ExecutionResultModal from '../ExecutionResultModal/index.vue'
 import { getCurrentLocale } from '@/i18n'
 
 const props = defineProps({
@@ -141,13 +190,11 @@ const executions = computed(() => {
   return allExecutions.value.slice(start, start + pageSize.value)
 })
 
-// 执行结果弹窗
-const showResultModal = ref(false)
-const resultData = ref(null)
-
 // 重试确认对话框
 const showRetryConfirm = ref(false)
 const retryLoading = ref(false)
+const showAccountDialog = ref(false)
+const selectedExecution = ref({})
 const retryConfirmData = ref({
   execution: null,
   price: 0,
@@ -160,10 +207,9 @@ const fetchExecutions = async () => {
     loading.value = true
 
     const response = await workflowApi.getExecutionHistory(props.workflowId, 500)
-    
+
     // 处理两种可能的响应格式
     allExecutions.value = response.data?.executions || response.executions || []
-
   } catch (error) {
     console.error('获取执行历史失败:', error)
     showMessage(t('executionHistory.loadHistoryFailed'), 'error')
@@ -177,15 +223,31 @@ const changePage = (newPage) => {
   page.value = newPage
 }
 
-const viewExecutionDetail = (execution) => {
-  resultData.value = {
-    execution_id: execution.execution_id,
-    status: execution.status,
-    result: execution.result,
-    inventory_account: execution.inventory_account,
-    error_message: execution.error_message
+const getExecutionAccounts = (execution) => {
+  if (Array.isArray(execution?.inventory_accounts) && execution.inventory_accounts.length > 0) {
+    return execution.inventory_accounts.map((item) => String(item ?? '').trim()).filter(Boolean)
   }
-  showResultModal.value = true
+
+  const raw = execution?.inventory_account
+  if (!raw) return []
+
+  const normalized = String(raw).replace(/\r\n/g, '\n').trim()
+  if (!normalized) return []
+
+  return normalized
+    .split(/\n\s*\n/g)
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
+const hasInventoryAccount = (execution) => getExecutionAccounts(execution).length > 0
+
+const openAccountDialog = (execution) => {
+  selectedExecution.value = {
+    ...execution,
+    accounts: getExecutionAccounts(execution).map((account) => ({ account_data: account }))
+  }
+  showAccountDialog.value = true
 }
 
 const retryExecution = async (execution) => {
@@ -194,7 +256,7 @@ const retryExecution = async (execution) => {
     const workflowDetail = await workflowApi.getWorkflow(props.workflowId)
     const pricingModel = workflowDetail.data?.pricing_model
     const price = workflowDetail.data?.price || 0
-    
+
     // 如果是按次付费，需要用户确认扣费
     if (pricingModel === 'pay_per_use' && price > 0) {
       retryConfirmData.value = {
@@ -237,6 +299,7 @@ const getExecutionStatusClass = (status) => {
     created: 'bg-gray-100 text-black',
     running: 'bg-primary-100 text-success-800',
     paused: 'bg-yellow-100 text-yellow-800',
+    completed: 'bg-primary-100 text-success-800',
     success: 'bg-primary-100 text-success-800',
     failed: 'bg-red-100 text-red-800',
     cancelled: 'bg-gray-100 text-black'
@@ -249,6 +312,7 @@ const getExecutionStatusText = (status) => {
     created: t('executionHistory.statusCreated'),
     running: t('executionHistory.statusRunning'),
     paused: t('executionHistory.statusPaused'),
+    completed: t('executionHistory.statusSuccess'),
     success: t('executionHistory.statusSuccess'),
     failed: t('executionHistory.statusFailed'),
     cancelled: t('executionHistory.statusCancelled')

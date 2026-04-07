@@ -136,12 +136,28 @@
                 :id="getEndpointAnchor(group.name, endpoint)"
                 class="scroll-mt-28 space-y-3 px-5 py-4"
               >
-                <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                  <div class="flex items-center gap-3">
+                <div class="space-y-2">
+                  <div class="flex flex-wrap items-center gap-3">
                     <span class="rounded-full bg-gray-900 px-3 py-1 text-xs font-semibold text-white">{{ endpoint.method }}</span>
-                    <code class="text-sm text-primary-700">{{ endpoint.path }}</code>
+                    <h4 class="text-sm font-semibold text-gray-900">{{ endpoint.title || getEndpointLabel(endpoint) }}</h4>
                   </div>
-                  <p class="text-sm text-gray-600">{{ getEndpointDescription(endpoint) }}</p>
+                  <div class="space-y-2">
+                    <div class="space-y-1.5">
+                      <div
+                        v-for="target in getEndpointTargets(endpoint)"
+                        :key="`${endpoint.method}-${endpoint.path}-${target.url}`"
+                        class="flex flex-col gap-1 rounded-xl bg-gray-50 px-3 py-2 md:flex-row md:items-center md:gap-3"
+                      >
+                        <span
+                          :class="target.kind === 'desktop' ? 'bg-emerald-50 text-emerald-700' : 'bg-sky-50 text-sky-700'"
+                          class="inline-flex w-fit rounded-full px-3 py-1 text-xs font-medium"
+                        >
+                          {{ target.label }}
+                        </span>
+                        <code class="block text-sm text-primary-700 break-all">{{ target.url }}</code>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
                 <div class="flex flex-wrap gap-2 text-xs text-gray-500">
@@ -258,6 +274,7 @@ import openPlatformApi from '@/services/openPlatformApi'
 const { t, locale } = useI18n()
 
 type EndpointItem = {
+  title?: string
   method: string
   path: string
   description: string
@@ -283,6 +300,12 @@ type ErrorGroup = {
     message_key: string
     message: string
   }>
+}
+
+type EndpointTarget = {
+  label: string
+  url: string
+  kind: 'desktop' | 'online'
 }
 
 const loading = ref(false)
@@ -499,6 +522,78 @@ const fallbackDocGroups: EndpointGroup[] = [
   }
 ]
 
+const desktopLocalGroup: EndpointGroup = {
+  name: 'desktop-local',
+  description: '桌面应用启动后可直接调用的本机 HTTP 接口。',
+  items: [
+    {
+      title: '本地发信',
+      method: 'POST',
+      path: 'http://127.0.0.1:19199/local-api/v1/smtp/send',
+      description: '',
+      auth: '无需认证（仅 127.0.0.1）',
+      request_example: {
+        from_email: 'sender@example.com',
+        password: 'smtp-password',
+        smtp_host: 'smtp.example.com',
+        smtp_port: 465,
+        to_email: 'receiver@example.com',
+        subject: '测试邮件',
+        content: '这是一封本地 HTTP 发出的测试邮件'
+      },
+      response_example: {
+        code: 0,
+        message: '本地发信成功',
+        data: { success: true }
+      }
+    },
+    {
+      title: '本地验号',
+      method: 'POST',
+      path: 'http://127.0.0.1:19199/local-api/v1/external-mailboxes/verify',
+      description: '',
+      auth: '无需认证（仅 127.0.0.1）',
+      request_example: {
+        email: 'demo@qq.com',
+        password: 'your-password',
+        protocol: 'auto'
+      },
+      response_example: {
+        code: 0,
+        message: '本地验号成功',
+        data: {
+          success: true,
+          protocol: 'imap',
+          host: 'imap.qq.com',
+          port: 993
+        }
+      }
+    },
+    {
+      title: '本地收信',
+      method: 'POST',
+      path: 'http://127.0.0.1:19199/local-api/v1/external-mailboxes/fetch',
+      description: '',
+      auth: '无需认证（仅 127.0.0.1）',
+      request_example: {
+        mailbox_id: 201,
+        email: 'demo@qq.com',
+        token: 'login-token',
+        server_url: 'http://127.0.0.1:8088/mail-api/v1'
+      },
+      response_example: {
+        code: 0,
+        message: '本地收信成功',
+        data: {
+          success: true,
+          count: 3,
+          message: '收取成功，新增 3 封邮件'
+        }
+      }
+    }
+  ]
+}
+
 const docGroupLabelMap: Record<string, string> = {
   mailboxes: 'openPlatform.groups.mailboxes',
   'external-mailboxes': 'openPlatform.groups.externalMailboxes',
@@ -543,12 +638,14 @@ const endpointGroups = computed<EndpointGroup[]>(() => {
 })
 
 const docEndpointGroups = computed<EndpointGroup[]>(() => {
-  return endpointGroups.value
+  const groups = endpointGroups.value
     .map((group) => ({
       ...group,
       items: (group.items || []).filter((item) => {
+        if (group.name === 'desktop-local' || item.execution_mode === 'desktop_local') return true
         const path = String(item.path || '')
         const method = String(item.method || '').toUpperCase()
+        if (path.startsWith('desktop://')) return true
         if (!path.startsWith('/open/v1')) return false
         if (path.startsWith('/open/v1/hosted-domains')) return false
         if (method === 'POST' && path === '/open/v1/external-mailboxes') return false
@@ -556,6 +653,15 @@ const docEndpointGroups = computed<EndpointGroup[]>(() => {
       })
     }))
     .filter((group) => group.items.length > 0 && !['api-keys', 'logs'].includes(group.name))
+
+  const groupsWithoutDesktop = groups.filter((group) => group.name !== 'desktop-local')
+  const smtpIndex = groupsWithoutDesktop.findIndex((group) => group.name === 'smtp-accounts')
+  if (smtpIndex >= 0) {
+    groupsWithoutDesktop.splice(smtpIndex + 1, 0, desktopLocalGroup)
+  } else {
+    groupsWithoutDesktop.push(desktopLocalGroup)
+  }
+  return groupsWithoutDesktop
 })
 
 const errorGroups = computed<ErrorGroup[]>(() => {
@@ -570,16 +676,58 @@ const getEndpointAnchor = (groupName: string, endpoint: EndpointItem) =>
     .replace(/^-+|-+$/g, '')
     .toLowerCase()}`
 const getDocGroupLabel = (name: string, fallback?: string) => {
+  if (name === 'desktop-local') return '桌面本地接口'
   const key = docGroupLabelMap[name]
   return key ? t(key) : fallback || name
 }
+const getDesktopLocalTitle = (endpoint: EndpointItem) => {
+  const path = String(endpoint.path || '')
+  if (path.includes('/local-api/v1/smtp/send') || path.includes('desktop://smtp/send')) return '本地发信'
+  if (path.includes('/local-api/v1/external-mailboxes/verify') || path.includes('desktop://external-mailboxes/verify')) return '本地验号'
+  if (path.includes('/local-api/v1/external-mailboxes/fetch') || path.includes('desktop://external-mailboxes/fetch')) return '本地收信'
+  return '本地接口'
+}
 const getEndpointLabel = (endpoint: EndpointItem) => {
+  if (endpoint.execution_mode === 'desktop_local') return getDesktopLocalTitle(endpoint)
+  if (endpoint.title) return endpoint.title
   const key = `${String(endpoint.method || '').toUpperCase()} ${String(endpoint.path || '')}`
   return endpointLabelMap[key] ? t(endpointLabelMap[key]) : endpoint.description || `${endpoint.method} ${endpoint.path}`
 }
-const getEndpointDescription = (endpoint: EndpointItem) => {
-  const key = `${String(endpoint.method || '').toUpperCase()} ${String(endpoint.path || '')}`
-  return endpointLabelMap[key] ? t(endpointLabelMap[key]) : endpoint.description || '-'
+const getRuntimeOrigin = () => (typeof window !== 'undefined' ? window.location.origin : '')
+const getEndpointTargets = (endpoint: EndpointItem): EndpointTarget[] => {
+  const path = String(endpoint.path || '')
+  if (endpoint.execution_mode === 'desktop_local' || path.startsWith('http://127.0.0.1:19199')) {
+    return [
+      {
+        label: '桌面端地址',
+        url: path.startsWith('http') ? path : `http://127.0.0.1:19199${path}`,
+        kind: 'desktop'
+      }
+    ]
+  }
+
+  if (path.startsWith('/open/v1')) {
+    return [
+      {
+        label: '桌面端地址',
+        url: `http://127.0.0.1:19199${path}`,
+        kind: 'desktop'
+      },
+      {
+        label: '线上地址',
+        url: `${getRuntimeOrigin()}${path}`,
+        kind: 'online'
+      }
+    ]
+  }
+
+  return [
+    {
+      label: '线上地址',
+      url: path,
+      kind: 'online'
+    }
+  ]
 }
 const getAuthModeLabel = (mode?: string) => {
   if (mode === 'api_key') return t('openPlatform.authApiKey')

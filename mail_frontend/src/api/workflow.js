@@ -31,8 +31,15 @@ export const workflowApi = {
   },
 
   // 执行工作流
-  executeWorkflow(workflowId, variables = {}) {
-    return api.post(`/workflows/${workflowId}/execute`, { variables })
+  executeWorkflow(workflowId, variables = {}, options = {}) {
+    const payload = { variables }
+    if (options.emailId) {
+      payload.email_id = options.emailId
+    }
+    if (options.count && options.count > 1) {
+      payload.count = options.count
+    }
+    return api.post(`/workflows/${workflowId}/execute`, payload)
   },
 
   // 获取执行历史
@@ -49,8 +56,8 @@ export const workflowApi = {
 
   // 获取执行日志
   getExecutionLogs(workflowId, executionId) {
-    return api.get(`/workflows/${workflowId}/logs`, { 
-      params: executionId ? { execution_id: executionId } : {} 
+    return api.get(`/workflows/${workflowId}/logs`, {
+      params: executionId ? { execution_id: executionId } : {}
     })
   },
 
