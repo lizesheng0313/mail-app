@@ -15,7 +15,7 @@ export const monitoringAPI = {
   getBusinessStats: (days = 7) => api.get('/monitoring/business-stats', { params: { days } }),
 
   // 获取在线人数
-  getOnlineCount: () => api.get('/online-status/count'),
+  getOnlineCount: () => api.get('/monitoring/online-count'),
 
   // 获取系统健康状态
   getSystemHealth: () => api.get('/monitoring/system-health'),

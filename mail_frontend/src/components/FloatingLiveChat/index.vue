@@ -182,7 +182,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { io, type Socket } from 'socket.io-client'
 
@@ -227,7 +227,6 @@ const messageContainerRef = ref<HTMLElement | null>(null)
 const hasMoreHistory = ref(false)
 
 let socket: Socket | null = null
-let onlineCountTimer: number | null = null
 let historyLoaded = false
 let manualClose = false
 let socketConnecting = false
@@ -331,19 +330,6 @@ const scrollToBottom = async () => {
   element.scrollTop = element.scrollHeight
 }
 
-const refreshOnlineCount = async () => {
-  try {
-    const response: any = await api.get('/online-status/count', {
-      suppressErrorMessage: true
-    })
-    if (response.code === 0) {
-      onlineCount.value = Number(response.data?.online_count || 0)
-    }
-  } catch (error) {
-    console.error('刷新聊天室在线人数失败:', error)
-  }
-}
-
 const loadSummary = async () => {
   if (summaryRequest) return summaryRequest
 
@@ -386,19 +372,6 @@ const markMessagesRead = async (messageId?: number) => {
   } catch {}
 
   unreadCount.value = 0
-}
-
-const startOnlineCountPolling = () => {
-  if (onlineCountTimer) return
-  onlineCountTimer = window.setInterval(() => {
-    void refreshOnlineCount()
-  }, 15000)
-}
-
-const stopOnlineCountPolling = () => {
-  if (!onlineCountTimer) return
-  window.clearInterval(onlineCountTimer)
-  onlineCountTimer = null
 }
 
 const cleanupSocket = () => {
@@ -522,9 +495,6 @@ const connectSocket = async () => {
   const token = localStorage.getItem('token')
   socketConnecting = true
 
-  void refreshOnlineCount()
-  startOnlineCountPolling()
-
   cleanupSocket()
   manualClose = false
   connectionStatus.value = 'connecting'
@@ -642,20 +612,13 @@ watch(
     } else {
       void loadSummary()
     }
-    void refreshOnlineCount()
     void connectSocket()
   },
   { immediate: true }
 )
 
-onMounted(() => {
-  void refreshOnlineCount()
-  startOnlineCountPolling()
-})
-
 onBeforeUnmount(() => {
   cleanupSocket()
-  stopOnlineCountPolling()
 })
 </script>
 
