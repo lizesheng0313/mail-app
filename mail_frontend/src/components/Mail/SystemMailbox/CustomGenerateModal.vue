@@ -77,7 +77,15 @@
               ]"
             >
               <div class="min-w-0 pr-4">
-                <p class="truncate text-base font-medium text-gray-900">{{ domain.domain_name }}</p>
+                <div class="flex items-center gap-2">
+                  <p class="truncate text-base font-medium text-gray-900">{{ domain.domain_name }}</p>
+                  <span
+                    v-if="domain.is_public_domain"
+                    class="inline-flex flex-shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700"
+                  >
+                    {{ t('domainsPage.publicDomainBadge') }}
+                  </span>
+                </div>
                 <p class="mt-1 text-xs text-gray-500">
                   {{ t('home.domainMailboxCount', { count: domain.mailbox_count || 0 }) }}
                 </p>
@@ -300,7 +308,7 @@ const systemDomainOptions = ref<any[]>([])
 const customGenerateBalance = ref(0)
 const domainSearchKeyword = ref('')
 const customGenerateForm = ref({
-  domain_ids: [] as number[],
+  domain_ids: [] as string[],
   quantity: 10,
   generation_mode: 'random',
   custom_prefix: '',
@@ -374,7 +382,7 @@ const domainStrategyOptions = computed(() => [
 const customGeneratePreviewDomain = computed(() => {
   const selectedId = customGenerateForm.value.domain_ids[0]
   const matchedDomain = systemDomainOptions.value.find(
-    (item) => Number(item.id) === Number(selectedId)
+    (item) => String(item.id) === String(selectedId)
   )
   return matchedDomain?.domain_name || 'domain.com'
 })
@@ -416,8 +424,8 @@ const canSubmitCustomGenerate = computed(() => {
 })
 
 const syncCustomGenerateDomainSelection = () => {
-  const availableIds = new Set(systemDomainOptions.value.map((item) => Number(item.id)))
-  const nextIds = customGenerateForm.value.domain_ids.filter((item) => availableIds.has(Number(item)))
+  const availableIds = new Set(systemDomainOptions.value.map((item) => String(item.id)))
+  const nextIds = customGenerateForm.value.domain_ids.filter((item) => availableIds.has(String(item)))
   customGenerateForm.value.domain_ids = nextIds
 }
 
@@ -444,8 +452,8 @@ const loadCustomGenerateResources = async () => {
   }
 }
 
-const toggleCustomDomainSelection = (domainId: number) => {
-  const normalizedId = Number(domainId)
+const toggleCustomDomainSelection = (domainId: string) => {
+  const normalizedId = String(domainId || '').trim()
   if (!normalizedId) return
 
   const exists = customGenerateForm.value.domain_ids.includes(normalizedId)
@@ -455,7 +463,7 @@ const toggleCustomDomainSelection = (domainId: number) => {
 }
 
 const selectAllCustomDomains = () => {
-  customGenerateForm.value.domain_ids = filteredSystemDomainOptions.value.map((item) => Number(item.id))
+  customGenerateForm.value.domain_ids = filteredSystemDomainOptions.value.map((item) => String(item.id))
 }
 
 const clearCustomDomains = () => {

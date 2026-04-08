@@ -1284,6 +1284,9 @@ const resolvePreferredHostedDomainId = () => {
     const selectedMailbox = hostedDomainMailboxes.value.find(
       (item: any) => Number(item.id) === Number(selectedHostedMailboxId.value)
     )
+    if (String(selectedMailbox?.access_mode || '') === 'public_claim') {
+      return null
+    }
     const selectedDomainId = Number(selectedMailbox?.domain_id || 0)
     if (selectedDomainId) {
       return selectedDomainId
@@ -1303,22 +1306,16 @@ const resolvePreferredHostedDomainId = () => {
 }
 
 const generateHostedMailbox = async () => {
-  if (!hostedDomains.value.length) {
-    showMessage(t('home.addDomainFirst'), 'warning')
-    return
-  }
-
   const preferredDomainId = resolvePreferredHostedDomainId()
-  if (!preferredDomainId) {
-    showMessage(t('home.verifyDomainFirst'), 'warning')
-    return
+  const payload: Record<string, any> = {
+    mailbox_type: 'hosted',
+    auto_local_part: true
+  }
+  if (preferredDomainId) {
+    payload.domain_id = preferredDomainId
   }
 
-  const result = await mailboxStore.allocateMailbox({
-    mailbox_type: 'hosted',
-    domain_id: preferredDomainId,
-    auto_local_part: true
-  })
+  const result = await mailboxStore.allocateMailbox(payload)
 
   if (!result.success) {
     showMessage(result.error || t('home.generateMailboxFailed'), 'error')

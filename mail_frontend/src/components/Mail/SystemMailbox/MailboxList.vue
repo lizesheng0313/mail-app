@@ -35,12 +35,34 @@
             :class="isUnavailable(mailbox) ? 'text-red-600 line-through' : 'text-black'"
             class="text-sm truncate flex-shrink"
           >{{ mailbox.email }}</code>
+          <HoverTooltip
+            v-if="props.mailboxType === 'system' && mailbox.is_public_domain"
+            :text="getPublicDomainTooltip(mailbox)"
+          >
+            <span
+              class="px-1.5 py-0.5 text-xs bg-emerald-100 text-emerald-800 rounded whitespace-nowrap flex-shrink-0"
+            >
+              {{ t('systemMailbox.publicDomain') }}
+            </span>
+          </HoverTooltip>
           <span
             v-if="isProtectedHostedCatchAll(mailbox)"
             :title="t('systemMailbox.catchAllTooltip')"
             class="px-1.5 py-0.5 text-xs bg-amber-100 text-amber-800 rounded whitespace-nowrap flex-shrink-0"
           >
             {{ t('systemMailbox.catchAllDefault') }}
+          </span>
+          <span
+            v-if="props.mailboxType === 'hosted' && mailbox.is_public"
+            class="px-1.5 py-0.5 text-xs bg-emerald-100 text-emerald-800 rounded whitespace-nowrap flex-shrink-0"
+          >
+            {{ t('systemMailbox.publicMailbox') }}
+          </span>
+          <span
+            v-if="props.mailboxType === 'hosted' && String(mailbox.access_mode || '') === 'public_claim'"
+            class="px-1.5 py-0.5 text-xs bg-sky-100 text-sky-800 rounded whitespace-nowrap flex-shrink-0"
+          >
+            {{ t('systemMailbox.claimedMailbox') }}
           </span>
           <span v-if="isDeletedHostedDomain(mailbox)" class="px-1 py-0.5 text-xs bg-red-100 text-red-800 rounded whitespace-nowrap flex-shrink-0">{{ t('systemMailbox.domainDeleted') }}</span>
           <span v-else-if="isExpired(mailbox)" class="px-1 py-0.5 text-xs bg-red-100 text-red-800 rounded whitespace-nowrap flex-shrink-0">{{ t('systemMailbox.expired') }}</span>
@@ -141,6 +163,7 @@ import Pagination from '@/components/Pagination/index.vue'
 import ConfirmDialog from '@/components/ConfirmDialog/index.vue'
 import BaseIcon from '@/components/BaseIcon/index.vue'
 import MailboxTags from '@/components/MailboxTags/index.vue'
+import HoverTooltip from '@/components/HoverTooltip/index.vue'
 import { showMessage } from '@/utils/message'
 import { unifiedAPI } from '@/api/unified'
 import { mailboxTagsAPI } from '@/api/mailboxTags'
@@ -230,6 +253,14 @@ const isUnavailable = (mailbox: any) =>
 
 const isProtectedHostedCatchAll = (mailbox: any) =>
   props.mailboxType === 'hosted' && String(mailbox?.local_part || '').trim().toLowerCase() === 'admin'
+
+const getPublicDomainTooltip = (mailbox: any) => {
+  const providerName = String(mailbox?.public_domain_provider_name || '').trim()
+  if (providerName) {
+    return t('systemMailbox.publicDomainProvider', { provider: providerName })
+  }
+  return t('systemMailbox.publicDomainProviderUnknown')
+}
 
 // 批量加载邮箱标签数据
 const loadTagsData = async () => {

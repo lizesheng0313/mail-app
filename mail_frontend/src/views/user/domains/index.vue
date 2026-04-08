@@ -84,7 +84,7 @@
                     stroke-linejoin="round"
                     stroke-width="2"
                     d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                  ></path>
+                  />
                 </svg>
               </div>
               <div
@@ -118,6 +118,12 @@
                 class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full w-fit"
               >
                 {{ domain.is_active ? t('domainsPage.enabled') : t('domainsPage.disabled') }}
+              </span>
+              <span
+                v-if="Boolean(domain.is_public)"
+                class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-emerald-100 text-emerald-800 w-fit"
+              >
+                {{ t('domainsPage.publicDomainBadge') }}
               </span>
               <span
                 v-if="!isDomainDeleted(domain) && isDomainExpired(domain)"
@@ -155,10 +161,6 @@
                 icon="edit"
                 :tooltip="t('domainsPage.edit')"
                 variant="edit"
-                v-if="
-                  !isDomainDeleted(domain) &&
-                  String(domain.verification_status || '').toLowerCase() === 'verified'
-                "
                 @click="openEditModal(domain)"
               />
               <ActionButton
@@ -170,16 +172,6 @@
                   String(domain.verification_status || '').toLowerCase() === 'verified'
                 "
                 @click="toggleDomain(domain)"
-              />
-              <ActionButton
-                icon="eye"
-                :tooltip="t('domainsPage.detail')"
-                variant="view"
-                v-if="
-                  !isDomainDeleted(domain) &&
-                  String(domain.verification_status || '').toLowerCase() !== 'verified'
-                "
-                @click="openDetailModal(domain.id)"
               />
               <ActionButton
                 icon="delete"
@@ -201,11 +193,11 @@
 
     <BaseModal
       v-model="showDomainModal"
-      :title="domainModalTitle"
-      :show-close="Boolean(domainModalDetail)"
-      :show-footer="!domainModalDetail"
-      :show-confirm="!domainModalDetail"
-      :show-cancel="!domainModalDetail"
+      :title="t('domainsPage.addTitle')"
+      :show-close="true"
+      :show-footer="true"
+      :show-confirm="true"
+      :show-cancel="true"
       :confirm-text="creatingDomain ? t('domainsPage.creating') : t('domainsPage.addDomain')"
       :confirm-loading="creatingDomain"
       :confirm-disabled="creatingDomain || !createForm.domain_name.trim()"
@@ -214,7 +206,7 @@
       @close="closeDomainModal"
       @cancel="closeDomainModal"
     >
-      <div v-if="!domainModalDetail" class="space-y-4">
+      <div class="space-y-4">
         <div class="rounded-lg bg-gray-50 px-4 py-3 text-sm leading-6 text-gray-600">
           {{ t('domainsPage.createHint') }}
         </div>
@@ -240,18 +232,19 @@
           :enabled="createForm.catch_all_enabled"
           @update:enabled="createForm.catch_all_enabled = $event"
         />
-      </div>
-
-      <div v-else class="space-y-6">
-        <DomainDetailPanel
-          :key="`${domainDetailRenderKey}-${domainModalDetail?.domain?.id || 'detail'}`"
-          :detail="domainModalDetail"
-          :refreshing="refreshingDomainId === domainModalDetail.domain.id"
-          :catch-all-updating="updatingDetailCatchAll"
-          @refresh="refreshDns"
-          @copy="copyText"
-          @update:catch-all-enabled="updateDetailCatchAll"
-        />
+        <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
+          <input
+            v-model="createForm.is_public"
+            type="checkbox"
+            class="mt-1 h-4 w-4 accent-primary-600"
+          />
+          <div class="min-w-0">
+            <div class="text-sm font-medium text-black">{{ t('domainsPage.publicDomainLabel') }}</div>
+            <p class="mt-1 text-xs leading-5 text-gray-500">
+              {{ t('domainsPage.publicDomainHelp') }}
+            </p>
+          </div>
+        </label>
       </div>
     </BaseModal>
 
@@ -290,6 +283,19 @@
           :show-mailbox-line="true"
           @update:enabled="editForm.catch_all_enabled = $event"
         />
+        <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
+          <input
+            v-model="editForm.is_public"
+            type="checkbox"
+            class="mt-1 h-4 w-4 accent-primary-600"
+          />
+          <div class="min-w-0">
+            <div class="text-sm font-medium text-black">{{ t('domainsPage.publicDomainLabel') }}</div>
+            <p class="mt-1 text-xs leading-5 text-gray-500">
+              {{ t('domainsPage.publicDomainHelp') }}
+            </p>
+          </div>
+        </label>
       </div>
     </BaseModal>
 
@@ -306,8 +312,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AdminDataTable from '@/components/AdminDataTable/index.vue'
 import ActionButton from '@/components/ActionButton/index.vue'
@@ -315,20 +320,16 @@ import BaseInput from '@/components/BaseInput/index.vue'
 import BaseModal from '@/components/BaseModal/index.vue'
 import ConfirmDialog from '@/components/ConfirmDialog/index.vue'
 import CatchAllSettingCard from '@/views/user/domains/components/CatchAllSettingCard.vue'
-import DomainDetailPanel from '@/views/user/domains/components/DomainDetailPanel.vue'
 import { hostedDomainAPI } from '@/api/hostedDomain'
 import { showMessage } from '@/utils/message'
 import { formatTimestamp } from '@/utils/timeUtils.js'
 
-const route = useRoute()
 const { t } = useI18n()
 
 const loading = ref(false)
 const deleting = ref(false)
 const creatingDomain = ref(false)
 const savingEdit = ref(false)
-const refreshingDomainId = ref<number | null>(null)
-const updatingDetailCatchAll = ref(false)
 
 const searchQuery = ref('')
 const domains = ref<any[]>([])
@@ -336,14 +337,13 @@ const showDomainModal = ref(false)
 const showEditModal = ref(false)
 const showDeleteConfirm = ref(false)
 const domainToDelete = ref<any | null>(null)
-const domainModalDetail = ref<any | null>(null)
-const domainDetailRenderKey = ref(0)
 
 const createForm = ref({
   domain_name: '',
   display_name: '',
   expires_at: '',
-  catch_all_enabled: true
+  catch_all_enabled: true,
+  is_public: false
 })
 
 const editForm = ref({
@@ -351,7 +351,8 @@ const editForm = ref({
   domain_name: '',
   display_name: '',
   expires_at: '',
-  catch_all_enabled: false
+  catch_all_enabled: false,
+  is_public: false
 })
 
 const filteredDomains = computed(() => {
@@ -363,10 +364,6 @@ const filteredDomains = computed(() => {
       .includes(keyword)
   )
 })
-
-const domainModalTitle = computed(() =>
-  domainModalDetail.value?.domain ? t('domainsPage.detailTitle') : t('domainsPage.addTitle')
-)
 
 const getVerificationLabel = (status: string) => {
   const normalized = String(status || '').toLowerCase()
@@ -394,33 +391,26 @@ const loadDomains = async () => {
   }
 }
 
-const copyText = async (value: string) => {
-  try {
-    await navigator.clipboard.writeText(value || '')
-    showMessage(t('domainsPage.copySuccess'), 'success')
-  } catch {
-    showMessage(t('domainsPage.copyFailed'), 'error')
-  }
-}
-
 const openCreateModal = () => {
   showDomainModal.value = true
-  domainModalDetail.value = null
-  domainDetailRenderKey.value += 1
-  createForm.value = { domain_name: '', display_name: '', expires_at: '', catch_all_enabled: true }
+  createForm.value = {
+    domain_name: '',
+    display_name: '',
+    expires_at: '',
+    catch_all_enabled: true,
+    is_public: false
+  }
 }
 
 const closeDomainModal = () => {
   showDomainModal.value = false
-  domainModalDetail.value = null
-  domainDetailRenderKey.value += 1
-  createForm.value = { domain_name: '', display_name: '', expires_at: '', catch_all_enabled: true }
-}
-
-const applyDomainDetailToModal = (detail: any) => {
-  domainModalDetail.value = JSON.parse(JSON.stringify(detail))
-  domainDetailRenderKey.value += 1
-  showDomainModal.value = true
+  createForm.value = {
+    domain_name: '',
+    display_name: '',
+    expires_at: '',
+    catch_all_enabled: true,
+    is_public: false
+  }
 }
 
 const handleCreateDomain = async () => {
@@ -434,14 +424,12 @@ const handleCreateDomain = async () => {
       expires_at_ms: createForm.value.expires_at
         ? toEndOfDayMs(createForm.value.expires_at)
         : undefined,
-      catch_all_enabled: createForm.value.catch_all_enabled
+      catch_all_enabled: createForm.value.catch_all_enabled,
+      is_public: createForm.value.is_public
     })
-    if (response.code === 0 && response.data) {
-      domainModalDetail.value = null
-      domainDetailRenderKey.value += 1
-      await nextTick()
-      applyDomainDetailToModal(response.data)
+    if (response.code === 0) {
       showMessage(t('domainsPage.createSuccess'), 'success')
+      closeDomainModal()
       await loadDomains()
     }
   } finally {
@@ -455,7 +443,8 @@ const openEditModal = (domain: any) => {
     domain_name: domain.domain_name || '',
     display_name: domain.display_name || '',
     expires_at: domain.expires_at ? toDateInputValue(domain.expires_at) : '',
-    catch_all_enabled: Boolean(domain.catch_all_enabled)
+    catch_all_enabled: Boolean(domain.catch_all_enabled),
+    is_public: Boolean(domain.is_public)
   }
   showEditModal.value = true
 }
@@ -467,7 +456,8 @@ const closeEditModal = () => {
     domain_name: '',
     display_name: '',
     expires_at: '',
-    catch_all_enabled: false
+    catch_all_enabled: false,
+    is_public: false
   }
 }
 
@@ -478,15 +468,13 @@ const saveEditDomain = async () => {
     const response: any = await hostedDomainAPI.updateDomain(editForm.value.id, {
       display_name: editForm.value.display_name.trim() || null,
       expires_at_ms: editForm.value.expires_at ? toEndOfDayMs(editForm.value.expires_at) : null,
-      catch_all_enabled: editForm.value.catch_all_enabled
+      catch_all_enabled: editForm.value.catch_all_enabled,
+      is_public: editForm.value.is_public
     })
     if (response.code === 0) {
       showMessage(t('domainsPage.updateSuccess'), 'success')
       closeEditModal()
       await loadDomains()
-      if (domainModalDetail.value?.domain?.id === editForm.value.id) {
-        await openDetailModal(editForm.value.id)
-      }
     }
   } finally {
     savingEdit.value = false
@@ -505,9 +493,6 @@ const toggleDomain = async (domain: any) => {
         'success'
       )
       await loadDomains()
-      if (domainModalDetail.value?.domain?.id === domain.id) {
-        await openDetailModal(domain.id)
-      }
     }
   } finally {
     loading.value = false
@@ -525,55 +510,6 @@ const isDomainExpired = (domain: any) => {
   return expiresAt > 0 && expiresAt < Date.now()
 }
 
-const openDetailModal = async (domainId: number) => {
-  showDomainModal.value = true
-  domainModalDetail.value = null
-  domainDetailRenderKey.value += 1
-  try {
-    const response: any = await hostedDomainAPI.getDomainDetail(domainId)
-    if (response.code === 0 && response.data) {
-      applyDomainDetailToModal(response.data)
-    }
-  } catch {
-    closeDomainModal()
-  }
-}
-
-const refreshDns = async (domainId: number) => {
-  refreshingDomainId.value = domainId
-  try {
-    const response: any = await hostedDomainAPI.refreshDns(domainId)
-    if (response.code === 0 && response.data) {
-      applyDomainDetailToModal(response.data)
-      await loadDomains()
-    }
-  } finally {
-    refreshingDomainId.value = null
-  }
-}
-
-const updateDetailCatchAll = async (enabled: boolean) => {
-  const domainId = Number(domainModalDetail.value?.domain?.id || 0)
-  if (!domainId || updatingDetailCatchAll.value) return
-
-  updatingDetailCatchAll.value = true
-  try {
-    const response: any = await hostedDomainAPI.updateDomain(domainId, {
-      catch_all_enabled: enabled
-    })
-    if (response.code === 0 && response.data) {
-      domainModalDetail.value = response.data
-      showMessage(
-        enabled ? t('domainsPage.catchAllEnabled') : t('domainsPage.catchAllDisabled'),
-        'success'
-      )
-      await loadDomains()
-    }
-  } finally {
-    updatingDetailCatchAll.value = false
-  }
-}
-
 const openDeleteDialog = (domain: any) => {
   domainToDelete.value = domain
   showDeleteConfirm.value = true
@@ -588,9 +524,6 @@ const confirmDeleteDomain = async () => {
     if (response.code === 0) {
       showMessage(t('domainsPage.deleteSuccess'), 'success')
       showDeleteConfirm.value = false
-      if (domainModalDetail.value?.domain?.id === domainToDelete.value.id) {
-        closeDomainModal()
-      }
       domainToDelete.value = null
       await loadDomains()
     }
@@ -603,21 +536,7 @@ const applyFilters = () => {
   // 当前仅前端筛选，保留这个方法让交互和其它列表一致
 }
 
-watch(
-  () => route.query.domainId,
-  async (value) => {
-    const domainId = Number(value || 0)
-    if (domainId > 0) {
-      await openDetailModal(domainId)
-    }
-  }
-)
-
 onMounted(async () => {
   await loadDomains()
-  const domainId = Number(route.query.domainId || 0)
-  if (domainId > 0) {
-    await openDetailModal(domainId)
-  }
 })
 </script>

@@ -27,6 +27,9 @@ export interface Mailbox {
   created_at: string
   expires_at?: string
   last_checked_at?: string
+  is_public_domain?: boolean
+  public_domain_provider_user_id?: number
+  public_domain_provider_name?: string
 }
 
 export interface Email {

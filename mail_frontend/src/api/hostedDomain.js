@@ -8,6 +8,8 @@ export const hostedDomainAPI = {
   deleteDomain: (domainId) => api.delete(`/hosted-domains/${domainId}`),
   refreshDns: (domainId) => api.post(`/hosted-domains/${domainId}/refresh-dns`),
   createMailbox: (domainId, data) => api.post(`/hosted-domains/${domainId}/mailboxes`, data),
+  updateMailbox: (domainId, mailboxId, data) =>
+    api.put(`/hosted-domains/${domainId}/mailboxes/${mailboxId}`, data),
   deleteMailbox: (domainId, mailboxId) =>
     api.delete(`/hosted-domains/${domainId}/mailboxes/${mailboxId}`)
 }

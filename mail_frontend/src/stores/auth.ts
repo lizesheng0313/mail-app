@@ -17,6 +17,7 @@ export const useMailboxStore = defineStore('mailbox', () => {
   const searchKeyword = ref('')
 
   const normalizeMailbox = (mailbox: any): Mailbox => ({
+    ...mailbox,
     id: mailbox.id,
     email: mailbox.email,
     created_at: mailbox.created_at,

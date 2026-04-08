@@ -721,7 +721,38 @@ const en = {
     recordNotPassed: 'Failed',
     recordNotMatched: 'Record does not match',
     waitingVerify: 'Waiting for verification',
-    yourDomain: 'your-domain'
+    yourDomain: 'your-domain',
+    mailboxTitle: 'Domain Mailboxes',
+    mailboxPublicHint:
+      'Create or edit domain mailboxes here. If you mark one as public, it joins the shared pool and other users may receive it when generating a domain mailbox.',
+    addMailbox: 'Add Mailbox',
+    addMailboxTitle: 'Add Domain Mailbox',
+    editMailbox: 'Edit Mailbox',
+    editMailboxTitle: 'Edit Domain Mailbox',
+    deleteMailbox: 'Delete Mailbox',
+    deleteMailboxTitle: 'Delete Domain Mailbox',
+    deleteMailboxMessage: 'Delete mailbox [{name}]?',
+    mailboxLocalPart: 'Mailbox local part',
+    mailboxLocalPartPlaceholder: 'For example support',
+    mailboxPendingLocalPart: 'mailbox',
+    mailboxPreview: 'Address: {email}',
+    mailboxDisplayName: 'Display name',
+    mailboxEmpty: 'No mailbox has been created for this domain yet',
+    mailboxCreateSuccess: 'Domain mailbox created successfully',
+    mailboxUpdateSuccess: 'Domain mailbox updated successfully',
+    mailboxDeleteSuccess: 'Domain mailbox deleted successfully',
+    publicMailboxLabel: 'Public mailbox',
+    publicMailboxHelp:
+      'When enabled, this mailbox joins the shared pool and follows the temporary-mailbox style claim flow for other users.',
+    publicMailboxWarning:
+      'Public mailboxes can be claimed by other users, so do not use a private address here.',
+    publicMailboxDisabledHint: 'The default catch-all mailbox cannot be public.',
+    publicMailboxBadge: 'Public',
+    catchAllDefaultBadge: 'Catch-all',
+    publicDomainLabel: 'Public domain',
+    publicDomainHelp:
+      'When enabled, the whole domain joins the shared pool, and other users can generate domain mailboxes under it just like the temporary-mailbox flow.',
+    publicDomainBadge: 'Public Domain'
   },
   purchasesPage: {
     allTransactions: 'All Transactions',
@@ -837,6 +868,11 @@ const en = {
   systemMailbox: {
     catchAllTooltip: 'Unmatched addresses go to this mailbox by default',
     catchAllDefault: 'Default catch-all',
+    publicDomain: 'Public domain',
+    publicDomainProvider: 'Provided by {provider}',
+    publicDomainProviderUnknown: 'Public domain',
+    publicMailbox: 'Public',
+    claimedMailbox: 'Claimed',
     domainDeleted: 'Domain deleted',
     expired: 'Expired',
     moreActions: 'More actions',
