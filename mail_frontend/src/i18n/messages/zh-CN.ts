@@ -1838,11 +1838,11 @@ const zhCN = {
     duplicateSkipped: '跳过 {count} 个重复账号',
     addFailed: '添加库存失败',
     placeholderSingle:
-      '# 单行模式 - 每行一个账号\n\nuser1:pass1\nuser2:pass2\ntoken123\naccount@example.com|password456',
+      '# 单行模式 - 每行一个账号\n\nuser1:pass1\nuser2:pass2\ntoken123\naccount(at)example.com|password456',
     placeholderMultiline:
-      '# 多行组模式 - 每{lines}行算一个账号\n\n邮箱: user@mail.com\n密码: password123\n备注: VIP账号\n账号: test\ntoken: abc123\n有效期: 2025-12-31\n用户名: admin\n密码: admin888\n状态: active\n\n提示: 上面共9行，按照当前配置每{lines}行算一个账号',
+      '# 多行组模式 - 每{lines}行算一个账号\n\n邮箱: user(at)mail.com\n密码: password123\n备注: VIP账号\n账号: test\ntoken: abc123\n有效期: 2025-12-31\n用户名: admin\n密码: admin888\n状态: active\n\n提示: 上面共9行，按照当前配置每{lines}行算一个账号',
     placeholderSeparator:
-      '# 分隔符模式 - 使用 \"{separator}\" 作为分隔符\n\n账号: admin\n密码: admin123\n状态: active\n{separator}\n邮箱: user@test.com\n密码: pass456\n备注: 测试账号\n{separator}\n用户: demo\ntoken: xyz789\n{separator}\n\n提示: 每个 \"{separator}\" 之间的内容算一个账号，分隔符必须完全一致',
+      '# 分隔符模式 - 使用 \"{separator}\" 作为分隔符\n\n账号: admin\n密码: admin123\n状态: active\n{separator}\n邮箱: user(at)test.com\n密码: pass456\n备注: 测试账号\n{separator}\n用户: demo\ntoken: xyz789\n{separator}\n\n提示: 每个 \"{separator}\" 之间的内容算一个账号，分隔符必须完全一致',
     copySuccess: '账号数据已复制到剪贴板',
     copyFailed: '复制失败，请手动复制',
     deleteSuccess: '删除成功',

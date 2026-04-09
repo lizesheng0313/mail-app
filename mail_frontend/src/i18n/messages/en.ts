@@ -1880,11 +1880,11 @@ const en = {
     duplicateSkipped: 'Skipped {count} duplicate accounts',
     addFailed: 'Failed to add inventory',
     placeholderSingle:
-      '# Single-line mode - one account per line\n\nuser1:pass1\nuser2:pass2\ntoken123\naccount@example.com|password456',
+      '# Single-line mode - one account per line\n\nuser1:pass1\nuser2:pass2\ntoken123\naccount(at)example.com|password456',
     placeholderMultiline:
-      '# Grouped lines mode - every {lines} lines is one account\n\nEmail: user@mail.com\nPassword: password123\nNote: VIP account\nAccount: test\nToken: abc123\nExpires: 2025-12-31\nUsername: admin\nPassword: admin888\nStatus: active\n\nTip: there are 9 lines above, and with the current setting every {lines} lines form one account',
+      '# Grouped lines mode - every {lines} lines is one account\n\nEmail: user(at)mail.com\nPassword: password123\nNote: VIP account\nAccount: test\nToken: abc123\nExpires: 2025-12-31\nUsername: admin\nPassword: admin888\nStatus: active\n\nTip: there are 9 lines above, and with the current setting every {lines} lines form one account',
     placeholderSeparator:
-      '# Separator mode - use "{separator}" as the separator\n\nAccount: admin\nPassword: admin123\nStatus: active\n{separator}\nEmail: user@test.com\nPassword: pass456\nNote: test account\n{separator}\nUser: demo\nToken: xyz789\n{separator}\n\nTip: the content between each "{separator}" is treated as one account, and the separator must match exactly',
+      '# Separator mode - use "{separator}" as the separator\n\nAccount: admin\nPassword: admin123\nStatus: active\n{separator}\nEmail: user(at)test.com\nPassword: pass456\nNote: test account\n{separator}\nUser: demo\nToken: xyz789\n{separator}\n\nTip: the content between each "{separator}" is treated as one account, and the separator must match exactly',
     copySuccess: 'Account data copied to clipboard',
     copyFailed: 'Copy failed, please copy manually',
     deleteSuccess: 'Deleted successfully',

@@ -6,7 +6,7 @@
   "identifier": "com.mailservice.desktop",
   "build": {
     "frontendDist": "../../mail_frontend/dist",
-    "devUrl": "http://localhost:9998",
+    "devUrl": "http://localhost:9996",
     "beforeDevCommand": "cd ../mail_frontend && pnpm dev",
     "beforeBuildCommand": "cd ../mail_frontend && pnpm build"
   },
@@ -24,7 +24,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self' ipc: http://ipc.localhost; connect-src 'self' ipc: http://ipc.localhost http://localhost:8088 ws://localhost:8088 https://zjkdongao.cn https://*.zjkdongao.cn wss://zjkdongao.cn wss://*.zjkdongao.cn; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:;"
+      "csp": "default-src 'self' ipc: http://ipc.localhost; connect-src 'self' ipc: http://ipc.localhost http://localhost:9996 ws://localhost:9996 http://localhost:8088 ws://localhost:8088 https://zjkdongao.cn https://*.zjkdongao.cn wss://zjkdongao.cn wss://*.zjkdongao.cn; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:;"
     }
   },
   "bundle": {

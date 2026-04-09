@@ -1837,11 +1837,11 @@ const zhTW = {
     duplicateSkipped: '跳過 {count} 個重複帳號',
     addFailed: '添加庫存失敗',
     placeholderSingle:
-      '# 單行模式 - 每行一個帳號\n\nuser1:pass1\nuser2:pass2\ntoken123\naccount@example.com|password456',
+      '# 單行模式 - 每行一個帳號\n\nuser1:pass1\nuser2:pass2\ntoken123\naccount(at)example.com|password456',
     placeholderMultiline:
-      '# 多行組模式 - 每{lines}行算一個帳號\n\n郵箱: user@mail.com\n密碼: password123\n備註: VIP帳號\n帳號: test\ntoken: abc123\n有效期: 2025-12-31\n用戶名: admin\n密碼: admin888\n狀態: active\n\n提示: 上面共9行，按照目前配置每{lines}行算一個帳號',
+      '# 多行組模式 - 每{lines}行算一個帳號\n\n郵箱: user(at)mail.com\n密碼: password123\n備註: VIP帳號\n帳號: test\ntoken: abc123\n有效期: 2025-12-31\n用戶名: admin\n密碼: admin888\n狀態: active\n\n提示: 上面共9行，按照目前配置每{lines}行算一個帳號',
     placeholderSeparator:
-      '# 分隔符模式 - 使用 \"{separator}\" 作為分隔符\n\n帳號: admin\n密碼: admin123\n狀態: active\n{separator}\n郵箱: user@test.com\n密碼: pass456\n備註: 測試帳號\n{separator}\n用戶: demo\ntoken: xyz789\n{separator}\n\n提示: 每個 \"{separator}\" 之間的內容算一個帳號，分隔符必須完全一致',
+      '# 分隔符模式 - 使用 \"{separator}\" 作為分隔符\n\n帳號: admin\n密碼: admin123\n狀態: active\n{separator}\n郵箱: user(at)test.com\n密碼: pass456\n備註: 測試帳號\n{separator}\n用戶: demo\ntoken: xyz789\n{separator}\n\n提示: 每個 \"{separator}\" 之間的內容算一個帳號，分隔符必須完全一致',
     copySuccess: '帳號資料已複製到剪貼簿',
     copyFailed: '複製失敗，請手動複製',
     deleteSuccess: '刪除成功',
