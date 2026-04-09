@@ -1,9 +1,9 @@
 <template>
-  <div class="h-full overflow-y-auto pr-1">
-    <div class="mx-auto max-w-4xl pb-1">
+  <div class="scrollbar-stable h-full overflow-y-auto pr-1">
+    <div class="mx-auto max-w-4xl space-y-4 pb-6">
       <div
         v-if="!isDesktop"
-        class="mb-4 flex items-center gap-2 rounded-2xl bg-amber-50 px-4 py-3 text-amber-700"
+        class="flex items-center gap-3 rounded-3xl border border-amber-200 bg-amber-50 px-5 py-4 text-amber-700 shadow-sm"
       >
         <svg class="h-5 w-5 shrink-0 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
@@ -11,41 +11,9 @@
         <span class="text-sm">批量发送邮件功能仅支持桌面客户端，请下载并使用桌面端。</span>
       </div>
 
-      <div class="mb-3 flex flex-col gap-2 rounded-xl bg-slate-50 px-3 py-2.5 md:flex-row md:items-start md:justify-between">
-        <div class="min-w-0">
-          <p class="text-sm font-medium text-slate-800">批量发送提示</p>
-          <p class="mt-0.5 text-sm leading-5 text-slate-600">
-            仅使用左侧选中且已配置 SMTP 的邮箱发件；单个邮箱固定发送，多个邮箱按选择顺序轮流发送。
-          </p>
-          <div class="mt-1.5 flex flex-wrap items-center gap-1.5">
-            <span class="text-sm text-slate-500">发件邮箱</span>
-            <span
-              v-for="account in selectedExternalAccounts"
-              :key="account.id"
-              class="rounded-full border px-2 py-0.5 text-sm leading-5"
-              :class="activeSmtpEmailMap.has(account.email) ? 'border-primary-200 bg-white text-primary-700' : 'border-gray-200 bg-gray-100 text-gray-400'"
-            >
-              {{ account.email }}
-            </span>
-            <span v-if="selectedExternalAccounts.length === 0" class="text-sm text-gray-400">
-              暂未选择
-            </span>
-          </div>
-        </div>
-        <button
-          @click="openSentModal"
-          class="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700 transition-colors hover:border-primary-300 hover:text-primary-600"
-        >
-          <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-          </svg>
-          已发送列表
-        </button>
-      </div>
-
       <div
         v-if="selectedAccountIds.length === 0"
-        class="flex min-h-[320px] flex-col items-center justify-center text-center text-gray-400"
+        class="flex min-h-[360px] flex-col items-center justify-center rounded-[28px] border border-dashed border-gray-200 bg-white text-center text-gray-400 shadow-sm"
       >
         <svg class="mb-4 h-12 w-12 text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
@@ -53,16 +21,17 @@
         <p class="text-sm">请从左侧邮箱列表选择发件账号以开始写信</p>
       </div>
 
-      <div v-else class="space-y-4">
-        <div>
-          <div class="mb-1.5 flex items-center justify-between">
-            <label class="block text-sm font-medium text-gray-700">
-              收件人 <span class="text-red-500">*</span>
-            </label>
-            <div class="flex items-center gap-2">
+      <section v-else class="rounded-[28px] border border-gray-200 bg-white shadow-sm">
+        <div class="border-b border-gray-100 px-5 py-4 sm:px-6">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p class="text-base font-semibold text-gray-900">写邮件</p>
+              <p class="mt-1 text-sm text-gray-500">收件人、附件和正文都在这里一次处理完。</p>
+            </div>
+            <div class="flex flex-wrap gap-2">
               <button
                 @click="downloadTemplate"
-                class="flex items-center gap-1 rounded px-2.5 py-1 text-sm text-gray-500 transition-colors hover:bg-primary-50 hover:text-primary-600"
+                class="inline-flex items-center gap-1 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-600 transition-colors hover:border-primary-200 hover:bg-primary-50 hover:text-primary-700"
               >
                 <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
@@ -71,7 +40,7 @@
               </button>
               <button
                 @click="triggerImport"
-                class="flex items-center gap-1 rounded px-2.5 py-1 text-sm text-primary-600 transition-colors hover:bg-primary-50 hover:text-primary-700"
+                class="inline-flex items-center gap-1 rounded-xl border border-primary-200 bg-primary-50 px-3 py-2 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-100"
               >
                 <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
@@ -87,90 +56,121 @@
               />
             </div>
           </div>
-          <div
-            class="flex min-h-[38px] flex-wrap items-center gap-1.5 rounded-lg border border-gray-300 px-2 py-1.5 transition-colors focus-within:border-primary-500 focus-within:ring-2 focus-within:ring-primary-500"
-            @click="recipientInputRef?.focus()"
-          >
-            <span
-              v-for="(email, index) in recipients"
-              :key="index"
-              class="inline-flex items-center gap-1 rounded-full bg-primary-50 border border-primary-200 px-2.5 py-0.5 text-sm text-primary-700"
-            >
-              {{ email }}
-              <button
-                type="button"
-                class="ml-0.5 text-primary-400 hover:text-red-500 transition-colors"
-                @click.stop="removeRecipient(index)"
+        </div>
+
+        <div class="space-y-6 px-5 py-5 sm:px-6">
+          <div>
+            <div class="mb-1.5 flex items-center justify-between gap-3">
+              <label class="block text-sm font-medium text-gray-700">发件人</label>
+              <span class="text-xs text-gray-400">
+                {{ activeSmtpAccounts.length > 1 ? '多个发件人会按顺序轮流发送' : '当前使用选中的发件邮箱发送' }}
+              </span>
+            </div>
+            <div class="flex min-h-[52px] flex-wrap items-center gap-2 rounded-2xl border border-gray-200 bg-gray-50 px-3 py-2">
+              <span
+                v-for="account in selectedExternalAccounts"
+                :key="account.id"
+                class="rounded-full border px-3 py-1 text-sm"
+                :class="activeSmtpEmailMap.has(normalizeSmtpEmail(account.email)) ? 'border-primary-200 bg-white text-primary-700 shadow-sm' : 'border-gray-200 bg-gray-100 text-gray-400'"
               >
-                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </span>
-            <input
-              ref="recipientInputRef"
-              v-model="recipientInput"
-              type="text"
-              :placeholder="recipients.length === 0 ? '输入邮箱后按回车添加' : ''"
-              class="min-w-[120px] flex-1 border-none bg-transparent p-0 text-sm outline-none focus:ring-0"
-              @keydown="handleRecipientKeydown"
-              @blur="commitRecipientInput"
-              @paste="handleRecipientPaste"
-            />
+                {{ account.email }}
+              </span>
+              <span v-if="selectedExternalAccounts.length === 0" class="text-sm text-gray-400">
+                暂未选择发件邮箱
+              </span>
+            </div>
           </div>
-          <p v-if="importCount > 0" class="mt-1 text-sm text-green-600">
-            已导入 {{ importCount }} 个收件人
-          </p>
-        </div>
 
-        <div v-if="showCcBcc" class="grid grid-cols-1 gap-3 md:grid-cols-2">
           <div>
-            <label class="mb-1 block text-sm font-medium text-gray-700">抄送</label>
-            <input
-              v-model="form.cc"
-              type="text"
-              placeholder="CC"
-              class="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-primary-500 focus:ring-2 focus:ring-primary-500"
-            />
+            <div class="mb-1.5 flex items-center justify-between">
+              <label class="block text-sm font-medium text-gray-700">
+                收件人 <span class="text-red-500">*</span>
+              </label>
+              <span class="text-xs text-gray-400">回车、Tab、逗号可快速录入</span>
+            </div>
+            <div
+              class="flex min-h-[52px] flex-wrap items-center gap-2 rounded-2xl border border-gray-200 bg-gray-50 px-3 py-2 transition-colors focus-within:border-primary-400 focus-within:bg-white focus-within:ring-4 focus-within:ring-primary-50"
+              @click="recipientInputRef?.focus()"
+            >
+              <span
+                v-for="(email, index) in recipients"
+                :key="index"
+                class="inline-flex items-center gap-1 rounded-full border border-primary-200 bg-white px-3 py-1 text-sm text-primary-700 shadow-sm"
+              >
+                {{ email }}
+                <button
+                  type="button"
+                  class="ml-0.5 text-primary-400 transition-colors hover:text-red-500"
+                  @click.stop="removeRecipient(index)"
+                >
+                  <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </span>
+              <input
+                ref="recipientInputRef"
+                v-model="recipientInput"
+                type="text"
+                :placeholder="recipients.length === 0 ? '输入邮箱后按回车添加' : ''"
+                class="min-w-[160px] flex-1 border-none bg-transparent p-0 text-sm outline-none focus:ring-0"
+                @keydown="handleRecipientKeydown"
+                @blur="commitRecipientInput"
+                @paste="handleRecipientPaste"
+              />
+            </div>
+            <p v-if="importCount > 0" class="mt-2 text-sm text-emerald-600">
+              已导入 {{ importCount }} 个收件人
+            </p>
           </div>
+
+          <div v-if="showCcBcc" class="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <div>
+              <label class="mb-1 block text-sm font-medium text-gray-700">抄送</label>
+              <input
+                v-model="form.cc"
+                type="text"
+                placeholder="CC"
+                class="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm focus:border-primary-400 focus:bg-white focus:ring-4 focus:ring-primary-50"
+              />
+            </div>
+            <div>
+              <label class="mb-1 block text-sm font-medium text-gray-700">密送</label>
+              <input
+                v-model="form.bcc"
+                type="text"
+                placeholder="BCC"
+                class="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm focus:border-primary-400 focus:bg-white focus:ring-4 focus:ring-primary-50"
+              />
+            </div>
+          </div>
+
+          <button
+            v-else
+            @click="showCcBcc = true"
+            class="inline-flex items-center rounded-xl px-2 py-1 text-sm text-primary-700 transition-colors hover:bg-primary-50"
+          >
+            + 添加抄送/密送
+          </button>
+
           <div>
-            <label class="mb-1 block text-sm font-medium text-gray-700">密送</label>
+            <label class="mb-1 block text-sm font-medium text-gray-700">
+              主题 <span class="text-red-500">*</span>
+            </label>
             <input
-              v-model="form.bcc"
+              v-model="form.subject"
               type="text"
-              placeholder="BCC"
-              class="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-primary-500 focus:ring-2 focus:ring-primary-500"
+              placeholder="请输入邮件主题"
+              class="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm focus:border-primary-400 focus:bg-white focus:ring-4 focus:ring-primary-50"
             />
           </div>
-        </div>
 
-        <button
-          v-else
-          @click="showCcBcc = true"
-          class="text-sm text-gray-500 transition-colors hover:text-gray-700"
-        >
-          + 添加抄送/密送
-        </button>
-
-        <div>
-          <label class="mb-1 block text-sm font-medium text-gray-700">
-            主题 <span class="text-red-500">*</span>
-          </label>
-          <input
-            v-model="form.subject"
-            type="text"
-            placeholder="请输入邮件主题"
-            class="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-primary-500 focus:ring-2 focus:ring-primary-500"
-          />
-        </div>
-
-        <div>
-          <div class="mb-1.5 flex items-center justify-between">
-            <label class="block text-sm font-medium text-gray-700">附件</label>
-            <div class="flex items-center gap-2">
+          <div>
+            <div class="mb-1.5 flex items-center justify-between">
+              <label class="block text-sm font-medium text-gray-700">附件</label>
               <button
                 @click="triggerAttachmentSelect"
-                class="flex items-center gap-1 rounded px-2.5 py-1 text-sm text-primary-600 transition-colors hover:bg-primary-50 hover:text-primary-700"
+                class="inline-flex items-center gap-1 rounded-xl px-3 py-2 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-50"
               >
                 <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828L18 9.828a4 4 0 10-5.656-5.656L4.929 11.586a6 6 0 108.485 8.485L20 13" />
@@ -185,136 +185,86 @@
                 @change="handleAttachmentSelect"
               />
             </div>
-          </div>
-          <div v-if="attachments.length > 0" class="flex flex-wrap gap-2">
-            <div
-              v-for="(attachment, index) in attachments"
-              :key="`${attachment.name}-${attachment.size}-${index}`"
-              class="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-sm text-gray-600"
-            >
-              <span class="max-w-[220px] truncate">{{ attachment.name }}</span>
-              <span class="text-gray-400">{{ formatFileSize(attachment.size) }}</span>
-              <button
-                @click="removeAttachment(index)"
-                class="text-gray-400 transition-colors hover:text-red-500"
+            <div v-if="attachments.length > 0" class="flex flex-wrap gap-2">
+              <div
+                v-for="(attachment, index) in attachments"
+                :key="`${attachment.name}-${attachment.size}-${index}`"
+                class="flex items-center gap-2 rounded-2xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600"
               >
-                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+                <span class="max-w-[220px] truncate">{{ attachment.name }}</span>
+                <span class="text-gray-400">{{ formatFileSize(attachment.size) }}</span>
+                <button
+                  @click="removeAttachment(index)"
+                  class="text-gray-400 transition-colors hover:text-red-500"
+                >
+                  <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
             </div>
-          </div>
-          <p v-else class="text-sm text-gray-400">未添加附件</p>
-        </div>
-
-        <div>
-          <div class="mb-1.5 flex items-center justify-between gap-3">
-            <label class="block text-sm font-medium text-gray-700">
-              正文 <span class="text-red-500">*</span>
-            </label>
-            <button
-              @click="polishContent"
-              :disabled="polishing || !form.content.trim()"
-              :class="[
-                'flex items-center gap-1 rounded-full px-2.5 py-0.5 text-sm transition-colors',
-                form.content.trim() && !polishing
-                  ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600'
-                  : 'cursor-not-allowed bg-gray-200 text-gray-400'
-              ]"
+            <div
+              v-if="historicalAttachmentHints.length > 0 && attachments.length === 0"
+              class="mt-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3"
             >
-              {{ polishing ? 'AI润色中...' : 'AI润色' }}
-            </button>
-          </div>
-          <textarea
-            v-model="form.content"
-            placeholder="请输入邮件正文..."
-            class="min-h-[140px] w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm leading-6 resize-y focus:border-primary-500 focus:ring-2 focus:ring-primary-500"
-          ></textarea>
-        </div>
-
-        <div class="flex flex-col gap-2.5 border-t border-gray-100 pt-3 md:flex-row md:items-center md:justify-between">
-          <div class="text-sm text-gray-500">
-            当前共 {{ recipientCount }} 位收件人，发件账号可用 {{ activeSmtpAccounts.length }} 个
-          </div>
-          <button
-            @click="sendEmail"
-            :disabled="sending || !canSend"
-            :class="[
-              'rounded-lg px-6 py-2 text-sm font-medium transition-colors',
-              canSend && !sending
-                ? 'bg-primary-600 text-white hover:bg-primary-700'
-                : 'cursor-not-allowed bg-gray-300 text-gray-500'
-            ]"
-          >
-            {{ sending ? '发送中...' : '批量发送邮件' }}
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <Teleport to="body">
-    <div
-      v-if="showSentModal"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4"
-      @click.self="showSentModal = false"
-    >
-      <div class="flex max-h-[82vh] w-full max-w-4xl flex-col rounded-2xl bg-white shadow-2xl">
-        <div class="flex items-center justify-between border-b border-gray-200 px-6 py-4">
-          <div>
-            <h3 class="text-lg font-semibold text-gray-800">已发送列表</h3>
-            <p class="mt-1 text-sm text-gray-500">最近 {{ sentEmailTotal || sentEmails.length }} 条发送记录</p>
-          </div>
-          <div class="flex items-center gap-2">
-            <button
-              @click="showSentModal = false"
-              class="rounded-lg px-2 py-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
-            >
-              <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-        </div>
-
-        <div class="min-h-0 flex-1 overflow-y-auto px-6 py-5">
-          <div v-if="sentEmailsLoading && sentEmails.length === 0" class="py-20 text-center text-sm text-gray-400">
-            正在加载发送记录...
-          </div>
-          <div v-else-if="sentEmails.length === 0" class="py-20 text-center text-sm text-gray-400">
-            暂无已发送记录
-          </div>
-          <div v-else class="space-y-3">
-            <article
-              v-for="record in sentEmails"
-              :key="record.id"
-              class="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-4"
-            >
-              <div class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-                <div class="min-w-0">
-                  <p class="truncate text-sm font-medium text-gray-800">
-                    {{ record.subject || '（无主题）' }}
-                  </p>
-                  <p class="mt-1 text-sm leading-5 text-gray-500">
-                    {{ record.from_email }} → {{ record.to_email }}
-                  </p>
-                </div>
-                <span class="shrink-0 text-sm text-gray-400">
-                  {{ formatTimestamp(record.created_at, 'datetime') }}
+              <p class="text-sm font-medium text-amber-800">原邮件附件</p>
+              <div class="mt-2 flex flex-wrap gap-2">
+                <span
+                  v-for="(attachment, index) in historicalAttachmentHints"
+                  :key="`${attachment.name}-${index}`"
+                  class="rounded-full border border-amber-200 bg-white px-3 py-1 text-sm text-amber-700"
+                >
+                  {{ attachment.name }}<span v-if="attachment.size"> · {{ formatFileSize(attachment.size) }}</span>
                 </span>
               </div>
-              <p
-                v-if="record.content_text"
-                class="mt-3 whitespace-pre-wrap break-all text-sm leading-6 text-gray-600"
+              <p class="mt-2 text-xs text-amber-700">重新发送前需要重新选择附件文件。</p>
+            </div>
+            <p v-if="attachments.length === 0 && historicalAttachmentHints.length === 0" class="text-sm text-gray-400">未添加附件</p>
+          </div>
+
+          <div>
+            <div class="mb-1.5 flex items-center justify-between gap-3">
+              <label class="block text-sm font-medium text-gray-700">
+                正文 <span class="text-red-500">*</span>
+              </label>
+              <button
+                @click="polishContent"
+                :disabled="polishing || !form.content.trim()"
+                :class="[
+                  'inline-flex items-center gap-1 rounded-xl px-3 py-2 text-sm font-medium transition-colors',
+                  form.content.trim() && !polishing
+                    ? 'border border-primary-200 bg-primary-50 text-primary-700 hover:bg-primary-100'
+                    : 'cursor-not-allowed border border-gray-200 bg-gray-100 text-gray-400'
+                ]"
               >
-                {{ record.content_text }}
-              </p>
-            </article>
+                {{ polishing ? 'AI润色中...' : 'AI润色' }}
+              </button>
+            </div>
+            <textarea
+              v-model="form.content"
+              placeholder="请输入邮件正文..."
+              class="min-h-[180px] w-full rounded-[24px] border border-gray-200 bg-gray-50 px-4 py-4 text-sm leading-7 resize-y focus:border-primary-400 focus:bg-white focus:ring-4 focus:ring-primary-50"
+            ></textarea>
+          </div>
+
+          <div class="flex justify-end pt-2">
+            <button
+              @click="sendEmail"
+              :disabled="sending || !canSend"
+              :class="[
+                'inline-flex items-center justify-center rounded-2xl px-6 py-3 text-sm font-semibold transition-colors',
+                canSend && !sending
+                  ? 'bg-primary-600 text-white shadow-sm hover:bg-primary-700'
+                  : 'cursor-not-allowed bg-gray-300 text-gray-500'
+              ]"
+            >
+              {{ sending ? '发送中...' : '发送邮件' }}
+            </button>
           </div>
         </div>
-      </div>
+      </section>
     </div>
-  </Teleport>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -325,7 +275,6 @@ import smtpAccountsAPI from '@/api/smtpAccounts'
 import { showMessage } from '@/utils/message'
 import { isTauri } from '@/services/api'
 import api from '@/services/api'
-import { formatTimestamp } from '@/utils/timeUtils'
 import { buildDesktopSendableSmtpAccountMap, normalizeSmtpEmail } from '@/utils/smtpCapability'
 
 async function getTauriInvoke() {
@@ -368,6 +317,12 @@ interface EmailAttachment {
   dataBase64: string
 }
 
+interface HistoricalAttachmentHint {
+  name: string
+  size?: number
+  content_type?: string
+}
+
 interface SentEmailRecord {
   id: number | string
   from_email: string
@@ -375,6 +330,8 @@ interface SentEmailRecord {
   subject: string
   content_text?: string
   created_at: number
+  external_mailbox_id?: number | string | null
+  attachments?: HistoricalAttachmentHint[]
 }
 
 const props = defineProps<{
@@ -390,30 +347,32 @@ const polishing = ref(false)
 const importCount = ref(0)
 const fileInput = ref<HTMLInputElement | null>(null)
 const attachmentInput = ref<HTMLInputElement | null>(null)
-const sentEmailsLoading = ref(false)
-const sentEmails = ref<SentEmailRecord[]>([])
-const sentEmailTotal = ref(0)
-const sentEmailTableMissing = ref(false)
-const showSentModal = ref(false)
 const attachments = ref<EmailAttachment[]>([])
+const historicalAttachmentHints = ref<HistoricalAttachmentHint[]>([])
 const recipients = ref<string[]>([])
 const recipientInput = ref('')
 const recipientInputRef = ref<HTMLInputElement | null>(null)
 
 const selectedAccountIds = computed(() => props.selectedMailboxIds || [])
 const isDesktop = computed(() => isTauri())
+const normalizeMailboxId = (value: unknown) => {
+  const id = Number(value)
+  return Number.isFinite(id) && id > 0 ? id : 0
+}
 
 const activeSmtpEmailMap = computed(() => {
   return buildDesktopSendableSmtpAccountMap(smtpAccounts.value)
 })
 
 const externalAccountMap = computed(() => {
-  return new Map(externalAccounts.value.map((account) => [account.id, account]))
+  return new Map(
+    externalAccounts.value.map((account) => [normalizeMailboxId(account.id), account] as const)
+  )
 })
 
 const selectedExternalAccounts = computed(() => {
   return selectedAccountIds.value
-    .map((id) => externalAccountMap.value.get(id))
+    .map((id) => externalAccountMap.value.get(normalizeMailboxId(id)))
     .filter(Boolean) as ExternalAccount[]
 })
 
@@ -515,58 +474,17 @@ const loadData = async () => {
   }
 }
 
-const loadSentEmails = async () => {
-  sentEmailsLoading.value = true
-  try {
-    const response = await smtpAccountsAPI.getSentEmails({ page: 1, page_size: 20 })
-    if (response.code === 0) {
-      sentEmails.value = response.data?.records || []
-      sentEmailTotal.value = response.data?.pagination?.total || 0
-      sentEmailTableMissing.value = Boolean(response.data?.table_missing)
-    } else {
-      sentEmails.value = []
-      sentEmailTotal.value = 0
-      sentEmailTableMissing.value = false
-      showMessage(response.message || '加载已发送记录失败', 'error')
-    }
-  } catch (error: any) {
-    console.error('加载已发送记录失败', error)
-    const msg = error.response?.data?.message || error.message || '加载已发送记录失败'
-    showMessage(msg, 'error')
-    sentEmails.value = []
-    sentEmailTotal.value = 0
-    sentEmailTableMissing.value = false
-  } finally {
-    sentEmailsLoading.value = false
-  }
-}
+const loadDraftFromSent = (record: SentEmailRecord) => {
+  const nextRecipients = String(record.to_email || '')
+    .split(/[,;，；\s\n]+/)
+    .map((item) => item.trim())
+    .filter(Boolean)
 
-const syncLocalSentEmails = (records: Array<{
-  from_email: string
-  to_email: string
-  subject: string
-  content: string
-}>) => {
-  const createdAt = Date.now()
-  const nextRecords = records
-    .slice()
-    .reverse()
-    .map((record, index) => ({
-      id: `local-${createdAt}-${index}`,
-      from_email: record.from_email,
-      to_email: record.to_email,
-      subject: record.subject,
-      content_text: record.content,
-      created_at: createdAt + index,
-    }))
-
-  sentEmails.value = [...nextRecords, ...sentEmails.value].slice(0, 20)
-  sentEmailTotal.value += nextRecords.length
-}
-
-const openSentModal = () => {
-  showSentModal.value = true
-  loadSentEmails()
+  recipients.value = nextRecipients
+  recipientInput.value = ''
+  form.value.subject = String(record.subject || '')
+  form.value.content = String(record.content_text || '')
+  historicalAttachmentHints.value = Array.isArray(record.attachments) ? [...record.attachments] : []
 }
 
 const triggerImport = () => {
@@ -606,6 +524,7 @@ const handleAttachmentSelect = async (event: Event) => {
     )
 
     attachments.value = [...attachments.value, ...nextAttachments]
+    historicalAttachmentHints.value = []
   } catch (error) {
     console.error('读取附件失败', error)
     showMessage('读取附件失败，请重试', 'error')
@@ -664,13 +583,41 @@ const handleFileImport = (event: Event) => {
   target.value = ''
 }
 
-const downloadTemplate = () => {
+const downloadTemplate = async () => {
   const wsData = [['邮箱'], ['example1@mail.com'], ['example2@mail.com']]
   const ws = XLSX.utils.aoa_to_sheet(wsData)
   ws['!cols'] = [{ wch: 30 }]
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, '收件人')
-  XLSX.writeFile(wb, '收件人导入模板.xlsx')
+
+  try {
+    if (isDesktop.value) {
+      const { save } = await import('@tauri-apps/plugin-dialog')
+      const { writeFile } = await import('@tauri-apps/plugin-fs')
+
+      const savePath = await save({
+        defaultPath: '收件人导入模板.xlsx',
+        filters: [
+          {
+            name: 'Excel',
+            extensions: ['xlsx'],
+          },
+        ],
+      })
+
+      if (!savePath) return
+
+      const buffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
+      await writeFile(savePath, new Uint8Array(buffer))
+      showMessage('模板已保存', 'success')
+      return
+    }
+
+    XLSX.writeFile(wb, '收件人导入模板.xlsx')
+  } catch (error) {
+    console.error('下载模板失败', error)
+    showMessage('下载模板失败，请重试', 'error')
+  }
 }
 
 const sendEmail = async () => {
@@ -696,13 +643,13 @@ const sendEmail = async () => {
     let successCount = 0
     let failCount = 0
     let saveRecordFailed = false
-    let sentRecordTableMissing = false
     const sentRecords = []
+    const failedDetails: Array<{ recipient: string; message: string }> = []
 
     for (let i = 0; i < recipientList.length; i++) {
       const account = accounts[i % accounts.length]
       try {
-        await tauriInvoke('send_smtp_email', {
+        const sendResult: any = await tauriInvoke('send_smtp_email', {
           fromEmail: account.email,
           password: account.smtp_password || account.password,
           smtpHost: account.smtp_host || '',
@@ -726,10 +673,38 @@ const sendEmail = async () => {
           to_email: recipientList[i],
           subject: form.value.subject,
           content: form.value.content,
+          status: 'sent',
+          smtp_response_code: sendResult?.response_code ?? null,
+          smtp_response_message: sendResult?.response_message ?? '',
+          attachments: attachments.value.map((attachment) => ({
+            name: attachment.name,
+            size: attachment.size,
+            content_type: attachment.contentType,
+          })),
         })
       } catch (error: any) {
         failCount++
         console.error(`发送到 ${recipientList[i]} 失败:`, error)
+        const message = String(error?.message || error?.toString?.() || '未知错误').trim()
+        failedDetails.push({
+          recipient: recipientList[i],
+          message,
+        })
+        sentRecords.push({
+          smtp_account_id: account.smtp_id,
+          external_mailbox_id: account.id,
+          from_email: account.email,
+          to_email: recipientList[i],
+          subject: form.value.subject,
+          content: form.value.content,
+          status: 'failed',
+          error_message: message.replace(/^发送失败:\s*/, ''),
+          attachments: attachments.value.map((attachment) => ({
+            name: attachment.name,
+            size: attachment.size,
+            content_type: attachment.contentType,
+          })),
+        })
       }
     }
 
@@ -738,9 +713,6 @@ const sendEmail = async () => {
         const response = await smtpAccountsAPI.saveSentEmails({ records: sentRecords })
         if (response.code !== 0) {
           saveRecordFailed = true
-        } else {
-          sentEmailTableMissing.value = false
-          syncLocalSentEmails(sentRecords)
         }
       } catch (error) {
         console.error('保存已发送记录失败', error)
@@ -756,12 +728,24 @@ const sendEmail = async () => {
       showCcBcc.value = false
       importCount.value = 0
       attachments.value = []
+      historicalAttachmentHints.value = []
     } else {
-      showMessage(`发送完成：成功 ${successCount} 封，失败 ${failCount} 封`, 'warning')
+      const firstFailure = failedDetails[0]
+      if (recipientList.length === 1 && firstFailure) {
+        showMessage(firstFailure.message.startsWith('发送失败') ? firstFailure.message : `发送失败: ${firstFailure.message}`, 'error')
+      } else if (firstFailure) {
+        const failedSummary = failedDetails
+          .slice(0, 2)
+          .map((item) => `${item.recipient}：${item.message.replace(/^发送失败:\s*/, '')}`)
+          .join('；')
+        showMessage(`发送完成：成功 ${successCount} 封，失败 ${failCount} 封。${failedSummary}`, 'warning')
+      } else {
+        showMessage(`发送完成：成功 ${successCount} 封，失败 ${failCount} 封`, 'warning')
+      }
     }
 
     if (saveRecordFailed) {
-      showMessage('邮件已发送，但发送列表同步失败', 'warning')
+      showMessage('发件箱同步失败，发送结果已提示但记录可能不完整', 'warning')
     }
   } catch (error: any) {
     const message = error.response?.data?.message || error.message || error.toString()
@@ -800,7 +784,7 @@ const polishContent = async () => {
 defineExpose({
   smtpAccounts,
   loadData,
-  loadSentEmails,
+  loadDraftFromSent,
 })
 
 onMounted(() => {

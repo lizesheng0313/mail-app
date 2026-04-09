@@ -33,9 +33,15 @@
             >
               垃圾邮件
             </span>
+            <span
+              v-if="isBounceEmail"
+              class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium bg-rose-100 text-rose-700 border border-rose-200"
+            >
+              退信
+            </span>
           </div>
           <p class="text-sm text-gray-600 truncate mt-1">
-            发件人：{{ email.from_addr }}
+            {{ isBounceEmail && email?.bounce_reason ? `退信原因：${email.bounce_reason}` : `发件人：${email.from_addr}` }}
           </p>
           <p class="text-xs text-gray-400 mt-1">
             {{ formatDate(date) }}
@@ -113,6 +119,23 @@ const isJunkEmail = computed(() => {
     subject.startsWith('【垃圾邮件】') ||
     subject.startsWith('[垃圾箱]') ||
     subject.startsWith('【垃圾箱】')
+  )
+})
+
+const isBounceEmail = computed(() => {
+  if (Boolean(props.email?.is_bounce)) {
+    return true
+  }
+  const sender = String(props.email?.from_addr || '').toLowerCase()
+  const subject = String(props.email?.subject || props.subject || '').toLowerCase()
+  return (
+    sender.includes('mailer-daemon') ||
+    sender.includes('postmaster') ||
+    subject.includes('undeliverable') ||
+    subject.includes('delivery failed') ||
+    subject.includes('returned mail') ||
+    subject.includes('退信') ||
+    subject.includes('投递失败')
   )
 })
 </script>

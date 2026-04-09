@@ -27,7 +27,7 @@
         </div>
 
         <!-- 中右合并大块 (可选) -->
-        <div v-if="$slots.main" class="lg:col-span-2">
+        <div v-if="useMain && $slots.main" class="lg:col-span-2">
           <div :class="['panel-container', { 'panel-container--scroll': pageScrollable, 'panel-container--compact': compactPanels }, pageScrollable ? '' : 'h-full']">
             <slot name="main"></slot>
           </div>
@@ -66,10 +66,12 @@ withDefaults(
   defineProps<{
     pageScrollable?: boolean
     compactPanels?: boolean
+    useMain?: boolean
   }>(),
   {
     pageScrollable: false,
     compactPanels: false,
+    useMain: false,
   }
 )
 </script>

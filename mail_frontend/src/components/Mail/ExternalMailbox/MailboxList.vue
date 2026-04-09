@@ -29,7 +29,7 @@
         v-for="account in mailboxes"
         :key="account.id"
         :batch-mode="batchMode"
-        :checked="selectedIds.includes(account.id)"
+        :checked="selectedIds.includes(toAccountId(account))"
         :card-class="[
           getSendItemClass(account, selectedId, batchMode, selectedIds),
           isSendEmailView && !hasSmtp(account.email) ? 'cursor-not-allowed' : 'cursor-pointer'
@@ -42,7 +42,7 @@
             class="mr-2 flex h-5 w-5 flex-shrink-0 items-center justify-center"
           >
             <svg
-              v-if="(selectedSendIds || []).includes(account.id)"
+              v-if="(selectedSendIds || []).map(toNumberId).includes(toAccountId(account))"
               class="h-5 w-5 text-primary-600"
               fill="none"
               stroke="currentColor"
@@ -103,25 +103,25 @@
           </span>
         </p>
         <MailboxTags
-          v-if="!isSendEmailView && account.id in tagsData"
-          :mailbox-id="account.id"
+          v-if="!isSendEmailView && toAccountId(account) in tagsData"
+          :mailbox-id="toAccountId(account)"
           mailbox-type="external"
           :editable="!batchMode"
           :max-display="3"
-          :initial-sites="tagsData[account.id]?.sites || []"
-          :initial-tags="tagsData[account.id]?.tags || []"
+          :initial-sites="tagsData[toAccountId(account)]?.sites || []"
+          :initial-tags="tagsData[toAccountId(account)]?.tags || []"
         />
         <template #actions>
           <button
             type="button"
             class="flex h-8 w-8 items-center justify-center rounded-full text-gray-500 transition-colors hover:bg-white hover:text-gray-700"
             :title="t('externalMailbox.moreActions')"
-            @click.stop="toggleActionMenu(account.id, $event)"
+            @click.stop="toggleActionMenu(toAccountId(account), $event)"
           >
             <BaseIcon name="more" size="sm" />
           </button>
           <div
-            v-if="openMenuId === account.id"
+            v-if="openMenuId === toAccountId(account)"
             :class="[
               'absolute right-0 z-20 min-w-[128px] overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg',
               openMenuPlacement === 'up' ? 'bottom-full mb-2' : 'top-full mt-2'
@@ -149,20 +149,20 @@
               v-if="!isSendEmailView && isDesktop"
               type="button"
               class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-              :disabled="mergedFetchingIds.includes(account.id)"
-              @click.stop="handleRefreshAction(account.id)"
+              :disabled="mergedFetchingIds.includes(toAccountId(account))"
+              @click.stop="handleRefreshAction(toAccountId(account))"
             >
               <BaseIcon
                 name="refresh"
                 size="sm"
-                :class="{ 'animate-spin': mergedFetchingIds.includes(account.id) }"
+                :class="{ 'animate-spin': mergedFetchingIds.includes(toAccountId(account)) }"
               />
-              {{ mergedFetchingIds.includes(account.id) ? t('externalMailbox.fetching') : t('externalMailbox.fetchMail') }}
+              {{ mergedFetchingIds.includes(toAccountId(account)) ? t('externalMailbox.fetching') : t('externalMailbox.fetchMail') }}
             </button>
             <button
               type="button"
               class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 transition-colors hover:bg-red-50"
-              @click.stop="handleDeleteAction(account.id)"
+              @click.stop="handleDeleteAction(toAccountId(account))"
             >
               <BaseIcon name="delete" size="sm" />
               {{ t('externalMailbox.deleteAccount') }}
@@ -226,16 +226,22 @@ const smtpEmailSet = computed(() => {
 })
 
 const hasSmtp = (email: string) => smtpEmailSet.value.has(normalizeSmtpEmail(email))
+const toNumberId = (value: unknown) => {
+  const id = Number(value)
+  return Number.isFinite(id) ? id : 0
+}
+const toAccountId = (account: any) => toNumberId(account?.id)
 
 const getSendItemClass = (account: any, selectedId: any, batchMode: boolean, selectedIds: any) => {
+  const accountId = toAccountId(account)
   if (props.isSendEmailView) {
-    const selected = (props.selectedSendIds || []).includes(account.id)
+    const selected = (props.selectedSendIds || []).map(toNumberId).includes(accountId)
     if (selected) return 'bg-primary-100 border-primary-300'
     if (!hasSmtp(account.email)) return 'bg-gray-50 opacity-60'
     return 'bg-gray-50 hover:bg-primary-50'
   }
-  if (batchMode && selectedIds?.includes?.(account.id)) return 'bg-primary-100 border-primary-200'
-  if (selectedId === account.id) return 'bg-primary-100 border-primary-200'
+  if (batchMode && selectedIds?.map?.(toNumberId)?.includes?.(accountId)) return 'bg-primary-100 border-primary-200'
+  if (toNumberId(selectedId) === accountId) return 'bg-primary-100 border-primary-200'
   return 'bg-gray-50 hover:bg-primary-100'
 }
 
@@ -255,7 +261,7 @@ const handleItemClick = (
     return
   }
   closeActionMenu()
-  selectedId.value = account.id
+  selectedId.value = toAccountId(account)
   onSelect(account)
 }
 
@@ -435,6 +441,30 @@ const loadAccounts = async (page = 1) => {
     }
   } catch (e) {
     console.error('❌ 加载外部邮箱失败', e)
+  }
+}
+
+const ensureAccountVisible = async (accountId: number) => {
+  const normalizedId = toNumberId(accountId)
+  if (!normalizedId) return
+
+  const exists = accounts.value.some((account: any) => toAccountId(account) === normalizedId)
+  if (exists) return
+
+  try {
+    const response = await batchLoginAPI.getAllAccounts(100, {
+      suppressErrorMessage: true,
+    })
+    if (response.code !== 0) return
+
+    const data = response.data || {}
+    const allAccounts = Array.isArray(data) ? data : data.accounts || []
+    const matched = allAccounts.find((account: any) => toAccountId(account) === normalizedId)
+    if (matched) {
+      upsertAccounts([matched])
+    }
+  } catch (error) {
+    console.error('补充外部邮箱到当前列表失败', error)
   }
 }
 
@@ -657,6 +687,7 @@ const fetchSingleMailbox = async (accountId: number) => {
 // 暴露加载方法给父组件调用（不要在onMounted自动加载）
 defineExpose({
   loadAccounts,
+  ensureAccountVisible,
   replaceAccounts,
   upsertAccounts,
   removeAccounts,

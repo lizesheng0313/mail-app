@@ -45,6 +45,12 @@ export interface Email {
   is_read: boolean
   is_spam?: boolean
   folder?: string
+  is_bounce?: boolean
+  bounce_reason?: string
+  related_sent_email_id?: number | null
+  related_sent_to_email?: string
+  related_sent_subject?: string
+  related_sent_created_at?: string | number | null
   mailbox?: Mailbox
 }
 

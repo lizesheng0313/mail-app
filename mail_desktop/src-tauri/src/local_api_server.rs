@@ -319,12 +319,12 @@ async fn handle_http_request(request: HttpRequest) -> HttpResponse {
             )
             .await
             {
-                Ok(_) => HttpResponse::json(
+                Ok(result) => HttpResponse::json(
                     200,
                     LocalApiResponse {
                         code: 0,
                         message: "本地发信成功".to_string(),
-                        data: json!({"success": true}),
+                        data: serde_json::to_value(result).unwrap_or(json!({"success": true})),
                     },
                 ),
                 Err(err) => HttpResponse::json(

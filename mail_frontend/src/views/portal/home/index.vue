@@ -1,5 +1,9 @@
 <template>
-  <ThreeColumnLayout :compact-panels="!userStore.isAuthenticated">
+  <ThreeColumnLayout
+    :compact-panels="!userStore.isAuthenticated"
+    :use-main="currentView === 'send-email'"
+    :page-scrollable="currentView === 'send-email'"
+  >
     <!-- 顶部工具栏 -->
     <template #toolbar>
       <div v-if="userStore.isAuthenticated" class="flex flex-col gap-3">
@@ -87,44 +91,47 @@
             {{ batchLoginLoading ? t('home.addingMailbox') : t('home.addMailbox') }}
           </button>
 
-          <!-- 写邮件 / 返回 切换 -->
-          <button
+          <div
             v-if="mailboxType === 'external'"
-            @click="currentView = currentView === 'send-email' ? 'emails' : 'send-email'"
-            :class="[
-              'px-4 py-2 text-sm font-medium rounded-lg transition-colors flex items-center gap-1.5 shadow-sm',
-              currentView === 'send-email'
-                ? 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200'
-                : 'bg-primary-600 text-white hover:bg-primary-700'
-            ]"
+            class="inline-flex items-center rounded-lg border border-gray-200 bg-white p-1 shadow-sm"
           >
-            <!-- 返回图标 -->
-            <svg
-              v-if="currentView === 'send-email'"
-              class="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+            <button
+              type="button"
+              @click="currentView = 'emails'"
+              :class="[
+                'rounded-md px-3 py-2 text-sm font-medium transition-colors',
+                currentView === 'emails'
+                  ? 'bg-slate-900 text-white'
+                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+              ]"
             >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M10 19l-7-7m0 0l7-7m-7 7h18"
-              ></path>
-            </svg>
-            <!-- 编辑图标 -->
-            <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
-              ></path>
-            </svg>
-
-            {{ currentView === 'send-email' ? t('home.backInbox') : t('home.bulkSend') }}
-          </button>
+              {{ t('mail.inbox') }}
+            </button>
+            <button
+              type="button"
+              @click="currentView = 'send-email'"
+              :class="[
+                'rounded-md px-3 py-2 text-sm font-medium transition-colors',
+                currentView === 'send-email'
+                  ? 'bg-slate-900 text-white'
+                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+              ]"
+            >
+              {{ t('home.bulkSend') }}
+            </button>
+            <button
+              type="button"
+              @click="openOutboxView"
+              :class="[
+                'rounded-md px-3 py-2 text-sm font-medium transition-colors',
+                currentView === 'outbox'
+                  ? 'bg-slate-900 text-white'
+                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+              ]"
+            >
+              {{ t('home.outbox') }}
+            </button>
+          </div>
         </div>
       </div>
       <section v-else class="rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm">
@@ -201,7 +208,7 @@
           <ExternalMailboxList
             ref="externalMailboxListRef"
             :is-send-email-view="currentView === 'send-email'"
-            :active-mailbox-id="selectedExternalMailboxId"
+            :active-mailbox-id="currentView === 'outbox' ? selectedOutboxMailboxId : selectedExternalMailboxId"
             :selected-send-ids="selectedExternalMailboxIds"
             :smtp-accounts="smtpAccounts"
             :fetching-ids="externalMailboxFetchingIds"
@@ -216,10 +223,10 @@
       </div>
     </template>
 
-    <!-- 中栏：邮件（两套独立列表）-->
-    <template #middle v-if="currentView === 'emails'">
+    <!-- 中栏 -->
+    <template #middle>
       <!-- 临时邮箱邮件列表 -->
-      <div v-show="mailboxType === 'system'" class="h-full">
+      <div v-if="currentView === 'emails' && mailboxType === 'system'" class="h-full">
         <EmailList
           ref="systemEmailListRef"
           :title="t('mail.inbox')"
@@ -304,7 +311,7 @@
         </EmailList>
       </div>
 
-      <div v-show="mailboxType === 'hosted'" class="h-full">
+      <div v-else-if="currentView === 'emails' && mailboxType === 'hosted'" class="h-full">
         <EmailList
           ref="hostedEmailListRef"
           :title="selectedHostedMailboxId ? t('mail.inbox') : t('mail.allEmails')"
@@ -371,7 +378,7 @@
       </div>
 
       <!-- 第三方邮箱邮件列表 -->
-      <div v-show="mailboxType === 'external'" class="h-full">
+      <div v-else-if="currentView === 'emails' && mailboxType === 'external'" class="h-full">
         <EmailList
           ref="externalEmailListRef"
           :title="selectedExternalMailboxId ? t('mail.inbox') : t('mail.allEmails')"
@@ -450,14 +457,31 @@
           </template>
         </EmailList>
       </div>
+
+      <div v-else-if="currentView === 'outbox'" class="h-full">
+        <OutboxListPanel
+          ref="outboxListRef"
+          :filter-mailbox-id="selectedOutboxMailboxId"
+          @select="selectedOutboxRecord = $event"
+          @clear-filter="selectedOutboxMailboxId = null"
+        />
+      </div>
     </template>
 
     <!-- 右栏：详情-->
-    <template #right v-if="currentView === 'emails'">
+    <template #right>
+      <template v-if="currentView === 'emails'">
       <EmailDetail
         v-if="mailStore.selectedEmail"
         :email="mailStore.selectedEmail"
         @expand="openEmailModal"
+      />
+      </template>
+
+      <OutboxDetailPanel
+        v-else-if="currentView === 'outbox'"
+        :record="selectedOutboxRecord"
+        @reedit="handleReeditSentEmail"
       />
     </template>
 
@@ -578,6 +602,8 @@ import { useMailboxStore } from '@/stores/auth'
 import { useMailStore } from '@/stores/mail'
 import ThreeColumnLayout from '@/components/Mail/Layout/ThreeColumnLayout.vue'
 import SendEmailPanel from '@/components/Mail/SendEmailPanel.vue'
+import OutboxListPanel from '@/components/Mail/OutboxListPanel.vue'
+import OutboxDetailPanel from '@/components/Mail/OutboxDetailPanel.vue'
 import TempMailbox from '@/components/Mail/TempMailbox/TempMailbox.vue'
 import SystemMailboxList from '@/components/Mail/SystemMailbox/MailboxList.vue'
 import ExternalMailboxList from '@/components/Mail/ExternalMailbox/MailboxList.vue'
@@ -674,7 +700,7 @@ const systemEmailListRef = ref()
 const externalEmailListRef = ref()
 const hostedEmailListRef = ref()
 const mailboxType = ref<'system' | 'hosted' | 'external'>('system')
-const currentView = ref<'emails' | 'send-email'>('emails')
+const currentView = ref<'emails' | 'send-email' | 'outbox'>('emails')
 const selectedMailboxId = ref<number | null>(null)
 const externalInitialFetched = ref(false)
 const showOnlyUnread = ref(false)
@@ -762,6 +788,9 @@ const selectedExternalMailboxIds = ref<number[]>([])
 const selectedExternalEmailId = ref<number | null>(null)
 const selectedExternalAuthType = ref<string>('password')
 const sendEmailPanelRef = ref<any>(null)
+const outboxListRef = ref<any>(null)
+const selectedOutboxMailboxId = ref<number | null>(null)
+const selectedOutboxRecord = ref<any>(null)
 const externalEmails = ref<any[]>([])
 const fetchingExternalEmails = ref(false)
 const showOnlyUnreadExternal = ref(false)
@@ -2490,7 +2519,7 @@ const externalAutoFetch = useAutoRefresh(async () => {
   if (!isTauri()) return
   if (!userStore.isAuthenticated) return
   if (fetchingExternalEmails.value) return
-  if (currentView.value === 'send-email') return
+  if (currentView.value !== 'emails') return
 
   await fetchAllExternalEmails({ silent: true })
   externalMailboxListRef.value?.loadTagsData?.()
@@ -2614,7 +2643,6 @@ const handleSelectHostedMailbox = async (mailbox: any) => {
 
 // 选择外部邮箱
 const handleSelectExternalMailbox = async (account: any) => {
-  // 写邮件模式下支持多选/反选
   if (currentView.value === 'send-email') {
     const idx = selectedExternalMailboxIds.value.indexOf(account.id)
     if (idx > -1) {
@@ -2629,6 +2657,14 @@ const handleSelectExternalMailbox = async (account: any) => {
         : null
     return
   }
+  if (currentView.value === 'outbox') {
+    const mailboxId = Number(account.id)
+    selectedOutboxMailboxId.value =
+      selectedOutboxMailboxId.value === mailboxId ? null : mailboxId
+    await nextTick()
+    await outboxListRef.value?.loadSentEmails?.()
+    return
+  }
   selectedExternalMailboxId.value = account.id
   const authType = String(
     account?.auth_type || externalMailboxAuthTypeMap.value[account.id] || 'password'
@@ -2640,6 +2676,25 @@ const handleSelectExternalMailbox = async (account: any) => {
   mailStore.selectedEmail = null
   await loadExternalMailboxEmails()
   externalEmailListRef.value?.scrollToTop?.()
+}
+
+const handleReeditSentEmail = async (record: any) => {
+  const mailboxId = Number(record?.external_mailbox_id || 0)
+  if (mailboxId > 0) {
+    selectedExternalMailboxIds.value = [mailboxId]
+    selectedExternalMailboxId.value = mailboxId
+  }
+  currentView.value = 'send-email'
+  await nextTick()
+  await externalMailboxListRef.value?.ensureAccountVisible?.(mailboxId)
+  await sendEmailPanelRef.value?.loadData?.()
+  sendEmailPanelRef.value?.loadDraftFromSent?.(record)
+}
+
+const openOutboxView = async () => {
+  currentView.value = 'outbox'
+  await nextTick()
+  await outboxListRef.value?.loadSentEmails?.()
 }
 
 const handleSelectHostedEmail = async (email: any) => {

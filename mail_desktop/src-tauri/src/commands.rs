@@ -16,6 +16,15 @@ const AUTO_RECOVERY_MAX_FAILURES: u32 = 3;
 const AUTO_RECOVERY_WINDOW_MS: i64 = 30 * 60 * 1000;
 const AUTO_RECOVERY_LIMIT_MARKER: &str = "__AUTO_RECOVERY_LIMIT__::";
 
+#[derive(Debug, Clone, Serialize)]
+pub struct SmtpSendResult {
+    success: bool,
+    smtp_host: String,
+    smtp_port: u16,
+    response_code: Option<u16>,
+    response_message: Option<String>,
+}
+
 #[derive(Debug, Clone, Copy)]
 struct RecoveryRetryState {
     failed_count: u32,
@@ -1258,7 +1267,7 @@ pub async fn send_smtp_email(
     cc: Option<String>,
     bcc: Option<String>,
     attachments: Option<Vec<SendEmailAttachment>>,
-) -> Result<(), String> {
+) -> Result<SmtpSendResult, String> {
     use lettre::{
         message::{header::ContentType, Attachment, Mailbox, MultiPart, SinglePart},
         transport::smtp::{authentication::Credentials, client::TlsParameters},
@@ -1377,11 +1386,65 @@ pub async fn send_smtp_email(
             .build::<Tokio1Executor>()
     };
 
-    mailer.send(email).await
-        .map_err(|e| format!("发送失败: {}", e))?;
+    let response = mailer
+        .send(email)
+        .await
+        .map_err(format_smtp_send_error)?;
 
     info!("✅ 本地 SMTP 发送成功: {} -> {}", from_email, to_email);
-    Ok(())
+    let response_code = response.code().to_string().parse::<u16>().ok();
+    let response_message = {
+        let parts = response.message().collect::<Vec<_>>();
+        if parts.is_empty() {
+            None
+        } else {
+            Some(parts.join(" "))
+        }
+    };
+
+    Ok(SmtpSendResult {
+        success: true,
+        smtp_host: final_host,
+        smtp_port: final_port,
+        response_code,
+        response_message,
+    })
+}
+
+fn format_smtp_send_error(error: lettre::transport::smtp::Error) -> String {
+    let raw_message = error.to_string();
+    let normalized = raw_message.to_lowercase();
+
+    if error.is_timeout() {
+        return "发送失败: SMTP 连接超时，请检查网络或服务器配置".to_string();
+    }
+
+    if normalized.contains("authentication")
+        || normalized.contains("credentials")
+        || normalized.contains("auth")
+        || normalized.contains("535")
+    {
+        return format!("发送失败: SMTP 认证失败，{}", raw_message);
+    }
+
+    if normalized.contains("recipient")
+        || normalized.contains("mailbox unavailable")
+        || normalized.contains("user unknown")
+        || normalized.contains("no such user")
+        || normalized.contains("invalid recipient")
+        || normalized.contains("unknown user")
+        || normalized.contains("550")
+        || normalized.contains("551")
+        || normalized.contains("553")
+    {
+        return format!("发送失败: 收件人地址不存在或被对方服务器拒收，{}", raw_message);
+    }
+
+    if let Some(status) = error.status() {
+        return format!("发送失败: SMTP 返回 {}，{}", status, raw_message);
+    }
+
+    format!("发送失败: {}", raw_message)
 }
 
 async fn get_smtp_candidates(domain: &str) -> Result<Vec<(String, u16)>, String> {

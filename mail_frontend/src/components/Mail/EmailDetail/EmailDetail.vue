@@ -28,7 +28,15 @@
       <div v-else>
         <!-- 邮件头部信息 -->
         <div class="border-b border-gray-200 pb-4 mb-4">
-          <h3 class="text-lg font-semibold text-gray-900 mb-3">{{ email.subject || t('emailDetail.noSubject') }}</h3>
+          <div class="mb-3 flex flex-wrap items-center gap-2">
+            <h3 class="text-lg font-semibold text-gray-900">{{ email.subject || t('emailDetail.noSubject') }}</h3>
+            <span
+              v-if="isBounceEmail"
+              class="inline-flex items-center rounded-full bg-rose-50 px-2.5 py-1 text-xs font-medium text-rose-700"
+            >
+              退信
+            </span>
+          </div>
           <div class="space-y-2 text-sm">
             <div class="flex">
               <span class="text-gray-500 w-16">{{ t('common.sender') }}：</span>
@@ -42,6 +50,19 @@
               <span class="text-gray-500 w-16">{{ t('common.time') }}：</span>
               <span class="text-gray-900">{{ formatDate(email.received_at) }}</span>
             </div>
+          </div>
+        </div>
+
+        <div
+          v-if="isBounceEmail"
+          class="mb-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3"
+        >
+          <div class="text-sm font-medium text-rose-800">这是一封退信</div>
+          <div class="mt-2 space-y-1 text-sm text-rose-700">
+            <p v-if="bounceReason">原因：{{ bounceReason }}</p>
+            <p v-if="email.related_sent_to_email">原收件人：{{ email.related_sent_to_email }}</p>
+            <p v-if="email.related_sent_subject">原主题：{{ email.related_sent_subject }}</p>
+            <p v-if="email.related_sent_created_at">原发送时间：{{ formatDate(email.related_sent_created_at) }}</p>
           </div>
         </div>
 
@@ -149,6 +170,26 @@ const isExternalEmail = computed(() => {
 
 const canDownloadExternalAttachment = computed(() => {
   return isExternalEmail.value && isTauri()
+})
+
+const isBounceEmail = computed(() => {
+  if (!props.email) return false
+  if (props.email.is_bounce) return true
+  const sender = String(props.email.from_addr || '').toLowerCase()
+  const subject = String(props.email.subject || '').toLowerCase()
+  return (
+    sender.includes('mailer-daemon') ||
+    sender.includes('postmaster') ||
+    subject.includes('undeliverable') ||
+    subject.includes('delivery failed') ||
+    subject.includes('returned mail') ||
+    subject.includes('退信') ||
+    subject.includes('投递失败')
+  )
+})
+
+const bounceReason = computed(() => {
+  return String(props.email?.bounce_reason || '').trim()
 })
 
 const formatFileSize = (bytes: number) => {
