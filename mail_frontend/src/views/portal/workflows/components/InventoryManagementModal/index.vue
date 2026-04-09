@@ -93,7 +93,7 @@
             </div>
           </div>
           <button
-            @click="showAddModal = true"
+            @click="openAddModal"
             class="inline-flex items-center px-4 py-1.5 text-sm bg-primary-600 text-white rounded-md hover:bg-primary-700 transition-colors"
           >
             <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -254,11 +254,16 @@
     />
 
     <!-- 批量添加弹窗 -->
-    <div v-if="showAddModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-60" @click.self="showAddModal = false">
-      <div class="bg-white rounded-lg shadow-xl max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+    <Teleport to="body">
+      <div
+        v-if="showAddModal"
+        class="fixed inset-0 z-[70] flex items-center justify-center bg-black bg-opacity-50"
+        @click.self="closeAddModal"
+      >
+        <div class="bg-white rounded-lg shadow-xl max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col">
         <div class="flex items-center justify-between px-6 py-4 border-b">
           <h3 class="text-lg font-semibold text-gray-900">{{ t('inventoryModal.addAccountsTitle') }}</h3>
-          <button @click="showAddModal = false" class="text-gray-400 hover:text-gray-600">
+          <button @click="closeAddModal" class="text-gray-400 hover:text-gray-600">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -358,14 +363,15 @@
             {{ adding ? t('inventoryModal.adding') : t('inventoryModal.confirmAdd') }}
           </button>
           <button
-            @click="showAddModal = false; inventoryInput = ''"
+            @click="closeAddModal"
             class="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm rounded-md hover:bg-gray-50"
           >
             {{ t('common.cancel') }}
           </button>
         </div>
       </div>
-    </div>
+      </div>
+    </Teleport>
 
     <!-- 批量删除确认对话框 -->
   <ConfirmDialog
@@ -445,6 +451,15 @@ const isAllSelected = computed(() => {
   const availableItems = inventories.value.filter(item => item.status === 'available')
   return availableItems.length > 0 && selectedIds.value.length === availableItems.length
 })
+
+const openAddModal = () => {
+  showAddModal.value = true
+}
+
+const closeAddModal = () => {
+  showAddModal.value = false
+  inventoryInput.value = ''
+}
 
 // 进入批量删除模式
 const enterBatchDeleteMode = () => {
@@ -612,8 +627,7 @@ const handleAddInventory = async () => {
       if (res.data.duplicate_count > 0) {
         showMessage(t('inventoryModal.duplicateSkipped', { count: res.data.duplicate_count }), 'warning')
       }
-      inventoryInput.value = ''
-      showAddModal.value = false
+      closeAddModal()
       // 刷新库存列表
       await fetchInventoryList()
       // 通知父组件更新库存数量
