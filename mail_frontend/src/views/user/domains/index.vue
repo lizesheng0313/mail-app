@@ -158,6 +158,20 @@
           <td class="px-6 py-4 whitespace-nowrap text-sm">
             <div class="flex items-center space-x-2">
               <ActionButton
+                v-if="
+                  !isDomainDeleted(domain) &&
+                  String(domain.verification_status || '').toLowerCase() !== 'verified'
+                "
+                icon="eye"
+                tooltip="详情"
+                variant="view"
+                @click="openVerifyModal(domain)"
+              />
+              <ActionButton
+                v-if="
+                  !isDomainDeleted(domain) &&
+                  String(domain.verification_status || '').toLowerCase() === 'verified'
+                "
                 icon="edit"
                 :tooltip="t('domainsPage.edit')"
                 variant="edit"
@@ -193,11 +207,11 @@
 
     <BaseModal
       v-model="showDomainModal"
-      :title="t('domainsPage.addTitle')"
+      :title="domainModalTitle"
       :show-close="true"
-      :show-footer="true"
-      :show-confirm="true"
-      :show-cancel="true"
+      :show-footer="!domainModalDetail"
+      :show-confirm="!domainModalDetail"
+      :show-cancel="!domainModalDetail"
       :confirm-text="creatingDomain ? t('domainsPage.creating') : t('domainsPage.addDomain')"
       :confirm-loading="creatingDomain"
       :confirm-disabled="creatingDomain || !createForm.domain_name.trim()"
@@ -206,7 +220,7 @@
       @close="closeDomainModal"
       @cancel="closeDomainModal"
     >
-      <div class="space-y-4">
+      <div v-if="!domainModalDetail" class="space-y-4">
         <div class="rounded-lg bg-gray-50 px-4 py-3 text-sm leading-6 text-gray-600">
           {{ t('domainsPage.createHint') }}
         </div>
@@ -245,6 +259,129 @@
             </p>
           </div>
         </label>
+      </div>
+
+      <div v-else class="space-y-6">
+        <div class="rounded-lg border border-gray-200 bg-gray-50 px-4 py-4">
+          <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <div class="flex flex-wrap items-center gap-2">
+                <div class="text-base font-semibold text-black">
+                  {{ domainModalDetail.domain.domain_name }}
+                </div>
+                <span
+                  :class="getVerificationClass(domainModalDetail.domain.verification_status)"
+                  class="px-2 py-1 text-xs font-medium rounded-full"
+                >
+                  {{ getVerificationLabel(domainModalDetail.domain.verification_status) }}
+                </span>
+              </div>
+            </div>
+            <button
+              v-if="String(domainModalDetail.domain.verification_status || '').toLowerCase() !== 'verified'"
+              class="px-3 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-md text-sm disabled:opacity-50"
+              :disabled="refreshingDomainId === domainModalDetail.domain.id"
+              @click="refreshDns(domainModalDetail.domain.id)"
+            >
+              <span
+                v-if="refreshingDomainId === domainModalDetail.domain.id"
+                class="inline-flex items-center gap-2"
+              >
+                验证中
+                <svg class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle
+                    class="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    stroke-width="4"
+                  ></circle>
+                  <path
+                    class="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                  ></path>
+                </svg>
+              </span>
+              <span v-else>立即验证DNS</span>
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <h3 class="text-sm font-semibold text-black mb-3">DNS 配置</h3>
+          <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200 text-sm">
+              <thead>
+                <tr class="text-left text-xs uppercase tracking-wide text-gray-500">
+                  <th class="pb-3 pr-4 font-medium">主机记录</th>
+                  <th class="pb-3 pr-4 font-medium">记录类型</th>
+                  <th class="pb-3 pr-4 font-medium">值</th>
+                  <th class="pb-3 pr-4 font-medium">优先级</th>
+                  <th class="pb-3 pr-4 font-medium">状态</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100">
+                <tr
+                  v-for="record in domainModalDetail.dns_instructions || []"
+                  :key="[
+                    record.record_type,
+                    record.record_host,
+                    record.record_name,
+                    record.record_value,
+                    record.priority
+                  ].join('|')"
+                >
+                  <td class="py-3 pr-4 align-top">
+                    <div class="flex items-center gap-2">
+                      <div class="max-w-[240px] break-all text-gray-700">
+                        {{ formatRecordHost(record) }}
+                      </div>
+                      <ActionButton
+                        icon="copy"
+                        tooltip="复制主机记录"
+                        variant="copy"
+                        size="sm"
+                        @click="copyDnsValue(formatRecordHost(record))"
+                      />
+                    </div>
+                  </td>
+                  <td class="py-3 pr-4 align-top text-black">{{ record.record_type }}</td>
+                  <td class="py-3 pr-4 align-top">
+                    <div class="flex items-center gap-2">
+                      <div class="max-w-[420px] break-all text-gray-700">{{ record.record_value }}</div>
+                      <ActionButton
+                        icon="copy"
+                        tooltip="复制记录值"
+                        variant="copy"
+                        size="sm"
+                        @click="copyDnsValue(record.record_value)"
+                      />
+                    </div>
+                  </td>
+                  <td class="py-3 pr-4 align-top text-gray-700">
+                    {{ record.priority ?? '-' }}
+                  </td>
+                  <td class="py-3 pr-4 align-top">
+                    <span
+                      :class="getDnsStatusClass(record.status)"
+                      class="px-2 py-1 text-xs font-medium rounded-full"
+                    >
+                      {{ getDnsStatusLabel(record.status) }}
+                    </span>
+                    <div
+                      v-if="record.check_message"
+                      class="mt-2 max-w-[220px] break-all text-xs text-gray-500"
+                    >
+                      {{ record.check_message }}
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </BaseModal>
 
@@ -330,6 +467,7 @@ const loading = ref(false)
 const deleting = ref(false)
 const creatingDomain = ref(false)
 const savingEdit = ref(false)
+const refreshingDomainId = ref<number | null>(null)
 
 const searchQuery = ref('')
 const domains = ref<any[]>([])
@@ -337,6 +475,7 @@ const showDomainModal = ref(false)
 const showEditModal = ref(false)
 const showDeleteConfirm = ref(false)
 const domainToDelete = ref<any | null>(null)
+const domainModalDetail = ref<any | null>(null)
 
 const createForm = ref({
   domain_name: '',
@@ -364,6 +503,10 @@ const filteredDomains = computed(() => {
       .includes(keyword)
   )
 })
+
+const domainModalTitle = computed(() =>
+  domainModalDetail.value ? 'DNS 验证' : t('domainsPage.addTitle')
+)
 
 const getVerificationLabel = (status: string) => {
   const normalized = String(status || '').toLowerCase()
@@ -393,6 +536,7 @@ const loadDomains = async () => {
 
 const openCreateModal = () => {
   showDomainModal.value = true
+  domainModalDetail.value = null
   createForm.value = {
     domain_name: '',
     display_name: '',
@@ -404,6 +548,7 @@ const openCreateModal = () => {
 
 const closeDomainModal = () => {
   showDomainModal.value = false
+  domainModalDetail.value = null
   createForm.value = {
     domain_name: '',
     display_name: '',
@@ -429,12 +574,76 @@ const handleCreateDomain = async () => {
     })
     if (response.code === 0) {
       showMessage(t('domainsPage.createSuccess'), 'success')
-      closeDomainModal()
+      applyDomainDetailToModal(response.data, true)
       await loadDomains()
     }
   } finally {
     creatingDomain.value = false
   }
+}
+
+const getDnsStatusClass = (status: string) => {
+  const normalized = String(status || '').toLowerCase()
+  if (normalized === 'verified' || normalized === 'valid') return 'bg-green-100 text-green-700'
+  if (normalized === 'invalid' || normalized === 'failed') return 'bg-red-100 text-red-700'
+  if (normalized === 'not_found') return 'bg-amber-100 text-amber-700'
+  return 'bg-gray-200 text-gray-600'
+}
+
+const getDnsStatusLabel = (status: string) => {
+  const normalized = String(status || '').toLowerCase()
+  if (normalized === 'verified') return '已验证'
+  if (normalized === 'valid') return '已生效'
+  if (normalized === 'invalid') return '不匹配'
+  if (normalized === 'not_found') return '未找到'
+  return '待检查'
+}
+
+const applyDomainDetailToModal = (detail: any, _created = false) => {
+  domainModalDetail.value = detail || null
+  showDomainModal.value = true
+}
+
+const openVerifyModal = async (domain: any) => {
+  const domainId = Number(domain?.id || 0)
+  if (!domainId) return
+  loading.value = true
+  try {
+    const response: any = await hostedDomainAPI.getDomainDetail(domainId)
+    if (response.code === 0 && response.data) {
+      applyDomainDetailToModal(response.data)
+    }
+  } finally {
+    loading.value = false
+  }
+}
+
+const formatRecordHost = (record: any) => {
+  const value = String(record?.record_host || '').trim()
+  return value || '@'
+}
+
+const refreshDns = async (domainId: number | string) => {
+  const numericId = Number(domainId || 0)
+  if (!numericId) return
+  refreshingDomainId.value = numericId
+  try {
+    const response: any = await hostedDomainAPI.refreshDns(numericId)
+    if (response.code === 0 && response.data) {
+      applyDomainDetailToModal(response.data)
+      await loadDomains()
+      if (String(response.data?.domain?.verification_status || '').toLowerCase() === 'verified') {
+        showMessage('DNS 验证通过', 'success')
+      }
+    }
+  } finally {
+    refreshingDomainId.value = null
+  }
+}
+
+const copyDnsValue = async (value: string) => {
+  await navigator.clipboard.writeText(String(value || ''))
+  showMessage(t('mail.copied'), 'success')
 }
 
 const openEditModal = (domain: any) => {
