@@ -301,6 +301,11 @@ const router = createRouter({
           component: AutomationWorkflows
         },
         {
+          path: 'automation/execution-history',
+          name: 'user-automation-execution-history',
+          component: ExecutionHistory
+        },
+        {
           path: 'automation/plugins',
           name: 'user-automation-plugins',
           component: PluginManagement

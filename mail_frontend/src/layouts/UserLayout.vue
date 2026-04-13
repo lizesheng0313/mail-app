@@ -236,6 +236,7 @@ const menuSections = computed(() => [
 // 当前页面标题
 const currentPageTitle = computed(() => {
   if (route.path === '/user/automation/workflows') return t('userLayout.automationWorkflows')
+  if (route.path === '/user/automation/execution-history') return '执行历史'
   if (route.path === '/user/automation/triggers') return t('userLayout.automationTriggers')
   if (route.path === '/user/automation/plugins') return t('userLayout.myPlugins')
   if (route.path === '/user/automation/plugins/store') return t('userLayout.pluginStore')
@@ -254,6 +255,7 @@ const currentPageTitle = computed(() => {
 // 页面描述
 const pageDescription = computed(() => {
   if (route.path === '/user/automation/workflows') return t('userLayout.automationWorkflowsDescription')
+  if (route.path === '/user/automation/execution-history') return '查看当前工作流的执行记录和失败详情'
   if (route.path === '/user/automation/triggers') return t('userLayout.automationTriggersDescription')
   if (route.path === '/user/automation/plugins') return t('userLayout.myPluginsDescription')
   if (route.path === '/user/automation/plugins/store') return t('userLayout.pluginStoreDescription')

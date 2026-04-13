@@ -15,6 +15,16 @@ export const workflowApi = {
     return api.get(`/workflows/${workflowId}`)
   },
 
+  // 导出工作流
+  exportWorkflow(workflowId) {
+    return api.get(`/workflows/${workflowId}/export`)
+  },
+
+  // 导入工作流
+  importWorkflow(content) {
+    return api.post('/workflows/import', { content })
+  },
+
   // 创建工作流
   createWorkflow(data) {
     return api.post('/workflows/', data)

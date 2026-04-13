@@ -1,11 +1,17 @@
 <template>
   <div class="min-h-screen bg-[#f6f8fb]">
     <!-- 顶部导航 -->
-    <PageHeader />
+    <PageHeader v-if="!isWorkspaceView" />
     
-    <div class="mx-auto max-w-[1440px] space-y-6 px-4 pb-8 pt-6 sm:px-6">
+    <div
+      class="mx-auto max-w-[1440px] space-y-6 px-4 pb-8 sm:px-6"
+      :class="isWorkspaceView ? 'pt-0' : 'pt-6'"
+    >
         <!-- 页面头部 -->
-        <div class="rounded-[24px] border border-slate-200 bg-white px-6 py-6 shadow-[0_12px_30px_rgba(15,23,42,0.05)]">
+        <div
+          v-if="!isWorkspaceView"
+          class="rounded-[24px] border border-slate-200 bg-white px-6 py-6 shadow-[0_12px_30px_rgba(15,23,42,0.05)]"
+        >
           <h1 class="text-2xl font-semibold text-slate-900">
             {{ t('executionHistory.title') }}
           </h1>
@@ -15,6 +21,13 @@
           <p class="mt-2 text-sm leading-6 text-slate-600" v-else>
             {{ t('executionHistory.subtitle') }}
           </p>
+        </div>
+
+        <div
+          v-else-if="currentWorkflowName"
+          class="rounded-[20px] border border-slate-200 bg-white px-5 py-4 text-sm text-slate-600 shadow-[0_12px_30px_rgba(15,23,42,0.05)]"
+        >
+          当前工作流：<span class="font-medium text-slate-900">{{ currentWorkflowName }}</span>
         </div>
         
         <!-- 筛选和搜索 -->
@@ -342,6 +355,7 @@ const { t } = useI18n()
 
 // 获取路由信息
 const route = useRoute()
+const isWorkspaceView = computed(() => route.path.startsWith('/user/'))
 
 // 响应式数据
 const loading = ref(false)

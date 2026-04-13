@@ -147,6 +147,14 @@
                   variant="default"
                   @click="viewWorkflowHistory(workflow)"
                 />
+                <!-- 导出工作流 -->
+                <ActionButton
+                  v-if="!workflow.inventory_enabled"
+                  icon="download"
+                  :tooltip="t('workflowList.export')"
+                  variant="primary"
+                  @click="$emit('export', workflow)"
+                />
                 <!-- 发布到市场 -->
                 <ActionButton
                   v-if="!workflow.market_status || workflow.market_status === 'draft' || workflow.market_status === 'rejected'"
@@ -209,10 +217,11 @@
 
 <script setup>
 import { useI18n } from 'vue-i18n'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import ActionButton from '@/components/ActionButton/index.vue'
 import AdminDataTable from '@/components/AdminDataTable/index.vue'
 
+const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
 
@@ -231,7 +240,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['view', 'edit', 'delete', 'publish', 'unpublish', 'republish', 'manage-inventory', 'execute', 'edit-publish'])
+const emit = defineEmits(['view', 'edit', 'delete', 'publish', 'unpublish', 'republish', 'manage-inventory', 'execute', 'edit-publish', 'export'])
 
 // 判断是否是已购买但已下架的工作流
 const isPurchasedAndOffline = (workflow) => {
@@ -242,7 +251,10 @@ const isPurchasedAndOffline = (workflow) => {
 
 // 方法
 const viewWorkflowHistory = (workflow) => {
-  router.push(`/workflows/execution-history?workflow_id=${workflow.workflow_id}`)
+  const basePath = route.path.startsWith('/user/')
+    ? '/user/automation/execution-history'
+    : '/workflows/execution-history'
+  router.push(`${basePath}?workflow_id=${workflow.workflow_id}`)
 }
 const getStatusClass = (status) => {
   const statusMap = {

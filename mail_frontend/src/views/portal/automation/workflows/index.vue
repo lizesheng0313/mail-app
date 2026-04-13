@@ -42,12 +42,21 @@
             </button>
           </div>
 
-          <button
-            @click="showCreateDialog = true"
-            class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-md text-sm"
-          >
-            {{ t('automationWorkflows.createWorkflow') }}
-          </button>
+          <div class="flex items-center gap-3">
+            <button
+              @click="openImportDialog"
+              class="px-4 py-2 border border-primary-200 bg-primary-50 hover:bg-primary-100 text-primary-700 rounded-md text-sm"
+            >
+              {{ t('automationWorkflows.importWorkflow') }}
+            </button>
+
+            <button
+              @click="showCreateDialog = true"
+              class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-md text-sm"
+            >
+              {{ t('automationWorkflows.createWorkflow') }}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -56,6 +65,7 @@
         :loading="loading"
         @view="viewWorkflow"
         @edit="editWorkflow"
+        @export="handleExportWorkflow"
         @delete="deleteWorkflow"
         @publish="handlePublish"
         @edit-publish="handleEditPublish"
@@ -65,6 +75,14 @@
         @republish="handleRepublish"
       />
     </div>
+
+    <input
+      ref="importInputRef"
+      type="file"
+      accept=".json,.workflow.json,application/json"
+      class="hidden"
+      @change="handleImportFile"
+    />
 
     <!-- 创建工作流对话框 -->
     <CreateWorkflowModal
@@ -194,6 +212,8 @@ const showExecuteConfirm = ref(false)
 const showExecutionResult = ref(false)
 const executingWorkflow = ref(null)
 const executing = ref(false)
+const importing = ref(false)
+const importInputRef = ref<HTMLInputElement | null>(null)
 const executionResultData = ref({
   execution_id: '',
   status: '',
@@ -462,6 +482,68 @@ const handleManageInventory = (workflow) => {
 const handleInventoryUpdated = () => {
   // 刷新工作流列表以更新库存数量
   fetchWorkflows()
+}
+
+const openImportDialog = () => {
+  if (importing.value) return
+  importInputRef.value?.click()
+}
+
+const handleExportWorkflow = async (workflow) => {
+  try {
+    const response = await workflowApi.exportWorkflow(workflow.workflow_id)
+    if (response.code !== 0) {
+      showMessage(response.message || '导出工作流失败', 'error')
+      return
+    }
+
+    const content = response.data?.content || {}
+    const filename = response.data?.filename || `${workflow.name || 'workflow'}.workflow.json`
+    const blob = new Blob([JSON.stringify(content, null, 2)], {
+      type: 'application/json;charset=utf-8'
+    })
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = filename
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+
+    showMessage('工作流已导出', 'success')
+  } catch (error) {
+    console.error('导出工作流失败:', error)
+    showMessage('导出工作流失败', 'error')
+  }
+}
+
+const handleImportFile = async (event: Event) => {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+
+  if (!file) return
+
+  importing.value = true
+  try {
+    const text = await file.text()
+    const content = JSON.parse(text)
+    const response = await workflowApi.importWorkflow(content)
+
+    if (response.code !== 0) {
+      showMessage(response.message || '导入工作流失败', 'error')
+      return
+    }
+
+    await fetchWorkflows()
+    showMessage('工作流已导入', 'success')
+  } catch (error) {
+    console.error('导入工作流失败:', error)
+    showMessage('导入工作流失败，请检查 JSON 文件', 'error')
+  } finally {
+    importing.value = false
+  }
 }
 
 // 执行购买的工作流
