@@ -600,6 +600,7 @@ const shouldShowOutputName = () => {
   const noOutputActions = [
     'navigate_to_url',    // 导航到URL
     'click_element',      // 点击元素
+    'capture_screenshot', // 页面截图
     'input_text',         // 输入文本
     'select_dropdown',    // 选择下拉
     'scroll_page',        // 滚动页面

@@ -281,6 +281,24 @@
                         <span v-if="log.step_name" class="text-xs text-slate-500">{{ log.step_name }}</span>
                       </div>
                       <p class="whitespace-pre-wrap break-words text-sm leading-6 text-slate-800">{{ log.log_message }}</p>
+                      <div v-if="getLogScreenshotUrl(log)" class="mt-3 overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                        <div class="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+                          <div class="text-xs font-medium uppercase tracking-[0.16em] text-slate-400">截图预览</div>
+                          <a
+                            :href="getLogScreenshotUrl(log)"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="text-xs font-medium text-primary-600 hover:text-primary-700"
+                          >
+                            查看原图
+                          </a>
+                        </div>
+                        <img
+                          :src="getLogScreenshotUrl(log)"
+                          alt="workflow screenshot"
+                          class="max-h-[420px] w-full bg-slate-100 object-contain"
+                        />
+                      </div>
                       <div v-if="log.log_data && Object.keys(log.log_data).length > 0" class="mt-2">
                         <details class="text-xs">
                           <summary class="cursor-pointer font-medium text-slate-600">{{ t('executionHistory.detailData') }}</summary>
@@ -318,6 +336,7 @@ import ConfirmDialog from '@/components/ConfirmDialog/index.vue'
 import ExecutionResultModal from '@/views/portal/workflows/components/ExecutionResultModal/index.vue'
 import { showMessage } from '@/utils/message'
 import { formatTimestamp } from '@/utils/timeUtils'
+import { getApiBaseURL } from '@/services/api'
 
 const { t } = useI18n()
 
@@ -630,6 +649,23 @@ const getLogLevelBadgeColor = (level) => {
     'ERROR': 'bg-red-100 text-red-700'
   }
   return colorMap[level] || 'bg-gray-100 text-black'
+}
+
+const getLogScreenshotUrl = (log) => {
+  const screenshotUrl = log?.log_data?.screenshot_url
+  if (typeof screenshotUrl !== 'string' || !screenshotUrl) return ''
+  if (screenshotUrl.startsWith('http://') || screenshotUrl.startsWith('https://')) return screenshotUrl
+
+  const apiBaseURL = getApiBaseURL()
+  if (apiBaseURL.startsWith('http://') || apiBaseURL.startsWith('https://')) {
+    return `${apiBaseURL.replace(/\/mail-api\/v1\/?$/, '')}${screenshotUrl}`
+  }
+
+  if (import.meta.env.DEV) {
+    return `http://localhost:8088${screenshotUrl}`
+  }
+
+  return `${window.location.origin}${screenshotUrl}`
 }
 
 
