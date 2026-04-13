@@ -1,25 +1,30 @@
 <template>
-  <div>
+  <div class="min-h-screen bg-[#f6f8fb]">
     <!-- 顶部导航 -->
     <PageHeader />
     
-    <div class="space-y-6">
+    <div class="mx-auto max-w-[1440px] space-y-6 px-4 pb-8 pt-6 sm:px-6">
         <!-- 页面头部 -->
-        <div class="mb-8">
-          <div class="flex items-center justify-between">
-            <div>
-              <h1 class="text-2xl font-bold text-black">{{ t('executionHistory.title') }}</h1>
-              <p class="mt-2 text-black" v-if="currentWorkflowName">{{ t('executionHistory.workflowLabel', { name: currentWorkflowName }) }}</p>
-              <p class="mt-2 text-black" v-else>{{ t('executionHistory.subtitle') }}</p>
-            </div>
-          </div>
+        <div class="rounded-[24px] border border-slate-200 bg-white px-6 py-6 shadow-[0_12px_30px_rgba(15,23,42,0.05)]">
+          <h1 class="text-2xl font-semibold text-slate-900">
+            {{ t('executionHistory.title') }}
+          </h1>
+          <p class="mt-2 text-sm leading-6 text-slate-600" v-if="currentWorkflowName">
+            {{ t('executionHistory.workflowLabel', { name: currentWorkflowName }) }}
+          </p>
+          <p class="mt-2 text-sm leading-6 text-slate-600" v-else>
+            {{ t('executionHistory.subtitle') }}
+          </p>
         </div>
-
+        
         <!-- 筛选和搜索 -->
-        <div class="bg-white rounded-lg shadow-sm border p-6">
-          <div class="flex flex-wrap items-center gap-4">
+        <div class="rounded-[24px] border border-slate-200 bg-white px-5 py-5 shadow-[0_12px_30px_rgba(15,23,42,0.05)]">
+          <div class="flex flex-wrap items-end gap-4">
             <!-- 搜索框 -->
-            <div class="w-64">
+            <div class="w-full sm:w-72">
+              <div class="mb-2 text-xs font-medium uppercase tracking-[0.16em] text-slate-400">
+                搜索
+              </div>
               <BaseInput
                 v-model="searchQuery"
                 :placeholder="t('executionHistory.searchPlaceholder')"
@@ -33,7 +38,10 @@
               </BaseInput>
             </div>
             <!-- 执行状态 -->
-            <div class="w-32">
+            <div class="w-full sm:w-40">
+              <div class="mb-2 text-xs font-medium uppercase tracking-[0.16em] text-slate-400">
+                状态
+              </div>
               <CustomSelect
                 v-model="selectedStatus"
                 :options="statusOptions"
@@ -41,7 +49,10 @@
               />
             </div>
             <!-- 时间范围 -->
-            <div class="w-32">
+            <div class="w-full sm:w-40">
+              <div class="mb-2 text-xs font-medium uppercase tracking-[0.16em] text-slate-400">
+                时间
+              </div>
               <CustomSelect
                 v-model="timeRange"
                 :options="timeRangeOptions"
@@ -53,7 +64,7 @@
               <button
                 @click="fetchExecutions"
                 :disabled="loading"
-                class="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                class="inline-flex h-11 items-center rounded-xl bg-primary-600 px-5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {{ t('executionHistory.search') }}
               </button>
@@ -62,7 +73,7 @@
         </div>
 
         <!-- 执行记录列表 -->
-        <div v-if="!currentWorkflowId" class="bg-white shadow rounded-lg overflow-hidden p-8 text-center text-black">
+        <div v-if="!currentWorkflowId" class="rounded-[24px] border border-slate-200 bg-white p-10 text-center text-black shadow-[0_12px_30px_rgba(15,23,42,0.05)]">
             <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
             </svg>
@@ -70,7 +81,23 @@
             <p class="mt-1 text-sm text-black">{{ t('executionHistory.noWorkflowDesc') }}</p>
         </div>
 
-        <AdminDataTable v-else :title="t('executionHistory.executions')" :loading="loading" :column-count="isPublishedWorkflow ? 7 : 6">
+        <AdminDataTable
+          v-else
+          :loading="loading"
+          :pagination="{
+            page: currentPage,
+            pages: totalPages,
+            total: executions.length,
+            limit: pageSize
+          }"
+          :show-page-size-selector="true"
+          :column-count="isPublishedWorkflow ? 7 : 6"
+          @page-change="handlePageChange"
+          @page-size-change="handlePageSizeChange"
+        >
+          <template #header>
+            <h2 class="text-xl font-semibold text-slate-900">执行记录</h2>
+          </template>
           <template #thead>
                 <tr>
                   <th v-if="isPublishedWorkflow" class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">{{ t('executionHistory.orderNo') }}</th>
@@ -84,33 +111,36 @@
           </template>
 
           <template #tbody>
-                <tr v-for="execution in executions" :key="execution.execution_id" class="hover:bg-gray-50">
+                <tr v-for="execution in paginatedExecutions" :key="execution.execution_id" class="hover:bg-slate-50/80 transition-colors">
                   <td v-if="isPublishedWorkflow" class="px-6 py-4">
-                    <div class="text-sm text-black">{{ execution.order_no || '-' }}</div>
+                    <div class="text-sm font-medium text-slate-900">{{ execution.order_no || '-' }}</div>
                   </td>
                   <td class="px-6 py-4">
-                    <div class="text-sm text-black">{{ execution.executor_name || '-' }}</div>
+                    <div class="space-y-1">
+                      <div class="text-sm font-medium text-slate-900">{{ execution.executor_name || '-' }}</div>
+                      <div class="text-xs text-slate-400">{{ execution.execution_id }}</div>
+                    </div>
                   </td>
                   <td class="px-6 py-4">
                     <template v-if="execution.email_id">
-                      <div class="text-sm text-black truncate max-w-[200px]" :title="execution.email_subject">
+                      <div class="max-w-[260px] truncate text-sm font-medium text-slate-900" :title="execution.email_subject">
                         {{ execution.email_subject || t('executionHistory.untitled') }}
                       </div>
-                      <div class="text-xs text-gray-400 mt-0.5">
+                      <div class="mt-1 text-xs text-slate-400">
                         {{ formatTime(execution.email_received_at) }}
                       </div>
                     </template>
                     <span v-else class="text-sm text-gray-300">-</span>
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap">
-                    <span :class="getStatusColor(execution.status)" class="inline-flex px-2 py-1 text-xs font-semibold rounded-full">
+                    <span :class="getStatusColor(execution.status)" class="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold">
                       {{ getStatusText(execution.status) }}
                     </span>
                   </td>
-                  <td class="px-6 py-4 whitespace-nowrap text-sm text-black">
+                  <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">
                     {{ formatDuration(execution.duration) }}
                   </td>
-                  <td class="px-6 py-4 whitespace-nowrap text-sm text-black">
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-700">
                     {{ formatTime(execution.start_time) }}
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -134,7 +164,7 @@
                   </td>
                 </tr>
 
-                <tr v-if="!executions.length">
+                <tr v-if="!paginatedExecutions.length">
                   <td :colspan="isPublishedWorkflow ? 7 : 6" class="px-6 py-12 text-center text-black">
                     {{ t('executionHistory.emptyDesc') }}
                   </td>
@@ -162,19 +192,69 @@
         />
 
         <!-- 执行日志对话框 -->
-        <div v-if="showLogsModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div class="relative top-10 mx-auto p-5 border w-11/12 max-w-7xl shadow-lg rounded-md bg-white">
-            <div class="flex justify-between items-center mb-4">
-              <h3 class="text-lg font-medium text-black">{{ t('executionHistory.logsTitle') }}</h3>
-              <button @click="showLogsModal = false" class="text-gray-400 hover:text-black">
+        <div v-if="showLogsModal" class="fixed inset-0 z-[160] overflow-y-auto">
+          <div class="fixed inset-0 bg-slate-950/45 backdrop-blur-sm" @click="showLogsModal = false"></div>
+          <div class="relative mx-auto flex min-h-screen max-w-7xl items-start justify-center px-4 py-8 sm:px-6">
+            <div class="relative w-full overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_30px_80px_rgba(15,23,42,0.25)]">
+            <div class="border-b border-slate-200 bg-[linear-gradient(135deg,#ffffff_0%,#f6faf7_100%)] px-6 py-5">
+              <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div class="space-y-3">
+                  <div>
+                    <h3 class="text-xl font-semibold text-slate-900">{{ t('executionHistory.logsTitle') }}</h3>
+                    <p class="mt-1 text-sm text-slate-500">
+                      {{ currentWorkflowName || selectedExecution?.workflow_id || '-' }}
+                    </p>
+                  </div>
+                  <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    <div class="rounded-2xl bg-white px-4 py-3 shadow-sm">
+                      <div class="text-xs text-slate-400">状态</div>
+                      <div class="mt-2">
+                        <span :class="getStatusColor(selectedExecution?.status)" class="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold">
+                          {{ getStatusText(selectedExecution?.status) }}
+                        </span>
+                      </div>
+                    </div>
+                    <div class="rounded-2xl bg-white px-4 py-3 shadow-sm">
+                      <div class="text-xs text-slate-400">执行者</div>
+                      <div class="mt-2 text-sm font-medium text-slate-900">{{ selectedExecution?.executor_name || '-' }}</div>
+                    </div>
+                    <div class="rounded-2xl bg-white px-4 py-3 shadow-sm">
+                      <div class="text-xs text-slate-400">开始时间</div>
+                      <div class="mt-2 text-sm font-medium text-slate-900">{{ formatTime(selectedExecution?.start_time) }}</div>
+                    </div>
+                    <div class="rounded-2xl bg-white px-4 py-3 shadow-sm">
+                      <div class="text-xs text-slate-400">耗时</div>
+                      <div class="mt-2 text-sm font-medium text-slate-900">{{ formatDuration(selectedExecution?.duration) }}</div>
+                    </div>
+                  </div>
+                </div>
+                <button @click="showLogsModal = false" class="rounded-xl p-2 text-slate-400 transition-colors hover:bg-white hover:text-slate-700">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
+              </div>
             </div>
-            
 
-            <div class="max-h-[70vh] overflow-y-auto">
+            <div class="max-h-[76vh] overflow-y-auto px-6 py-6">
+              <div
+                v-if="executionErrorSummary"
+                class="mb-5 rounded-2xl border border-red-200 bg-red-50 px-5 py-4"
+              >
+                <div class="text-sm font-semibold text-red-700">失败原因</div>
+                <div class="mt-2 text-sm leading-6 text-red-700">{{ executionErrorSummary }}</div>
+                <div v-if="executionErrorDetailEntries.length" class="mt-3 grid gap-2 sm:grid-cols-2">
+                  <div
+                    v-for="item in executionErrorDetailEntries"
+                    :key="item.label"
+                    class="rounded-xl bg-white/80 px-3 py-2"
+                  >
+                    <div class="text-xs text-slate-400">{{ item.label }}</div>
+                    <div class="mt-1 break-all text-sm font-medium text-slate-800">{{ item.value }}</div>
+                  </div>
+                </div>
+              </div>
+
               <div v-if="loadingLogs" class="p-8 text-center">
                 <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-primary-500 mx-auto"></div>
                 <p class="mt-2 text-black">{{ t('executionHistory.loadingLogs') }}</p>
@@ -184,34 +264,40 @@
                 {{ t('executionHistory.noLogs') }}
               </div>
               
-              <div v-else class="space-y-2">
-                <div v-for="log in executionLogs" :key="log.id" class="p-3 border rounded-md" :class="getLogLevelColor(log.log_level)">
+              <div v-else class="space-y-3">
+                <div
+                  v-for="log in executionLogs"
+                  :key="log.id"
+                  class="rounded-2xl border p-4"
+                  :class="getLogLevelColor(log.log_level)"
+                >
                   <div class="flex items-start justify-between">
                     <div class="flex-1">
-                      <div class="flex items-center space-x-2 mb-1">
-                        <span class="text-xs font-medium px-2 py-1 rounded" :class="getLogLevelBadgeColor(log.log_level)">
+                      <div class="mb-2 flex flex-wrap items-center gap-2">
+                        <span class="rounded-full px-2.5 py-1 text-xs font-medium" :class="getLogLevelBadgeColor(log.log_level)">
                           {{ log.log_level }}
                         </span>
-                        <span class="text-xs text-black">{{ formatTime(log.created_at) }}</span>
-                        <span v-if="log.step_name" class="text-xs text-black">{{ log.step_name }}</span>
+                        <span class="text-xs text-slate-500">{{ formatTime(log.created_at) }}</span>
+                        <span v-if="log.step_name" class="text-xs text-slate-500">{{ log.step_name }}</span>
                       </div>
-                      <p class="text-sm text-black whitespace-pre-wrap break-words">{{ log.log_message }}</p>
+                      <p class="whitespace-pre-wrap break-words text-sm leading-6 text-slate-800">{{ log.log_message }}</p>
                       <div v-if="log.log_data && Object.keys(log.log_data).length > 0" class="mt-2">
                         <details class="text-xs">
-                          <summary class="cursor-pointer text-black">{{ t('executionHistory.detailData') }}</summary>
-                          <div class="mt-1 p-2 bg-gray-100 rounded overflow-x-auto">
-                            <pre class="text-black whitespace-pre min-w-0">{{ JSON.stringify(log.log_data, null, 2) }}</pre>
+                          <summary class="cursor-pointer font-medium text-slate-600">{{ t('executionHistory.detailData') }}</summary>
+                          <div class="mt-2 overflow-x-auto rounded-xl bg-slate-900 px-3 py-3">
+                            <pre class="min-w-0 whitespace-pre text-[12px] leading-6 text-slate-100">{{ JSON.stringify(log.log_data, null, 2) }}</pre>
                           </div>
                         </details>
                       </div>
                     </div>
-                    <div v-if="log.execution_time_ms > 0" class="text-xs text-black">
+                    <div v-if="log.execution_time_ms > 0" class="ml-4 shrink-0 text-xs text-slate-500">
                       {{ log.execution_time_ms }}ms
                     </div>
                   </div>
                 </div>
               </div>
             </div>
+          </div>
           </div>
         </div>
     </div>
@@ -227,7 +313,6 @@ import PageHeader from '@/components/PageHeader/index.vue'
 import BaseInput from '@/components/BaseInput/index.vue'
 import CustomSelect from '@/components/CustomSelect/index.vue'
 import ActionButton from '@/components/ActionButton/index.vue'
-import BaseIcon from '@/components/BaseIcon/index.vue'
 import AdminDataTable from '@/components/AdminDataTable/index.vue'
 import ConfirmDialog from '@/components/ConfirmDialog/index.vue'
 import ExecutionResultModal from '@/views/portal/workflows/components/ExecutionResultModal/index.vue'
@@ -267,7 +352,8 @@ const isPublishedWorkflow = computed(() => currentWorkflowMarketStatus.value ===
 const searchQuery = ref('')
 const selectedStatus = ref('')
 const timeRange = ref('')
-const pageSize = ref('50')
+const currentPage = ref(1)
+const pageSize = ref(20)
 
 // 下拉选项
 const statusOptions = computed(() => [
@@ -285,6 +371,49 @@ const timeRangeOptions = computed(() => [
   { label: t('executionHistory.last7Days'), value: '7d' },
   { label: t('executionHistory.last30Days'), value: '30d' }
 ])
+
+const totalPages = computed(() => {
+  const total = executions.value.length
+  return Math.max(1, Math.ceil(total / pageSize.value))
+})
+
+const paginatedExecutions = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value
+  return executions.value.slice(start, start + pageSize.value)
+})
+
+const latestErrorLog = computed(() =>
+  executionLogs.value.find((log) => String(log.log_level || '').toUpperCase() === 'ERROR') || null
+)
+
+const executionErrorSummary = computed(() => {
+  return (
+    selectedExecution.value?.error_message ||
+    latestErrorLog.value?.log_message ||
+    ''
+  )
+})
+
+const executionErrorDetailEntries = computed(() => {
+  const detail = latestErrorLog.value?.log_data
+  const entries = []
+  if (selectedExecution.value?.failed_plugin) {
+    entries.push({ label: '失败插件', value: String(selectedExecution.value.failed_plugin) })
+  }
+
+  if (!detail || typeof detail !== 'object') return entries
+
+  if (detail.failed_plugin) {
+    const failedPlugin = String(detail.failed_plugin)
+    if (!entries.some((item) => item.label === '失败插件' && item.value === failedPlugin)) {
+      entries.push({ label: '失败插件', value: failedPlugin })
+    }
+  }
+  if (detail.error) {
+    entries.push({ label: '错误详情', value: String(detail.error) })
+  }
+  return entries
+})
 
 // 计算属性
 const retryConfirmMessage = computed(() => {
@@ -317,6 +446,15 @@ onMounted(() => {
   fetchExecutions()
 })
 
+const handlePageChange = (page) => {
+  currentPage.value = page
+}
+
+const handlePageSizeChange = (size) => {
+  pageSize.value = Number(size || 20)
+  currentPage.value = 1
+}
+
 // 方法
 const fetchWorkflows = async () => {
   try {
@@ -347,10 +485,10 @@ const fetchExecutions = async () => {
     // 根据是否指定workflow_id选择不同的API
     if (currentWorkflowId.value) {
       // 获取指定工作流的执行历史
-      response = await workflowApi.getExecutionHistory(currentWorkflowId.value, parseInt(pageSize.value))
+      response = await workflowApi.getExecutionHistory(currentWorkflowId.value, 500)
     } else {
       // 获取所有工作流的执行历史
-      response = await workflowApi.getAllExecutions(parseInt(pageSize.value), selectedStatus.value || null)
+      response = await workflowApi.getAllExecutions(500, selectedStatus.value || null)
     }
     
     if (response.code === 0 && response.data && response.data.executions) {
@@ -390,11 +528,14 @@ const fetchExecutions = async () => {
       const query = searchQuery.value.toLowerCase()
       allExecutions = allExecutions.filter(exec => 
         (exec.execution_id && exec.execution_id.toLowerCase().includes(query)) ||
-        (currentWorkflowName.value && currentWorkflowName.value.toLowerCase().includes(query))
+        (currentWorkflowName.value && currentWorkflowName.value.toLowerCase().includes(query)) ||
+        (exec.executor_name && exec.executor_name.toLowerCase().includes(query)) ||
+        (exec.email_subject && exec.email_subject.toLowerCase().includes(query))
       )
     }
     
     executions.value = allExecutions
+    currentPage.value = 1
     
   } catch (error) {
     console.error('加载执行历史失败:', error)
@@ -462,20 +603,20 @@ const getStatusText = (status) => {
 
 const getStatusColor = (status) => {
   const colorMap = {
-    'created': 'bg-yellow-100 text-yellow-800',
-    'running': 'bg-primary-100 text-primary-800',
-    'success': 'bg-primary-100 text-success-800',
-    'failed': 'bg-red-100 text-red-800',
-    'cancelled': 'bg-gray-100 text-black'
+    'created': 'bg-amber-100 text-amber-700',
+    'running': 'bg-sky-100 text-sky-700',
+    'success': 'bg-emerald-100 text-emerald-700',
+    'failed': 'bg-red-100 text-red-700',
+    'cancelled': 'bg-slate-200 text-slate-700'
   }
   return colorMap[status] || 'bg-gray-100 text-black'
 }
 
 const getLogLevelColor = (level) => {
   const colorMap = {
-    'DEBUG': 'bg-gray-50 border-gray-200',
-    'INFO': 'bg-primary-50 border-primary-200',
-    'WARN': 'bg-yellow-50 border-yellow-200',
+    'DEBUG': 'bg-slate-50 border-slate-200',
+    'INFO': 'bg-sky-50 border-sky-200',
+    'WARN': 'bg-amber-50 border-amber-200',
     'ERROR': 'bg-red-50 border-red-200'
   }
   return colorMap[level] || 'bg-gray-50 border-gray-200'
@@ -483,10 +624,10 @@ const getLogLevelColor = (level) => {
 
 const getLogLevelBadgeColor = (level) => {
   const colorMap = {
-    'DEBUG': 'bg-gray-100 text-black',
-    'INFO': 'bg-primary-100 text-primary-800',
-    'WARN': 'bg-yellow-100 text-yellow-800',
-    'ERROR': 'bg-red-100 text-red-800'
+    'DEBUG': 'bg-slate-200 text-slate-700',
+    'INFO': 'bg-sky-100 text-sky-700',
+    'WARN': 'bg-amber-100 text-amber-700',
+    'ERROR': 'bg-red-100 text-red-700'
   }
   return colorMap[level] || 'bg-gray-100 text-black'
 }
@@ -548,18 +689,4 @@ const confirmRetry = async () => {
   }
 }
 
-const copyToClipboard = async (text) => {
-  try {
-    await navigator.clipboard.writeText(text)
-    showMessage(t('executionHistory.copied'), 'success')
-  } catch (error) {
-    showMessage(t('executionHistory.copyFailed'), 'error')
-  }
-}
-
-// 将账号数据按行分割
-const getAccountLines = (accountData) => {
-  if (!accountData) return []
-  return accountData.split('\n').filter(line => line.trim())
-}
 </script>
