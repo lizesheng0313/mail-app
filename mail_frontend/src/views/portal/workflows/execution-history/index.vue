@@ -671,12 +671,14 @@ const getLogScreenshotUrl = (log) => {
   if (screenshotUrl.startsWith('http://') || screenshotUrl.startsWith('https://')) return screenshotUrl
 
   const apiBaseURL = getApiBaseURL()
-  if (apiBaseURL.startsWith('http://') || apiBaseURL.startsWith('https://')) {
-    return `${apiBaseURL.replace(/\/mail-api\/v1\/?$/, '')}${screenshotUrl}`
+  const screenshotMatch = screenshotUrl.match(/\/uploads\/automation_screenshots\/([^/?#]+)/)
+  if (screenshotMatch?.[1]) {
+    const base = apiBaseURL.replace(/\/$/, '')
+    return `${base}/workflows/screenshots/${encodeURIComponent(screenshotMatch[1])}`
   }
 
-  if (import.meta.env.DEV) {
-    return `http://localhost:8088${screenshotUrl}`
+  if (apiBaseURL.startsWith('http://') || apiBaseURL.startsWith('https://')) {
+    return `${apiBaseURL.replace(/\/mail-api\/v1\/?$/, '')}${screenshotUrl}`
   }
 
   return `${window.location.origin}${screenshotUrl}`
