@@ -98,7 +98,6 @@
             :srcdoc="getEmailHtml()"
             sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
             class="w-full border-none"
-            @load="adjustIframeHeight"
             ref="emailIframe"
           ></iframe>
           <!-- 纯文本内容 -->
@@ -140,10 +139,6 @@ interface Props {
   title?: string
   email: Email | null
   emptyText?: string
-}
-
-type EmailIframeElement = HTMLIFrameElement & {
-  __mailObserver?: MutationObserver
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -345,10 +340,24 @@ const getEmailHtml = () => {
   if (!html) return ''
 
   html = html.trim()
+  const decoratedBodyHtml = decorateExternalLinks(html)
 
   // 如果HTML已经有完整的文档结构（以<!doctype或<html开头），直接返回
   if (/^<!doctype/i.test(html) || /^<html/i.test(html)) {
-    return html
+    try {
+      const parser = new DOMParser()
+      const doc = parser.parseFromString(html, 'text/html')
+      const links = doc.querySelectorAll('a[href]')
+      links.forEach((link) => {
+        const rawHref = link.getAttribute('href')?.trim()
+        if (!rawHref || rawHref.startsWith('#') || /^(javascript|data|about):/i.test(rawHref)) return
+        link.setAttribute('target', '_blank')
+        link.setAttribute('rel', 'noopener noreferrer')
+      })
+      return '<!DOCTYPE html>\n' + doc.documentElement.outerHTML
+    } catch {
+      return html
+    }
   }
 
   // 否则包装成完整文档
@@ -363,199 +372,27 @@ const getEmailHtml = () => {
 </style>
 </head>
 <body>
-${html}
+${decoratedBodyHtml}
 </body>
 </html>`
 }
 
-const SUPPORTED_EXTERNAL_PROTOCOLS = new Set(['http:', 'https:', 'mailto:', 'tel:'])
-
-const resolveExternalUrl = (rawUrl?: string | null, baseUrl?: string) => {
-  if (!rawUrl) return null
-  const trimmed = rawUrl.trim()
-  if (!trimmed || trimmed.startsWith('#')) return null
-  if (/^(javascript|data|about):/i.test(trimmed)) return null
-
+const decorateExternalLinks = (html: string) => {
   try {
-    const parsed = new URL(trimmed, baseUrl || window.location.href)
-    if (!SUPPORTED_EXTERNAL_PROTOCOLS.has(parsed.protocol)) return null
-    return parsed.toString()
+    const parser = new DOMParser()
+    const doc = parser.parseFromString(html, 'text/html')
+    const links = doc.querySelectorAll('a[href]')
+
+    links.forEach((link) => {
+      const rawHref = link.getAttribute('href')?.trim()
+      if (!rawHref || rawHref.startsWith('#') || /^(javascript|data|about):/i.test(rawHref)) return
+      link.setAttribute('target', '_blank')
+      link.setAttribute('rel', 'noopener noreferrer')
+    })
+
+    return doc.body.innerHTML
   } catch {
-    return null
-  }
-}
-
-const openExternalUrl = async (url: string) => {
-  try {
-    const { invoke } = await import('@tauri-apps/api/core')
-    await invoke('open_external_url', { url })
-    return
-  } catch (e) {
-    console.warn('Tauri 命令打开失败，尝试 plugin-shell:', e)
-  }
-
-  if (isTauri()) {
-    try {
-      const { open } = await import('@tauri-apps/plugin-shell')
-      await open(url)
-      return
-    } catch (e) {
-      console.warn('plugin-shell 打开失败，尝试浏览器新标签页:', e)
-    }
-  }
-
-  window.open(url, '_blank', 'noopener,noreferrer')
-}
-
-const enhanceIframeLinks = (iframeDoc: Document) => {
-  const links = iframeDoc.querySelectorAll('a')
-  links.forEach((link) => {
-    if (!(link instanceof HTMLAnchorElement)) return
-    const boundLink = link as HTMLAnchorElement & { __externalLinkBound?: boolean }
-    const url = resolveExternalUrl(link.getAttribute('href'), iframeDoc.baseURI)
-    if (!url) return
-
-    link.setAttribute('href', url)
-    link.setAttribute('target', '_blank')
-    link.setAttribute('rel', 'noopener noreferrer')
-
-    if (boundLink.__externalLinkBound) return
-    boundLink.__externalLinkBound = true
-
-    const openLink = (event: Event) => {
-      event.preventDefault()
-      event.stopPropagation()
-      console.info('[mail-link-open]', url)
-      void openExternalUrl(url)
-    }
-
-    link.addEventListener('click', openLink, true)
-    link.addEventListener('auxclick', openLink, true)
-  })
-}
-
-const ensureDocumentClickInterceptor = (iframeDoc: Document) => {
-  const enhancedDoc = iframeDoc as Document & { __externalClickBound?: boolean }
-  if (enhancedDoc.__externalClickBound) return
-  enhancedDoc.__externalClickBound = true
-
-  iframeDoc.addEventListener('click', (event) => {
-    const targetNode = event.target as Node | null
-    const targetElement = targetNode instanceof Element ? targetNode : targetNode?.parentElement
-    if (!targetElement) return
-
-    const link = targetElement.closest('a')
-    if (!(link instanceof HTMLAnchorElement)) return
-
-    const url = resolveExternalUrl(link.getAttribute('href'), iframeDoc.baseURI)
-    if (!url) return
-
-    event.preventDefault()
-    event.stopPropagation()
-    console.info('[mail-link-open]', url)
-    void openExternalUrl(url)
-  }, true)
-}
-
-const addIframeOpenHint = (embeddedFrame: HTMLIFrameElement, iframeDoc: Document) => {
-  if (embeddedFrame.dataset.externalHintBound === '1') return
-  embeddedFrame.dataset.externalHintBound = '1'
-
-  const url = resolveExternalUrl(embeddedFrame.getAttribute('src'), iframeDoc.baseURI)
-  if (!url) return
-
-  const hint = iframeDoc.createElement('a')
-  hint.href = url
-  hint.textContent = t('emailDetail.openInBrowserHint')
-  hint.style.display = 'inline-block'
-  hint.style.marginBottom = '8px'
-  hint.style.padding = '6px 10px'
-  hint.style.borderRadius = '6px'
-  hint.style.background = '#e5f3ff'
-  hint.style.color = '#1d4ed8'
-  hint.style.textDecoration = 'none'
-  hint.style.fontSize = '12px'
-  hint.style.fontWeight = '600'
-
-  hint.addEventListener('click', (event) => {
-    event.preventDefault()
-    event.stopPropagation()
-    void openExternalUrl(url)
-  }, true)
-
-  embeddedFrame.insertAdjacentElement('beforebegin', hint)
-}
-
-const setupIframeInteractiveElements = (iframeDoc: Document) => {
-  ensureDocumentClickInterceptor(iframeDoc)
-  enhanceIframeLinks(iframeDoc)
-
-  const embeddedFrames = iframeDoc.querySelectorAll('iframe')
-  embeddedFrames.forEach((embeddedFrame) => {
-    if (embeddedFrame instanceof HTMLIFrameElement) {
-      addIframeOpenHint(embeddedFrame, iframeDoc)
-    }
-  })
-}
-
-const adjustIframeHeight = (event: Event) => {
-  const iframe = event.target as EmailIframeElement
-  try {
-    const iframeDoc = iframe.contentWindow?.document
-    if (!iframeDoc) return
-
-    setupIframeInteractiveElements(iframeDoc)
-
-    // 自动调整iframe高度以适应内容
-    const resizeIframe = () => {
-      try {
-        const body = iframeDoc.body
-        const html = iframeDoc.documentElement
-
-        if (body && html) {
-          const height = Math.max(
-            body.scrollHeight,
-            body.offsetHeight,
-            html.clientHeight,
-            html.scrollHeight,
-            html.offsetHeight
-          )
-
-          // 设置实际内容高度
-          iframe.style.height = (height + 20) + 'px'
-        }
-      } catch (e) {
-        console.warn('无法调整iframe高度:', e)
-      }
-    }
-
-    // 立即调整一次
-    resizeIframe()
-
-    // 等待图片加载后再次调整
-    setTimeout(resizeIframe, 100)
-    setTimeout(resizeIframe, 500)
-
-    // 监听iframe内容变化
-    const images = iframeDoc.querySelectorAll('img')
-    images.forEach((img) => {
-      img.onload = resizeIframe
-    })
-
-    iframe.__mailObserver?.disconnect()
-    const observer = new MutationObserver(() => {
-      setupIframeInteractiveElements(iframeDoc)
-      resizeIframe()
-    })
-
-    observer.observe(iframeDoc.documentElement, {
-      childList: true,
-      subtree: true
-    })
-    iframe.__mailObserver = observer
-  } catch (e) {
-    // 跨域时无法访问iframe内容
-    console.warn('无法访问iframe内容:', e)
+    return html
   }
 }
 </script>
