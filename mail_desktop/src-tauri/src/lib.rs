@@ -12,29 +12,6 @@ use tauri::Manager;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .plugin(
-            tauri::plugin::Builder::<tauri::Wry>::new("external-navigation")
-                .on_navigation(|_webview, url| {
-                    let host = url.host_str().unwrap_or_default();
-                    let is_internal_host = matches!(
-                        host,
-                        "localhost" | "127.0.0.1" | "tauri.localhost" | "ipc.localhost"
-                    );
-                    let is_internal_scheme = matches!(url.scheme(), "tauri" | "about" | "data" | "blob");
-
-                    if is_internal_scheme || is_internal_host {
-                        return true;
-                    }
-
-                    let target = url.as_str().to_string();
-                    log::info!("拦截外部导航并交给系统浏览器: {}", target);
-                    if let Err(e) = open::that(&target) {
-                        log::error!("系统浏览器打开失败: {} ({})", target, e);
-                    }
-                    false
-                })
-                .build(),
-        )
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())

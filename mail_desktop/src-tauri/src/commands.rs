@@ -6,6 +6,7 @@ use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
+use std::process::Command;
 use std::sync::{Mutex, OnceLock};
 use tauri_plugin_updater::UpdaterExt;
 
@@ -1249,8 +1250,29 @@ pub fn open_external_url(url: String) -> Result<(), String> {
     }
 
     info!("打开外部链接: {}", normalized);
-    open::that(normalized).map_err(|e| format!("打开外部链接失败: {}", e))?;
-    Ok(())
+    #[cfg(target_os = "macos")]
+    {
+        Command::new("open")
+            .arg(normalized)
+            .spawn()
+            .map_err(|e| format!("打开外部链接失败: {}", e))?;
+        return Ok(());
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        Command::new("cmd")
+            .args(["/C", "start", "", normalized])
+            .spawn()
+            .map_err(|e| format!("打开外部链接失败: {}", e))?;
+        return Ok(());
+    }
+
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    {
+        open::that(normalized).map_err(|e| format!("打开外部链接失败: {}", e))?;
+        Ok(())
+    }
 }
 
 /// 通过本地 SMTP 发送邮件（桌面端专用，使用用户本机 IP）

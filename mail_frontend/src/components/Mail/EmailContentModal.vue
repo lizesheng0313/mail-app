@@ -41,13 +41,11 @@
 
           <!-- 邮件内容 -->
           <div class="flex-1 overflow-y-auto p-6">
-            <iframe
+            <EmailHtmlRenderer
               v-if="hasHtmlContent"
-              :srcdoc="getEmailHtml()"
-              sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
-              class="w-full border-none"
-              style="min-height: 400px;"
-            ></iframe>
+              :html="htmlContent"
+              min-height="400px"
+            />
             <div v-else-if="hasTextContent" class="whitespace-pre-wrap text-gray-900">{{ textContent }}</div>
             <div v-else class="text-gray-400 text-center py-8">{{ t('emailDetail.emptyContent') }}</div>
           </div>
@@ -61,6 +59,7 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { formatTimestamp } from '@/utils/timeUtils'
+import EmailHtmlRenderer from '@/components/Mail/EmailHtmlRenderer.vue'
 interface Email {
   id: number
   subject?: string
@@ -118,71 +117,12 @@ const hasHtmlContent = computed(() => {
 // 检查是否有纯文本内容（不包含HTML标签）
 const hasTextContent = computed(() => {
   const trimmed = textContent.value
-  // 如果有内容但不包含HTML标签，则认为是纯文本
   return trimmed.length > 0 && !/<[^>]+>/.test(trimmed)
 })
 
-const getEmailHtml = () => {
-  // 优先使用contentHtml，如果为空则尝试content（某些邮件HTML在content字段）
-  let html = props.email?.contentHtml || props.email?.content_html || props.email?.content || props.email?.content_text || ''
-  if (!html) return ''
-  
-  html = html.trim()
-  const decoratedBodyHtml = decorateExternalLinks(html)
-  
-  // 如果HTML已经有完整的文档结构（以<!doctype或<html开头），直接返回
-  if (/^<!doctype/i.test(html) || /^<html/i.test(html)) {
-    try {
-      const parser = new DOMParser()
-      const doc = parser.parseFromString(html, 'text/html')
-      const links = doc.querySelectorAll('a[href]')
-      links.forEach((link) => {
-        const rawHref = link.getAttribute('href')?.trim()
-        if (!rawHref || rawHref.startsWith('#') || /^(javascript|data|about):/i.test(rawHref)) return
-        link.setAttribute('target', '_blank')
-        link.setAttribute('rel', 'noopener noreferrer')
-      })
-      return '<!DOCTYPE html>\n' + doc.documentElement.outerHTML
-    } catch {
-      return html
-    }
-  }
-  
-  // 否则包装成完整文档
-  return `<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<style>
-  body { margin: 0; padding: 20px; font-family: Arial, "Microsoft YaHei", sans-serif; }
-  table { max-width: 100%; }
-  img { max-width: 100%; height: auto; }
-</style>
-</head>
-<body>
-${decoratedBodyHtml}
-</body>
-</html>`
-}
-
-const decorateExternalLinks = (html: string) => {
-  try {
-    const parser = new DOMParser()
-    const doc = parser.parseFromString(html, 'text/html')
-    const links = doc.querySelectorAll('a[href]')
-
-    links.forEach((link) => {
-      const rawHref = link.getAttribute('href')?.trim()
-      if (!rawHref || rawHref.startsWith('#') || /^(javascript|data|about):/i.test(rawHref)) return
-      link.setAttribute('target', '_blank')
-      link.setAttribute('rel', 'noopener noreferrer')
-    })
-
-    return doc.body.innerHTML
-  } catch {
-    return html
-  }
-}
+const htmlContent = computed(() => {
+  return props.email?.contentHtml || props.email?.content_html || props.email?.content || props.email?.content_text || ''
+})
 </script>
 
 <style scoped>
@@ -194,9 +134,5 @@ const decorateExternalLinks = (html: string) => {
 .modal-enter-from,
 .modal-leave-to {
   opacity: 0;
-}
-
-iframe {
-  display: block;
 }
 </style>
