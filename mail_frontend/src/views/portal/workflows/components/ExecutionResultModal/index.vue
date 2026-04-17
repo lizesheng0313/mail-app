@@ -240,6 +240,7 @@ const accountGroups = computed(() => {
     .filter((item) => item.raw)
 })
 
+
 const allAccountText = computed(() => accountGroups.value.map((item) => item.raw).join('\n\n'))
 
 // 复制到剪贴板

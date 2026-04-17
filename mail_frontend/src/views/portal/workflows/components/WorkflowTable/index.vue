@@ -27,7 +27,7 @@
             :class="[
               'hover:bg-gray-50',
               highlightWorkflowId === workflow.workflow_id ? 'bg-yellow-50 border-yellow-200' : '',
-              isPurchasedAndOffline(workflow) ? 'opacity-60 bg-gray-50' : ''
+              isPurchasedUnavailable(workflow) ? 'opacity-60 bg-gray-50' : ''
             ]"
           >
             <td class="px-6 py-4 whitespace-nowrap">
@@ -46,8 +46,11 @@
                     <span v-else-if="workflow.is_owner === 0 || workflow.is_owner === false" class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
                       {{ t('workflowList.purchased') }}
                     </span>
-                    <span v-if="isPurchasedAndOffline(workflow)" class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-200 text-gray-600">
-                      {{ t('workflowList.offline') }}
+                    <span
+                      v-if="isPurchasedUnavailable(workflow)"
+                      class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-200 text-gray-600"
+                    >
+                      {{ getPurchasedUnavailableLabel(workflow) }}
                     </span>
                   </div>
                   <div class="text-sm text-black" v-if="workflow.description && workflow.description !== workflow.name">{{ workflow.description }}</div>
@@ -109,16 +112,16 @@
               <div v-if="!workflow.is_owner" class="flex items-center space-x-2">
                 <!-- 执行按钮 -->
                 <ActionButton
+                  v-if="canExecutePurchasedWorkflow(workflow)"
                   icon="play"
-                  :tooltip="isPurchasedAndOffline(workflow) ? t('workflowList.purchasedOfflineTooltip') : t('workflowList.execute')"
-                  :variant="isPurchasedAndOffline(workflow) ? 'default' : 'primary'"
-                  :disabled="isPurchasedAndOffline(workflow)"
-                  @click="!isPurchasedAndOffline(workflow) && $emit('execute', workflow)"
+                  :tooltip="t('workflowList.execute')"
+                  variant="primary"
+                  @click="$emit('execute', workflow)"
                 />
-                <!-- 执行历史 -->
+                <!-- 执行记录 -->
                 <ActionButton
                   icon="clock"
-                  :tooltip="t('workflowList.executionHistory')"
+                  :tooltip="isPurchasedUnavailable(workflow) ? getPurchasedUnavailableTooltip(workflow) : t('workflowList.executionHistory')"
                   variant="default"
                   @click="viewWorkflowHistory(workflow)"
                 />
@@ -140,7 +143,7 @@
                   variant="edit"
                   @click="$emit('edit', workflow)"
                 />
-                <!-- 查看历史 -->
+                <!-- 执行记录 -->
                 <ActionButton
                   icon="clock"
                   :tooltip="t('workflowList.viewHistory')"
@@ -242,11 +245,33 @@ const props = defineProps({
 
 const emit = defineEmits(['view', 'edit', 'delete', 'publish', 'unpublish', 'republish', 'manage-inventory', 'execute', 'edit-publish', 'export'])
 
-// 判断是否是已购买但已下架的工作流
-const isPurchasedAndOffline = (workflow) => {
+const isPurchasedWorkflow = (workflow) => {
   const isPurchased = workflow.is_owner === 0 || workflow.is_owner === false
-  const isOffline = workflow.market_status === 'draft' || workflow.market_status === 'offline'
-  return isPurchased && isOffline
+  return isPurchased
+}
+
+const isPurchasedUnavailable = (workflow) => {
+  if (!isPurchasedWorkflow(workflow)) return false
+  if (workflow.workflow_deleted) return true
+  return workflow.market_status === 'offline' || workflow.market_status === 'unlisted'
+}
+
+const canExecutePurchasedWorkflow = (workflow) => {
+  return isPurchasedWorkflow(workflow) && !isPurchasedUnavailable(workflow)
+}
+
+const getPurchasedUnavailableLabel = (workflow) => {
+  if (workflow.workflow_deleted) {
+    return t('workflowList.deleted')
+  }
+  return t('workflowList.offline')
+}
+
+const getPurchasedUnavailableTooltip = (workflow) => {
+  if (workflow.workflow_deleted) {
+    return t('workflowList.purchasedDeletedTooltip')
+  }
+  return t('workflowList.purchasedOfflineTooltip')
 }
 
 // 方法

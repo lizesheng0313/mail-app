@@ -420,6 +420,7 @@
       v-if="showExecutionHistory"
       :workflowId="workflow?.workflow_id"
       :marketStatus="workflow?.market_status"
+      :author-id="workflow?.author_id"
       @close="showExecutionHistory = false"
     />
 

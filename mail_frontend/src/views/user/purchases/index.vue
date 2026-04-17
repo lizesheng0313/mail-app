@@ -46,6 +46,17 @@
       >
         {{ t('purchasesPage.incomeRecords') }}
       </button>
+      <button
+        @click="activeTab = 'refunds'"
+        :class="[
+          'px-5 py-2 rounded-md font-medium text-sm transition-all',
+          activeTab === 'refunds'
+            ? 'bg-primary-600 text-white shadow-md'
+            : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+        ]"
+      >
+        退款申请
+      </button>
     </div>
 
     <!-- 筛选栏 -->
@@ -89,32 +100,32 @@
               <th
                 class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
               >
-                {{ t('purchasesPage.transactionNo') }}
+                {{ activeTab === 'refunds' ? '退款单号' : t('purchasesPage.transactionNo') }}
               </th>
               <th
                 class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
               >
-                {{ t('purchasesPage.transactionType') }}
+                {{ activeTab === 'refunds' ? '工作流' : t('purchasesPage.transactionType') }}
               </th>
               <th
                 class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
               >
-                {{ t('purchasesPage.description') }}
+                {{ activeTab === 'refunds' ? (isAdminView ? '买家 / 商家' : '退款原因') : t('purchasesPage.description') }}
               </th>
               <th
                 class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
               >
-                {{ t('purchasesPage.amount') }}
+                {{ activeTab === 'refunds' ? '退款金额' : t('purchasesPage.amount') }}
               </th>
               <th
                 class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
               >
-                {{ t('purchasesPage.balanceChange') }}
+                {{ activeTab === 'refunds' ? '状态' : t('purchasesPage.balanceChange') }}
               </th>
               <th
                 class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
               >
-                {{ t('purchasesPage.time') }}
+                {{ activeTab === 'refunds' ? '申请时间' : t('purchasesPage.time') }}
               </th>
               <th
                 class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
@@ -126,9 +137,9 @@
           <tbody class="bg-white divide-y divide-gray-200">
             <tr v-for="item in transactions" :key="item.id" class="hover:bg-gray-50">
               <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900">
-                {{ item.transaction_no || '#' + item.id }}
+                {{ activeTab === 'refunds' ? item.refund_no : (item.transaction_no || '#' + item.id) }}
               </td>
-              <td class="px-6 py-4 whitespace-nowrap">
+              <td v-if="activeTab !== 'refunds'" class="px-6 py-4 whitespace-nowrap">
                 <span
                   :class="getTypeClass(item.transaction_type)"
                   class="px-2 py-1 text-xs font-medium rounded-full"
@@ -136,28 +147,77 @@
                   {{ getTypeName(item.transaction_type) }}
                 </span>
               </td>
+              <td v-else class="px-6 py-4 text-sm text-gray-900">
+                <div class="font-medium">{{ item.workflow_name || '-' }}</div>
+                <div class="text-xs text-gray-500">{{ item.order_no || '-' }}</div>
+              </td>
               <td class="px-6 py-4 text-sm text-gray-900">
-                {{ item.description }}
+                <template v-if="activeTab === 'refunds' && isAdminView">
+                  <div>买家: {{ item.buyer_name || '-' }}</div>
+                  <div class="text-xs text-gray-500">商家: {{ item.seller_name || '-' }}</div>
+                </template>
+                <template v-else>
+                  {{ activeTab === 'refunds' ? (item.reason || '-') : item.description }}
+                </template>
               </td>
               <td
                 class="px-6 py-4 whitespace-nowrap text-sm font-medium"
-                :class="item.amount > 0 ? 'text-success-600' : 'text-danger-600'"
+                :class="activeTab === 'refunds' ? 'text-warning-700' : (item.amount > 0 ? 'text-success-600' : 'text-danger-600')"
               >
-                {{ item.amount > 0 ? '+' : '' }}{{ item.amount }} {{ t('purchasesPage.coinsUnit') }}
+                <template v-if="activeTab === 'refunds'">
+                  {{ item.amount }} {{ t('purchasesPage.coinsUnit') }}
+                </template>
+                <template v-else>
+                  {{ item.amount > 0 ? '+' : '' }}{{ item.amount }} {{ t('purchasesPage.coinsUnit') }}
+                </template>
               </td>
-              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+              <td v-if="activeTab !== 'refunds'" class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                 {{ item.balance_before }} → {{ item.balance_after }}
               </td>
+              <td v-else class="px-6 py-4 whitespace-nowrap">
+                <span
+                  :class="getRefundStatusClass(item.status)"
+                  class="px-2 py-1 text-xs font-medium rounded-full"
+                >
+                  {{ getRefundStatusName(item.status) }}
+                </span>
+              </td>
               <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                {{ formatDate(item.created_at) }}
+                {{ formatDate(activeTab === 'refunds' ? item.requested_at : item.created_at) }}
               </td>
               <td class="px-6 py-4 whitespace-nowrap text-sm">
-                <ActionButton
-                  icon="eye"
-                  :tooltip="t('purchasesPage.viewDetail')"
-                  variant="view"
-                  @click="viewDetail(item)"
-                />
+                <div class="flex items-center gap-2">
+                  <ActionButton
+                    icon="eye"
+                    :tooltip="t('purchasesPage.viewDetail')"
+                    variant="view"
+                    @click="viewDetail(item)"
+                  />
+                  <template v-if="activeTab === 'refunds' && item.status === 'pending'">
+                    <template v-if="isAdminView">
+                      <ActionButton
+                        icon="check"
+                        tooltip="同意退款"
+                        variant="success"
+                        @click="forceRefund(item)"
+                      />
+                    </template>
+                    <template v-else>
+                      <ActionButton
+                        icon="check"
+                        tooltip="同意退款"
+                        variant="success"
+                        @click="approveRefund(item)"
+                      />
+                      <ActionButton
+                        icon="x"
+                        tooltip="拒绝退款"
+                        variant="danger"
+                        @click="rejectRefund(item)"
+                      />
+                    </template>
+                  </template>
+                </div>
               </td>
             </tr>
             <tr v-if="loading">
@@ -235,61 +295,66 @@
               <div>
                 <div class="text-sm text-gray-600 mb-1">{{ t('purchasesPage.transactionNo') }}</div>
                 <div class="text-sm font-mono font-medium">
-                  {{ selectedItem.transaction_no || '#' + selectedItem.id }}
+                  {{ selectedItem.refund_no || selectedItem.transaction_no || '#' + selectedItem.id }}
                 </div>
               </div>
               <div>
                 <div class="text-sm text-gray-600 mb-1">
-                  {{ t('purchasesPage.transactionType') }}
+                  {{ activeTab === 'refunds' ? '状态' : t('purchasesPage.transactionType') }}
                 </div>
                 <div class="text-sm font-medium">
-                  {{ getTypeName(selectedItem.transaction_type) }}
+                  {{ activeTab === 'refunds' ? getRefundStatusName(selectedItem.status) : getTypeName(selectedItem.transaction_type) }}
                 </div>
               </div>
               <div>
                 <div class="text-sm text-gray-600 mb-1">
-                  {{
-                    selectedItem.amount > 0
-                      ? t('purchasesPage.rechargeAmount')
-                      : t('purchasesPage.expenseAmount')
-                  }}
+                  {{ activeTab === 'refunds' ? '退款金额' : (selectedItem.amount > 0 ? t('purchasesPage.rechargeAmount') : t('purchasesPage.expenseAmount')) }}
                 </div>
                 <div
                   class="text-sm font-medium"
-                  :class="selectedItem.amount > 0 ? 'text-success-600' : 'text-danger-600'"
+                  :class="activeTab === 'refunds' ? 'text-warning-700' : (selectedItem.amount > 0 ? 'text-success-600' : 'text-danger-600')"
                 >
-                  {{ selectedItem.amount > 0 ? '+' : '' }}{{ selectedItem.amount }}
+                  <template v-if="activeTab === 'refunds'">
+                    {{ selectedItem.amount }}
+                  </template>
+                  <template v-else>
+                    {{ selectedItem.amount > 0 ? '+' : '' }}{{ selectedItem.amount }}
+                  </template>
                   {{ t('purchasesPage.coinsUnit') }}
                 </div>
               </div>
-              <div>
+              <div v-if="activeTab !== 'refunds'">
                 <div class="text-sm text-gray-600 mb-1">{{ t('purchasesPage.balanceChange') }}</div>
                 <div class="text-sm font-medium">
                   {{ selectedItem.balance_before }} → {{ selectedItem.balance_after }}
                 </div>
               </div>
+              <div v-else>
+                <div class="text-sm text-gray-600 mb-1">工作流</div>
+                <div class="text-sm font-medium">
+                  {{ selectedItem.workflow_name || '-' }}
+                </div>
+              </div>
               <div class="col-span-2">
-                <div class="text-sm text-gray-600 mb-1">{{ t('purchasesPage.description') }}</div>
-                <div class="text-sm">{{ selectedItem.description }}</div>
-              </div>
-
-              <!-- 工作流相关信息 -->
-              <div v-if="selectedItem.order_no" class="col-span-2">
-                <div class="text-sm text-gray-600 mb-1">{{ t('purchasesPage.orderNo') }}</div>
-                <div class="text-sm font-mono">{{ selectedItem.order_no }}</div>
-              </div>
-              <div v-if="selectedItem.workflow_id">
-                <div class="text-sm text-gray-600 mb-1">{{ t('purchasesPage.workflowId') }}</div>
-                <div class="text-sm font-mono">{{ selectedItem.workflow_id }}</div>
-              </div>
-              <div v-if="selectedItem.execution_id">
-                <div class="text-sm text-gray-600 mb-1">{{ t('purchasesPage.executionId') }}</div>
-                <div class="text-sm font-mono">{{ selectedItem.execution_id }}</div>
+                <div class="text-sm text-gray-600 mb-1">{{ activeTab === 'refunds' ? (isAdminView ? '买家 / 商家' : '退款原因') : t('purchasesPage.description') }}</div>
+                <div v-if="activeTab === 'refunds' && isAdminView" class="text-sm space-y-1">
+                  <div>买家: {{ selectedItem.buyer_name || '-' }}</div>
+                  <div class="text-xs text-gray-500">商家: {{ selectedItem.seller_name || '-' }}</div>
+                </div>
+                <div v-else class="text-sm">{{ activeTab === 'refunds' ? (selectedItem.reason || '-') : (selectedItem.description || '-') }}</div>
               </div>
 
               <div class="col-span-2">
-                <div class="text-sm text-gray-600 mb-1">{{ t('purchasesPage.time') }}</div>
-                <div class="text-sm">{{ formatDate(selectedItem.created_at) }}</div>
+                <div class="text-sm text-gray-600 mb-1">{{ activeTab === 'refunds' ? '申请时间' : t('purchasesPage.time') }}</div>
+                <div class="text-sm">{{ formatDate(activeTab === 'refunds' ? selectedItem.requested_at : selectedItem.created_at) }}</div>
+              </div>
+              <div v-if="activeTab === 'refunds' && selectedItem.processed_at" class="col-span-2">
+                <div class="text-sm text-gray-600 mb-1">处理时间</div>
+                <div class="text-sm">{{ formatDate(selectedItem.processed_at) }}</div>
+              </div>
+              <div v-if="activeTab === 'refunds' && selectedItem.seller_reply" class="col-span-2">
+                <div class="text-sm text-gray-600 mb-1">处理说明</div>
+                <div class="text-sm">{{ selectedItem.seller_reply }}</div>
               </div>
             </div>
           </div>
@@ -300,14 +365,19 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, watch } from 'vue'
+import { ref, reactive, onMounted, watch, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { showMessage } from '@/utils/message'
+import { showConfirm, showPrompt } from '@/utils/dialog'
 import api from '@/services/api'
 import ActionButton from '@/components/ActionButton/index.vue'
 import { getCurrentLocale } from '@/i18n'
+import { useUserStore } from '@/stores/user'
+import { getSellerRefunds, approveWorkflowRefund, rejectWorkflowRefund, adminGetWorkflowRefunds, adminForceWorkflowRefund } from '@/api/workflowMarket'
 
 const { t } = useI18n()
+const userStore = useUserStore()
+const isAdminView = computed(() => Boolean(userStore.user?.is_admin))
 
 // 数据
 const transactions = ref([])
@@ -336,23 +406,33 @@ const selectedItem = ref(null)
 const loadData = async () => {
   loading.value = true
   try {
+    if (activeTab.value === 'refunds') {
+      const response = await (isAdminView.value ? adminGetWorkflowRefunds : getSellerRefunds)({
+        page: pagination.page,
+        page_size: pagination.pageSize
+      })
+
+      if (response.code === 0) {
+        transactions.value = response.data.items || []
+        pagination.total = response.data.total || 0
+        summary.total = response.data.total || 0
+        summary.totalSpent = transactions.value.reduce((sum, item) => sum + Number(item.amount || 0), 0)
+      }
+      return
+    }
+
     const params = {
       page: pagination.page,
       page_size: pagination.pageSize
     }
 
-    // 根据Tab筛选
     if (activeTab.value === 'recharge') {
-      // 充值记录
       params.transaction_type = 'recharge'
     } else if (activeTab.value === 'income') {
-      // 收益记录
       params.transaction_type = 'earn'
     } else if (activeTab.value === 'expense') {
-      // 支出记录: 消费 + 提现
       params.transaction_type = 'consume,withdraw'
     }
-    // 如果是'all'则不传transaction_type,显示全部
 
     const response = await api.get('/milk-coins/transactions', { params })
 
@@ -400,6 +480,57 @@ const viewDetail = (item) => {
   showDetailModal.value = true
 }
 
+const approveRefund = async (item) => {
+  const confirmed = await showConfirm(`确定同意工作流“${item.workflow_name}”这笔退款吗？`, '同意退款')
+  if (!confirmed) return
+
+  try {
+    const res = await approveWorkflowRefund(item.id)
+    if (res.code === 0) {
+      showMessage('退款已处理', 'success')
+      loadData()
+    } else {
+      showMessage(res.message, 'error')
+    }
+  } catch (error) {
+    console.error('同意退款失败:', error)
+  }
+}
+
+const rejectRefund = async (item) => {
+  const reply = await showPrompt('请输入拒绝原因', '拒绝退款', '')
+  if (!reply) return
+
+  try {
+    const res = await rejectWorkflowRefund(item.id, reply)
+    if (res.code === 0) {
+      showMessage('退款申请已拒绝', 'success')
+      loadData()
+    } else {
+      showMessage(res.message, 'error')
+    }
+  } catch (error) {
+    console.error('拒绝退款失败:', error)
+  }
+}
+
+const forceRefund = async (item) => {
+  const reply = await showPrompt('请输入平台介入退款说明', '同意退款')
+  if (!reply) return
+
+  try {
+    const res = await adminForceWorkflowRefund(item.id, reply)
+    if (res.code === 0) {
+      showMessage('退款已处理', 'success')
+      loadData()
+    } else {
+      showMessage(res.message, 'error')
+    }
+  } catch (error) {
+    console.error('平台介入退款失败:', error)
+  }
+}
+
 // 格式化日期
 const formatDate = (timestamp) => {
   if (!timestamp) return '-'
@@ -427,6 +558,24 @@ const getTypeClass = (type) => {
     withdraw: 'bg-warning-100 text-warning-700'
   }
   return classMap[type] || 'bg-gray-100 text-gray-700'
+}
+
+const getRefundStatusName = (status) => {
+  const statusMap = {
+    pending: '待处理',
+    rejected: '已拒绝',
+    refunded: '已退款'
+  }
+  return statusMap[status] || status
+}
+
+const getRefundStatusClass = (status) => {
+  const classMap = {
+    pending: 'bg-warning-100 text-warning-700',
+    rejected: 'bg-danger-100 text-danger-700',
+    refunded: 'bg-success-100 text-success-700'
+  }
+  return classMap[status] || 'bg-gray-100 text-gray-700'
 }
 
 // 监听Tab切换

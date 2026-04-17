@@ -92,6 +92,26 @@ export function getMyPurchases(params) {
   return api.get('/workflow-market/my/purchases', { params })
 }
 
+export function requestWorkflowRefund(purchaseId, reason = '') {
+  return api.post(`/workflow-market/my/purchases/${purchaseId}/refund`, { reason })
+}
+
+export function getMyRefunds(params) {
+  return api.get('/workflow-market/my/refunds', { params })
+}
+
+export function getSellerRefunds(params) {
+  return api.get('/workflow-market/my/orders/refunds', { params })
+}
+
+export function approveWorkflowRefund(refundId, reply = '') {
+  return api.post(`/workflow-market/my/refunds/${refundId}/approve`, { reply })
+}
+
+export function rejectWorkflowRefund(refundId, reply = '') {
+  return api.post(`/workflow-market/my/refunds/${refundId}/reject`, { reply })
+}
+
 /**
  * 获取我的销售订单列表 (从token自动获取user_id)
  */
@@ -159,4 +179,12 @@ export function adminPublishWorkflow(workflowId) {
  */
 export function adminUnpublishWorkflow(workflowId) {
   return api.post(`/workflow-market/admin/workflows/${workflowId}/unpublish`)
+}
+
+export function adminForceWorkflowRefund(refundId, reply = '') {
+  return api.post(`/workflow-market/admin/refunds/${refundId}/force`, { reply })
+}
+
+export function adminGetWorkflowRefunds(params) {
+  return api.get('/workflow-market/admin/refunds', { params })
 }

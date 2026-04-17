@@ -37,7 +37,6 @@ const MiniappConfig = () => import('@/views/admin/miniapp-config/index.vue')
 // 用户中心组件
 const UserLayout = () => import('@/layouts/UserLayout.vue')
 const UserPurchases = () => import('@/views/user/purchases/index.vue')
-const UserOrders = () => import('@/views/user/orders/index.vue')
 const UserFinance = () => import('@/views/user/finance/index.vue')
 const UserSettings = () => import('@/views/user/settings/index.vue')
 const UserAnnouncements = () => import('@/views/user/announcements/index.vue')
@@ -323,11 +322,6 @@ const router = createRouter({
           path: 'purchases',
           name: 'user-purchases',
           component: UserPurchases
-        },
-        {
-          path: 'orders',
-          name: 'user-orders',
-          component: UserOrders
         },
         {
           path: 'finance',

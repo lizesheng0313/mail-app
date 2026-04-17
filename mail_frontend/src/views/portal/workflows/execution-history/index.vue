@@ -29,7 +29,7 @@
         >
           当前工作流：<span class="font-medium text-slate-900">{{ currentWorkflowName }}</span>
         </div>
-        
+
         <!-- 筛选和搜索 -->
         <div class="rounded-[24px] border border-slate-200 bg-white px-5 py-5 shadow-[0_12px_30px_rgba(15,23,42,0.05)]">
           <div class="flex flex-wrap items-end gap-4">
@@ -124,14 +124,13 @@
           </template>
 
           <template #tbody>
-                <tr v-for="execution in paginatedExecutions" :key="execution.execution_id" class="hover:bg-slate-50/80 transition-colors">
+                <tr v-for="execution in paginatedExecutions" :key="execution.history_key || execution.execution_id" class="hover:bg-slate-50/80 transition-colors">
                   <td v-if="isPublishedWorkflow" class="px-6 py-4">
                     <div class="text-sm font-medium text-slate-900">{{ execution.order_no || '-' }}</div>
                   </td>
                   <td class="px-6 py-4">
                     <div class="space-y-1">
                       <div class="text-sm font-medium text-slate-900">{{ execution.executor_name || '-' }}</div>
-                      <div class="text-xs text-slate-400">{{ execution.execution_id }}</div>
                     </div>
                   </td>
                   <td class="px-6 py-4">
@@ -146,9 +145,25 @@
                     <span v-else class="text-sm text-gray-300">-</span>
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap">
-                    <span :class="getStatusColor(execution.status)" class="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold">
-                      {{ getStatusText(execution.status) }}
-                    </span>
+                    <div class="inline-flex items-center gap-1.5">
+                      <span
+                        :class="getDisplayStatusColor(execution)"
+                        class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold"
+                      >
+                        {{ getDisplayStatusText(execution) }}
+                      </span>
+                      <HoverTooltip
+                        v-if="execution.refund_status === 'rejected' && getRefundHint(execution)"
+                        :text="getRefundHint(execution)"
+                        placement="top"
+                      >
+                        <span
+                          class="inline-flex h-4 w-4 cursor-pointer items-center justify-center rounded-full border border-red-200 bg-red-50 text-[10px] font-bold leading-none text-red-600"
+                        >
+                          !
+                        </span>
+                      </HoverTooltip>
+                    </div>
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">
                     {{ formatDuration(execution.duration) }}
@@ -173,6 +188,13 @@
                         variant="primary"
                         @click="viewExecutionDetail(execution)"
                       />
+                      <ActionButton
+                        v-if="canShowRefundAction(execution)"
+                        icon="refund"
+                        tooltip="申请退款"
+                        variant="warning"
+                        @click="openRefundConfirm(execution)"
+                      />
                     </div>
                   </td>
                 </tr>
@@ -184,6 +206,17 @@
                 </tr>
           </template>
         </AdminDataTable>
+
+        <ConfirmDialog
+          v-model:visible="showRefundConfirm"
+          title="确认申请退款"
+          :message="refundConfirmMessage"
+          type="warning"
+          confirm-text="申请退款"
+          :loading="refunding"
+          @confirm="confirmRefund"
+          @cancel="showRefundConfirm = false"
+        />
 
         <!-- 重新执行确认对话框 -->
         <ConfirmDialog
@@ -218,12 +251,12 @@
                       {{ currentWorkflowName || selectedExecution?.workflow_id || '-' }}
                     </p>
                   </div>
-                  <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                    <div class="rounded-2xl bg-white px-4 py-3 shadow-sm">
-                      <div class="text-xs text-slate-400">状态</div>
-                      <div class="mt-2">
-                        <span :class="getStatusColor(selectedExecution?.status)" class="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold">
-                          {{ getStatusText(selectedExecution?.status) }}
+                    <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                      <div class="rounded-2xl bg-white px-4 py-3 shadow-sm">
+                        <div class="text-xs text-slate-400">状态</div>
+                        <div class="mt-2">
+                        <span :class="getDisplayStatusColor(selectedExecution)" class="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold">
+                          {{ getDisplayStatusText(selectedExecution) }}
                         </span>
                       </div>
                     </div>
@@ -250,6 +283,31 @@
             </div>
 
             <div class="max-h-[76vh] overflow-y-auto px-6 py-6">
+              <div
+                v-if="refundSummary"
+                class="mb-5 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4"
+              >
+                <div class="text-sm font-semibold text-amber-700">退款处理</div>
+                <div class="mt-3 grid gap-2 sm:grid-cols-2">
+                  <div class="rounded-xl bg-white/80 px-3 py-2">
+                    <div class="text-xs text-slate-400">处理状态</div>
+                    <div class="mt-1 text-sm font-medium text-slate-800">{{ refundSummary.statusText }}</div>
+                  </div>
+                  <div v-if="refundSummary.refundNo" class="rounded-xl bg-white/80 px-3 py-2">
+                    <div class="text-xs text-slate-400">退款单号</div>
+                    <div class="mt-1 break-all text-sm font-medium text-slate-800">{{ refundSummary.refundNo }}</div>
+                  </div>
+                  <div v-if="refundSummary.reason" class="rounded-xl bg-white/80 px-3 py-2 sm:col-span-2">
+                    <div class="text-xs text-slate-400">退款原因</div>
+                    <div class="mt-1 break-all text-sm font-medium text-slate-800">{{ refundSummary.reason }}</div>
+                  </div>
+                  <div v-if="refundSummary.reply" class="rounded-xl bg-white/80 px-3 py-2 sm:col-span-2">
+                    <div class="text-xs text-slate-400">处理说明</div>
+                    <div class="mt-1 break-all text-sm font-medium text-slate-800">{{ refundSummary.reply }}</div>
+                  </div>
+                </div>
+              </div>
+
               <div
                 v-if="executionErrorSummary"
                 class="mb-5 rounded-2xl border border-red-200 bg-red-50 px-5 py-4"
@@ -340,13 +398,16 @@ import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import { workflowApi } from '@/api/workflow'
+import { requestWorkflowRefund } from '@/api/workflowMarket'
 import PageHeader from '@/components/PageHeader/index.vue'
 import BaseInput from '@/components/BaseInput/index.vue'
 import CustomSelect from '@/components/CustomSelect/index.vue'
 import ActionButton from '@/components/ActionButton/index.vue'
 import AdminDataTable from '@/components/AdminDataTable/index.vue'
 import ConfirmDialog from '@/components/ConfirmDialog/index.vue'
+import HoverTooltip from '@/components/HoverTooltip/index.vue'
 import ExecutionResultModal from '@/views/portal/workflows/components/ExecutionResultModal/index.vue'
+import { showPrompt } from '@/utils/dialog'
 import { showMessage } from '@/utils/message'
 import { formatTimestamp } from '@/utils/timeUtils'
 import { getApiBaseURL } from '@/services/api'
@@ -369,14 +430,19 @@ const showRetryConfirm = ref(false)
 const retrying = ref(false)
 const retryingExecution = ref(null)
 const showExecutionResult = ref(false)
+const showRefundConfirm = ref(false)
+const refunding = ref(false)
+const refundTarget = ref(null)
 const executionResultData = ref({
   result: null
 })
 
 // 当前工作流信息
 const currentWorkflowId = ref(route.query.workflow_id?.toString() || '')
+const currentWorkflowDbId = ref<number | null>(null)
 const currentWorkflowName = ref('')
 const currentWorkflowMarketStatus = ref('')
+const currentWorkflowIsOwner = ref(false)
 
 // 是否已发布到市场
 const isPublishedWorkflow = computed(() => currentWorkflowMarketStatus.value === 'published')
@@ -389,13 +455,25 @@ const currentPage = ref(1)
 const pageSize = ref(20)
 
 // 下拉选项
-const statusOptions = computed(() => [
-  { label: t('executionHistory.allStatuses'), value: '' },
-  { label: t('executionHistory.statusRunning'), value: 'running' },
-  { label: t('executionHistory.statusSuccess'), value: 'success' },
-  { label: t('executionHistory.statusFailed'), value: 'failed' },
-  { label: t('executionHistory.statusCancelled'), value: 'cancelled' }
-])
+const statusOptions = computed(() => {
+  const options = [
+    { label: t('executionHistory.allStatuses'), value: '' },
+    { label: t('executionHistory.statusRunning'), value: 'running' },
+    { label: t('executionHistory.statusSuccess'), value: 'success' },
+    { label: t('executionHistory.statusFailed'), value: 'failed' },
+    { label: t('executionHistory.statusCancelled'), value: 'cancelled' }
+  ]
+
+  if (!currentWorkflowIsOwner.value) {
+    options.push(
+      { label: '退款中', value: 'refund_pending' },
+      { label: '已拒绝', value: 'refund_rejected' },
+      { label: '已退款', value: 'refund_refunded' }
+    )
+  }
+
+  return options
+})
 
 const timeRangeOptions = computed(() => [
   { label: t('executionHistory.allTime'), value: '' },
@@ -448,6 +526,24 @@ const executionErrorDetailEntries = computed(() => {
   return entries
 })
 
+const refundSummary = computed(() => {
+  const execution = selectedExecution.value
+  if (!execution || currentWorkflowIsOwner.value || !execution.refund_status) return null
+
+  const statusMap = {
+    pending: '退款中',
+    rejected: '已拒绝',
+    refunded: '已退款'
+  }
+
+  return {
+    statusText: statusMap[execution.refund_status] || execution.refund_status,
+    refundNo: execution.refund_no || '',
+    reason: execution.refund_reason || '',
+    reply: execution.refund_seller_reply || execution.refund_admin_reply || ''
+  }
+})
+
 // 计算属性
 const retryConfirmMessage = computed(() => {
   if (!retryingExecution.value) return t('executionHistory.retryConfirmDefault')
@@ -473,10 +569,15 @@ const retryConfirmMessage = computed(() => {
   return message
 })
 
+const refundConfirmMessage = computed(() => {
+  if (!refundTarget.value) return '确定要发起退款申请吗？'
+  return `确定要对订单“${refundTarget.value.order_no || refundTarget.value.purchase_id || refundTarget.value.id}”发起退款申请吗？\n\n提交后会进入退款处理流程，商家会先处理，平台也可以介入强制退款。`
+})
+
 // 生命周期
-onMounted(() => {
-  fetchWorkflows()
-  fetchExecutions()
+onMounted(async () => {
+  await fetchWorkflows()
+  await fetchExecutions()
 })
 
 const handlePageChange = (page) => {
@@ -499,8 +600,10 @@ const fetchWorkflows = async () => {
       if (currentWorkflowId.value) {
         const currentWorkflow = workflows.value.find(w => w.workflow_id === currentWorkflowId.value)
         if (currentWorkflow) {
+          currentWorkflowDbId.value = Number(currentWorkflow.id)
           currentWorkflowName.value = currentWorkflow.name
           currentWorkflowMarketStatus.value = currentWorkflow.market_status || ''
+          currentWorkflowIsOwner.value = Boolean(currentWorkflow.is_owner)
         }
       }
     }
@@ -527,10 +630,15 @@ const fetchExecutions = async () => {
     if (response.code === 0 && response.data && response.data.executions) {
       allExecutions = response.data.executions
     }
-    
+
     // 应用状态筛选
     if (selectedStatus.value) {
-      allExecutions = allExecutions.filter(exec => exec.status === selectedStatus.value)
+      allExecutions = allExecutions.filter(exec => {
+        if (selectedStatus.value === 'refund_pending') return exec.refund_status === 'pending'
+        if (selectedStatus.value === 'refund_rejected') return exec.refund_status === 'rejected'
+        if (selectedStatus.value === 'refund_refunded') return exec.refund_status === 'refunded'
+        return exec.status === selectedStatus.value
+      })
     }
     
     // 应用时间筛选
@@ -568,7 +676,6 @@ const fetchExecutions = async () => {
     }
     
     executions.value = allExecutions
-    currentPage.value = 1
     
   } catch (error) {
     console.error('加载执行历史失败:', error)
@@ -579,6 +686,36 @@ const fetchExecutions = async () => {
   }
 }
 
+const openRefundConfirm = (purchase) => {
+  refundTarget.value = purchase
+  showRefundConfirm.value = true
+}
+
+const confirmRefund = async () => {
+  const purchaseId = refundTarget.value?.purchase_id || refundTarget.value?.id
+  if (!purchaseId) return
+  const reason = await showPrompt('请输入退款原因', '申请退款')
+  if (!reason) {
+    showMessage('请先填写退款原因', 'warning')
+    return
+  }
+  refunding.value = true
+  try {
+    const response = await requestWorkflowRefund(purchaseId, reason)
+    if (response.code === 0) {
+      showMessage('退款申请已提交', 'success')
+      showRefundConfirm.value = false
+      refundTarget.value = null
+      await fetchExecutions()
+      return
+    }
+    showMessage(response.message, 'error')
+  } catch (error) {
+    console.error('退款申请失败:', error)
+  } finally {
+    refunding.value = false
+  }
+}
 
 // 查看执行详情 - 有账号显示账号弹窗，没账号显示日志
 const viewExecutionDetail = (execution) => {
@@ -629,7 +766,10 @@ const getStatusText = (status) => {
     'running': t('executionHistory.statusRunning'),
     'success': t('executionHistory.statusSuccess'),
     'failed': t('executionHistory.statusFailed'),
-    'cancelled': t('executionHistory.statusCancelled')
+    'cancelled': t('executionHistory.statusCancelled'),
+    'refund_pending': '退款中',
+    'refund_refunded': '已退款',
+    'refund_rejected': '已拒绝'
   }
   return statusMap[status] || status
 }
@@ -640,9 +780,46 @@ const getStatusColor = (status) => {
     'running': 'bg-sky-100 text-sky-700',
     'success': 'bg-emerald-100 text-emerald-700',
     'failed': 'bg-red-100 text-red-700',
-    'cancelled': 'bg-slate-200 text-slate-700'
+    'cancelled': 'bg-slate-200 text-slate-700',
+    'refund_pending': 'bg-amber-100 text-amber-700',
+    'refund_refunded': 'bg-slate-200 text-slate-700',
+    'refund_rejected': 'bg-red-100 text-red-700'
   }
   return colorMap[status] || 'bg-gray-100 text-black'
+}
+
+const getDisplayStatusText = (execution) => {
+  if (currentWorkflowIsOwner.value) return getStatusText(execution?.status)
+  if (execution?.refund_status === 'pending') return '退款中'
+  if (execution?.refund_status === 'rejected') return '已拒绝'
+  if (execution?.refund_status === 'refunded') return '已退款'
+  return getStatusText(execution?.status)
+}
+
+const getDisplayStatusColor = (execution) => {
+  if (currentWorkflowIsOwner.value) return getStatusColor(execution?.status)
+  if (execution?.refund_status === 'pending') return 'bg-amber-100 text-amber-700'
+  if (execution?.refund_status === 'rejected') return 'bg-red-100 text-red-700'
+  if (execution?.refund_status === 'refunded') return 'bg-slate-200 text-slate-700'
+  return getStatusColor(execution?.status)
+}
+
+const canShowRefundAction = (execution) => {
+  if (!execution) return false
+  if (currentWorkflowIsOwner.value) return false
+  const startTime = execution.start_time ? new Date(execution.start_time).getTime() : 0
+  if (!startTime || Number.isNaN(startTime)) return false
+  if (Date.now() - startTime > 15 * 24 * 60 * 60 * 1000) return false
+  return Boolean(
+    execution.purchase_id &&
+    execution.refund_status !== 'pending' &&
+    execution.refund_status !== 'refunded'
+  )
+}
+
+const getRefundHint = (execution) => {
+  if (!execution) return ''
+  return execution.refund_seller_reply || execution.refund_admin_reply || execution.refund_reason || ''
 }
 
 const getLogLevelColor = (level) => {

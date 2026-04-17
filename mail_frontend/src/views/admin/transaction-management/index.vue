@@ -46,10 +46,21 @@
       >
         收益记录
       </button>
+      <button
+        @click="activeTab = 'refunds'"
+        :class="[
+          'px-5 py-2 rounded-md font-medium text-sm transition-all',
+          activeTab === 'refunds'
+            ? 'bg-primary-600 text-white shadow-md'
+            : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+        ]"
+      >
+        退款处理
+      </button>
     </div>
 
     <!-- 筛选栏 -->
-    <div class="bg-white rounded-lg shadow p-4 mb-4">
+    <div v-if="activeTab !== 'refunds'" class="bg-white rounded-lg shadow p-4 mb-4">
       <div class="flex items-center gap-4">
         <!-- 搜索框 -->
         <div class="flex-1">
@@ -82,6 +93,7 @@
 
     <!-- 交易列表 -->
     <AdminDataTable
+      v-if="activeTab !== 'refunds'"
       :loading="loading"
       :pagination="{
         page: page,
@@ -144,6 +156,87 @@
             >
               查看
             </button>
+          </td>
+        </tr>
+      </template>
+    </AdminDataTable>
+
+    <AdminDataTable
+      v-else
+      title="退款申请列表"
+      :loading="loading"
+      :pagination="{
+        page: refundPage,
+        pages: refundTotalPages,
+        total: refundTotal,
+        limit: refundPageSize
+      }"
+      :column-count="7"
+      @page-change="handleRefundPageChange"
+      @page-size-change="handleRefundPageSizeChange"
+    >
+      <template #thead>
+        <tr>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">退款单号</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">工作流</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">买家 / 商家</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">退款金额</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">状态</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">申请时间</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">操作</th>
+        </tr>
+      </template>
+
+      <template #tbody>
+        <tr v-if="refunds.length === 0">
+          <td colspan="7" class="px-6 py-12 text-center text-gray-500">
+            暂无退款申请
+          </td>
+        </tr>
+        <tr v-for="refund in refunds" :key="refund.id" class="hover:bg-gray-50">
+          <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900">
+            {{ refund.refund_no }}
+          </td>
+          <td class="px-6 py-4 text-sm text-gray-900">
+            <div class="font-medium">{{ refund.workflow_name || '-' }}</div>
+            <div class="text-xs text-gray-500">{{ refund.order_no || '-' }}</div>
+          </td>
+          <td class="px-6 py-4 text-sm text-gray-900">
+            <div>买家: {{ refund.buyer_name || '-' }}</div>
+            <div class="text-xs text-gray-500">商家: {{ refund.seller_name || '-' }}</div>
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-orange-600">
+            {{ refund.amount }}
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap">
+            <span :class="[
+              'px-2 py-1 text-xs font-medium rounded-full',
+              refund.status === 'pending' ? 'bg-orange-100 text-orange-800' :
+              refund.status === 'rejected' ? 'bg-red-100 text-red-800' :
+              'bg-green-100 text-green-800'
+            ]">
+              {{ getRefundStatusLabel(refund.status) }}
+            </span>
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+            {{ formatDate(refund.requested_at) }}
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm">
+            <div class="flex items-center gap-2">
+              <ActionButton
+                icon="eye"
+                tooltip="查看详情"
+                variant="view"
+                @click="showRefundDetail(refund)"
+              />
+              <ActionButton
+                v-if="refund.status === 'pending'"
+                icon="check"
+                tooltip="同意退款"
+                variant="primary"
+                @click="forceRefund(refund)"
+              />
+            </div>
           </td>
         </tr>
       </template>
@@ -224,7 +317,10 @@
 <script setup>
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { showMessage } from '@/utils/message'
+import { showAlert, showPrompt } from '@/utils/dialog'
 import AdminDataTable from '@/components/AdminDataTable/index.vue'
+import ActionButton from '@/components/ActionButton/index.vue'
+import { adminGetWorkflowRefunds, adminForceWorkflowRefund } from '@/api/workflowMarket'
 
 const loading = ref(false)
 const searchKeyword = ref('')
@@ -234,11 +330,16 @@ const page = ref(1)
 const pageSize = ref(20)
 const total = ref(0)
 const transactions = ref([])
+const refunds = ref([])
+const refundPage = ref(1)
+const refundPageSize = ref(20)
+const refundTotal = ref(0)
 
 const showDetailModal = ref(false)
 const selectedItem = ref(null)
 
 const totalPages = computed(() => Math.ceil(total.value / pageSize.value))
+const refundTotalPages = computed(() => Math.ceil(refundTotal.value / refundPageSize.value) || 1)
 
 const loadData = async () => {
   loading.value = true
@@ -284,6 +385,27 @@ const loadData = async () => {
   }
 }
 
+const loadRefunds = async () => {
+  loading.value = true
+  try {
+    const res = await adminGetWorkflowRefunds({
+      page: refundPage.value,
+      page_size: refundPageSize.value
+    })
+    if (res.code === 0) {
+      refunds.value = res.data.items || []
+      refundTotal.value = res.data.total || 0
+    } else {
+      showMessage(res.message || '加载失败', 'error')
+    }
+  } catch (error) {
+    console.error('加载退款列表失败:', error)
+    showMessage('加载失败', 'error')
+  } finally {
+    loading.value = false
+  }
+}
+
 const handlePageChange = (newPage) => {
   page.value = newPage
   loadData()
@@ -311,6 +433,58 @@ const viewDetail = (item) => {
   showDetailModal.value = true
 }
 
+const handleRefundPageChange = (newPage) => {
+  refundPage.value = newPage
+  loadRefunds()
+}
+
+const handleRefundPageSizeChange = (newSize) => {
+  refundPageSize.value = newSize
+  refundPage.value = 1
+  loadRefunds()
+}
+
+const getRefundStatusLabel = (status) => {
+  const map = {
+    pending: '待处理',
+    rejected: '已拒绝',
+    refunded: '已退款'
+  }
+  return map[status] || status
+}
+
+const showRefundDetail = (refund) => {
+  showAlert(
+    `<div class='space-y-2'>
+      <div><strong>退款原因:</strong> ${refund.reason || '-'}</div>
+      <div><strong>商家说明:</strong> ${refund.seller_reply || '-'}</div>
+      <div><strong>平台说明:</strong> ${refund.admin_reply || '-'}</div>
+    </div>`,
+    '退款详情'
+  )
+}
+
+const forceRefund = async (refund) => {
+  const reply = await showPrompt(
+    '请输入平台介入退款说明',
+    '平台介入退款'
+  )
+
+  if (!reply) return
+
+  try {
+    const res = await adminForceWorkflowRefund(refund.id, reply)
+    if (res.code === 0) {
+      showMessage('已处理退款', 'success')
+      loadRefunds()
+    } else {
+      showMessage(res.message, 'error')
+    }
+  } catch (error) {
+    console.error('强制退款失败:', error)
+  }
+}
+
 const formatDate = (timestamp) => {
   if (!timestamp) return '-'
   const date = new Date(timestamp)
@@ -322,7 +496,8 @@ const getTypeName = (type) => {
     'recharge': '充值',
     'consume': '消费',
     'earn': '收益',
-    'withdraw': '提现'
+    'withdraw': '提现',
+    'refund': '退款'
   }
   return typeMap[type] || type
 }
@@ -332,12 +507,18 @@ const getTypeClass = (type) => {
     'recharge': 'bg-success-100 text-success-700',
     'consume': 'bg-danger-100 text-danger-700',
     'earn': 'bg-primary-100 text-primary-700',
-    'withdraw': 'bg-warning-100 text-warning-700'
+    'withdraw': 'bg-warning-100 text-warning-700',
+    'refund': 'bg-emerald-100 text-emerald-700'
   }
   return classMap[type] || 'bg-gray-100 text-gray-700'
 }
 
 watch(activeTab, () => {
+  if (activeTab.value === 'refunds') {
+    refundPage.value = 1
+    loadRefunds()
+    return
+  }
   page.value = 1
   loadData()
 })

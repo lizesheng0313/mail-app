@@ -83,50 +83,56 @@
           :initial-tags="tagsData[mailbox.id]?.tags || []"
         />
         <template #actions>
-          <button
-            type="button"
-            class="flex h-8 w-8 items-center justify-center rounded-full text-gray-500 transition-colors hover:bg-white hover:text-gray-700"
-            :title="t('systemMailbox.moreActions')"
-            @click.stop="toggleActionMenu(mailbox.id, $event)"
-          >
-            <BaseIcon name="more" size="sm" />
-          </button>
           <div
-            v-if="openMenuId === mailbox.id"
-            :class="[
-              'absolute right-0 z-20 min-w-[128px] overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg',
-              openMenuPlacement === 'up' ? 'bottom-full mb-2' : 'top-full mt-2'
-            ]"
-            @click.stop
+            class="relative"
+            @mouseenter="handleActionMenuEnter(mailbox.id, $event)"
+            @mouseleave="handleActionMenuLeave(mailbox.id)"
           >
             <button
               type="button"
-              class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-50"
-              @click.stop="handleCopyEmail(mailbox.email)"
+              class="flex h-8 w-8 items-center justify-center rounded-full text-gray-500 transition-colors hover:bg-white hover:text-gray-700"
+              :title="t('systemMailbox.moreActions')"
+              @click.stop="openActionMenu(mailbox.id, $event)"
             >
-              <BaseIcon name="copy" size="sm" />
-              {{ t('systemMailbox.copyMailbox') }}
+              <BaseIcon name="more" size="sm" />
             </button>
-            <button
-              type="button"
-              class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-50"
-              @click.stop="handleShareAction(mailbox)"
+            <div
+              v-if="openMenuId === mailbox.id"
+              :class="[
+                'absolute right-0 z-20 min-w-[128px] overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg',
+                openMenuPlacement === 'up' ? 'bottom-full mb-2' : 'top-full mt-2'
+              ]"
+              @click.stop
             >
-              <BaseIcon name="share" size="sm" />
-              {{ t('systemMailbox.shareMailbox') }}
-            </button>
-            <button
-              type="button"
-              :disabled="isProtectedHostedCatchAll(mailbox)"
-              :title="isProtectedHostedCatchAll(mailbox) ? t('systemMailbox.protectedDeleteTooltip') : t('systemMailbox.deleteMailbox')"
-              :class="isProtectedHostedCatchAll(mailbox)
-                ? 'flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-400 cursor-not-allowed'
-                : 'flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 transition-colors hover:bg-red-50'"
-              @click.stop="handleDeleteAction(mailbox.id)"
-            >
-              <BaseIcon name="delete" size="sm" />
-              {{ t('systemMailbox.deleteMailbox') }}
-            </button>
+              <button
+                type="button"
+                class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-50"
+                @click.stop="handleCopyEmail(mailbox.email)"
+              >
+                <BaseIcon name="copy" size="sm" />
+                {{ t('systemMailbox.copyMailbox') }}
+              </button>
+              <button
+                type="button"
+                class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-50"
+                @click.stop="handleShareAction(mailbox)"
+              >
+                <BaseIcon name="share" size="sm" />
+                {{ t('systemMailbox.shareMailbox') }}
+              </button>
+              <button
+                type="button"
+                :disabled="isProtectedHostedCatchAll(mailbox)"
+                :title="isProtectedHostedCatchAll(mailbox) ? t('systemMailbox.protectedDeleteTooltip') : t('systemMailbox.deleteMailbox')"
+                :class="isProtectedHostedCatchAll(mailbox)
+                  ? 'flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-400 cursor-not-allowed'
+                  : 'flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 transition-colors hover:bg-red-50'"
+                @click.stop="handleDeleteAction(mailbox.id)"
+              >
+                <BaseIcon name="delete" size="sm" />
+                {{ t('systemMailbox.deleteMailbox') }}
+              </button>
+            </div>
           </div>
         </template>
       </MailboxCard>
@@ -205,6 +211,7 @@ const selectedId = ref<number | null>(null)
 const tagsData = ref<Record<number, { sites: any[], tags: any[] }>>({})
 const openMenuId = ref<number | null>(null)
 const openMenuPlacement = ref<'up' | 'down'>('down')
+let closeMenuTimer: ReturnType<typeof setTimeout> | null = null
 const resolvedMailboxes = computed(() => props.mailboxes || mailboxStore.mailboxes)
 const resolvedSearchKeyword = computed(() =>
   props.searchKeyword !== null && props.searchKeyword !== undefined
@@ -307,6 +314,10 @@ const handleDelete = (id: number) => {
 }
 
 const closeActionMenu = () => {
+  if (closeMenuTimer) {
+    clearTimeout(closeMenuTimer)
+    closeMenuTimer = null
+  }
   openMenuId.value = null
 }
 
@@ -323,10 +334,27 @@ const resolveMenuPlacement = (event: Event) => {
   return spaceBelow < 160 ? 'up' : 'down'
 }
 
-const toggleActionMenu = (mailboxId: number, event: Event) => {
-  openMenuId.value = openMenuId.value === mailboxId ? null : mailboxId
+const openActionMenu = (mailboxId: number, event: Event) => {
+  if (closeMenuTimer) {
+    clearTimeout(closeMenuTimer)
+    closeMenuTimer = null
+  }
+  openMenuId.value = mailboxId
+  openMenuPlacement.value = resolveMenuPlacement(event)
+}
+
+const handleActionMenuEnter = (mailboxId: number, event: Event) => {
+  openActionMenu(mailboxId, event)
+}
+
+const handleActionMenuLeave = (mailboxId: number) => {
   if (openMenuId.value === mailboxId) {
-    openMenuPlacement.value = resolveMenuPlacement(event)
+    closeMenuTimer = setTimeout(() => {
+      if (openMenuId.value === mailboxId) {
+        openMenuId.value = null
+      }
+      closeMenuTimer = null
+    }, 160)
   }
 }
 
@@ -466,6 +494,10 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  if (closeMenuTimer) {
+    clearTimeout(closeMenuTimer)
+    closeMenuTimer = null
+  }
   window.removeEventListener('click', handleWindowClick)
 })
 </script>

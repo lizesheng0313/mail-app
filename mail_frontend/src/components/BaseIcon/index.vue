@@ -57,6 +57,7 @@ import {
   PauseCircleIcon,
   PlayCircleIcon,
   ShareIcon
+  , ArrowUturnLeftIcon
 } from '@heroicons/vue/24/outline'
 
 const props = defineProps({
@@ -157,7 +158,10 @@ const iconMap = {
   'cloud': CloudIcon,
   
   // 分享
-  'share': ShareIcon
+  'share': ShareIcon,
+
+  // 退款/回退
+  'refund': ArrowUturnLeftIcon
 }
 
 const iconComponent = computed(() => {

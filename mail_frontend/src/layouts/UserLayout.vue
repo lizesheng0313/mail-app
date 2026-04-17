@@ -236,7 +236,7 @@ const menuSections = computed(() => [
 // 当前页面标题
 const currentPageTitle = computed(() => {
   if (route.path === '/user/automation/workflows') return t('userLayout.automationWorkflows')
-  if (route.path === '/user/automation/execution-history') return '执行历史'
+  if (route.path === '/user/automation/execution-history') return '执行记录'
   if (route.path === '/user/automation/triggers') return t('userLayout.automationTriggers')
   if (route.path === '/user/automation/plugins') return t('userLayout.myPlugins')
   if (route.path === '/user/automation/plugins/store') return t('userLayout.pluginStore')
