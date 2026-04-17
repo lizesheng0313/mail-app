@@ -1,7 +1,7 @@
 <template>
   <BaseModal
     v-model="localVisible"
-    :title="t('home.customGenerateTitle')"
+    :title="modalTitle"
     size="xl"
     :confirm-text="customGenerateLoading ? t('home.customGenerating') : t('home.customGenerateConfirm')"
     :confirm-loading="customGenerateLoading"
@@ -14,7 +14,7 @@
           <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div class="min-w-0">
               <p class="text-lg font-semibold text-gray-900">{{ t('home.customGenerateDomainLabel') }}</p>
-              <p class="mt-1 text-sm text-gray-500">{{ t('home.customGenerateDomainHint') }}</p>
+              <p class="mt-1 text-sm text-gray-500">{{ domainHintText }}</p>
             </div>
             <div class="flex items-center gap-3 text-sm">
               <span class="rounded-full bg-primary-50 px-3 py-1 font-medium text-primary-700">
@@ -49,23 +49,23 @@
 
         <div class="px-4 py-4">
           <div
-            v-if="systemDomainLoading"
+            v-if="domainLoading"
             class="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-8 text-sm text-gray-500"
           >
             {{ t('common.loading') }}
           </div>
           <div
-            v-else-if="!filteredSystemDomainOptions.length"
+            v-else-if="!filteredDomainOptions.length"
             class="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-8 text-sm text-gray-500"
           >
-            {{ t('home.noMatchingDomains') }}
+            {{ emptyDomainText }}
           </div>
           <div
             v-else
             class="max-h-[560px] space-y-2 overflow-y-auto pr-1"
           >
             <button
-              v-for="domain in filteredSystemDomainOptions"
+              v-for="domain in filteredDomainOptions"
               :key="domain.id"
               type="button"
               @click="toggleCustomDomainSelection(domain.id)"
@@ -153,25 +153,25 @@
             </button>
             <button
               type="button"
-              @click="customGenerateForm.generation_mode = 'prefix_random'"
+              @click="customGenerateForm.generation_mode = 'custom'"
               :class="
-                customGenerateForm.generation_mode === 'prefix_random'
+                customGenerateForm.generation_mode === 'custom'
                   ? customRuleButtonActiveClass
                   : customRuleButtonClass
               "
             >
-              {{ t('home.rulePrefixRandom') }}
+              {{ t('home.ruleCustom') }}
             </button>
             <button
               type="button"
-              @click="customGenerateForm.generation_mode = 'prefix_sequence'"
+              @click="customGenerateForm.generation_mode = 'sequence'"
               :class="
-                customGenerateForm.generation_mode === 'prefix_sequence'
+                customGenerateForm.generation_mode === 'sequence'
                   ? customRuleButtonActiveClass
                   : customRuleButtonClass
               "
             >
-              {{ t('home.rulePrefixSequence') }}
+              {{ t('home.ruleSequence') }}
             </button>
           </div>
 
@@ -193,7 +193,7 @@
             </label>
 
             <label
-              v-if="customGenerateForm.generation_mode !== 'prefix_sequence'"
+              v-if="customGenerateForm.generation_mode !== 'sequence'"
               class="block"
             >
               <span class="mb-2 block text-sm font-medium text-gray-900">
@@ -208,7 +208,7 @@
             </label>
 
             <div
-              v-if="customGenerateForm.generation_mode === 'prefix_sequence'"
+              v-if="customGenerateForm.generation_mode === 'sequence'"
               class="grid grid-cols-1 gap-3"
             >
               <label class="block">
@@ -223,12 +223,26 @@
                   class="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
                 />
               </label>
+
+              <label class="block">
+                <span class="mb-2 block text-sm font-medium text-gray-900">
+                  {{ t('home.customGenerateSequenceStartLabel') }}
+                </span>
+                <input
+                  v-model.number="customGenerateForm.sequence_start"
+                  type="number"
+                  min="1"
+                  class="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
+                />
+              </label>
             </div>
           </div>
         </div>
 
         <div class="rounded-2xl border border-gray-200 bg-white p-4">
-          <div class="rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          <div
+            class="rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-600"
+          >
             {{ t('home.customGenerateUnitPriceValue') }}
           </div>
 
@@ -238,7 +252,7 @@
           </div>
 
           <div
-            v-if="!customGenerateHasEnoughBalance"
+            v-if="isSystemMailbox && !customGenerateHasEnoughBalance"
             class="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3"
           >
             <p class="text-sm text-amber-700">
@@ -278,6 +292,7 @@ import BaseModal from '@/components/BaseModal/index.vue'
 import ConfirmDialog from '@/components/ConfirmDialog/index.vue'
 import CustomSelect from '@/components/CustomSelect/index.vue'
 import { mailboxAPI } from '@/api/mailbox'
+import { hostedDomainAPI } from '@/api/hostedDomain'
 import { getBalance } from '@/api/milkCoin'
 import { showMessage } from '@/utils/message'
 
@@ -285,6 +300,10 @@ const props = defineProps({
   visible: {
     type: Boolean,
     default: false
+  },
+  mailboxType: {
+    type: String,
+    default: 'system'
   }
 })
 
@@ -297,14 +316,31 @@ const localVisible = computed({
   set: (value: boolean) => emit('update:visible', value)
 })
 
+const isHostedMailbox = computed(() => String(props.mailboxType || '').toLowerCase() === 'hosted')
+const isSystemMailbox = computed(() => !isHostedMailbox.value)
+
+const modalTitle = computed(() =>
+  isHostedMailbox.value ? t('home.customGenerateHostedTitle') : t('home.customGenerateTitle')
+)
+
+const domainHintText = computed(() =>
+  isHostedMailbox.value
+    ? t('home.customGenerateHostedDomainHint')
+    : t('home.customGenerateDomainHint')
+)
+
+const emptyDomainText = computed(() =>
+  isHostedMailbox.value ? t('home.customGenerateNoHostedDomains') : t('home.customGenerateNoDomains')
+)
+
 const customRuleButtonClass =
   'rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-medium text-gray-700 hover:border-primary-300 hover:text-primary-700 transition-colors'
 const customRuleButtonActiveClass =
   'rounded-xl border border-primary-500 bg-primary-50 px-4 py-3 text-sm font-medium text-primary-700 shadow-sm transition-colors'
 
 const customGenerateLoading = ref(false)
-const systemDomainLoading = ref(false)
-const systemDomainOptions = ref<any[]>([])
+const domainLoading = ref(false)
+const domainOptions = ref<any[]>([])
 const customGenerateBalance = ref(0)
 const domainSearchKeyword = ref('')
 const customGenerateForm = ref({
@@ -314,6 +350,7 @@ const customGenerateForm = ref({
   custom_prefix: '',
   random_length: 8,
   sequence_padding: 3,
+  sequence_start: 1,
   domain_strategy: 'round_robin'
 })
 const confirmDialog = ref({
@@ -324,6 +361,17 @@ const confirmDialog = ref({
   cancelText: '',
   type: 'info',
   action: '' as 'generate' | 'recharge' | ''
+})
+
+const createDefaultCustomGenerateForm = () => ({
+  domain_ids: [] as string[],
+  quantity: 10,
+  generation_mode: 'random',
+  custom_prefix: '',
+  random_length: 8,
+  sequence_padding: 3,
+  sequence_start: 1,
+  domain_strategy: 'round_robin'
 })
 
 const normalizedCustomGenerateQuantity = computed(() =>
@@ -352,6 +400,18 @@ const resolvedRandomLength = computed(() => {
   return Math.floor(value)
 })
 
+const resolvedSequencePadding = computed(() => {
+  const value = Number(customGenerateForm.value.sequence_padding)
+  if (!Number.isFinite(value)) return 3
+  return Math.max(1, Math.min(8, Math.floor(value)))
+})
+
+const resolvedSequenceStart = computed(() => {
+  const value = Number(customGenerateForm.value.sequence_start)
+  if (!Number.isFinite(value)) return 1
+  return Math.max(1, Math.floor(value))
+})
+
 const getDomainSuffix = (domainName: string) => {
   const normalizedName = String(domainName || '').trim().toLowerCase()
   if (!normalizedName) return ''
@@ -359,7 +419,7 @@ const getDomainSuffix = (domainName: string) => {
   return parts.length ? parts[parts.length - 1] : normalizedName
 }
 
-const sortSystemDomainsBySuffix = (domains: any[]) =>
+const sortDomainsBySuffix = (domains: any[]) =>
   [...domains].sort((left, right) => {
     const leftName = String(left?.domain_name || '').toLowerCase()
     const rightName = String(right?.domain_name || '').toLowerCase()
@@ -381,9 +441,7 @@ const domainStrategyOptions = computed(() => [
 
 const customGeneratePreviewDomain = computed(() => {
   const selectedId = customGenerateForm.value.domain_ids[0]
-  const matchedDomain = systemDomainOptions.value.find(
-    (item) => String(item.id) === String(selectedId)
-  )
+  const matchedDomain = domainOptions.value.find((item) => String(item.id) === String(selectedId))
   return matchedDomain?.domain_name || 'domain.com'
 })
 
@@ -391,28 +449,27 @@ const customGeneratePreviewText = computed(() => {
   const previewDomain = customGeneratePreviewDomain.value
   const prefix = String(customGenerateForm.value.custom_prefix || '').trim().toLowerCase()
 
-  if (customGenerateForm.value.generation_mode === 'prefix_sequence') {
-    const padding = Math.max(1, Number(customGenerateForm.value.sequence_padding || 3))
-    return `${prefix || 'team'}-${String(1).padStart(padding, '0')}@${previewDomain}`
+  if (customGenerateForm.value.generation_mode === 'sequence') {
+    return `${prefix}${String(resolvedSequenceStart.value).padStart(resolvedSequencePadding.value, '0')}@${previewDomain}`
   }
 
-  if (customGenerateForm.value.generation_mode === 'prefix_random') {
-    return `${prefix || 'team'}-${'x'.repeat(resolvedRandomLength.value)}@${previewDomain}`
+  if (customGenerateForm.value.generation_mode === 'custom') {
+    return `${prefix}${'x'.repeat(resolvedRandomLength.value)}@${previewDomain}`
   }
 
   return `${'x'.repeat(resolvedRandomLength.value)}@${previewDomain}`
 })
 
-const filteredSystemDomainOptions = computed(() => {
+const filteredDomainOptions = computed(() => {
   const keyword = String(domainSearchKeyword.value || '').trim().toLowerCase()
-  if (!keyword) return systemDomainOptions.value
-  return systemDomainOptions.value.filter((item) =>
+  if (!keyword) return domainOptions.value
+  return domainOptions.value.filter((item) =>
     String(item.domain_name || '').toLowerCase().includes(keyword)
   )
 })
 
 const canSubmitCustomGenerate = computed(() => {
-  if (customGenerateLoading.value || systemDomainLoading.value) return false
+  if (customGenerateLoading.value || domainLoading.value) return false
   if (!customGenerateForm.value.domain_ids.length) return false
   if (
     customGenerateForm.value.generation_mode !== 'random' &&
@@ -424,21 +481,51 @@ const canSubmitCustomGenerate = computed(() => {
 })
 
 const syncCustomGenerateDomainSelection = () => {
-  const availableIds = new Set(systemDomainOptions.value.map((item) => String(item.id)))
+  const availableIds = new Set(domainOptions.value.map((item) => String(item.id)))
   const nextIds = customGenerateForm.value.domain_ids.filter((item) => availableIds.has(String(item)))
   customGenerateForm.value.domain_ids = nextIds
 }
 
+const normalizeHostedDomainRows = (items: any[] = []) =>
+  items
+    .filter((item: any) => {
+      const isVerified = String(item?.verification_status || '').toLowerCase() === 'verified'
+      const isActive = Boolean(item?.is_active)
+      const isDeleted = Boolean(item?.is_deleted)
+      const expiresAt = Number(item?.expires_at || 0)
+      const isExpired = expiresAt > 0 && expiresAt < Date.now()
+      return isVerified && isActive && !isDeleted && !isExpired
+    })
+    .map((item: any) => ({
+      id: String(item.id),
+      raw_id: Number(item.id),
+      domain_name: item.domain_name,
+      mailbox_count: Number(item.mailbox_count || 0),
+      is_public_domain: Boolean(item.is_public)
+    }))
+
 const loadCustomGenerateResources = async () => {
-  systemDomainLoading.value = true
+  domainLoading.value = true
   try {
+    if (isHostedMailbox.value) {
+      const domainsRes: any = await hostedDomainAPI.listDomains()
+      if (domainsRes.code === 0 && domainsRes.data) {
+        domainOptions.value = sortDomainsBySuffix(
+          normalizeHostedDomainRows(domainsRes.data.items || [])
+        )
+        syncCustomGenerateDomainSelection()
+      }
+      customGenerateBalance.value = 0
+      return
+    }
+
     const [domainsRes, balanceRes] = await Promise.all([
       mailboxAPI.getSystemDomains(),
       getBalance()
     ])
 
     if (domainsRes.code === 0 && domainsRes.data) {
-      systemDomainOptions.value = sortSystemDomainsBySuffix(domainsRes.data.items || [])
+      domainOptions.value = sortDomainsBySuffix(domainsRes.data.items || [])
       syncCustomGenerateDomainSelection()
     }
 
@@ -448,7 +535,7 @@ const loadCustomGenerateResources = async () => {
   } catch (error) {
     console.error('加载指定生成配置失败:', error)
   } finally {
-    systemDomainLoading.value = false
+    domainLoading.value = false
   }
 }
 
@@ -463,40 +550,128 @@ const toggleCustomDomainSelection = (domainId: string) => {
 }
 
 const selectAllCustomDomains = () => {
-  customGenerateForm.value.domain_ids = filteredSystemDomainOptions.value.map((item) => String(item.id))
+  customGenerateForm.value.domain_ids = filteredDomainOptions.value.map((item) => String(item.id))
 }
 
 const clearCustomDomains = () => {
   customGenerateForm.value.domain_ids = []
 }
 
+const createRandomSuffix = (length: number) => {
+  const alphabet = 'abcdefghijklmnopqrstuvwxyz0123456789'
+  const safeLength = Math.max(1, Math.min(24, Math.floor(Number(length) || 1)))
+  let result = ''
+  for (let index = 0; index < safeLength; index += 1) {
+    result += alphabet[Math.floor(Math.random() * alphabet.length)]
+  }
+  return result
+}
+
+const pickDomainOption = (items: any[], index: number) => {
+  if (!items.length) return null
+  if (customGenerateForm.value.domain_strategy === 'random') {
+    return items[Math.floor(Math.random() * items.length)] || null
+  }
+  return items[index % items.length] || null
+}
+
+const buildHostedLocalPart = (index: number) => {
+  const prefix = String(customGenerateForm.value.custom_prefix || '').trim().toLowerCase()
+  if (customGenerateForm.value.generation_mode === 'sequence') {
+    const sequenceNumber = resolvedSequenceStart.value + index
+    return `${prefix}${String(sequenceNumber).padStart(resolvedSequencePadding.value, '0')}`
+  }
+  if (customGenerateForm.value.generation_mode === 'custom') {
+    const randomSuffix = createRandomSuffix(resolvedRandomLength.value)
+    return `${prefix}${randomSuffix}`
+  }
+  return ''
+}
+
+const performHostedCustomGenerate = async () => {
+  const selectedDomains = domainOptions.value.filter((item) =>
+    customGenerateForm.value.domain_ids.includes(String(item.id))
+  )
+  if (!selectedDomains.length) {
+    throw new Error(emptyDomainText.value)
+  }
+
+  const createdItems: any[] = []
+  for (let index = 0; index < normalizedCustomGenerateQuantity.value; index += 1) {
+    const selectedDomain = pickDomainOption(selectedDomains, index)
+    if (!selectedDomain?.raw_id) {
+      throw new Error(emptyDomainText.value)
+    }
+
+    const payload: Record<string, any> = {
+      route_mode: 'direct',
+      is_public: false
+    }
+
+    if (customGenerateForm.value.generation_mode === 'random') {
+      payload.auto_local_part = true
+    } else {
+      payload.local_part = buildHostedLocalPart(index)
+    }
+
+    const result: any = await hostedDomainAPI.createMailbox(selectedDomain.raw_id, payload)
+    if (result.code !== 0) {
+      throw new Error(result.message || t('home.customGenerateFailed'))
+    }
+    createdItems.push(result.data)
+  }
+
+  return {
+    items: createdItems,
+    quantity: createdItems.length,
+    cost: 0
+  }
+}
+
+const performSystemCustomGenerate = async () => {
+  const payload: Record<string, any> = {
+    domain_ids: customGenerateForm.value.domain_ids,
+    quantity: normalizedCustomGenerateQuantity.value,
+    generation_mode:
+      customGenerateForm.value.generation_mode === 'sequence'
+        ? 'prefix_sequence'
+        : customGenerateForm.value.generation_mode === 'custom'
+          ? 'prefix_random'
+          : 'random',
+    random_length: resolvedRandomLength.value,
+    sequence_padding: resolvedSequencePadding.value,
+    sequence_start: resolvedSequenceStart.value,
+    domain_strategy: customGenerateForm.value.domain_strategy
+  }
+
+  if (customGenerateForm.value.generation_mode !== 'random') {
+    payload.custom_prefix = String(customGenerateForm.value.custom_prefix || '').trim()
+  }
+
+  const result: any = await mailboxAPI.customGenerateSystemMailboxes(payload)
+  if (result.code !== 0) {
+    throw new Error(result.message || t('home.customGenerateFailed'))
+  }
+  return result.data
+}
+
 const performCustomGenerate = async () => {
   customGenerateLoading.value = true
   try {
-    const payload: Record<string, any> = {
-      domain_ids: customGenerateForm.value.domain_ids,
-      quantity: normalizedCustomGenerateQuantity.value,
-      generation_mode: customGenerateForm.value.generation_mode,
-      random_length: resolvedRandomLength.value,
-      sequence_padding: Number(customGenerateForm.value.sequence_padding || 3),
-      domain_strategy: customGenerateForm.value.domain_strategy
-    }
-
-    if (customGenerateForm.value.generation_mode !== 'random') {
-      payload.custom_prefix = String(customGenerateForm.value.custom_prefix || '').trim()
-    }
-
-    const result: any = await mailboxAPI.customGenerateSystemMailboxes(payload)
-    if (result.code !== 0) {
-      showMessage(result.message || t('home.customGenerateFailed'), 'error')
-      return
-    }
+    const data = isHostedMailbox.value
+      ? await performHostedCustomGenerate()
+      : await performSystemCustomGenerate()
 
     localVisible.value = false
-    const successCount = Number(result.data?.quantity || result.data?.items?.length || 0)
-    const cost = Number(result.data?.cost || 0).toFixed(2)
-    showMessage(t('home.customGenerateSuccess', { count: successCount, cost }), 'success')
-    emit('success', result.data)
+    const successCount = Number(data?.quantity || data?.items?.length || 0)
+
+    if (isHostedMailbox.value) {
+      showMessage(t('home.customGenerateSuccessHosted', { count: successCount }), 'success')
+    } else {
+      const cost = Number(data?.cost || 0).toFixed(2)
+      showMessage(t('home.customGenerateSuccess', { count: successCount, cost }), 'success')
+    }
+    emit('success', data)
   } catch (error: any) {
     showMessage(
       error?.response?.data?.message || error?.message || t('home.customGenerateFailed'),
@@ -509,6 +684,12 @@ const performCustomGenerate = async () => {
 
 const closeConfirmDialog = () => {
   confirmDialog.value.visible = false
+}
+
+const resetCustomGenerateState = () => {
+  domainSearchKeyword.value = ''
+  customGenerateForm.value = createDefaultCustomGenerateForm()
+  closeConfirmDialog()
 }
 
 const goRecharge = () => {
@@ -532,7 +713,7 @@ const handleConfirmDialogConfirm = async () => {
 const handleCustomGenerate = async () => {
   if (!canSubmitCustomGenerate.value) return
 
-  if (!customGenerateHasEnoughBalance.value) {
+  if (isSystemMailbox.value && !customGenerateHasEnoughBalance.value) {
     confirmDialog.value = {
       visible: true,
       title: t('home.customGenerateInsufficientTitle'),
@@ -551,10 +732,14 @@ const handleCustomGenerate = async () => {
   confirmDialog.value = {
     visible: true,
     title: t('home.customGenerateConfirmTitle'),
-    message: t('home.customGenerateConfirmMessage', {
-      quantity: normalizedCustomGenerateQuantity.value,
-      cost: customGenerateTotalCostDisplay.value
-    }),
+    message: isHostedMailbox.value
+      ? t('home.customGenerateConfirmMessageHosted', {
+          quantity: normalizedCustomGenerateQuantity.value
+        })
+      : t('home.customGenerateConfirmMessage', {
+          quantity: normalizedCustomGenerateQuantity.value,
+          cost: customGenerateTotalCostDisplay.value
+        }),
     confirmText: t('home.customGenerateConfirm'),
     cancelText: t('common.cancel'),
     type: 'info',
@@ -563,14 +748,19 @@ const handleCustomGenerate = async () => {
 }
 
 watch(
-  () => props.visible,
+  () => localVisible.value,
   async (visible) => {
-    if (!visible) return
-    domainSearchKeyword.value = ''
+    if (!visible) {
+      resetCustomGenerateState()
+      return
+    }
+    resetCustomGenerateState()
     await loadCustomGenerateResources()
-    if (!systemDomainOptions.value.length) {
-      showMessage(t('home.customGenerateNoDomains'), 'warning')
-      localVisible.value = false
+    if (domainOptions.value.length === 1) {
+      customGenerateForm.value.domain_ids = [String(domainOptions.value[0].id)]
+    }
+    if (!domainOptions.value.length) {
+      showMessage(emptyDomainText.value, 'warning')
     }
   }
 )

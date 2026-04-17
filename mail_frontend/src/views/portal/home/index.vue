@@ -75,6 +75,14 @@
 
           <button
             v-if="mailboxType === 'hosted'"
+            @click="showHostedCustomGenerateModal = true"
+            class="px-4 py-2 border border-primary-200 bg-primary-50 text-primary-700 text-sm font-medium rounded-lg hover:bg-primary-100 transition-colors"
+          >
+            {{ t('home.customGenerate') }}
+          </button>
+
+          <button
+            v-if="mailboxType === 'hosted'"
             @click="goToDomainWorkbench()"
             class="px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors"
           >
@@ -589,6 +597,12 @@
   />
   <CustomGenerateModal
     v-model:visible="showCustomGenerateModal"
+    mailbox-type="system"
+    @success="handleCustomGenerateSuccess"
+  />
+  <CustomGenerateModal
+    v-model:visible="showHostedCustomGenerateModal"
+    mailbox-type="hosted"
     @success="handleCustomGenerateSuccess"
   />
 </template>
@@ -718,6 +732,7 @@ const showDownloadDialog = ref(false)
 const downloadDialogTitle = ref(t('home.desktopRequiredTitle'))
 const downloadDialogMessage = ref(t('home.desktopRequiredMessage'))
 const showCustomGenerateModal = ref(false)
+const showHostedCustomGenerateModal = ref(false)
 const showDeleteConfirm = ref(false)
 const deleting = ref(false)
 const deletingIds = ref<number[]>([])
@@ -2616,7 +2631,9 @@ const handleCustomGenerateSuccess = async () => {
   await Promise.all([
     mailboxStore.fetchMailboxes(),
     mailStore.fetchUserEmails(),
-    userStore.updateUserProfile()
+    userStore.updateUserProfile(),
+    loadHostedDomainSummary(),
+    loadHostedEmails(1)
   ])
 }
 
