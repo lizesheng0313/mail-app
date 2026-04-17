@@ -241,12 +241,13 @@
 
         <div class="rounded-2xl border border-gray-200 bg-white p-4">
           <div
+            v-if="isSystemMailbox"
             class="rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-600"
           >
             {{ t('home.customGenerateUnitPriceValue') }}
           </div>
 
-          <div class="mt-4 rounded-xl bg-gray-50 px-4 py-3">
+          <div :class="isSystemMailbox ? 'mt-4' : ''" class="rounded-xl bg-gray-50 px-4 py-3">
             <p class="text-xs text-gray-500">{{ t('home.customGeneratePreviewLabel') }}</p>
             <p class="mt-1 break-all text-sm font-medium text-gray-900">{{ customGeneratePreviewText }}</p>
           </div>
