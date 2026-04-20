@@ -104,7 +104,7 @@
             limit: pageSize
           }"
           :show-page-size-selector="true"
-          :column-count="isPublishedWorkflow ? 7 : 6"
+          :column-count="7"
           @page-change="handlePageChange"
           @page-size-change="handlePageSizeChange"
         >
@@ -113,7 +113,7 @@
           </template>
           <template #thead>
                 <tr>
-                  <th v-if="isPublishedWorkflow" class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">{{ t('executionHistory.orderNo') }}</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">{{ t('executionHistory.orderNo') }}</th>
                   <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">{{ t('executionHistory.executor') }}</th>
                   <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">{{ t('executionHistory.triggerEmail') }}</th>
                   <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">{{ t('executionHistory.status') }}</th>
@@ -125,7 +125,7 @@
 
           <template #tbody>
                 <tr v-for="execution in paginatedExecutions" :key="execution.history_key || execution.execution_id" class="hover:bg-slate-50/80 transition-colors">
-                  <td v-if="isPublishedWorkflow" class="px-6 py-4">
+                  <td class="px-6 py-4">
                     <div class="text-sm font-medium text-slate-900">{{ execution.order_no || '-' }}</div>
                   </td>
                   <td class="px-6 py-4">
@@ -200,7 +200,7 @@
                 </tr>
 
                 <tr v-if="!paginatedExecutions.length">
-                  <td :colspan="isPublishedWorkflow ? 7 : 6" class="px-6 py-12 text-center text-black">
+                  <td :colspan="7" class="px-6 py-12 text-center text-black">
                     {{ t('executionHistory.emptyDesc') }}
                   </td>
                 </tr>

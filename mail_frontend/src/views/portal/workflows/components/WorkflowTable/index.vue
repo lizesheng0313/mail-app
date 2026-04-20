@@ -53,14 +53,27 @@
                       {{ getPurchasedUnavailableLabel(workflow) }}
                     </span>
                   </div>
-                  <div class="text-sm text-black" v-if="workflow.description && workflow.description !== workflow.name">{{ workflow.description }}</div>
+                  <div
+                    v-if="workflow.description && workflow.description !== workflow.name"
+                    class="max-w-[360px] truncate text-sm text-black"
+                    :title="workflow.description"
+                  >
+                    {{ workflow.description }}
+                  </div>
                   <div class="text-xs text-gray-400 mt-1">ID: {{ workflow.workflow_id }}</div>
                 </div>
               </div>
             </td>
             <td class="px-6 py-4 whitespace-nowrap">
+              <template v-if="isPurchasedWorkflow(workflow) && isPurchasedUnavailable(workflow)">
+                <span
+                  class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-200 text-gray-700 border border-gray-300"
+                >
+                  {{ getPurchasedUnavailableLabel(workflow) }}
+                </span>
+              </template>
               <!-- 优先显示市场状态，没有市场状态则显示运行状态 -->
-              <template v-if="workflow.market_status && workflow.market_status !== 'draft'">
+              <template v-else-if="workflow.market_status && workflow.market_status !== 'draft'">
                 <span 
                   :class="getMarketStatusClass(workflow.market_status)" 
                   class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
@@ -253,7 +266,8 @@ const isPurchasedWorkflow = (workflow) => {
 const isPurchasedUnavailable = (workflow) => {
   if (!isPurchasedWorkflow(workflow)) return false
   if (workflow.workflow_deleted) return true
-  return workflow.market_status === 'offline' || workflow.market_status === 'unlisted'
+  if (workflow.is_usable === false) return true
+  return ['offline', 'unlisted', 'draft'].includes(String(workflow.market_status || ''))
 }
 
 const canExecutePurchasedWorkflow = (workflow) => {
@@ -263,6 +277,9 @@ const canExecutePurchasedWorkflow = (workflow) => {
 const getPurchasedUnavailableLabel = (workflow) => {
   if (workflow.workflow_deleted) {
     return t('workflowList.deleted')
+  }
+  if (workflow.purchase_status && workflow.purchase_status !== 'active') {
+    return t('workflowList.offline')
   }
   return t('workflowList.offline')
 }
@@ -309,7 +326,8 @@ const getMarketStatusClass = (status) => {
     'approved': 'bg-green-100 text-green-800 border-green-300',
     'published': 'bg-green-100 text-green-800 border-green-300',
     'rejected': 'bg-red-100 text-red-800 border-red-300',
-    'offline': 'bg-gray-200 text-gray-700 border-gray-300'
+    'offline': 'bg-gray-200 text-gray-700 border-gray-300',
+    'unlisted': 'bg-gray-200 text-gray-700 border-gray-300'
   }
   return classes[status] || 'bg-gray-100 text-gray-600 border-gray-200'
 }
@@ -322,7 +340,8 @@ const getMarketStatusLabel = (status) => {
     'approved': t('workflowList.marketPublished'),
     'published': t('workflowList.marketPublished'),
     'rejected': t('workflowList.marketRejected'),
-    'offline': t('workflowList.marketOffline')
+    'offline': t('workflowList.marketOffline'),
+    'unlisted': t('workflowList.marketOffline')
   }
   return labels[status] || status
 }
