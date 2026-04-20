@@ -18,6 +18,7 @@
           :class="sidebarCollapsed ? 'justify-center' : ''"
         >
           <div
+            v-if="!hideBrandIcon"
             class="h-8 w-8 flex-shrink-0 overflow-hidden rounded-lg flex items-center justify-center"
             :class="logoSrc ? 'bg-transparent' : 'bg-primary-600'"
           >
@@ -29,7 +30,11 @@
             />
             <component v-else :is="logoIcon" class="h-5 w-5 text-white" />
           </div>
-          <h1 v-if="!sidebarCollapsed" class="ml-3 truncate text-lg font-semibold text-gray-900">
+          <h1
+            v-if="!sidebarCollapsed"
+            class="truncate text-lg font-semibold text-gray-900"
+            :class="hideBrandIcon ? '' : 'ml-3'"
+          >
             {{ title }}
           </h1>
         </router-link>
@@ -144,6 +149,10 @@ const props = defineProps({
   logoSrc: {
     type: String,
     default: ''
+  },
+  hideBrandIcon: {
+    type: Boolean,
+    default: false
   },
   menuSections: {
     type: Array,

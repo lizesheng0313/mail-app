@@ -6,10 +6,7 @@
         <div class="flex justify-between items-center h-16">
           <div class="flex items-center">
             <router-link to="/" class="flex items-center hover:opacity-80 transition-opacity">
-              <div class="relative h-12 w-12 overflow-visible bg-transparent flex items-center justify-center flex-shrink-0">
-                <img :src="logoImage" alt="logo" class="absolute h-[68px] w-[68px] max-w-none object-contain" />
-              </div>
-              <h1 class="ml-6 text-xl font-semibold text-black">{{ t('pageHeader.siteName') }}</h1>
+              <h1 class="text-xl font-semibold text-black">{{ t('pageHeader.siteName') }}</h1>
             </router-link>
           </div>
           <div class="flex items-center space-x-6 desktop-nav-items">
@@ -263,7 +260,6 @@ import { showMessage } from '@/utils/message'
 import { showAlert } from '@/utils/dialog'
 import { isTauri } from '@/services/api'
 import api from '@/services/api'
-import logoImage from '@/assets/img/logo.png'
 
 const { t, locale } = useI18n()
 const router = useRouter()

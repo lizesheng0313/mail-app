@@ -2,7 +2,7 @@
   <SidebarLayout
     :title="t('userLayout.workspaceTitle')"
     :logo-icon="UserIcon"
-    :logo-src="logoImage"
+    :hide-brand-icon="true"
     :menu-sections="menuSections"
     :user-email="userInfo?.email || ''"
     :user-role="t('userLayout.userRole')"
@@ -29,7 +29,6 @@ import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useUserStore } from '@/stores/user'
 import SidebarLayout from '@/components/SidebarLayout/index.vue'
-import logoImage from '@/assets/img/logo.png'
 
 const router = useRouter()
 const route = useRoute()

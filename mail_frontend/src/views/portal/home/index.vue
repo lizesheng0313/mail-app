@@ -1632,8 +1632,8 @@ const handleBatchAddAccounts = async (accounts: any[]) => {
   try {
     let successCount = 0
     let failCount = 0
+    let skippedCount = 0
     let needDesktopDownload = false
-    let shouldAutoCloseBatchAdd = false
     const pendingOAuthSet = new Set<string>()
 
     const normalizeEmail = (email: string) => (email || '').trim().toLowerCase()
@@ -1710,7 +1710,7 @@ const handleBatchAddAccounts = async (accounts: any[]) => {
     }
 
     const markNoNeedOAuth = (email: string) => {
-      successCount++
+      skippedCount++
       if (batchAddModalRef.value) {
         batchAddModalRef.value.updateResult(email, 'success', t('home.batchAddAlreadyExists'))
       }
@@ -1725,7 +1725,7 @@ const handleBatchAddAccounts = async (accounts: any[]) => {
 
     const existingEmailSet = new Set<string>()
     try {
-      const existingResponse = await batchLoginAPI.getAllAccounts(200, {
+      const existingResponse = await batchLoginAPI.getAllAccounts(100, {
         suppressErrorMessage: true
       })
       if (existingResponse.code === 0) {
@@ -1918,6 +1918,8 @@ const handleBatchAddAccounts = async (accounts: any[]) => {
               ...accountData,
               skip_verify: true,
               proxy_id: Number(account.proxy_id || 0) || null
+            }, {
+              suppressErrorMessage: true
             })
             if (response.code === 0) {
               successCount++
@@ -2107,20 +2109,6 @@ const handleBatchAddAccounts = async (accounts: any[]) => {
       await sendEmailPanelRef.value.loadData()
     }
 
-    shouldAutoCloseBatchAdd =
-      accounts.length > 0 &&
-      successCount === accounts.length &&
-      failCount === 0 &&
-      pendingOAuthAccounts.value.length === 0 &&
-      !needDesktopDownload
-
-    if (shouldAutoCloseBatchAdd) {
-      window.setTimeout(() => {
-        if (showBatchAddModal.value) {
-          showBatchAddModal.value = false
-        }
-      }, 900)
-    }
   } catch (error) {
     console.error('批量添加账号失败:', error)
     showMessage(t('home.batchAddFailed'), 'error')
@@ -2135,7 +2123,6 @@ const handleOAuth2Complete = async (result: {
   failCount: number
   accounts?: any[]
 }) => {
-  showBatchAddModal.value = false
   pendingOAuthAccounts.value = []
   pendingOAuthBootstrapEmails.value = Array.isArray(result.accounts)
     ? result.accounts

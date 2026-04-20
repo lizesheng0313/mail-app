@@ -88,19 +88,19 @@
                         v-for="(result, idx) in sidePanelRows"
                         :key="`${result.email}-${idx}`"
                         class="group flex items-center gap-2 rounded-xl px-2 py-2 transition"
-                        :class="result.status === 'error' ? 'bg-red-50' : result.status === 'success' ? 'bg-primary-50' : ''"
+                        :class="result.status === 'error' ? 'bg-red-50' : result.status === 'success' ? 'bg-primary-50' : result.status === 'skipped' ? 'bg-amber-50' : ''"
                       >
                         <span
                           class="flex w-4 flex-shrink-0 items-center justify-center text-sm font-semibold"
-                          :class="result.status === 'success' ? 'text-primary-700' : result.status === 'error' ? 'text-red-600' : 'text-slate-400'"
+                          :class="result.status === 'success' ? 'text-primary-700' : result.status === 'error' ? 'text-red-600' : result.status === 'skipped' ? 'text-amber-600' : 'text-slate-400'"
                         >
-                          {{ result.status === 'success' ? '✓' : result.status === 'error' ? '✗' : '⋯' }}
+                          {{ result.status === 'success' ? '✓' : result.status === 'error' ? '✗' : result.status === 'skipped' ? '－' : '⋯' }}
                         </span>
                         <div class="min-w-0 flex-1">
                           <p class="truncate font-mono text-sm text-slate-900">{{ result.email }}</p>
                         </div>
                         <div class="relative max-w-[180px] flex-shrink-0 text-right">
-                          <p class="truncate text-xs" :class="result.status === 'error' ? 'text-red-600' : 'text-slate-500'">
+                          <p class="truncate text-xs" :class="result.status === 'error' ? 'text-red-600' : result.status === 'skipped' ? 'text-amber-700' : 'text-slate-500'">
                             {{ result.message || resolveResultStatusText(result.status) }}
                           </p>
                           <div
@@ -185,7 +185,17 @@
 
               <label class="inline-flex items-center text-sm text-slate-700">
                 <input v-model="enableSmtp" type="checkbox" class="mailbox-checkbox h-4 w-4" />
-                <span class="ml-2">{{ t('batchAdd.enableSmtp') }}</span>
+                <span class="ml-2 inline-flex items-center">
+                  <span>{{ t('batchAdd.enableSmtp') }}</span>
+                  <span class="group relative ml-1 inline-flex items-center">
+                    <span class="inline-flex h-4 w-4 items-center justify-center rounded-full bg-amber-50 text-[11px] font-bold text-amber-700">
+                      !
+                    </span>
+                    <span class="pointer-events-none invisible absolute bottom-full left-1/2 z-10 mb-2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-slate-800 px-2 py-1 text-xs text-white shadow-lg group-hover:visible">
+                      发邮件用
+                    </span>
+                  </span>
+                </span>
               </label>
 
               <div class="flex items-center gap-3">
@@ -224,13 +234,6 @@
                 @click="exportResults"
               >
                 导出结果
-              </button>
-              <button
-                @click="handleClose"
-                :disabled="props.loading"
-                class="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {{ closeButtonText }}
               </button>
               <button
                 v-if="hasOAuthPending"
@@ -282,7 +285,7 @@ const loginMode = ref<'auto' | 'custom'>('auto')
 const enableSmtp = ref(true)
 const customHost = ref('')
 const customPort = ref(995)
-const results = ref<Array<{ email: string, status: 'pending' | 'success' | 'error', message?: string }>>([])
+const results = ref<Array<{ email: string, status: 'pending' | 'success' | 'error' | 'skipped', message?: string }>>([])
 const selectedProxyId = ref<number | ''>('')
 const proxyOptions = ref<any[]>([])
 
@@ -351,7 +354,8 @@ const previewInvalidRows = computed(() => {
 const totalCount = computed(() => results.value.length)
 const successCount = computed(() => results.value.filter((item) => item.status === 'success').length)
 const errorCount = computed(() => results.value.filter((item) => item.status === 'error').length)
-const finishedCount = computed(() => successCount.value + errorCount.value)
+const skippedCount = computed(() => results.value.filter((item) => item.status === 'skipped').length)
+const finishedCount = computed(() => successCount.value + errorCount.value + skippedCount.value)
 const progressPercent = computed(() => {
   if (!totalCount.value) return 0
   return Math.min(100, Math.round((finishedCount.value / totalCount.value) * 100))
@@ -588,14 +592,15 @@ const removeInputLineByEmail = (email: string) => {
     .trim()
 }
 
-const resolveResultStatusText = (status: 'pending' | 'success' | 'error') => {
+const resolveResultStatusText = (status: 'pending' | 'success' | 'error' | 'skipped') => {
   if (status === 'success') return '添加成功'
   if (status === 'error') return '添加失败'
+  if (status === 'skipped') return '已跳过'
   return '等待处理'
 }
 
 const resolveExportStatus = (
-  resultStatus: 'pending' | 'success' | 'error',
+  resultStatus: 'pending' | 'success' | 'error' | 'skipped',
   oauthStatus?: 'pending' | 'authorizing' | 'success' | 'error'
 ) => {
   if (oauthStatus === 'success') return 'OAuth 授权成功'
@@ -934,12 +939,12 @@ defineExpose({
       results.value[index] = { email, status: 'pending', message }
     }
   },
-  updateResult: (email: string, status: 'success' | 'error', message?: string) => {
+  updateResult: (email: string, status: 'success' | 'error' | 'skipped', message?: string) => {
     const index = results.value.findIndex(r => r.email === email)
     if (index !== -1) {
       results.value[index] = { email, status, message }
     }
-    if (status === 'success') {
+    if (status === 'success' || status === 'skipped') {
       removeInputLineByEmail(email)
     }
   },
