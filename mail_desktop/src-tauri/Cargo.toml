@@ -67,6 +67,7 @@ tauri-plugin-process = "2"
 
 # SMTP 发送
 lettre = { version = "0.11", default-features = false, features = ["smtp-transport", "tokio1-native-tls", "builder"] }
+tokio-native-tls = "0.3"
 base64 = "0.22"
 mime = "0.3"
 

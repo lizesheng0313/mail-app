@@ -1,14 +1,17 @@
 use crate::mail;
 use crate::mail::discovery::{dedupe_candidates, extract_root_domain, query_primary_mx, query_srv_records};
 use crate::mail::provider_constants::{find_hosted_provider_by_mx, find_known_provider};
-use crate::mail::types::{get_server_config, EmailData, FetchResult, LoginResult};
+use crate::mail::types::{get_server_config, EmailData, FetchResult, LoginResult, RuntimeProxy};
 use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
+use std::pin::Pin;
 use std::path::PathBuf;
 use std::process::Command;
 use std::sync::{Mutex, OnceLock};
+use std::task::{Context, Poll};
 use tauri_plugin_updater::UpdaterExt;
+use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 
 const INITIAL_HISTORY_FETCH_LIMIT: usize = 2000;
 const INCREMENTAL_FETCH_LIMIT: usize = 200;
@@ -178,6 +181,7 @@ async fn fetch_with_candidate(
     password: &str,
     limit: usize,
     fetch_oldest: bool,
+    proxy_config: Option<&RuntimeProxy>,
 ) -> Result<FetchResult, String> {
     if candidate.protocol == "imap" {
         mail::imap::fetch_emails(
@@ -187,6 +191,7 @@ async fn fetch_with_candidate(
             candidate.port,
             limit,
             fetch_oldest,
+            proxy_config.cloned(),
         )
         .await
     } else {
@@ -197,6 +202,7 @@ async fn fetch_with_candidate(
             candidate.port,
             limit,
             fetch_oldest,
+            proxy_config.cloned(),
         )
         .await
     }
@@ -211,6 +217,7 @@ async fn fetch_password_mailbox_with_merge(
     discovered_config: Option<&crate::mail::types::ServerConfig>,
     limit: usize,
     fetch_oldest: bool,
+    proxy_config: Option<&RuntimeProxy>,
 ) -> Result<FetchResult, String> {
     let mut candidates = Vec::new();
     push_fetch_candidate(
@@ -249,7 +256,7 @@ async fn fetch_password_mailbox_with_merge(
             "尝试协议补抓: email={} protocol={} host={}:{}",
             email, candidate.protocol, candidate.host, candidate.port
         );
-        match fetch_with_candidate(&candidate, email, password, limit, fetch_oldest).await {
+        match fetch_with_candidate(&candidate, email, password, limit, fetch_oldest, proxy_config).await {
             Ok(result) => {
                 info!(
                     "协议补抓成功: email={} protocol={} fetched={}",
@@ -329,8 +336,114 @@ pub struct SendEmailAttachment {
     pub data_base64: String,
 }
 
+#[derive(Debug)]
+struct SmtpProxyTlsStream(
+    tokio_native_tls::TlsStream<Box<dyn lettre::transport::smtp::client::AsyncTokioStream>>,
+);
+
+impl AsyncRead for SmtpProxyTlsStream {
+    fn poll_read(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &mut ReadBuf<'_>,
+    ) -> Poll<std::io::Result<()>> {
+        Pin::new(&mut self.0).poll_read(cx, buf)
+    }
+}
+
+impl AsyncWrite for SmtpProxyTlsStream {
+    fn poll_write(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<Result<usize, std::io::Error>> {
+        Pin::new(&mut self.0).poll_write(cx, buf)
+    }
+
+    fn poll_flush(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Result<(), std::io::Error>> {
+        Pin::new(&mut self.0).poll_flush(cx)
+    }
+
+    fn poll_shutdown(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Result<(), std::io::Error>> {
+        Pin::new(&mut self.0).poll_shutdown(cx)
+    }
+}
+
+impl lettre::transport::smtp::client::AsyncTokioStream for SmtpProxyTlsStream {
+    fn peer_addr(&self) -> std::io::Result<std::net::SocketAddr> {
+        self.0.get_ref().get_ref().get_ref().peer_addr()
+    }
+}
+
+async fn open_smtp_connection_with_proxy(
+    smtp_host: &str,
+    smtp_port: u16,
+    proxy: Option<&RuntimeProxy>,
+) -> Result<lettre::transport::smtp::client::AsyncSmtpConnection, String> {
+    use lettre::transport::smtp::client::{AsyncSmtpConnection, AsyncTokioStream, TlsParameters};
+
+    let hello_name = lettre::transport::smtp::extension::ClientId::default();
+
+    if smtp_port == 465 {
+        let tcp_stream = crate::mail::proxy::connect_tokio_tcp(smtp_host, smtp_port, proxy).await?;
+        let boxed_stream: Box<dyn AsyncTokioStream> = Box::new(tcp_stream);
+        let tls_connector = native_tls::TlsConnector::builder()
+            .min_protocol_version(Some(native_tls::Protocol::Tlsv10))
+            .build()
+            .map_err(|e| format!("TLS 初始化失败: {}", e))?;
+        let tls_stream = tokio_native_tls::TlsConnector::from(tls_connector)
+            .connect(smtp_host, boxed_stream)
+            .await
+            .map_err(|e| format!("SMTP TLS 握手失败: {}", e))?;
+        let boxed_tls: Box<dyn AsyncTokioStream> = Box::new(SmtpProxyTlsStream(tls_stream));
+        return AsyncSmtpConnection::connect_with_transport(boxed_tls, &hello_name)
+            .await
+            .map_err(|e| format!("连接 SMTP 服务器失败: {}", e));
+    }
+
+    let tcp_stream = crate::mail::proxy::connect_tokio_tcp(smtp_host, smtp_port, proxy).await?;
+    let boxed_stream: Box<dyn AsyncTokioStream> = Box::new(tcp_stream);
+    let mut conn = AsyncSmtpConnection::connect_with_transport(boxed_stream, &hello_name)
+        .await
+        .map_err(|e| format!("连接 SMTP 服务器失败: {}", e))?;
+    let tls = TlsParameters::new(smtp_host.to_string())
+        .map_err(|e| format!("TLS 参数错误: {}", e))?;
+    conn.starttls(tls, &hello_name)
+        .await
+        .map_err(|e| format!("STARTTLS 升级失败: {}", e))?;
+    Ok(conn)
+}
+
+async fn verify_smtp_connection(
+    email: &str,
+    password: &str,
+    smtp_host: &str,
+    smtp_port: u16,
+    proxy: Option<&RuntimeProxy>,
+) -> Result<(), String> {
+    use lettre::transport::smtp::authentication::{Credentials, DEFAULT_MECHANISMS};
+
+    let mut conn = open_smtp_connection_with_proxy(smtp_host, smtp_port, proxy).await?;
+    let creds = Credentials::new(email.to_string(), password.to_string());
+    conn.auth(DEFAULT_MECHANISMS, &creds)
+        .await
+        .map_err(format_smtp_send_error)?;
+    if !conn.test_connected().await {
+        conn.abort().await;
+        return Err("SMTP 连接校验失败".to_string());
+    }
+    let _ = conn.quit().await;
+    Ok(())
+}
+
 /// 添加外部邮箱（验证登录）
-/// 前端调用：invoke('add_external_mailbox', { email, password, protocol, host?, port? })
+/// 前端调用：invoke('add_external_mailbox', { email, password, protocol, host?, port?, verifySmtp? })
 /// protocol: "imap" | "pop3" | "auto"（自动检测，先试IMAP再试POP3）
 #[tauri::command]
 pub async fn add_external_mailbox(
@@ -339,8 +452,11 @@ pub async fn add_external_mailbox(
     protocol: String,
     host: Option<String>,
     port: Option<u16>,
+    verify_smtp: Option<bool>,
+    proxy: Option<RuntimeProxy>,
 ) -> Result<LoginResult, String> {
     info!("收到添加外部邮箱请求: {} ({})", email, protocol);
+    let should_verify_smtp = verify_smtp.unwrap_or(true);
 
     // 获取本地出口 IP（用于日志记录）
     match get_local_ip().await {
@@ -359,12 +475,12 @@ pub async fn add_external_mailbox(
     // 用户指定了自定义服务器
     if let (Some(h), Some(p)) = (host.clone(), port) {
         let mut result = if proto == "imap" {
-            mail::imap::verify_login(&email, &password, &h, p).await?
+            mail::imap::verify_login(&email, &password, &h, p, proxy.clone()).await?
         } else {
-            mail::pop3::verify_login(&email, &password, &h, p).await?
+            mail::pop3::verify_login(&email, &password, &h, p, proxy.clone()).await?
         };
-        if result.success {
-            try_smtp_verify(&mut result, &email, &password, domain).await;
+        if result.success && should_verify_smtp {
+            try_smtp_verify(&mut result, &email, &password, domain, proxy.as_ref()).await;
         }
         return Ok(result);
     }
@@ -376,16 +492,20 @@ pub async fn add_external_mailbox(
     if proto == "auto" {
         // 自动模式：先试 IMAP，失败再试 POP3
         info!("自动检测协议：先尝试 IMAP {}:{}", config.imap_host, config.imap_port);
-        let mut imap_result = mail::imap::verify_login(&email, &password, &config.imap_host, config.imap_port).await?;
+        let mut imap_result = mail::imap::verify_login(&email, &password, &config.imap_host, config.imap_port, proxy.clone()).await?;
         if imap_result.success {
-            try_smtp_verify(&mut imap_result, &email, &password, domain).await;
+            if should_verify_smtp {
+                try_smtp_verify(&mut imap_result, &email, &password, domain, proxy.as_ref()).await;
+            }
             return Ok(imap_result);
         }
 
         info!("IMAP 登录失败({}), 尝试 POP3 {}:{}", imap_result.message, config.pop3_host, config.pop3_port);
-        let mut pop3_result = mail::pop3::verify_login(&email, &password, &config.pop3_host, config.pop3_port).await?;
+        let mut pop3_result = mail::pop3::verify_login(&email, &password, &config.pop3_host, config.pop3_port, proxy.clone()).await?;
         if pop3_result.success {
-            try_smtp_verify(&mut pop3_result, &email, &password, domain).await;
+            if should_verify_smtp {
+                try_smtp_verify(&mut pop3_result, &email, &password, domain, proxy.as_ref()).await;
+            }
             return Ok(pop3_result);
         }
 
@@ -402,15 +522,15 @@ pub async fn add_external_mailbox(
             smtp_error: None,
         })
     } else if proto == "imap" {
-        let mut result = mail::imap::verify_login(&email, &password, &config.imap_host, config.imap_port).await?;
-        if result.success {
-            try_smtp_verify(&mut result, &email, &password, domain).await;
+        let mut result = mail::imap::verify_login(&email, &password, &config.imap_host, config.imap_port, proxy.clone()).await?;
+        if result.success && should_verify_smtp {
+            try_smtp_verify(&mut result, &email, &password, domain, proxy.as_ref()).await;
         }
         Ok(result)
     } else {
-        let mut result = mail::pop3::verify_login(&email, &password, &config.pop3_host, config.pop3_port).await?;
-        if result.success {
-            try_smtp_verify(&mut result, &email, &password, domain).await;
+        let mut result = mail::pop3::verify_login(&email, &password, &config.pop3_host, config.pop3_port, proxy.clone()).await?;
+        if result.success && should_verify_smtp {
+            try_smtp_verify(&mut result, &email, &password, domain, proxy.as_ref()).await;
         }
         Ok(result)
     }
@@ -436,9 +556,15 @@ async fn get_local_ip() -> Result<String, String> {
 
 /// 尝试验证 SMTP 登录，成功则更新 LoginResult 中的 smtp 字段
 /// 逐个尝试候选服务器，遇到真实可用的即停止
-async fn try_smtp_verify(result: &mut LoginResult, email: &str, password: &str, domain: &str) {
+async fn try_smtp_verify(
+    result: &mut LoginResult,
+    email: &str,
+    password: &str,
+    domain: &str,
+    proxy: Option<&RuntimeProxy>,
+) {
     info!("尝试 SMTP 验证: {}", email);
-    match resolve_reachable_smtp_candidate(email, password, domain).await {
+    match resolve_reachable_smtp_candidate(email, password, domain, proxy).await {
         Ok((smtp_host, smtp_port)) => {
             info!("SMTP 验证成功: {}:{}", smtp_host, smtp_port);
             result.smtp_host = Some(smtp_host);
@@ -678,6 +804,8 @@ async fn recover_external_mailbox_session_inner(
         protocol,
         Some(host),
         Some(port),
+        Some(true),
+        None,
     )
     .await
     .map_err(|e| finalize_recovery_failure(mailbox_id, e))?;
@@ -734,6 +862,7 @@ async fn fetch_mailbox_via_relogin_config(
             port,
             limit,
             fetch_oldest,
+            None,
         )
         .await
     } else {
@@ -744,6 +873,7 @@ async fn fetch_mailbox_via_relogin_config(
             port,
             limit,
             fetch_oldest,
+            None,
         )
         .await
     }
@@ -808,6 +938,7 @@ pub async fn fetch_emails(
     server_url: String,
     auth_type: Option<String>,
     access_token: Option<String>,
+    proxy: Option<RuntimeProxy>,
 ) -> Result<FetchResult, String> {
     // 判断是否走 OAuth2 XOAUTH2
     let is_oauth2 = auth_type.as_deref() == Some("oauth2");
@@ -854,6 +985,7 @@ pub async fn fetch_emails(
             final_port,
             fetch_limit,
             fetch_oldest,
+            proxy.clone(),
         )
         .await
         {
@@ -890,6 +1022,7 @@ pub async fn fetch_emails(
             discovered_config.as_ref(),
             fetch_limit,
             fetch_oldest,
+            proxy.as_ref(),
         )
         .await
         {
@@ -1276,7 +1409,7 @@ pub fn open_external_url(url: String) -> Result<(), String> {
 }
 
 /// 通过本地 SMTP 发送邮件（桌面端专用，使用用户本机 IP）
-/// 前端调用：invoke('send_smtp_email', { fromEmail, password, smtpHost, smtpPort, toEmail, subject, content, cc, bcc })
+/// 前端调用：invoke('send_smtp_email', { fromEmail, password, smtpHost, smtpPort, toEmail, subject, content, contentHtml, cc, bcc })
 #[tauri::command]
 pub async fn send_smtp_email(
     from_email: String,
@@ -1286,14 +1419,16 @@ pub async fn send_smtp_email(
     to_email: String,
     subject: String,
     content: String,
+    content_html: Option<String>,
     cc: Option<String>,
     bcc: Option<String>,
     attachments: Option<Vec<SendEmailAttachment>>,
+    proxy: Option<RuntimeProxy>,
 ) -> Result<SmtpSendResult, String> {
     use lettre::{
         message::{header::ContentType, Attachment, Mailbox, MultiPart, SinglePart},
-        transport::smtp::{authentication::Credentials, client::TlsParameters},
-        AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor,
+        transport::smtp::authentication::{Credentials, DEFAULT_MECHANISMS},
+        Message,
     };
     use log::warn;
     use base64::{engine::general_purpose::STANDARD, Engine as _};
@@ -1303,7 +1438,7 @@ pub async fn send_smtp_email(
     // 如果 smtp_host 未知或为空，尝试自动探测并逐个验证候选
     let (final_host, final_port) = if smtp_host.is_empty() {
         let domain = from_email.split('@').nth(1).unwrap_or("");
-        match resolve_reachable_smtp_candidate(&from_email, &password, domain).await {
+        match resolve_reachable_smtp_candidate(&from_email, &password, domain, proxy.as_ref()).await {
             Ok((h, p)) => {
                 info!("🔍 自动探测到 SMTP 服务器: {}:{}", h, p);
                 (h, p)
@@ -1351,12 +1486,24 @@ pub async fn send_smtp_email(
         message_builder = message_builder.bcc(mailbox);
     }
 
+    let html_content = content_html.unwrap_or_default();
+    let text_part = SinglePart::builder()
+        .header(ContentType::TEXT_PLAIN)
+        .body(content.clone());
+    let body_part = if html_content.trim().is_empty() {
+        MultiPart::alternative().singlepart(text_part)
+    } else {
+        MultiPart::alternative()
+            .singlepart(text_part)
+            .singlepart(
+                SinglePart::builder()
+                    .header(ContentType::TEXT_HTML)
+                    .body(html_content.clone())
+            )
+    };
+
     let email = if let Some(attachments) = attachments.filter(|items| !items.is_empty()) {
-        let mut multipart = MultiPart::mixed().singlepart(
-            SinglePart::builder()
-                .header(ContentType::TEXT_PLAIN)
-                .body(content.clone())
-        );
+        let mut multipart = MultiPart::mixed().multipart(body_part);
 
         for attachment in attachments {
             let file_bytes = STANDARD.decode(&attachment.data_base64)
@@ -1381,37 +1528,19 @@ pub async fn send_smtp_email(
             .map_err(|e| format!("构建带附件邮件失败: {}", e))?
     } else {
         message_builder
-            .header(ContentType::TEXT_PLAIN)
-            .body(content)
+            .multipart(body_part)
             .map_err(|e| format!("构建邮件失败: {}", e))?
     };
-
+    let mut conn = open_smtp_connection_with_proxy(&final_host, final_port, proxy.as_ref()).await?;
     let creds = Credentials::new(from_email.clone(), password);
-
-    // 根据端口选择 SSL 还是 STARTTLS
-    let mailer = if final_port == 465 {
-        // SSL
-        let tls = TlsParameters::new(final_host.clone())
-            .map_err(|e| format!("TLS 参数错误: {}", e))?;
-        AsyncSmtpTransport::<Tokio1Executor>::relay(&final_host)
-            .map_err(|e| format!("连接 SMTP 服务器失败: {}", e))?
-            .port(final_port)
-            .tls(lettre::transport::smtp::client::Tls::Wrapper(tls))
-            .credentials(creds)
-            .build::<Tokio1Executor>()
-    } else {
-        // STARTTLS (587 等)
-        AsyncSmtpTransport::<Tokio1Executor>::starttls_relay(&final_host)
-            .map_err(|e| format!("连接 SMTP 服务器失败: {}", e))?
-            .port(final_port)
-            .credentials(creds)
-            .build::<Tokio1Executor>()
-    };
-
-    let response = mailer
-        .send(email)
+    conn.auth(DEFAULT_MECHANISMS, &creds)
         .await
         .map_err(format_smtp_send_error)?;
+    let response = conn
+        .send(email.envelope(), &email.formatted())
+        .await
+        .map_err(format_smtp_send_error)?;
+    let _ = conn.quit().await;
 
     info!("✅ 本地 SMTP 发送成功: {} -> {}", from_email, to_email);
     let response_code = response.code().to_string().parse::<u16>().ok();
@@ -1546,12 +1675,8 @@ async fn resolve_reachable_smtp_candidate(
     email: &str,
     password: &str,
     domain: &str,
+    proxy: Option<&RuntimeProxy>,
 ) -> Result<(String, u16), String> {
-    use lettre::{
-        transport::smtp::{authentication::Credentials, client::TlsParameters},
-        AsyncSmtpTransport, Tokio1Executor,
-    };
-
     let candidates = get_smtp_candidates(domain).await?;
     if candidates.is_empty() {
         return Err("候选列表为空".to_string());
@@ -1561,48 +1686,10 @@ async fn resolve_reachable_smtp_candidate(
 
     for (smtp_host, smtp_port) in candidates {
         info!("尝试 SMTP: {}:{}", smtp_host, smtp_port);
-
-        let creds = Credentials::new(email.to_string(), password.to_string());
-        let connect_result = if smtp_port == 465 {
-            let tls = match TlsParameters::new(smtp_host.clone()) {
-                Ok(tls) => tls,
-                Err(error) => {
-                    last_error = format!("TLS 参数错误: {}", error);
-                    continue;
-                }
-            };
-            AsyncSmtpTransport::<Tokio1Executor>::relay(&smtp_host)
-                .map(|builder| {
-                    builder
-                        .port(smtp_port)
-                        .tls(lettre::transport::smtp::client::Tls::Wrapper(tls))
-                        .credentials(creds)
-                        .build::<Tokio1Executor>()
-                })
-        } else {
-            AsyncSmtpTransport::<Tokio1Executor>::starttls_relay(&smtp_host)
-                .map(|builder| {
-                    builder
-                        .port(smtp_port)
-                        .credentials(creds)
-                        .build::<Tokio1Executor>()
-                })
-        };
-
-        match connect_result {
-            Ok(mailer) => match mailer.test_connection().await {
-                Ok(true) => return Ok((smtp_host, smtp_port)),
-                Ok(false) => {
-                    last_error = format!("{}:{} 认证失败", smtp_host, smtp_port);
-                    info!("{}", last_error);
-                }
-                Err(error) => {
-                    last_error = format!("{}:{} 连接出错: {}", smtp_host, smtp_port, error);
-                    info!("{}", last_error);
-                }
-            },
+        match verify_smtp_connection(email, password, &smtp_host, smtp_port, proxy).await {
+            Ok(_) => return Ok((smtp_host, smtp_port)),
             Err(error) => {
-                last_error = format!("{}:{} 构建失败: {}", smtp_host, smtp_port, error);
+                last_error = format!("{}:{} {}", smtp_host, smtp_port, error);
                 info!("{}", last_error);
             }
         }

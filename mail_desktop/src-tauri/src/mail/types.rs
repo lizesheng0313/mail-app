@@ -5,6 +5,22 @@ use crate::mail::provider_constants::{find_hosted_provider_by_mx, find_known_pro
 use log::info;
 use serde::{Deserialize, Serialize};
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeProxy {
+    #[serde(alias = "proxy_id")]
+    pub proxy_id: Option<i64>,
+    pub name: Option<String>,
+    pub host: String,
+    pub port: u16,
+    #[serde(alias = "proxy_type")]
+    pub proxy_type: Option<String>,
+    pub username: Option<String>,
+    pub password: Option<String>,
+    pub provider: Option<String>,
+    pub location: Option<String>,
+}
+
 /// 邮箱服务器配置（字段改为 String 以支持动态探测）
 #[derive(Debug, Clone)]
 pub struct ServerConfig {

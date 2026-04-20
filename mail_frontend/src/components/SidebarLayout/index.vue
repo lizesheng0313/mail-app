@@ -1,76 +1,116 @@
 <template>
-  <div class="min-h-screen bg-gray-100 flex">
+  <div class="flex h-screen overflow-hidden bg-gray-100">
     <!-- 左侧菜单 -->
-    <div class="w-64 bg-white shadow-lg">
+    <div
+      :class="[
+        'flex h-full flex-shrink-0 flex-col bg-white shadow-lg transition-all duration-200',
+        sidebarCollapsed ? 'w-20' : 'w-64'
+      ]"
+    >
       <!-- 头部Logo -->
-      <router-link
-        to="/"
-        class="flex items-center px-6 border-b border-gray-200 transition-colors hover:bg-gray-50"
-        style="height: 87px;"
+      <div
+        class="flex items-center justify-between border-b border-gray-200 px-4 transition-colors"
+        style="height: 64px;"
       >
-        <div class="h-8 w-8 bg-primary-600 rounded-lg flex items-center justify-center">
-          <component :is="logoIcon" class="h-5 w-5 text-white" />
-        </div>
-        <h1 class="ml-3 text-lg font-semibold text-gray-900">{{ title }}</h1>
-      </router-link>
+        <router-link
+          to="/"
+          class="flex min-w-0 items-center transition-colors hover:opacity-80"
+          :class="sidebarCollapsed ? 'justify-center' : ''"
+        >
+          <div
+            class="h-8 w-8 flex-shrink-0 overflow-hidden rounded-lg flex items-center justify-center"
+            :class="logoSrc ? 'bg-transparent' : 'bg-primary-600'"
+          >
+            <img
+              v-if="logoSrc"
+              :src="logoSrc"
+              alt="logo"
+              class="h-full w-full object-cover"
+            />
+            <component v-else :is="logoIcon" class="h-5 w-5 text-white" />
+          </div>
+          <h1 v-if="!sidebarCollapsed" class="ml-3 truncate text-lg font-semibold text-gray-900">
+            {{ title }}
+          </h1>
+        </router-link>
+        <button
+          type="button"
+          class="ml-2 inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
+          :title="sidebarCollapsed ? '展开菜单' : '收起菜单'"
+          @click="toggleSidebar"
+        >
+          <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              :d="sidebarCollapsed ? 'M13 5l7 7-7 7M5 5l7 7-7 7' : 'M11 19l-7-7 7-7M19 19l-7-7 7-7'"
+            />
+          </svg>
+        </button>
+      </div>
 
       <!-- 菜单列表 -->
-      <nav class="mt-6">
+      <nav class="min-h-0 flex-1 overflow-y-auto py-4">
         <div v-for="section in menuSections" :key="section.name" class="px-3">
-          <p class="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3" :class="section.name !== menuSections[0].name ? 'mt-6' : ''">
-            {{ section.name }}
-          </p>
-          
-          <router-link
-            v-for="item in section.items"
-            :key="item.path"
-            :to="item.path"
-            class="group flex items-center px-3 py-2 text-sm font-medium rounded-md hover:bg-gray-50 transition-colors mb-1"
-            :class="$route.path === item.path ? 'bg-primary-50 text-primary-700 border-r-2 border-primary-700' : 'text-gray-700 hover:text-gray-900'"
+          <button
+            type="button"
+            class="mb-2 flex w-full items-center rounded-md px-3 py-2 text-left transition-colors"
+            :class="[
+              section.name !== menuSections[0].name ? 'mt-4' : '',
+              sectionActive(section)
+                ? 'bg-primary-50 text-primary-700'
+                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+            ]"
+            :title="sidebarCollapsed ? section.name : ''"
+            @click="toggleSection(section.name)"
           >
-            <component 
-              :is="item.icon" 
-              class="mr-3 h-5 w-5" 
-              :class="$route.path === item.path ? 'text-primary-500' : 'text-gray-400 group-hover:text-gray-500'" 
+            <component
+              :is="getSectionIcon(section)"
+              class="h-5 w-5 flex-shrink-0"
+              :class="sectionActive(section) ? 'text-primary-500' : 'text-gray-400'"
             />
-            {{ item.label }}
-          </router-link>
+            <template v-if="!sidebarCollapsed">
+              <span class="ml-3 flex-1 text-sm font-semibold">{{ section.name }}</span>
+              <svg
+                class="h-4 w-4 transition-transform"
+                :class="isSectionOpen(section.name) ? 'rotate-90' : ''"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+              </svg>
+            </template>
+          </button>
+
+          <div v-if="!sidebarCollapsed && isSectionOpen(section.name)" class="mb-1">
+            <router-link
+              v-for="item in section.items"
+              :key="item.path"
+              :to="item.path"
+              class="group mb-1 ml-2 flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-gray-50"
+              :class="$route.path === item.path ? 'bg-primary-50 text-primary-700 border-r-2 border-primary-700' : 'text-gray-700 hover:text-gray-900'"
+            >
+              <component
+                :is="item.icon"
+                class="mr-3 h-5 w-5"
+                :class="$route.path === item.path ? 'text-primary-500' : 'text-gray-400 group-hover:text-gray-500'"
+              />
+              {{ item.label }}
+            </router-link>
+          </div>
         </div>
       </nav>
-
-      <!-- 底部用户信息 -->
-      <div class="absolute bottom-0 w-64 p-4 border-t border-gray-200 bg-white">
-        <div class="flex items-center">
-          <div class="flex-shrink-0">
-            <div class="h-8 w-8 bg-primary-100 rounded-full flex items-center justify-center">
-              <span class="text-primary-600 text-sm font-medium">{{ userInitial }}</span>
-            </div>
-          </div>
-          <div class="ml-3 flex-1 min-w-0">
-            <p class="text-sm font-medium text-gray-900 truncate">{{ userEmail }}</p>
-            <p class="text-xs text-gray-500">{{ userRole }}</p>
-          </div>
-          <button
-            @click="handleLogout"
-            class="text-gray-400 hover:text-gray-600 transition-colors"
-            title="退出登录"
-          >
-            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-            </svg>
-          </button>
-        </div>
-      </div>
     </div>
 
     <!-- 右侧内容区域 -->
-    <div class="flex-1 flex flex-col h-screen overflow-hidden">
+    <div class="flex min-w-0 flex-1 flex-col overflow-hidden">
       <!-- 顶部导航栏 -->
-      <header class="bg-white shadow-sm border-b border-gray-200 flex-shrink-0" style="height: 87px;">
+      <header class="bg-white shadow-sm border-b border-gray-200 flex-shrink-0" style="height: 64px;">
         <div class="px-6 h-full flex items-center justify-between">
-            <div>
-              <h1 class="text-2xl font-semibold text-gray-900">{{ pageTitle }}</h1>
-              <p class="text-sm text-gray-600 mt-1">{{ pageDescription }}</p>
+            <div class="min-w-0">
+              <h1 class="truncate text-lg font-semibold text-gray-900">{{ pageTitle }}</h1>
             </div>
             <div class="flex items-center space-x-4">
               <slot name="header-actions"></slot>
@@ -79,8 +119,8 @@
       </header>
 
       <!-- 主要内容区域 -->
-      <main class="flex-1 bg-gray-50 overflow-hidden">
-        <div class="h-full p-6 overflow-y-auto">
+      <main class="min-h-0 flex-1 bg-gray-50 overflow-hidden">
+        <div class="h-full min-h-0 px-6 pt-6 pb-0 overflow-y-auto">
           <slot></slot>
         </div>
       </main>
@@ -89,7 +129,8 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { ref } from 'vue'
+import { useRoute } from 'vue-router'
 
 const props = defineProps({
   title: {
@@ -99,6 +140,10 @@ const props = defineProps({
   logoIcon: {
     type: Object,
     required: true
+  },
+  logoSrc: {
+    type: String,
+    default: ''
   },
   menuSections: {
     type: Array,
@@ -126,12 +171,36 @@ const props = defineProps({
   }
 })
 
-const userInitial = computed(() => {
-  if (!props.userEmail) return 'U'
-  return props.userEmail.charAt(0).toUpperCase()
-})
+const route = useRoute()
+const sidebarCollapsed = ref(false)
+const openSections = ref({})
 
-const handleLogout = () => {
-  props.onLogout()
+const sectionActive = (section) => section.items.some((item) => item.path === route.path)
+
+const getSectionIcon = (section) => section.items?.[0]?.icon
+
+const getSectionByName = (sectionName) =>
+  props.menuSections.find((section) => section.name === sectionName)
+
+const isSectionOpen = (sectionName) => {
+  if (openSections.value[sectionName] !== undefined) {
+    return openSections.value[sectionName]
+  }
+  const section = getSectionByName(sectionName)
+  return section ? sectionActive(section) : false
+}
+
+const toggleSection = (sectionName) => {
+  if (sidebarCollapsed.value) {
+    sidebarCollapsed.value = false
+  }
+  openSections.value = {
+    ...openSections.value,
+    [sectionName]: !isSectionOpen(sectionName)
+  }
+}
+
+const toggleSidebar = () => {
+  sidebarCollapsed.value = !sidebarCollapsed.value
 }
 </script>

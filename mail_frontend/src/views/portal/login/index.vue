@@ -20,20 +20,18 @@
         </div>
       </div>
     </div>
-    <div class="max-w-md w-full space-y-8">
-      <div class="text-center">
-        <div class="mx-auto h-16 w-16 bg-primary-600 rounded-2xl flex items-center justify-center shadow-lg">
-          <svg class="h-8 w-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-          </svg>
+    <div class="w-full max-w-4xl">
+      <div class="mb-8 text-center">
+        <div class="mx-auto h-[120px] w-[120px] overflow-visible bg-transparent flex items-center justify-center">
+          <img :src="logoImage" alt="logo" class="h-[120px] w-[120px] object-contain" />
         </div>
         <h2 class="mt-6 text-3xl font-bold text-black">{{ t('pageHeader.siteName') }}</h2>
         <p class="mt-2 text-sm text-black">
           {{ isResetMode ? t('login.subtitleReset') : (isLoginMode ? t('login.subtitleLogin') : t('login.subtitleRegister')) }}
         </p>
       </div>
-      
-      <div class="bg-white rounded-2xl shadow-lg border border-gray-200 p-8">
+
+      <div class="mx-auto max-w-md bg-white rounded-2xl shadow-lg border border-gray-200 p-8">
         <form @submit.prevent="handleSubmit" class="space-y-6">
           <div>
             <label for="email" class="block text-sm font-medium text-black mb-2">{{ t('login.emailLabel') }}</label>
@@ -335,6 +333,7 @@ import { useUserStore } from '@/stores/user'
 import authAPI from '@/api/auth'
 import BaseInput from '@/components/BaseInput/index.vue'
 import LanguageSwitcher from '@/components/LanguageSwitcher/index.vue'
+import logoImage from '@/assets/img/logo.png'
 import { showMessage } from '@/utils/message'
 import { isTauri } from '@/services/api'
 

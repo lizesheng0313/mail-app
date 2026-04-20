@@ -111,13 +111,23 @@
                 {{ t('domainsPage.deleted') }}
               </span>
               <span
-                v-else-if="String(domain.verification_status || '').toLowerCase() === 'verified'"
-                :class="
-                  domain.is_active ? 'bg-primary-100 text-success-800' : 'bg-red-100 text-red-800'
-                "
+                v-else-if="String(domain.status || '').toLowerCase() === 'verified'"
+                class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full w-fit bg-primary-100 text-success-800"
+              >
+                {{ t('domainsPage.verified') }}
+              </span>
+              <span
+                v-else-if="String(domain.status || '').toLowerCase() === 'disabled'"
+                class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full w-fit bg-red-100 text-red-800"
+              >
+                {{ t('domainsPage.disabled') }}
+              </span>
+              <span
+                v-else
+                :class="getVerificationClass(domain.status)"
                 class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full w-fit"
               >
-                {{ domain.is_active ? t('domainsPage.enabled') : t('domainsPage.disabled') }}
+                {{ getVerificationLabel(domain.status) }}
               </span>
               <span
                 v-if="Boolean(domain.is_public)"
@@ -130,16 +140,6 @@
                 class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-orange-100 text-orange-800 w-fit"
               >
                 {{ t('domainsPage.expired') }}
-              </span>
-              <span
-                v-else-if="
-                  !isDomainDeleted(domain) &&
-                  String(domain.verification_status || '').toLowerCase() !== 'verified'
-                "
-                :class="getVerificationClass(domain.verification_status)"
-                class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full w-fit"
-              >
-                {{ getVerificationLabel(domain.verification_status) }}
               </span>
             </div>
           </td>
@@ -160,7 +160,7 @@
               <ActionButton
                 v-if="
                   !isDomainDeleted(domain) &&
-                  String(domain.verification_status || '').toLowerCase() !== 'verified'
+                  String(domain.status || '').toLowerCase() !== 'verified'
                 "
                 icon="eye"
                 tooltip="详情"
@@ -170,7 +170,7 @@
               <ActionButton
                 v-if="
                   !isDomainDeleted(domain) &&
-                  String(domain.verification_status || '').toLowerCase() === 'verified'
+                  String(domain.status || '').toLowerCase() === 'verified'
                 "
                 icon="edit"
                 :tooltip="t('domainsPage.edit')"
@@ -178,12 +178,12 @@
                 @click="openEditModal(domain)"
               />
               <ActionButton
-                :icon="domain.is_active ? 'disable' : 'enable'"
-                :tooltip="domain.is_active ? t('domainsPage.disable') : t('domainsPage.enable')"
-                :variant="domain.is_active ? 'disable' : 'enable'"
+                :icon="String(domain.status || '').toLowerCase() === 'verified' ? 'disable' : 'enable'"
+                :tooltip="String(domain.status || '').toLowerCase() === 'verified' ? t('domainsPage.disable') : t('domainsPage.enable')"
+                :variant="String(domain.status || '').toLowerCase() === 'verified' ? 'disable' : 'enable'"
                 v-if="
                   !isDomainDeleted(domain) &&
-                  String(domain.verification_status || '').toLowerCase() === 'verified'
+                  ['verified', 'disabled'].includes(String(domain.status || '').toLowerCase())
                 "
                 @click="toggleDomain(domain)"
               />
@@ -270,15 +270,15 @@
                   {{ domainModalDetail.domain.domain_name }}
                 </div>
                 <span
-                  :class="getVerificationClass(domainModalDetail.domain.verification_status)"
+                  :class="getVerificationClass(domainModalDetail.domain.status)"
                   class="px-2 py-1 text-xs font-medium rounded-full"
                 >
-                  {{ getVerificationLabel(domainModalDetail.domain.verification_status) }}
+                  {{ getVerificationLabel(domainModalDetail.domain.status) }}
                 </span>
               </div>
             </div>
             <button
-              v-if="String(domainModalDetail.domain.verification_status || '').toLowerCase() !== 'verified'"
+              v-if="String(domainModalDetail.domain.status || '').toLowerCase() !== 'verified'"
               class="px-3 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-md text-sm disabled:opacity-50"
               :disabled="refreshingDomainId === domainModalDetail.domain.id"
               @click="refreshDns(domainModalDetail.domain.id)"
@@ -370,12 +370,6 @@
                     >
                       {{ getDnsStatusLabel(record.status) }}
                     </span>
-                    <div
-                      v-if="record.check_message"
-                      class="mt-2 max-w-[220px] break-all text-xs text-gray-500"
-                    >
-                      {{ record.check_message }}
-                    </div>
                   </td>
                 </tr>
               </tbody>
@@ -511,6 +505,7 @@ const domainModalTitle = computed(() =>
 const getVerificationLabel = (status: string) => {
   const normalized = String(status || '').toLowerCase()
   if (normalized === 'verified') return t('domainsPage.verified')
+  if (normalized === 'disabled') return t('domainsPage.disabled')
   if (normalized === 'failed') return t('domainsPage.verifyFailed')
   return t('domainsPage.pendingVerify')
 }
@@ -518,6 +513,7 @@ const getVerificationLabel = (status: string) => {
 const getVerificationClass = (status: string) => {
   const normalized = String(status || '').toLowerCase()
   if (normalized === 'verified') return 'bg-green-100 text-green-700'
+  if (normalized === 'disabled') return 'bg-red-100 text-red-700'
   if (normalized === 'failed') return 'bg-red-100 text-red-700'
   return 'bg-amber-100 text-amber-700'
 }
@@ -585,7 +581,7 @@ const handleCreateDomain = async () => {
 const getDnsStatusClass = (status: string) => {
   const normalized = String(status || '').toLowerCase()
   if (normalized === 'verified' || normalized === 'valid') return 'bg-green-100 text-green-700'
-  if (normalized === 'invalid' || normalized === 'failed') return 'bg-red-100 text-red-700'
+  if (normalized === 'invalid' || normalized === 'failed' || normalized === 'error') return 'bg-red-100 text-red-700'
   if (normalized === 'not_found') return 'bg-amber-100 text-amber-700'
   return 'bg-gray-200 text-gray-600'
 }
@@ -595,6 +591,8 @@ const getDnsStatusLabel = (status: string) => {
   if (normalized === 'verified') return '已验证'
   if (normalized === 'valid') return '已生效'
   if (normalized === 'invalid') return '不匹配'
+  if (normalized === 'failed') return '检查失败'
+  if (normalized === 'error') return '查询失败'
   if (normalized === 'not_found') return '未找到'
   return '待检查'
 }
@@ -632,9 +630,6 @@ const refreshDns = async (domainId: number | string) => {
     if (response.code === 0 && response.data) {
       applyDomainDetailToModal(response.data)
       await loadDomains()
-      if (String(response.data?.domain?.verification_status || '').toLowerCase() === 'verified') {
-        showMessage('DNS 验证通过', 'success')
-      }
     }
   } finally {
     refreshingDomainId.value = null
@@ -693,12 +688,14 @@ const saveEditDomain = async () => {
 const toggleDomain = async (domain: any) => {
   loading.value = true
   try {
+    const currentStatus = String(domain.status || '').toLowerCase()
+    const nextStatus = currentStatus === 'verified' ? 'disabled' : 'verified'
     const response: any = await hostedDomainAPI.updateDomain(domain.id, {
-      is_active: !domain.is_active
+      status: nextStatus
     })
     if (response.code === 0) {
       showMessage(
-        domain.is_active ? t('domainsPage.toggledDisabled') : t('domainsPage.toggledEnabled'),
+        currentStatus === 'verified' ? t('domainsPage.toggledDisabled') : t('domainsPage.toggledEnabled'),
         'success'
       )
       await loadDomains()

@@ -173,6 +173,17 @@ body.is-tauri .update-notes-body {
     color: rgb(var(--color-text-primary));
   }
 
+  html,
+  body,
+  #app {
+    min-height: 100%;
+    background-color: rgb(var(--color-bg-secondary));
+  }
+
+  body {
+    margin: 0;
+  }
+
   /* 全局焦点样式 */
   button:focus-visible,
   a:focus-visible {

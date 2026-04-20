@@ -42,6 +42,12 @@ const UserSettings = () => import('@/views/user/settings/index.vue')
 const UserAnnouncements = () => import('@/views/user/announcements/index.vue')
 const UserDeveloper = () => import('@/views/user/developer/index.vue')
 const UserDomains = () => import('@/views/user/domains/index.vue')
+const UserExternalBatchVerify = () => import('@/views/user/external-batch-verify/index.vue')
+const UserExternalBulkSend = () => import('@/views/user/external-bulk-send/index.vue')
+const UserExternalOutbox = () => import('@/views/user/external-outbox/index.vue')
+const UserExternalGroupManagement = () => import('@/views/user/external-group-management/index.vue')
+const UserExternalBatchRepair = () => import('@/views/user/external-batch-repair/index.vue')
+const UserExternalProxyManagement = () => import('@/views/user/external-proxy-management/index.vue')
 
 // 工作流市场组件
 const WorkflowMarket = () => import('@/views/market/index.vue')
@@ -332,6 +338,36 @@ const router = createRouter({
           path: 'domains',
           name: 'user-domains',
           component: UserDomains
+        },
+        {
+          path: 'external-batch-verify',
+          name: 'user-external-batch-verify',
+          component: UserExternalBatchVerify
+        },
+        {
+          path: 'external-bulk-send',
+          name: 'user-external-bulk-send',
+          component: UserExternalBulkSend
+        },
+        {
+          path: 'external-outbox',
+          name: 'user-external-outbox',
+          component: UserExternalOutbox
+        },
+        {
+          path: 'external-group-management',
+          name: 'user-external-group-management',
+          component: UserExternalGroupManagement
+        },
+        {
+          path: 'external-batch-repair',
+          name: 'user-external-batch-repair',
+          component: UserExternalBatchRepair
+        },
+        {
+          path: 'external-proxy-management',
+          name: 'user-external-proxy-management',
+          component: UserExternalProxyManagement
         },
         {
           path: 'settings',

@@ -1,4 +1,5 @@
 use crate::commands::{add_external_mailbox, fetch_emails, send_smtp_email, SendEmailAttachment};
+use crate::mail::types::RuntimeProxy;
 use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -22,6 +23,8 @@ struct VerifyMailboxRequest {
     protocol: String,
     host: Option<String>,
     port: Option<u16>,
+    verify_smtp: Option<bool>,
+    proxy: Option<RuntimeProxy>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -38,6 +41,7 @@ struct FetchMailboxRequest {
     server_url: String,
     auth_type: Option<String>,
     access_token: Option<String>,
+    proxy: Option<RuntimeProxy>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -49,9 +53,11 @@ struct SendEmailRequest {
     to_email: String,
     subject: String,
     content: String,
+    content_html: Option<String>,
     cc: Option<String>,
     bcc: Option<String>,
     attachments: Option<Vec<SendEmailAttachment>>,
+    proxy: Option<RuntimeProxy>,
 }
 
 #[derive(Debug, Serialize)]
@@ -245,6 +251,8 @@ async fn handle_http_request(request: HttpRequest) -> HttpResponse {
                     payload.protocol,
                     payload.host,
                     payload.port,
+                    payload.verify_smtp,
+                    payload.proxy,
                 )
                 .await
                 {
@@ -281,6 +289,7 @@ async fn handle_http_request(request: HttpRequest) -> HttpResponse {
                     payload.server_url,
                     payload.auth_type,
                     payload.access_token,
+                    payload.proxy,
                 )
                 .await
                 {
@@ -313,9 +322,11 @@ async fn handle_http_request(request: HttpRequest) -> HttpResponse {
                 payload.to_email,
                 payload.subject,
                 payload.content,
+                payload.content_html,
                 payload.cc,
                 payload.bcc,
                 payload.attachments,
+                payload.proxy,
             )
             .await
             {

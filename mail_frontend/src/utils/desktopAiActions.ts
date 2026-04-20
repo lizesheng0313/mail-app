@@ -1,4 +1,5 @@
 import batchLoginAPI from '@/api/batchLogin'
+import mailboxProxyApi from '@/api/mailboxProxy'
 import smtpAccountsAPI from '@/api/smtpAccounts'
 import { getServerUrl, isTauri } from '@/services/api'
 import { canDesktopSmtpSend, normalizeSmtpEmail } from '@/utils/smtpCapability'
@@ -76,6 +77,17 @@ const loadExternalMailboxAccount = async (mailboxId?: number, email?: string) =>
   throw new Error('没有找到对应的第三方邮箱')
 }
 
+const loadMailboxRuntimeProxy = async (mailboxId?: number) => {
+  if (!mailboxId) return null
+  try {
+    const response: any = await mailboxProxyApi.getRuntimeProxy(mailboxId)
+    if (response.code !== 0) return null
+    return response?.data?.runtime_proxy || null
+  } catch {
+    return null
+  }
+}
+
 const executeDesktopSmtpSend = async (argumentsValue: Record<string, any> = {}) => {
   const tauriInvoke = await getTauriInvoke()
   if (!tauriInvoke) {
@@ -100,6 +112,7 @@ const executeDesktopSmtpSend = async (argumentsValue: Record<string, any> = {}) 
 
   const accounts = Array.isArray(accountsResponse?.data?.accounts) ? accountsResponse.data.accounts : []
   const account = pickDesktopSendAccount(accounts, fromEmail)
+  const runtimeProxy = await mailboxProxyApi.previewRuntimeProxy({ email: account.email })
 
   await tauriInvoke('send_smtp_email', {
     fromEmail: account.email,
@@ -111,7 +124,8 @@ const executeDesktopSmtpSend = async (argumentsValue: Record<string, any> = {}) 
     content,
     cc: cc || null,
     bcc: bcc || null,
-    attachments: []
+    attachments: [],
+    proxy: runtimeProxy?.data?.runtime_proxy || null
   })
 
   let recordSynced = true
@@ -165,13 +179,15 @@ const executeDesktopExternalMailboxVerify = async (argumentsValue: Record<string
   const protocol = readString(argumentsValue.protocol || 'auto').toLowerCase() || 'auto'
   const host = readString(argumentsValue.host)
   const port = readNumber(argumentsValue.port)
+  const verifySmtp = argumentsValue.verify_smtp !== false
 
   const result: any = await tauriInvoke('add_external_mailbox', {
     email,
     password,
     protocol,
     host: host || null,
-    port: port || null
+    port: port || null,
+    verifySmtp
   })
 
   if (!result?.success) {
@@ -214,6 +230,7 @@ const executeDesktopExternalMailboxFetch = async (argumentsValue: Record<string,
   if (!serverUrl) throw new Error('没有找到服务端地址')
 
   let result: any
+  const runtimeProxy = await loadMailboxRuntimeProxy(resolvedMailboxId)
   if (authType === 'oauth2') {
     const accessTokenResponse: any = await batchLoginAPI.getOAuth2AccessToken(resolvedMailboxId, {
       suppressErrorMessage: true
@@ -233,7 +250,8 @@ const executeDesktopExternalMailboxFetch = async (argumentsValue: Record<string,
       token,
       serverUrl,
       authType: 'oauth2',
-      accessToken: readString(argumentsValue.access_token || tokenPayload.access_token)
+      accessToken: readString(argumentsValue.access_token || tokenPayload.access_token),
+      proxy: runtimeProxy
     })
   } else {
     const protocol = readString(argumentsValue.protocol || account?.protocol || 'auto').toLowerCase() || 'auto'
@@ -261,7 +279,8 @@ const executeDesktopExternalMailboxFetch = async (argumentsValue: Record<string,
       token,
       serverUrl,
       authType: 'password',
-      accessToken: null
+      accessToken: null,
+      proxy: runtimeProxy
     })
   }
 

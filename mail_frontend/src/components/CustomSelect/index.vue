@@ -31,7 +31,8 @@
     >
       <div
         v-if="isOpen"
-        class="absolute z-10 mt-1 w-full bg-white shadow-lg max-h-60 rounded-md py-1 text-sm ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none"
+          class="absolute z-10 w-full bg-white shadow-lg max-h-60 rounded-md py-1 text-sm ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none"
+          :class="placement === 'top' ? 'bottom-full mb-1' : 'mt-1'"
       >
         <button
           type="button"
@@ -53,22 +54,24 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 
 interface Option {
   label: string
-  value: string
+  value: string | number
 }
 
 interface Props {
-  modelValue: string
+  modelValue: string | number
   options: Option[]
   placeholder?: string
+  placement?: 'top' | 'bottom'
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  placeholder: '请选择'
+  placeholder: '请选择',
+  placement: 'bottom'
 })
 
 const emit = defineEmits<{
-  'update:modelValue': [value: string]
-  'change': [value: string]
+  'update:modelValue': [value: string | number]
+  'change': [value: string | number]
 }>()
 
 const isOpen = ref(false)

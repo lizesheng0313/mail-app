@@ -2208,6 +2208,7 @@ dependencies = [
  "tauri-plugin-updater",
  "thiserror 2.0.18",
  "tokio",
+ "tokio-native-tls",
  "url",
 ]
 

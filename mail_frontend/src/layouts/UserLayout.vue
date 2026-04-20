@@ -2,6 +2,7 @@
   <SidebarLayout
     :title="t('userLayout.workspaceTitle')"
     :logo-icon="UserIcon"
+    :logo-src="logoImage"
     :menu-sections="menuSections"
     :user-email="userInfo?.email || ''"
     :user-role="t('userLayout.userRole')"
@@ -10,12 +11,13 @@
     :on-logout="logout"
   >
     <template #header-actions>
-      <router-link
-        to="/"
+      <button
+        type="button"
+        @click="handleBack"
         class="mr-[28px] inline-flex items-center rounded-md border border-primary-200 bg-primary-50 px-3 py-2 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-100"
       >
-        {{ t('userLayout.backHome') }}
-      </router-link>
+        {{ t('userLayout.backPrevious') }}
+      </button>
     </template>
     <router-view />
   </SidebarLayout>
@@ -27,6 +29,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useUserStore } from '@/stores/user'
 import SidebarLayout from '@/components/SidebarLayout/index.vue'
+import logoImage from '@/assets/img/logo.png'
 
 const router = useRouter()
 const route = useRoute()
@@ -35,6 +38,15 @@ const { t } = useI18n()
 
 // 用户信息
 const userInfo = computed(() => userStore.user)
+const canGoBack = computed(() => Boolean(window.history.state?.back) || window.history.length > 1)
+
+const handleBack = async () => {
+  if (canGoBack.value) {
+    await router.back()
+    return
+  }
+  await router.push('/')
+}
 
 // Logo 图标
 const UserIcon = {
@@ -151,6 +163,71 @@ const menuSections = computed(() => [
     ]
   },
   {
+    name: t('userLayout.externalMailboxBatchOps'),
+    items: [
+      {
+        path: '/user/external-batch-verify',
+        label: t('userLayout.batchVerify'),
+        icon: {
+          render: () =>
+            h('svg', { fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' }, [
+              h('path', {
+                'stroke-linecap': 'round',
+                'stroke-linejoin': 'round',
+                'stroke-width': '2',
+                d: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'
+              })
+            ])
+        }
+      },
+      {
+        path: '/user/external-bulk-send',
+        label: t('userLayout.bulkSend'),
+        icon: {
+          render: () =>
+            h('svg', { fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' }, [
+              h('path', {
+                'stroke-linecap': 'round',
+                'stroke-linejoin': 'round',
+                'stroke-width': '2',
+                d: 'M4 4h16v12H4zm0 0l8 6 8-6M8 20h8'
+              })
+            ])
+        }
+      },
+      {
+        path: '/user/external-outbox',
+        label: t('userLayout.outbox'),
+        icon: {
+          render: () =>
+            h('svg', { fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' }, [
+              h('path', {
+                'stroke-linecap': 'round',
+                'stroke-linejoin': 'round',
+                'stroke-width': '2',
+                d: 'M7 7h10M7 11h10M7 15h6M5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2z'
+              })
+            ])
+        }
+      },
+      {
+        path: '/user/external-proxy-management',
+        label: t('userLayout.proxyManagement'),
+        icon: {
+          render: () =>
+            h('svg', { fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' }, [
+              h('path', {
+                'stroke-linecap': 'round',
+                'stroke-linejoin': 'round',
+                'stroke-width': '2',
+                d: 'M3 15a4 4 0 014-4h1a5 5 0 019.9-1A4.5 4.5 0 0119.5 19H7a4 4 0 01-4-4z'
+              })
+            ])
+        }
+      }
+    ]
+  },
+  {
     name: t('userLayout.finance'),
     items: [
       {
@@ -186,7 +263,7 @@ const menuSections = computed(() => [
     ]
   },
   {
-    name: t('userLayout.systemInfo'),
+    name: t('userLayout.systemSettings'),
     items: [
       {
         path: '/user/announcements',
@@ -202,12 +279,7 @@ const menuSections = computed(() => [
               })
             ])
         }
-      }
-    ]
-  },
-  {
-    name: t('userLayout.systemSettings'),
-    items: [
+      },
       {
         path: '/user/settings',
         label: t('userLayout.personalSettings'),
@@ -244,6 +316,12 @@ const currentPageTitle = computed(() => {
 
   const titles = {
     '/user/domains': t('userLayout.myDomains'),
+    '/user/external-batch-verify': t('userLayout.batchVerify'),
+    '/user/external-bulk-send': t('userLayout.bulkSend'),
+    '/user/external-outbox': t('userLayout.outbox'),
+    '/user/external-group-management': t('userLayout.groupManagement'),
+    '/user/external-batch-repair': t('userLayout.batchRepair'),
+    '/user/external-proxy-management': t('userLayout.proxyManagement'),
     '/user/purchases': t('userLayout.transactions'),
     '/user/finance': t('userLayout.financeCenter'),
     '/user/settings': t('userLayout.personalSettings'),
@@ -263,6 +341,12 @@ const pageDescription = computed(() => {
 
   const descriptions = {
     '/user/domains': t('userLayout.myDomainsDescription'),
+    '/user/external-batch-verify': t('userLayout.batchVerifyDescription'),
+    '/user/external-bulk-send': t('userLayout.bulkSendDescription'),
+    '/user/external-outbox': t('userLayout.outboxDescription'),
+    '/user/external-group-management': t('userLayout.groupManagementDescription'),
+    '/user/external-batch-repair': t('userLayout.batchRepairDescription'),
+    '/user/external-proxy-management': t('userLayout.proxyManagementDescription'),
     '/user/purchases': t('userLayout.transactionsDescription'),
     '/user/finance': t('userLayout.financeCenterDescription'),
     '/user/settings': t('userLayout.personalSettingsDescription'),

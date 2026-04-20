@@ -1,15 +1,15 @@
 <template>
   <div id="app">
     <RouterView />
-    <FloatingLiveChat />
+    <FloatingLiveChat v-if="showGlobalLiveChat" />
     <SystemMaintenance ref="maintenanceRef" />
     <AppUpdater ref="updaterRef" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { RouterView, useRouter } from 'vue-router'
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { RouterView, useRoute, useRouter } from 'vue-router'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useUserStore } from '@/stores/user'
 import { usePageTracking } from '@/composables/usePageTracking'
 import { useOnlineSession } from '@/composables/useOnlineSession'
@@ -21,11 +21,13 @@ import { registerMaintenanceCallback, isTauri } from '@/services/api'
 import { showMessage } from '@/utils/message'
 
 const router = useRouter()
+const route = useRoute()
 const userStore = useUserStore()
 const maintenanceRef = ref<InstanceType<typeof SystemMaintenance>>()
 const updaterRef = ref<InstanceType<typeof AppUpdater>>()
 let unlistenOAuthCallback: null | (() => void) = null
 const desktopOAuthKeepAlive = useDesktopOAuthKeepAlive()
+const showGlobalLiveChat = computed(() => !route.path.startsWith('/user'))
 
 // 启用页面访问统计
 usePageTracking()

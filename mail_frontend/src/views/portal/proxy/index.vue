@@ -6,14 +6,14 @@
       <div class="mx-auto max-w-7xl space-y-6">
         <div>
           <h1 class="text-xl font-bold text-black">{{ t('proxyPage.title') }}</h1>
-          <p class="mt-1 text-sm text-black">这里只管理第三方邮箱代理：默认代理、微软代理和单邮箱覆盖。</p>
+          <p class="mt-1 text-sm text-black">这里只管理邮箱代理：默认代理、直连规则和单邮箱覆盖。</p>
         </div>
 
         <section class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
           <div class="border-b border-gray-200 px-6 py-4">
             <h2 class="text-sm font-semibold text-black">默认规则</h2>
           </div>
-          <div class="grid gap-4 px-6 py-5 lg:grid-cols-4">
+          <div class="grid gap-4 px-6 py-5 lg:grid-cols-3">
             <label class="flex items-center gap-2 text-sm text-black">
               <input v-model="settings.enabled" type="checkbox" class="h-4 w-4 accent-primary-600">
               启用邮箱代理
@@ -25,10 +25,6 @@
             <div>
               <div class="mb-2 text-sm text-black">默认代理</div>
               <CustomSelect v-model="settings.default_proxy_id" :options="proxyOptions" placeholder="不使用默认代理" />
-            </div>
-            <div>
-              <div class="mb-2 text-sm text-black">微软专用代理</div>
-              <CustomSelect v-model="settings.microsoft_proxy_id" :options="proxyOptions" placeholder="不单独指定" />
             </div>
           </div>
           <div class="border-t border-gray-200 px-6 py-4">
@@ -164,8 +160,7 @@ const searchKeyword = ref('')
 const settings = ref({
   enabled: true,
   fallback_to_direct: true,
-  default_proxy_id: null,
-  microsoft_proxy_id: null
+  default_proxy_id: null
 })
 
 const proxyOptionsRaw = ref([])
@@ -197,8 +192,7 @@ const loadOptions = async () => {
   settings.value = {
     enabled: Boolean(data.settings?.enabled),
     fallback_to_direct: data.settings?.fallback_to_direct !== false,
-    default_proxy_id: data.settings?.default_proxy_id ?? null,
-    microsoft_proxy_id: data.settings?.microsoft_proxy_id ?? null
+    default_proxy_id: data.settings?.default_proxy_id ?? null
   }
   proxyOptionsRaw.value = Array.isArray(data.proxies) ? data.proxies : []
 }
@@ -231,8 +225,7 @@ const handleSaveSettings = async () => {
     settings.value = {
       enabled: Boolean(response.data?.enabled),
       fallback_to_direct: response.data?.fallback_to_direct !== false,
-      default_proxy_id: response.data?.default_proxy_id ?? null,
-      microsoft_proxy_id: response.data?.microsoft_proxy_id ?? null
+      default_proxy_id: response.data?.default_proxy_id ?? null
     }
     showMessage('邮箱代理规则已保存', 'success')
     await loadMailboxes(1)
@@ -282,7 +275,6 @@ const formatSource = (source) => {
   const sourceMap = {
     mailbox_direct: '单邮箱指定',
     mailbox_disabled: '单邮箱禁用',
-    microsoft_default: '微软默认代理',
     user_default: '默认代理',
     disabled: '已关闭',
     none: '未命中'

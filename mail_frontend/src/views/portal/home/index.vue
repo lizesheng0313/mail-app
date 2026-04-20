@@ -99,47 +99,14 @@
             {{ batchLoginLoading ? t('home.addingMailbox') : t('home.addMailbox') }}
           </button>
 
-          <div
+          <button
             v-if="mailboxType === 'external'"
-            class="inline-flex items-center rounded-lg border border-gray-200 bg-white p-1 shadow-sm"
+            type="button"
+            @click="goToExternalOpsWorkbench"
+            class="px-4 py-2 border border-slate-300 bg-white text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-50 transition-colors"
           >
-            <button
-              type="button"
-              @click="currentView = 'emails'"
-              :class="[
-                'rounded-md px-3 py-2 text-sm font-medium transition-colors',
-                currentView === 'emails'
-                  ? 'bg-slate-900 text-white'
-                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-              ]"
-            >
-              {{ t('mail.inbox') }}
-            </button>
-            <button
-              type="button"
-              @click="currentView = 'send-email'"
-              :class="[
-                'rounded-md px-3 py-2 text-sm font-medium transition-colors',
-                currentView === 'send-email'
-                  ? 'bg-slate-900 text-white'
-                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-              ]"
-            >
-              {{ t('home.bulkSend') }}
-            </button>
-            <button
-              type="button"
-              @click="openOutboxView"
-              :class="[
-                'rounded-md px-3 py-2 text-sm font-medium transition-colors',
-                currentView === 'outbox'
-                  ? 'bg-slate-900 text-white'
-                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-              ]"
-            >
-              {{ t('home.outbox') }}
-            </button>
-          </div>
+            {{ t('home.mailBatchOps') }}
+          </button>
         </div>
       </div>
       <section v-else class="rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm">
@@ -493,7 +460,7 @@
       />
     </template>
 
-    <template #main v-if="currentView === 'send-email'">
+    <template v-if="currentView === 'send-email'" #main>
       <SendEmailPanel ref="sendEmailPanelRef" :selected-mailbox-ids="selectedExternalMailboxIds" />
     </template>
 
@@ -627,6 +594,7 @@ import BatchAddAccountModal from '@/components/Mail/BatchAddAccountModal.vue'
 import ShareMailboxModal from '@/components/Mail/ShareMailboxModal.vue'
 import SendEmailModal from '@/components/Mail/SendEmailModal.vue'
 import batchLoginAPI from '@/api/batchLogin'
+import mailboxProxyApi from '@/api/mailboxProxy'
 import smtpAccountsAPI from '@/api/smtpAccounts'
 import { mailboxAPI } from '@/api/mailbox'
 import EmailDetail from '@/components/Mail/EmailDetail/EmailDetail.vue'
@@ -1104,6 +1072,32 @@ const loadExternalMailboxAccountById = async (mailboxId: number) => {
   return accounts.find((item: any) => Number(item?.id) === Number(mailboxId)) || null
 }
 
+const loadMailboxRuntimeProxy = async (mailboxId: number) => {
+  if (!mailboxId) return null
+  try {
+    const response: any = await mailboxProxyApi.getRuntimeProxy(mailboxId)
+    if (response.code !== 0) return null
+    return response?.data?.runtime_proxy || null
+  } catch {
+    return null
+  }
+}
+
+const previewMailboxRuntimeProxy = async (email: string, oauthProvider: string | null = null, proxyId: number | null = null) => {
+  if (!email && !proxyId) return null
+  try {
+    const response: any = await mailboxProxyApi.previewRuntimeProxy({
+      email,
+      oauth_provider: oauthProvider || null,
+      proxy_id: proxyId || null
+    })
+    if (response.code !== 0) return null
+    return response?.data?.runtime_proxy || null
+  } catch {
+    return null
+  }
+}
+
 const openOAuthReauthorizeModal = async (account: any) => {
   const provider = resolveOAuthProviderByEmail(
     account?.email || '',
@@ -1130,6 +1124,7 @@ const fetchOAuthMailboxOnceById = async (
   const token = localStorage.getItem('token') || ''
   const serverUrl = getServerUrl()
   const account = options.account || (await loadExternalMailboxAccountById(mailboxId))
+  const runtimeProxy = await loadMailboxRuntimeProxy(mailboxId)
 
   try {
     const fetchResult = await runDesktopOAuthMailboxAction(mailboxId, async (tokenPayload) => {
@@ -1143,7 +1138,8 @@ const fetchOAuthMailboxOnceById = async (
         token,
         serverUrl,
         authType: 'oauth2',
-        accessToken: tokenPayload.access_token
+        accessToken: tokenPayload.access_token,
+        proxy: runtimeProxy
       })
     })
 
@@ -1657,7 +1653,41 @@ const handleBatchAddAccounts = async (accounts: any[]) => {
         error?.response?.data?.message || error?.message || String(error || '')
       )
 
-    const fetchNewMailboxOnce = async (tauriInvoke: any, mailboxId: number, accountData: any) => {
+    const startBatchAddProgressHints = (accountData: any) => {
+      const timers: number[] = []
+      const pushHint = (message: string) => {
+        if (batchAddModalRef.value?.updatePending) {
+          batchAddModalRef.value.updatePending(accountData.email, message)
+        }
+      }
+
+      const protocol = String(accountData.protocol || 'auto').toLowerCase()
+      const isCustom = Boolean(
+        (protocol === 'imap' && accountData.imap_host) ||
+        (protocol === 'pop3' && accountData.pop3_host)
+      )
+
+      if (protocol === 'auto') {
+        pushHint('正在自动识别协议')
+        timers.push(window.setTimeout(() => pushHint('正在尝试 IMAP 协议'), 300))
+        timers.push(window.setTimeout(() => pushHint('正在尝试 POP3 协议'), 1600))
+      } else if (protocol === 'pop3') {
+        pushHint(isCustom ? '正在尝试自定义 POP3 协议' : '正在尝试 POP3 协议')
+      } else {
+        pushHint(isCustom ? '正在尝试自定义 IMAP 协议' : '正在尝试 IMAP 协议')
+      }
+
+      if (accountData.verify_smtp !== false) {
+        const smtpDelay = protocol === 'auto' ? 2800 : 1200
+        timers.push(window.setTimeout(() => pushHint('正在尝试 SMTP 验证'), smtpDelay))
+      }
+
+      return () => {
+        timers.forEach(timer => window.clearTimeout(timer))
+      }
+    }
+
+    const fetchNewMailboxOnce = async (tauriInvoke: any, mailboxId: number, accountData: any, runtimeProxy: any = null) => {
       const host = accountData.protocol === 'imap' ? accountData.imap_host : accountData.pop3_host
       const port = accountData.protocol === 'imap' ? accountData.imap_port : accountData.pop3_port
       const token = localStorage.getItem('token') || ''
@@ -1671,7 +1701,8 @@ const handleBatchAddAccounts = async (accounts: any[]) => {
         host: host || null,
         port: port || null,
         token,
-        serverUrl
+        serverUrl,
+        proxy: runtimeProxy
       })
 
       await batchLoginAPI.updateMailboxStatus(mailboxId, 'active')
@@ -1692,12 +1723,35 @@ const handleBatchAddAccounts = async (accounts: any[]) => {
       pendingOAuthAccounts.value.push({ email, provider })
     }
 
+    const existingEmailSet = new Set<string>()
+    try {
+      const existingResponse = await batchLoginAPI.getAllAccounts(200, {
+        suppressErrorMessage: true
+      })
+      if (existingResponse.code === 0) {
+        const existingAccounts = existingResponse.data?.accounts || []
+        existingAccounts.forEach((item: any) => {
+          const email = normalizeEmail(item?.email || '')
+          if (email) existingEmailSet.add(email)
+        })
+      }
+    } catch (error) {
+      console.warn('批量添加前置查重失败，继续走后端查重:', error)
+    }
+
+    const accountsToAdd = accounts.filter((account: any) => {
+      const email = normalizeEmail(account?.email || '')
+      if (!email || !existingEmailSet.has(email)) return true
+      markNoNeedOAuth(account.email)
+      return false
+    })
+
     // ========== OAuth Token 批量导入（4段格式：邮箱----密码----Client_ID----Refresh_Token） ==========
-    const tokenAccounts = accounts.filter(
+    const tokenAccounts = accountsToAdd.filter(
       (a: any) =>
         a.oauth_refresh_token && a.oauth_client_id && !!resolveOAuthProviderByEmail(a.email)
     )
-    const normalAccounts = accounts.filter(
+    const normalAccounts = accountsToAdd.filter(
       (a: any) =>
         !(a.oauth_refresh_token && a.oauth_client_id && resolveOAuthProviderByEmail(a.email))
     )
@@ -1812,15 +1866,31 @@ const handleBatchAddAccounts = async (accounts: any[]) => {
             if (!tauriInvoke) {
               throw new Error(t('home.desktopApiNotReady'))
             }
+            const previewRuntimeProxy = await previewMailboxRuntimeProxy(
+              accountData.email,
+              oauthProvider,
+              Number(account.proxy_id || 0) || null
+            )
+            if (account.proxy_id && !previewRuntimeProxy) {
+              throw new Error('所选代理当前不可用，请更换后重试')
+            }
+            const stopProgressHints = startBatchAddProgressHints(accountData)
 
-            // 调用 Tauri 命令验证邮箱
-            const result = await tauriInvoke('add_external_mailbox', {
-              email: accountData.email,
-              password: accountData.password,
-              protocol: accountData.protocol,
-              host: accountData.protocol === 'imap' ? accountData.imap_host : accountData.pop3_host,
-              port: accountData.protocol === 'imap' ? accountData.imap_port : accountData.pop3_port
-            })
+            let result: any
+            try {
+              // 调用 Tauri 命令验证邮箱
+              result = await tauriInvoke('add_external_mailbox', {
+                email: accountData.email,
+                password: accountData.password,
+                protocol: accountData.protocol,
+                host: accountData.protocol === 'imap' ? accountData.imap_host : accountData.pop3_host,
+                port: accountData.protocol === 'imap' ? accountData.imap_port : accountData.pop3_port,
+                verifySmtp: accountData.verify_smtp !== false,
+                proxy: previewRuntimeProxy
+              })
+            } finally {
+              stopProgressHints()
+            }
 
             // 检查登录是否真正成功
             if (!result.success) {
@@ -1844,13 +1914,18 @@ const handleBatchAddAccounts = async (accounts: any[]) => {
             }
 
             // 验证成功，调用后端 API 保存到数据库（跳过服务器端验证）
-            const response = await batchLoginAPI.addAccount({ ...accountData, skip_verify: true })
+            const response = await batchLoginAPI.addAccount({
+              ...accountData,
+              skip_verify: true,
+              proxy_id: Number(account.proxy_id || 0) || null
+            })
             if (response.code === 0) {
               successCount++
               const mailboxId = Number(response.data?.mailbox_id || 0)
+              const runtimeProxy = response?.data?.runtime_proxy || null
 
               let canSend = false
-              if (result.smtp_verified) {
+              if (accountData.verify_smtp !== false && result.smtp_verified) {
                 try {
                   await smtpAccountsAPI.addAccount({
                     email: accountData.email,
@@ -1861,25 +1936,32 @@ const handleBatchAddAccounts = async (accounts: any[]) => {
                 } catch (error) {}
               }
 
-              try {
-                const smtpAccountsResponse = await smtpAccountsAPI.getAccounts()
-                const smtpAccounts =
-                  smtpAccountsResponse.code === 0 ? smtpAccountsResponse.data?.accounts || [] : []
-                canSend = smtpAccounts.some(
-                  (item: any) =>
-                    normalizeSmtpEmail(item?.email) === normalizeSmtpEmail(accountData.email) &&
-                    canDesktopSmtpSend(item)
-                )
-              } catch (error) {
-                canSend = false
+              if (accountData.verify_smtp !== false) {
+                try {
+                  const smtpAccountsResponse = await smtpAccountsAPI.getAccounts()
+                  const smtpAccounts =
+                    smtpAccountsResponse.code === 0 ? smtpAccountsResponse.data?.accounts || [] : []
+                  canSend = smtpAccounts.some(
+                    (item: any) =>
+                      normalizeSmtpEmail(item?.email) === normalizeSmtpEmail(accountData.email) &&
+                      canDesktopSmtpSend(item)
+                  )
+                } catch (error) {
+                  canSend = false
+                }
               }
 
-              const smtpStatus = canSend ? t('home.smtpReceiveAndSend') : t('home.smtpReceiveOnly')
+              const smtpStatus =
+                accountData.verify_smtp === false
+                  ? t('home.smtpNotEnabled')
+                  : canSend
+                    ? t('home.smtpReceiveAndSend')
+                    : t('home.smtpReceiveOnly')
               let fetchStatus = ''
 
               if (mailboxId > 0) {
                 try {
-                  const newCount = await fetchNewMailboxOnce(tauriInvoke, mailboxId, accountData)
+                  const newCount = await fetchNewMailboxOnce(tauriInvoke, mailboxId, accountData, runtimeProxy)
                   fetchStatus = t('home.initialFetchSuccessSuffix', { count: newCount })
                 } catch (fetchError: any) {
                   const fetchErrorMessage = resolveErrorMessage(fetchError)
@@ -2714,6 +2796,10 @@ const openOutboxView = async () => {
   await outboxListRef.value?.loadSentEmails?.()
 }
 
+const goToExternalOpsWorkbench = () => {
+  router.push('/user/external-batch-verify')
+}
+
 const handleSelectHostedEmail = async (email: any) => {
   selectedHostedEmailId.value = Number(email.id)
   mailStore.selectedEmail = email
@@ -2896,7 +2982,8 @@ const fetchExternalMailboxEmails = async () => {
           host: host || null,
           port: port || null,
           token,
-          serverUrl
+          serverUrl,
+          proxy: await loadMailboxRuntimeProxy(account.id)
         })
         newCount = Number(result?.count || 0)
         await batchLoginAPI.updateMailboxStatus(mailboxId, 'active')
@@ -3075,7 +3162,8 @@ const fetchAllExternalEmails = async (options: { silent?: boolean } = {}) => {
             host: host || null,
             port: port || null,
             token,
-            serverUrl
+            serverUrl,
+            proxy: await loadMailboxRuntimeProxy(account.id)
           })
           await batchLoginAPI.updateMailboxStatus(account.id, 'active')
           return { success: true, newCount: Number(result.count || 0) }

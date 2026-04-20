@@ -3,7 +3,10 @@
     <!-- 标题栏 -->
     <div class="border-b border-gray-200 pb-4 mb-4">
       <div class="flex min-h-8 justify-between items-center">
-        <h2 class="text-base font-semibold text-black">{{ resolvedTitle }}</h2>
+        <div>
+          <h2 class="text-base font-semibold text-black">{{ resolvedTitle }}</h2>
+          <p v-if="subtitle" class="mt-1 text-xs text-gray-500">{{ subtitle }}</p>
+        </div>
         <div class="flex min-h-8 min-w-8 items-center justify-end gap-2">
           <slot name="header-actions"></slot>
 
@@ -106,6 +109,7 @@ interface Mailbox {
 
 interface Props {
   title?: string
+  subtitle?: string
   mailboxes: Mailbox[]
   selectedId?: number | null
   emptyText?: string
@@ -118,6 +122,7 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
   title: '',
+  subtitle: '',
   selectedId: null,
   emptyText: '',
   showPagination: false,

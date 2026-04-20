@@ -137,6 +137,7 @@ import { ref, watch, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { isTauri } from '@/services/api'
 import BaseModal from '@/components/BaseModal/index.vue'
+import mailboxProxyApi from '@/api/mailboxProxy'
 import smtpAccountsAPI from '@/api/smtpAccounts'
 import { showMessage } from '@/utils/message'
 import { buildDesktopSendableSmtpAccountMap } from '@/utils/smtpCapability'
@@ -146,6 +147,16 @@ async function getTauriInvoke() {
   try {
     const { invoke } = await import('@tauri-apps/api/core')
     return invoke
+  } catch {
+    return null
+  }
+}
+
+const previewRuntimeProxy = async (email) => {
+  try {
+    const response = await mailboxProxyApi.previewRuntimeProxy({ email })
+    if (response.code !== 0) return null
+    return response?.data?.runtime_proxy || null
   } catch {
     return null
   }
@@ -317,6 +328,8 @@ const handleSend = async () => {
       return
     }
 
+    const runtimeProxy = await previewRuntimeProxy(selectedMailbox.email)
+
     await tauriInvoke('send_smtp_email', {
       fromEmail: selectedMailbox.email,
       password: smtpAccount.password || selectedMailbox.password || '',
@@ -327,7 +340,8 @@ const handleSend = async () => {
       content: form.value.content,
       cc: form.value.cc || null,
       bcc: form.value.bcc || null,
-      attachments: []
+      attachments: [],
+      proxy: runtimeProxy
     })
 
     try {

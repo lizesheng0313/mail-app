@@ -1,7 +1,8 @@
 <template>
   <MailboxList
     ref="mailboxListRef"
-    :title="t('home.externalMailbox')"
+    :title="isSendEmailView ? '请选择发件邮箱' : t('home.externalMailbox')"
+    :subtitle="isSendEmailView ? '以下账号循环发送' : ''"
     :mailboxes="displayAccounts"
     :selectedId="activeMailboxId ?? selectedId"
     :showPagination="true"

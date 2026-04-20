@@ -103,7 +103,12 @@
                   <div class="ml-4">
                     <div class="text-sm font-medium text-black">{{ proxy.name }}</div>
                     <div class="text-sm text-black">{{ proxy.ip || 'API获取' }}{{ proxy.port ? ':' + proxy.port : '' }}</div>
-                    <div v-if="proxy.location" class="text-xs text-gray-400">{{ proxy.location }}</div>
+                    <div class="mt-1 flex items-center gap-2">
+                      <span class="inline-flex items-center rounded-full bg-primary-50 px-2 py-0.5 text-xs text-primary-700">
+                        {{ formatProxyType(proxy.proxy_type) }}
+                      </span>
+                      <span v-if="proxy.location" class="text-xs text-gray-400">{{ proxy.location }}</span>
+                    </div>
                   </div>
                 </div>
               </td>
@@ -271,6 +276,12 @@ const loadProxies = async () => {
   } finally {
     loading.value = false
   }
+}
+
+const formatProxyType = (value) => {
+  if (value === 'socks5') return 'SOCKS5'
+  if (value === 'http') return 'HTTP'
+  return '自动识别'
 }
 
 const editProxy = (proxy) => {

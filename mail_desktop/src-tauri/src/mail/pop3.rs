@@ -1,9 +1,10 @@
-use crate::mail::types::{AttachmentData, EmailData, FetchResult, LoginResult};
+use crate::mail::proxy;
+use crate::mail::types::{AttachmentData, EmailData, FetchResult, LoginResult, RuntimeProxy};
 use chrono::Utc;
 use log::{error, info, warn};
 use native_tls::TlsStream;
 use std::io::{Read, Write};
-use std::net::{TcpStream, ToSocketAddrs};
+use std::net::TcpStream;
 use std::time::Duration;
 
 const TCP_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
@@ -42,6 +43,7 @@ impl std::fmt::Display for ConnectError {
 fn try_pop3_connect(
     host: &str,
     port: u16,
+    proxy_config: Option<&RuntimeProxy>,
     accept_invalid_certs: bool,
 ) -> Result<(TlsStream<TcpStream>, u16), ConnectError> {
     let use_stls = port != 995;
@@ -63,19 +65,8 @@ fn try_pop3_connect(
         .build()
         .map_err(|e| ConnectError::Tls(format!("TLS 初始化失败: {}", e)))?;
 
-    let addr = (host, port)
-        .to_socket_addrs()
-        .map_err(|e| ConnectError::Connection(format!("DNS 解析失败 {}: {}", host, e)))?
-        .next()
-        .ok_or_else(|| ConnectError::Connection(format!("DNS 解析无结果: {}", host)))?;
-
-    let mut tcp = TcpStream::connect_timeout(&addr, TCP_CONNECT_TIMEOUT)
-        .map_err(|e| {
-            ConnectError::Connection(format!("TCP 连接失败 {}:{} - {}", host, port, e))
-        })?;
-
-    tcp.set_read_timeout(Some(IO_TIMEOUT)).ok();
-    tcp.set_write_timeout(Some(IO_TIMEOUT)).ok();
+    let mut tcp = proxy::connect_tcp(host, port, proxy_config, TCP_CONNECT_TIMEOUT, IO_TIMEOUT)
+        .map_err(ConnectError::Connection)?;
 
     if use_stls {
         // 明文连接 → 读问候 → STLS → TLS 升级
@@ -157,13 +148,14 @@ fn connect_and_login(
     port: u16,
     email: &str,
     password: &str,
+    proxy_config: Option<&RuntimeProxy>,
 ) -> Result<(TlsStream<TcpStream>, u16), String> {
     let alt_port: u16 = if port == 995 { 110 } else { 995 };
     let ports = [port, alt_port];
     let mut last_error = String::new();
 
     for &p in &ports {
-        match try_pop3_connect(host, p, false) {
+        match try_pop3_connect(host, p, proxy_config, false) {
             Ok((mut tls, actual_port)) => {
                 match pop3_do_login(&mut tls, email, password) {
                     Ok(()) => {
@@ -180,7 +172,7 @@ fn connect_and_login(
             Err(ConnectError::Tls(msg)) => {
                 warn!("{}", msg);
                 // TLS 握手失败 → 放宽证书再试
-                match try_pop3_connect(host, p, true) {
+                match try_pop3_connect(host, p, proxy_config, true) {
                     Ok((mut tls, actual_port)) => {
                         match pop3_do_login(&mut tls, email, password) {
                             Ok(()) => {
@@ -225,6 +217,7 @@ pub async fn verify_login(
     password: &str,
     host: &str,
     port: u16,
+    proxy_config: Option<RuntimeProxy>,
 ) -> Result<LoginResult, String> {
     info!("尝试 POP3 登录验证: {} -> {}:{}", email, host, port);
 
@@ -233,7 +226,7 @@ pub async fn verify_login(
     let host = host.to_string();
 
     let result = tokio::task::spawn_blocking(move || {
-        pop3_login_sync(&email, &password, &host, port)
+        pop3_login_sync(&email, &password, &host, port, proxy_config.as_ref())
     })
     .await
     .map_err(|e| format!("任务执行失败: {}", e))?;
@@ -246,8 +239,9 @@ fn pop3_login_sync(
     password: &str,
     host: &str,
     port: u16,
+    proxy_config: Option<&RuntimeProxy>,
 ) -> Result<LoginResult, String> {
-    match connect_and_login(host, port, email, password) {
+    match connect_and_login(host, port, email, password, proxy_config) {
         Ok((mut tls, actual_port)) => {
             let _ = tls.write_all(b"QUIT\r\n");
             Ok(LoginResult {
@@ -284,6 +278,7 @@ pub async fn fetch_emails(
     port: u16,
     limit: usize,
     fetch_oldest: bool,
+    proxy_config: Option<RuntimeProxy>,
 ) -> Result<FetchResult, String> {
     info!("开始 POP3 收取邮件: {} -> {}:{}", email, host, port);
 
@@ -292,7 +287,7 @@ pub async fn fetch_emails(
     let host = host.to_string();
 
     let result = tokio::task::spawn_blocking(move || {
-        pop3_fetch_sync(&email, &password, &host, port, limit, fetch_oldest)
+        pop3_fetch_sync(&email, &password, &host, port, limit, fetch_oldest, proxy_config.as_ref())
     })
     .await
     .map_err(|e| format!("任务执行失败: {}", e))?;
@@ -307,8 +302,9 @@ fn pop3_fetch_sync(
     port: u16,
     limit: usize,
     fetch_oldest: bool,
+    proxy_config: Option<&RuntimeProxy>,
 ) -> Result<FetchResult, String> {
-    let (mut tls, _) = connect_and_login(host, port, email, password)?;
+    let (mut tls, _) = connect_and_login(host, port, email, password, proxy_config)?;
 
     // 获取邮件数量
     tls.write_all(b"STAT\r\n")
@@ -593,7 +589,7 @@ pub async fn download_attachment(
     let fallback_to_addr = fallback_to_addr.map(|value| value.to_string());
 
     tokio::task::spawn_blocking(move || {
-        let (mut tls, _) = connect_and_login(&host, port, &email, &password)?;
+        let (mut tls, _) = connect_and_login(&host, port, &email, &password, None)?;
 
         // 获取邮件数量
         tls.write_all(b"STAT\r\n").map_err(|e| format!("发送失败: {}", e))?;

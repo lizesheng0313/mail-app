@@ -6,12 +6,10 @@
         <div class="flex justify-between items-center h-16">
           <div class="flex items-center">
             <router-link to="/" class="flex items-center hover:opacity-80 transition-opacity">
-              <div class="h-8 w-8 bg-gray-100 rounded-lg flex items-center justify-center">
-                <svg class="h-5 w-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                </svg>
+              <div class="relative h-12 w-12 overflow-visible bg-transparent flex items-center justify-center flex-shrink-0">
+                <img :src="logoImage" alt="logo" class="absolute h-[68px] w-[68px] max-w-none object-contain" />
               </div>
-              <h1 class="ml-3 text-xl font-semibold text-black">{{ t('pageHeader.siteName') }}</h1>
+              <h1 class="ml-6 text-xl font-semibold text-black">{{ t('pageHeader.siteName') }}</h1>
             </router-link>
           </div>
           <div class="flex items-center space-x-6 desktop-nav-items">
@@ -265,6 +263,7 @@ import { showMessage } from '@/utils/message'
 import { showAlert } from '@/utils/dialog'
 import { isTauri } from '@/services/api'
 import api from '@/services/api'
+import logoImage from '@/assets/img/logo.png'
 
 const { t, locale } = useI18n()
 const router = useRouter()

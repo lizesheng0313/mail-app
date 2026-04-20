@@ -59,6 +59,15 @@
               />
             </div>
 
+            <div>
+              <label class="block text-sm font-medium text-black mb-1">代理类型</label>
+              <CustomSelect
+                v-model="form.proxy_type"
+                :options="proxyTypeOptions"
+                placeholder="请选择代理类型"
+              />
+            </div>
+
             <!-- 总配额 -->
             <div>
               <label for="total_quota" class="block text-sm font-medium text-black mb-1">总使用数</label>
@@ -107,6 +116,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import BaseInput from '@/components/BaseInput/index.vue'
+import CustomSelect from '@/components/CustomSelect/index.vue'
 import { paidProxyApi } from '@/api/proxy'
 import { showMessage } from '@/utils/message'
 
@@ -120,12 +130,18 @@ const props = defineProps({
 const emit = defineEmits(['close', 'created', 'updated'])
 
 const submitting = ref(false)
+const proxyTypeOptions = [
+  { label: '自动识别', value: 'auto' },
+  { label: 'SOCKS5', value: 'socks5' },
+  { label: 'HTTP', value: 'http' }
+]
 
 const form = ref({
   name: '',
   api_url: '',
   ip: '',
   port: 8080,
+  proxy_type: 'auto',
   provider: '',
   total_quota: 1000,
   is_enabled: true
@@ -141,6 +157,7 @@ watch(() => props.proxy, (newProxy) => {
       api_url: newProxy.api_url || '',
       ip: newProxy.ip || '',
       port: newProxy.port || 8080,
+      proxy_type: newProxy.proxy_type || 'auto',
       provider: newProxy.provider || '',
       total_quota: newProxy.total_quota || 1000,
       is_enabled: newProxy.is_enabled !== false
@@ -152,6 +169,7 @@ watch(() => props.proxy, (newProxy) => {
       api_url: '',
       ip: '',
       port: 8080,
+      proxy_type: 'auto',
       provider: '',
       total_quota: 1000,
       is_enabled: true
@@ -168,6 +186,7 @@ const handleSubmit = async () => {
       const submitData = {
         name: form.value.name,
         provider: form.value.provider,
+        proxy_type: form.value.proxy_type,
         total_quota: Number(form.value.total_quota),
         is_enabled: form.value.is_enabled
       }
@@ -184,6 +203,7 @@ const handleSubmit = async () => {
       const submitData = {
         name: form.value.name,
         api_url: form.value.api_url,
+        proxy_type: form.value.proxy_type,
         provider: form.value.provider,
         total_quota: Number(form.value.total_quota),
         is_enabled: form.value.is_enabled

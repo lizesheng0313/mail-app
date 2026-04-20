@@ -1,11 +1,12 @@
-use crate::mail::types::{AttachmentData, EmailData, FetchResult, LoginResult};
+use crate::mail::proxy;
+use crate::mail::types::{AttachmentData, EmailData, FetchResult, LoginResult, RuntimeProxy};
 use chrono::Utc;
 use imap::{types::NameAttribute, Authenticator};
 use log::{error, info, warn};
 use native_tls::TlsStream;
 use std::collections::HashSet;
 use std::io::{Read, Write};
-use std::net::{TcpStream, ToSocketAddrs};
+use std::net::TcpStream;
 use std::time::Duration;
 
 const TCP_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
@@ -41,6 +42,7 @@ fn try_connect_and_login(
     port: u16,
     email: &str,
     password: &str,
+    proxy_config: Option<&RuntimeProxy>,
     accept_invalid_certs: bool,
 ) -> Result<(imap::Session<TlsStream<TcpStream>>, u16), ConnectError> {
     let use_starttls = port != 993;
@@ -62,19 +64,8 @@ fn try_connect_and_login(
         .build()
         .map_err(|e| ConnectError::Tls(format!("TLS 初始化失败: {}", e)))?;
 
-    // DNS 解析
-    let addr = (host, port)
-        .to_socket_addrs()
-        .map_err(|e| ConnectError::Connection(format!("DNS 解析失败 {}: {}", host, e)))?
-        .next()
-        .ok_or_else(|| ConnectError::Connection(format!("DNS 解析无结果: {}", host)))?;
-
-    // TCP 连接（带超时）
-    let tcp = TcpStream::connect_timeout(&addr, TCP_CONNECT_TIMEOUT)
-        .map_err(|e| ConnectError::Connection(format!("TCP 连接失败 {}:{} - {}", host, port, e)))?;
-
-    tcp.set_read_timeout(Some(IO_TIMEOUT)).ok();
-    tcp.set_write_timeout(Some(IO_TIMEOUT)).ok();
+    let tcp = proxy::connect_tcp(host, port, proxy_config, TCP_CONNECT_TIMEOUT, IO_TIMEOUT)
+        .map_err(ConnectError::Connection)?;
 
     // 建立 IMAP TLS 客户端
     let client = if use_starttls {
@@ -129,6 +120,7 @@ fn connect_and_login(
     port: u16,
     email: &str,
     password: &str,
+    proxy_config: Option<&RuntimeProxy>,
 ) -> Result<(imap::Session<TlsStream<TcpStream>>, u16), String> {
     let alt_port: u16 = if port == 993 { 143 } else { 993 };
     let ports = [port, alt_port];
@@ -136,13 +128,13 @@ fn connect_and_login(
 
     for &p in &ports {
         // 严格 TLS
-        match try_connect_and_login(host, p, email, password, false) {
+        match try_connect_and_login(host, p, email, password, proxy_config, false) {
             Ok(r) => return Ok(r),
             Err(ConnectError::Auth(msg)) => return Err(msg),
             Err(ConnectError::Tls(msg)) => {
                 warn!("{}", msg);
                 // TLS 握手失败 → 放宽证书再试
-                match try_connect_and_login(host, p, email, password, true) {
+                match try_connect_and_login(host, p, email, password, proxy_config, true) {
                     Ok(r) => {
                         warn!("⚠️ IMAP 放宽证书验证连接成功 {}:{}", host, p);
                         return Ok(r);
@@ -189,6 +181,7 @@ fn try_connect_and_xoauth2(
     port: u16,
     email: &str,
     access_token: &str,
+    proxy_config: Option<&RuntimeProxy>,
     accept_invalid_certs: bool,
 ) -> Result<(imap::Session<TlsStream<TcpStream>>, u16), ConnectError> {
     let use_starttls = port != 993;
@@ -210,17 +203,8 @@ fn try_connect_and_xoauth2(
         .build()
         .map_err(|e| ConnectError::Tls(format!("TLS 初始化失败: {}", e)))?;
 
-    let addr = (host, port)
-        .to_socket_addrs()
-        .map_err(|e| ConnectError::Connection(format!("DNS 解析失败 {}: {}", host, e)))?
-        .next()
-        .ok_or_else(|| ConnectError::Connection(format!("DNS 解析无结果: {}", host)))?;
-
-    let tcp = TcpStream::connect_timeout(&addr, TCP_CONNECT_TIMEOUT)
-        .map_err(|e| ConnectError::Connection(format!("TCP 连接失败 {}:{} - {}", host, port, e)))?;
-
-    tcp.set_read_timeout(Some(IO_TIMEOUT)).ok();
-    tcp.set_write_timeout(Some(IO_TIMEOUT)).ok();
+    let tcp = proxy::connect_tcp(host, port, proxy_config, TCP_CONNECT_TIMEOUT, IO_TIMEOUT)
+        .map_err(ConnectError::Connection)?;
 
     let client = if use_starttls {
         let plain_client = imap::Client::new(tcp);
@@ -274,18 +258,19 @@ fn connect_and_xoauth2(
     port: u16,
     email: &str,
     access_token: &str,
+    proxy_config: Option<&RuntimeProxy>,
 ) -> Result<(imap::Session<TlsStream<TcpStream>>, u16), String> {
     let alt_port: u16 = if port == 993 { 143 } else { 993 };
     let ports = [port, alt_port];
     let mut last_error = String::new();
 
     for &p in &ports {
-        match try_connect_and_xoauth2(host, p, email, access_token, false) {
+        match try_connect_and_xoauth2(host, p, email, access_token, proxy_config, false) {
             Ok(r) => return Ok(r),
             Err(ConnectError::Auth(msg)) => return Err(msg),
             Err(ConnectError::Tls(msg)) => {
                 warn!("{}", msg);
-                match try_connect_and_xoauth2(host, p, email, access_token, true) {
+                match try_connect_and_xoauth2(host, p, email, access_token, proxy_config, true) {
                     Ok(r) => {
                         warn!("⚠️ IMAP XOAUTH2 放宽证书验证连接成功 {}:{}", host, p);
                         return Ok(r);
@@ -318,6 +303,7 @@ pub async fn verify_login(
     password: &str,
     host: &str,
     port: u16,
+    proxy_config: Option<RuntimeProxy>,
 ) -> Result<LoginResult, String> {
     info!("尝试 IMAP 登录验证: {} -> {}:{}", email, host, port);
 
@@ -325,7 +311,7 @@ pub async fn verify_login(
     let password = password.to_string();
     let host = host.to_string();
 
-    tokio::task::spawn_blocking(move || imap_login_sync(&email, &password, &host, port))
+    tokio::task::spawn_blocking(move || imap_login_sync(&email, &password, &host, port, proxy_config.as_ref()))
         .await
         .map_err(|e| format!("任务执行失败: {}", e))?
 }
@@ -335,8 +321,9 @@ fn imap_login_sync(
     password: &str,
     host: &str,
     port: u16,
+    proxy_config: Option<&RuntimeProxy>,
 ) -> Result<LoginResult, String> {
-    match connect_and_login(host, port, email, password) {
+    match connect_and_login(host, port, email, password, proxy_config) {
         Ok((mut session, actual_port)) => {
             let _ = session.logout();
             Ok(LoginResult {
@@ -373,6 +360,7 @@ pub async fn fetch_emails(
     port: u16,
     limit: usize,
     fetch_oldest: bool,
+    proxy_config: Option<RuntimeProxy>,
 ) -> Result<FetchResult, String> {
     info!("开始 IMAP 收取邮件: {} -> {}:{}", email, host, port);
 
@@ -381,7 +369,7 @@ pub async fn fetch_emails(
     let host = host.to_string();
 
     tokio::task::spawn_blocking(move || {
-        imap_fetch_sync(&email, &password, &host, port, limit, fetch_oldest)
+        imap_fetch_sync(&email, &password, &host, port, limit, fetch_oldest, proxy_config.as_ref())
     })
     .await
     .map_err(|e| format!("任务执行失败: {}", e))?
@@ -395,6 +383,7 @@ pub async fn fetch_emails_oauth2(
     port: u16,
     limit: usize,
     fetch_oldest: bool,
+    proxy_config: Option<RuntimeProxy>,
 ) -> Result<FetchResult, String> {
     info!("开始 IMAP XOAUTH2 收取邮件: {} -> {}:{}", email, host, port);
 
@@ -403,7 +392,7 @@ pub async fn fetch_emails_oauth2(
     let host = host.to_string();
 
     tokio::task::spawn_blocking(move || {
-        imap_fetch_oauth2_sync(&email, &access_token, &host, port, limit, fetch_oldest)
+        imap_fetch_oauth2_sync(&email, &access_token, &host, port, limit, fetch_oldest, proxy_config.as_ref())
     })
     .await
     .map_err(|e| format!("任务执行失败: {}", e))?
@@ -416,8 +405,9 @@ fn imap_fetch_oauth2_sync(
     port: u16,
     limit: usize,
     fetch_oldest: bool,
+    proxy_config: Option<&RuntimeProxy>,
 ) -> Result<FetchResult, String> {
-    let (mut session, _) = connect_and_xoauth2(host, port, email, access_token)?;
+    let (mut session, _) = connect_and_xoauth2(host, port, email, access_token, proxy_config)?;
     let emails = fetch_from_candidate_mailboxes(&mut session, limit, fetch_oldest)?;
 
     let _ = session.logout();
@@ -449,7 +439,7 @@ pub async fn download_attachment(
     let save_path = save_path.to_string();
 
     tokio::task::spawn_blocking(move || {
-        let (mut session, _) = connect_and_login(&host, port, &email, &password)?;
+        let (mut session, _) = connect_and_login(&host, port, &email, &password, None)?;
         imap_download_attachment_sync(&mut session, &message_id, &filename, &save_path)
     })
     .await
@@ -474,7 +464,7 @@ pub async fn download_attachment_oauth2(
     let save_path = save_path.to_string();
 
     tokio::task::spawn_blocking(move || {
-        let (mut session, _) = connect_and_xoauth2(&host, port, &email, &access_token)?;
+        let (mut session, _) = connect_and_xoauth2(&host, port, &email, &access_token, None)?;
         imap_download_attachment_sync(&mut session, &message_id, &filename, &save_path)
     })
     .await
@@ -859,8 +849,9 @@ fn imap_fetch_sync(
     port: u16,
     limit: usize,
     fetch_oldest: bool,
+    proxy_config: Option<&RuntimeProxy>,
 ) -> Result<FetchResult, String> {
-    let (mut session, _) = connect_and_login(host, port, email, password)?;
+    let (mut session, _) = connect_and_login(host, port, email, password, proxy_config)?;
     let emails = fetch_from_candidate_mailboxes(&mut session, limit, fetch_oldest)?;
 
     let _ = session.logout();

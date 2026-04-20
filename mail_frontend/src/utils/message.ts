@@ -39,11 +39,16 @@ export const showMessage = (
           : type === 'primary'
             ? 'border-primary-200 bg-primary-50'
             : 'border-blue-200 bg-blue-50'
-  messageContainer.className = `fixed bottom-4 right-4 bg-white border border-gray-200 rounded-lg shadow-lg p-4 max-w-sm z-[9999] ${colorClass}`
+  messageContainer.className = `fixed bg-white border border-gray-200 rounded-lg shadow-lg px-4 py-3 z-[9999] pointer-events-none ${colorClass}`
+  messageContainer.style.top = '24px'
+  messageContainer.style.left = '50%'
+  messageContainer.style.transform = 'translateX(-50%)'
+  messageContainer.style.width = 'max-content'
+  messageContainer.style.maxWidth = 'min(32rem, calc(100vw - 32px))'
 
   // 创建消息内容
   const messageContent = document.createElement('div')
-  messageContent.className = 'flex items-center'
+  messageContent.className = 'flex items-center justify-center'
 
   // 创建图标
   const icon = document.createElement('div')
@@ -74,7 +79,7 @@ export const showMessage = (
           : type === 'primary'
             ? 'text-primary-700'
             : 'text-blue-800'
-  text.className = `text-sm ${textColor}`
+  text.className = `text-sm text-center ${textColor}`
   text.textContent = msg
 
   // 组装消息

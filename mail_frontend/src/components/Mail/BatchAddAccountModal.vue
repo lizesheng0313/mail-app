@@ -1,198 +1,258 @@
 <template>
   <Teleport to="body">
-    <div v-if="visible" class="fixed inset-0 z-50 p-4 sm:p-6">
-      <div class="mx-auto flex h-full w-full max-w-4xl items-center justify-center">
-        <div class="w-full overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/5 max-h-[86vh] flex flex-col">
-          <!-- 标题栏 -->
-          <div class="px-5 py-4 border-b border-gray-200 flex items-center justify-between bg-white">
-            <h3 class="text-lg font-semibold text-gray-800">{{ t('batchAdd.title') }}</h3>
-            <button @click="handleClose" class="text-gray-400 hover:text-gray-600 transition">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+    <div v-if="props.visible" class="fixed inset-0 z-[1200] bg-black/20 p-4 sm:p-6">
+      <div class="mx-auto flex h-full w-full max-w-5xl items-center justify-center">
+        <div class="flex max-h-[88vh] w-full flex-col overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/5">
+          <div class="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+            <h3 class="text-lg font-semibold text-slate-900">{{ t('batchAdd.title') }}</h3>
+            <button @click="handleClose" class="text-slate-400 transition hover:text-slate-600">
+              <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
           </div>
 
-          <div class="p-5 overflow-y-auto flex-1">
-            <!-- 输入区域 + 结果 -->
-            <div class="grid grid-cols-10 gap-4">
-              <!-- 左侧：输入框 -->
-              <div class="col-span-5">
-                <div class="text-sm text-gray-600 mb-2 h-6 flex items-center font-medium">
-                  {{ t('batchAdd.inputLabel') }}
-                </div>
-                <textarea
-                  v-model="accountsText"
-                  :placeholder="t('batchAdd.inputPlaceholder')"
-                  class="w-full px-3 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 font-mono resize-none transition"
-                  :style="{ height: oauthAccounts.length > 0 ? '120px' : '280px', lineHeight: '20px', fontSize: '13px' }"
-                ></textarea>
-              </div>
-
-              <!-- 右侧：结果状态 -->
-              <div class="col-span-5">
-                <div class="text-sm text-gray-600 mb-2 h-6 flex items-center font-medium">
-                  {{ t('batchAdd.resultLabel') }}
-                </div>
-                <div class="border border-gray-200 rounded-xl p-2 bg-gray-50 overflow-y-auto"
-                     :style="{ height: oauthAccounts.length > 0 ? '120px' : '280px' }">
-                  <div v-if="results.length === 0" class="text-sm text-gray-400 text-center" :class="oauthAccounts.length > 0 ? 'py-10' : 'py-20'">
-                    {{ t('batchAdd.resultEmpty') }}
+          <div class="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden px-6 py-5">
+            <div class="grid min-h-0 flex-1 gap-4" :class="showSidePanel ? 'grid-cols-[minmax(0,1.2fr)_360px]' : 'grid-cols-1'">
+              <section class="flex min-h-0 flex-col rounded-2xl border border-slate-200 bg-white">
+                <div class="border-b border-slate-100 px-5 py-4">
+                  <div class="flex items-start justify-between gap-4">
+                    <div class="min-w-0">
+                      <h2 class="text-base font-semibold text-slate-900">{{ t('batchAdd.inputLabel') }}</h2>
+                      <p class="mt-1 text-sm text-slate-500">支持一行一个账号，兼容现有批量添加格式</p>
+                    </div>
+                    <button
+                      type="button"
+                      class="flex-shrink-0 whitespace-nowrap text-sm font-medium text-slate-500 transition hover:text-slate-700"
+                      @click="accountsText = ''"
+                    >
+                      清空
+                    </button>
                   </div>
-                  <div v-else class="space-y-0">
-                    <div v-for="(result, idx) in results" :key="idx"
-                         class="flex items-center gap-2 px-2 rounded group"
-                         :class="result.status === 'error' ? 'bg-red-50' : result.status === 'success' ? 'bg-green-50' : ''"
-                         style="height: 20px; line-height: 20px; font-size: 14px;">
-                      <span v-if="result.status === 'success'" class="text-green-600 font-bold w-3">✓</span>
-                      <span v-else-if="result.status === 'error'" class="text-red-600 font-bold w-3">✗</span>
-                      <span v-else class="text-gray-400 w-3">⋯</span>
-                      <div class="flex-1 min-w-0 font-mono truncate" :class="result.status === 'error' ? 'text-red-700' : 'text-gray-700'">
-                        {{ result.email }}
-                      </div>
-                      <div v-if="result.message" class="relative flex-shrink-0">
-                        <div class="text-gray-500 max-w-xs truncate cursor-help text-xs">
-                          {{ result.message }}
+
+                </div>
+
+                <div class="min-h-0 flex-1 p-5">
+                  <textarea
+                    v-model="accountsText"
+                    :placeholder="t('batchAdd.inputPlaceholder')"
+                    class="h-full min-h-[360px] w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 font-mono text-sm leading-6 text-slate-900 outline-none transition focus:border-primary-300 focus:bg-white focus:ring-2 focus:ring-primary-100"
+                  ></textarea>
+                </div>
+              </section>
+
+              <section
+                v-if="showSidePanel"
+                class="flex min-h-0 flex-col rounded-2xl border border-slate-200 bg-white"
+              >
+                <div class="border-b border-slate-100 px-5 py-4">
+                  <div class="flex items-center justify-between gap-3">
+                    <h2 class="text-base font-semibold text-slate-900">
+                      {{ showLivePanel ? t('batchAdd.resultLabel') : '格式异常' }}
+                    </h2>
+                    <span
+                      v-if="showLivePanel"
+                      class="inline-flex items-center rounded-full bg-primary-50 px-3 py-1 text-xs font-medium text-primary-700"
+                    >
+                      {{ progressSummaryText }}
+                    </span>
+                  </div>
+
+                  <div v-if="showLivePanel" class="mt-4 grid grid-cols-3 gap-2">
+                    <div class="rounded-xl bg-slate-50 px-3 py-2">
+                      <p class="text-xs text-slate-500">总数</p>
+                      <p class="mt-1 text-sm font-semibold text-slate-900">{{ totalCount }}</p>
+                    </div>
+                    <div class="rounded-xl bg-primary-50 px-3 py-2">
+                      <p class="text-xs text-primary-700">成功</p>
+                      <p class="mt-1 text-sm font-semibold text-primary-700">{{ successCount }}</p>
+                    </div>
+                    <div class="rounded-xl bg-red-50 px-3 py-2">
+                      <p class="text-xs text-red-700">失败</p>
+                      <p class="mt-1 text-sm font-semibold text-red-700">{{ errorCount }}</p>
+                    </div>
+                  </div>
+
+                  <div v-if="showLivePanel" class="mt-4 h-2 overflow-hidden rounded-full bg-slate-100">
+                    <div class="h-full rounded-full bg-primary-600 transition-all duration-300" :style="{ width: `${progressPercent}%` }"></div>
+                  </div>
+                </div>
+
+                <div class="min-h-0 flex-1 p-3">
+                  <div class="h-full overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-2">
+                    <div v-if="sidePanelRows.length === 0" class="flex h-full items-center justify-center text-sm text-slate-400">
+                      {{ showLivePanel ? t('batchAdd.resultEmpty') : '暂无格式异常账号' }}
+                    </div>
+                    <div v-else class="h-full space-y-1 overflow-y-auto pr-1">
+                      <div
+                        v-for="(result, idx) in sidePanelRows"
+                        :key="`${result.email}-${idx}`"
+                        class="group flex items-center gap-2 rounded-xl px-2 py-2 transition"
+                        :class="result.status === 'error' ? 'bg-red-50' : result.status === 'success' ? 'bg-primary-50' : ''"
+                      >
+                        <span
+                          class="flex w-4 flex-shrink-0 items-center justify-center text-sm font-semibold"
+                          :class="result.status === 'success' ? 'text-primary-700' : result.status === 'error' ? 'text-red-600' : 'text-slate-400'"
+                        >
+                          {{ result.status === 'success' ? '✓' : result.status === 'error' ? '✗' : '⋯' }}
+                        </span>
+                        <div class="min-w-0 flex-1">
+                          <p class="truncate font-mono text-sm text-slate-900">{{ result.email }}</p>
                         </div>
-                        <div class="invisible group-hover:visible absolute left-0 top-full mt-1 z-50 bg-gray-800 text-white text-xs rounded px-2 py-1 whitespace-pre-wrap max-w-xs shadow-lg">
-                          {{ result.message }}
+                        <div class="relative max-w-[180px] flex-shrink-0 text-right">
+                          <p class="truncate text-xs" :class="result.status === 'error' ? 'text-red-600' : 'text-slate-500'">
+                            {{ result.message || resolveResultStatusText(result.status) }}
+                          </p>
+                          <div
+                            v-if="result.message && showLivePanel"
+                            class="invisible absolute right-0 top-full z-10 mt-1 max-w-[220px] rounded-lg bg-slate-800 px-2 py-1 text-left text-xs text-white shadow-lg group-hover:visible"
+                          >
+                            {{ result.message }}
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
+              </section>
             </div>
 
-            <!-- 登录方式 -->
-            <div class="mt-4 pt-4 border-t border-gray-100">
-              <div class="flex items-center gap-6">
-                <div class="flex items-center gap-3">
-                  <span class="text-sm text-gray-700 font-medium">{{ t('batchAdd.loginMode') }}</span>
-                  <label class="flex items-center text-sm cursor-pointer hover:text-primary-600 transition">
-                    <input type="radio" v-model="loginMode" value="auto" class="mr-1.5 h-4 w-4 border-gray-300 text-primary-600 accent-primary-600 focus:ring-primary-500">
-                    {{ t('batchAdd.autoRecommended') }}
-                  </label>
-                  <label class="flex items-center text-sm cursor-pointer hover:text-primary-600 transition">
-                    <input type="radio" v-model="loginMode" value="custom" class="mr-1.5 h-4 w-4 border-gray-300 text-primary-600 accent-primary-600 focus:ring-primary-500">
-                    {{ t('batchAdd.customServer') }}
-                  </label>
+            <template v-if="oauthAccounts.length > 0">
+              <section class="flex-shrink-0 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                <div class="flex flex-wrap items-start justify-between gap-3">
+                  <div class="min-w-0">
+                    <h4 class="text-sm font-semibold text-amber-900">OAuth 授权</h4>
+                    <p class="mt-1 text-sm text-amber-700">{{ t('batchAdd.oauthNotice') }}</p>
+                  </div>
+                  <button
+                    type="button"
+                    class="inline-flex items-center rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:bg-primary-600 disabled:opacity-50"
+                    :disabled="isOAuthAuthorizing || !hasOAuthPending"
+                    @click="startOAuthAuthorization"
+                  >
+                    {{ oauthPrimaryButtonText }}
+                  </button>
+                </div>
+
+                <div class="mt-4 max-h-44 overflow-y-auto rounded-2xl border border-amber-200 bg-white p-2">
+                  <div
+                    v-for="(item, idx) in oauthAccounts"
+                    :key="item.email"
+                    class="flex items-center gap-3 rounded-xl px-3 py-2"
+                    :class="getOAuthRowClass(item.status)"
+                  >
+                    <span class="w-5 flex-shrink-0 text-center text-xs text-slate-400">{{ idx + 1 }}</span>
+                    <span class="flex w-4 flex-shrink-0 items-center justify-center text-sm font-semibold"
+                      :class="item.status === 'success' ? 'text-primary-700' : item.status === 'error' ? 'text-red-600' : item.status === 'authorizing' ? 'text-primary-600' : 'text-slate-400'">
+                      {{ item.status === 'success' ? '✓' : item.status === 'error' ? '✗' : item.status === 'authorizing' ? '⋯' : '○' }}
+                    </span>
+                    <span class="min-w-0 flex-1 truncate font-mono text-sm text-slate-900">{{ item.email }}</span>
+                    <span class="rounded-md px-2 py-0.5 text-xs" :class="item.provider === 'google' ? 'bg-red-100 text-red-600' : 'bg-primary-100 text-primary-700'">
+                      {{ item.provider === 'google' ? 'Gmail' : 'Outlook' }}
+                    </span>
+                    <span class="text-xs text-slate-500">{{ getOAuthStatusText(item.status) }}</span>
+                  </div>
+                </div>
+
+                <div v-if="isOAuthAuthorizing" class="mt-3 rounded-xl border border-primary-200 bg-primary-50 px-4 py-3 text-sm text-primary-700">
+                  <div class="flex items-center gap-2">
+                    <span class="inline-flex h-2.5 w-2.5 rounded-full bg-primary-500 animate-pulse"></span>
+                    <span>{{ oauthProgressText }}</span>
+                  </div>
+                  <p class="mt-1 text-xs text-primary-600">{{ oauthProgressHint }}</p>
+                </div>
+
+                <div v-if="oauthErrorMessage" class="mt-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {{ oauthErrorMessage }}
+                </div>
+              </section>
+            </template>
+          </div>
+
+          <div class="flex flex-wrap items-center justify-between gap-4 border-t border-slate-200 bg-slate-50 px-6 py-4">
+            <div class="flex flex-wrap items-center gap-x-5 gap-y-3">
+              <div class="flex items-center gap-3">
+                <span class="text-sm font-medium text-slate-700">{{ t('batchAdd.loginProtocol') }}</span>
+                <label class="inline-flex items-center text-sm text-slate-700">
+                  <input v-model="loginMode" type="radio" value="auto" class="mailbox-checkbox h-4 w-4" />
+                  <span class="ml-2">{{ t('batchAdd.autoMode') }}</span>
+                </label>
+                <label class="inline-flex items-center text-sm text-slate-700">
+                  <input v-model="loginMode" type="radio" value="custom" class="mailbox-checkbox h-4 w-4" />
+                  <span class="ml-2">{{ t('batchAdd.customMode') }}</span>
+                </label>
+              </div>
+
+              <label class="inline-flex items-center text-sm text-slate-700">
+                <input v-model="enableSmtp" type="checkbox" class="mailbox-checkbox h-4 w-4" />
+                <span class="ml-2">{{ t('batchAdd.enableSmtp') }}</span>
+              </label>
+
+              <div class="flex items-center gap-3">
+                <span class="text-sm font-medium text-slate-700">代理</span>
+                <div class="w-[220px]">
+                  <CustomSelect
+                    v-model="selectedProxyId"
+                    :options="proxySelectOptions"
+                    placeholder="不使用代理"
+                    placement="top"
+                  />
                 </div>
               </div>
 
-              <div v-if="loginMode === 'custom'" class="mt-3 flex items-center gap-3">
-                <span class="text-sm text-gray-600 w-16">{{ t('batchAdd.server') }}</span>
+              <div v-if="loginMode === 'custom'" class="flex flex-wrap items-center gap-3">
                 <input
                   v-model="customHost"
                   type="text"
                   :placeholder="t('batchAdd.serverPlaceholder')"
-                  class="flex-1 px-3 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent transition"
+                  class="w-[240px] rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-primary-300 focus:ring-2 focus:ring-primary-100"
                 />
-                <span class="text-sm text-gray-600">{{ t('batchAdd.port') }}</span>
                 <input
                   v-model.number="customPort"
                   type="number"
                   :placeholder="t('batchAdd.portPlaceholder')"
-                  class="w-24 px-3 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent transition"
+                  class="w-[96px] rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-primary-300 focus:ring-2 focus:ring-primary-100"
                 />
               </div>
             </div>
 
-            <!-- ========== OAuth 授权区域（有待授权邮箱时显示） ========== -->
-            <template v-if="oauthAccounts.length > 0">
-              <div class="mt-4 pt-4 border-t border-gray-100">
-                <!-- 说明 -->
-                <div class="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800 leading-relaxed">
-                  {{ t('batchAdd.oauthNotice') }}
-                </div>
-
-                <!-- 邮箱列表 -->
-                <div class="border border-gray-200 rounded-xl overflow-hidden max-h-40 overflow-y-auto">
-                  <div v-for="(item, idx) in oauthAccounts" :key="item.email"
-                       class="flex items-center gap-3 px-4 py-2 border-b border-gray-100 last:border-b-0"
-                       :class="getOAuthRowClass(item.status)">
-                    <span class="text-gray-400 text-sm w-6">{{ idx + 1 }}.</span>
-
-                    <span class="w-5 flex-shrink-0 flex items-center justify-center">
-                      <svg v-if="item.status === 'success'" class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-                      </svg>
-                      <svg v-else-if="item.status === 'error'" class="w-5 h-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
-                      </svg>
-                      <span v-else-if="item.status === 'authorizing'" class="inline-flex h-3 w-3 rounded-full bg-blue-500 animate-pulse"></span>
-                      <span v-else class="h-3 w-3 rounded-full border-2 border-gray-300 block"></span>
-                    </span>
-
-                    <span class="flex-1 font-mono text-sm truncate" :class="item.status === 'error' ? 'text-red-600' : 'text-gray-700'">
-                      {{ item.email }}
-                    </span>
-
-                    <span class="text-xs px-2 py-0.5 rounded" :class="item.provider === 'google' ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'">
-                      {{ item.provider === 'google' ? 'Gmail' : 'Outlook' }}
-                    </span>
-
-                    <span class="text-xs text-gray-500 w-16 text-right">
-                      {{ getOAuthStatusText(item.status) }}
-                    </span>
-                  </div>
-                </div>
-
-                <!-- 当前授权进度 -->
-                <div v-if="isOAuthAuthorizing" class="mt-3 p-2.5 bg-blue-50 border border-blue-200 rounded-xl">
-                  <div class="flex items-center gap-2 text-blue-700 text-sm">
-                    <span class="inline-flex h-2.5 w-2.5 rounded-full bg-blue-500 animate-pulse"></span>
-                    <span>{{ oauthProgressText }}</span>
-                  </div>
-                  <p class="text-xs text-blue-600 mt-1">{{ oauthProgressHint }}</p>
-                </div>
-
-                <!-- 错误提示 -->
-                <div v-if="oauthErrorMessage" class="mt-3 p-2.5 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
-                  {{ oauthErrorMessage }}
-                </div>
-              </div>
-            </template>
-          </div>
-
-          <!-- ========== 底部按钮 ========== -->
-          <div class="px-5 py-4 border-t border-gray-200 flex justify-between items-center bg-gray-50">
-            <!-- 左侧信息 -->
-            <div class="text-sm text-gray-500">
-              <template v-if="oauthAccounts.length > 0">
-                {{ t('batchAdd.oauthSummary', { total: oauthAccounts.length, success: oauthSuccessCount, fail: oauthFailCount }) }}
-              </template>
-            </div>
-
-            <!-- 右侧按钮 -->
-            <div class="flex gap-3">
+            <div class="flex flex-wrap items-center justify-end gap-3">
+              <button
+                type="button"
+                class="inline-flex items-center rounded-xl border border-primary-200 bg-white px-4 py-2.5 text-sm font-medium text-primary-700 transition hover:bg-primary-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-50 disabled:text-slate-300"
+                :disabled="exportRows.length === 0"
+                @click="exportResults"
+              >
+                导出结果
+              </button>
               <button
                 @click="handleClose"
-                :disabled="loading"
-                class="px-4 py-2 text-sm text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+                :disabled="props.loading"
+                class="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {{ closeButtonText }}
               </button>
-
-              <!-- 有待授权的 OAuth 邮箱时显示"开始授权"，否则显示"开始添加" -->
               <button
                 v-if="hasOAuthPending"
-                @click="startOAuthAuthorization"
+                type="button"
+                class="inline-flex items-center rounded-xl bg-primary-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:bg-primary-600 disabled:opacity-50"
                 :disabled="isOAuthAuthorizing"
-                class="px-5 py-2 text-sm text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
+                @click="startOAuthAuthorization"
               >
                 {{ oauthPrimaryButtonText }}
               </button>
               <button
                 v-else
+                type="button"
+                class="inline-flex items-center rounded-xl bg-primary-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:bg-primary-600 disabled:opacity-50"
+                :disabled="props.loading || !accountsText.trim() || isOAuthAuthorizing"
                 @click="handleSubmit()"
-                :disabled="loading || !accountsText.trim()"
-                class="px-5 py-2 text-sm text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
               >
-                <svg v-if="loading" class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                <svg v-if="props.loading" class="mr-2 h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-opacity="0.35" stroke-width="2.5" />
+                  <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" />
                 </svg>
-                {{ loading ? t('batchAdd.adding') : t('batchAdd.startAdd') }}
+                {{ props.loading ? t('batchAdd.adding') : t('batchAdd.startAdd') }}
               </button>
             </div>
           </div>
@@ -204,8 +264,11 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import * as XLSX from 'xlsx'
 import { useI18n } from 'vue-i18n'
 import batchLoginAPI from '@/api/batchLogin'
+import mailboxProxyApi from '@/api/mailboxProxy'
+import CustomSelect from '@/components/CustomSelect/index.vue'
 import { isTauri } from '@/services/api'
 const { t } = useI18n()
 
@@ -216,9 +279,12 @@ const emit = defineEmits(['close', 'submit', 'oauth-complete'])
 // ===== 输入模式状态 =====
 const accountsText = ref('')
 const loginMode = ref<'auto' | 'custom'>('auto')
+const enableSmtp = ref(true)
 const customHost = ref('')
 const customPort = ref(995)
 const results = ref<Array<{ email: string, status: 'pending' | 'success' | 'error', message?: string }>>([])
+const selectedProxyId = ref<number | ''>('')
+const proxyOptions = ref<any[]>([])
 
 // ===== OAuth 状态 =====
 interface OAuthAccount {
@@ -252,6 +318,68 @@ const oauthCurrentEmail = computed(() => {
 
 const oauthSuccessCount = computed(() => oauthAccounts.value.filter(a => a.status === 'success').length)
 const oauthFailCount = computed(() => oauthAccounts.value.filter(a => a.status === 'error').length)
+const previewInvalidRows = computed(() => {
+  const lines = String(accountsText.value || '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+
+  return lines
+    .map((line) => {
+      const parts = line.split(/[\s]+|[-]{2,}|[—–]+|[,，]/).filter((part) => part.trim())
+      const email = String(parts[0] || '').trim()
+      const domain = (email.split('@')[1] || '').toLowerCase()
+      const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+      const isOAuthToken = parts.length >= 4 && isOAuthTokenDomain(domain)
+      const password = String(parts.length >= 3 && !isOAuthToken ? parts[2] : parts[1] || '').trim()
+      const oauthClientId = String(parts[2] || '').trim()
+      const oauthRefreshToken = String(parts[3] || '').trim()
+
+      if (!validEmail) {
+        return { email: email || line, status: 'error' as const, message: '邮箱格式不对' }
+      }
+      if (!password) {
+        return { email, status: 'error' as const, message: '缺少密码或授权码' }
+      }
+      if (isOAuthToken && (!oauthClientId || !oauthRefreshToken)) {
+        return { email, status: 'error' as const, message: 'OAuth Token 缺少 client_id 或 refresh_token' }
+      }
+      return null
+    })
+    .filter(Boolean)
+})
+const totalCount = computed(() => results.value.length)
+const successCount = computed(() => results.value.filter((item) => item.status === 'success').length)
+const errorCount = computed(() => results.value.filter((item) => item.status === 'error').length)
+const finishedCount = computed(() => successCount.value + errorCount.value)
+const progressPercent = computed(() => {
+  if (!totalCount.value) return 0
+  return Math.min(100, Math.round((finishedCount.value / totalCount.value) * 100))
+})
+const progressSummaryText = computed(() => {
+  if (!showLivePanel.value) return `格式异常 ${previewInvalidRows.value.length}`
+  if (!totalCount.value) return '等待开始'
+  if (props.loading) return `添加中 ${finishedCount.value}/${totalCount.value}`
+  return `完成 ${finishedCount.value}/${totalCount.value}`
+})
+const showLivePanel = computed(() => Boolean(props.loading) || results.value.length > 0 || oauthAccounts.value.length > 0)
+const showSidePanel = computed(() => showLivePanel.value || previewInvalidRows.value.length > 0)
+const sidePanelRows = computed(() => (showLivePanel.value ? results.value : previewInvalidRows.value))
+const exportRows = computed(() => {
+  const oauthMap = new Map(
+    oauthAccounts.value.map((item) => [normalizeEmail(item.email), item])
+  )
+
+  return results.value.map((item) => {
+    const oauthItem = oauthMap.get(normalizeEmail(item.email))
+    return {
+      email: item.email,
+      status: resolveExportStatus(item.status, oauthItem?.status),
+      message: item.message || '',
+      auth_mode: oauthItem ? (oauthItem.provider === 'google' ? 'Gmail OAuth' : 'Outlook OAuth') : '密码登录'
+    }
+  })
+})
 
 // 是否有待授权的 OAuth 邮箱
 const hasOAuthPending = computed(() => {
@@ -292,12 +420,32 @@ const closeButtonText = computed(() => {
   return t('common.cancel')
 })
 
+const proxySelectOptions = computed(() => {
+  const options = (proxyOptions.value || []).map((item: any) => ({
+    label: item.endpoint ? `${item.name} (${item.endpoint})` : item.name,
+    value: item.id
+  }))
+  return [{ label: '不使用代理', value: '' }, ...options]
+})
+
+const loadProxyOptions = async () => {
+  try {
+    const response: any = await mailboxProxyApi.getOptions()
+    if (response.code !== 0) return
+    proxyOptions.value = Array.isArray(response?.data?.proxies) ? response.data.proxies : []
+  } catch {
+    proxyOptions.value = []
+  }
+}
+
 // ===== 初始化与重置 =====
 const resetState = () => {
   accountsText.value = ''
   loginMode.value = 'auto'
+  enableSmtp.value = true
   customHost.value = ''
   customPort.value = 993
+  selectedProxyId.value = ''
   results.value = []
   oauthAccounts.value = []
   oauthCurrentIndex.value = -1
@@ -310,6 +458,7 @@ const resetState = () => {
 watch(() => props.visible, (visible) => {
   if (visible) {
     resetState()
+    loadProxyOptions()
   } else {
     oauthStopRequested.value = true
     oauthAuthPhase.value = 'idle'
@@ -368,6 +517,7 @@ const parseAccounts = () => {
         accounts.push({
           email,
           password,
+          verify_smtp: enableSmtp.value,
           oauth_client_id: oauthClientId,
           oauth_refresh_token: oauthRefreshToken,
         })
@@ -388,7 +538,10 @@ const parseAccounts = () => {
         }
       }
 
-      const account: any = { email, password, protocol: proto }
+      const account: any = { email, password, protocol: proto, verify_smtp: enableSmtp.value }
+      if (selectedProxyId.value) {
+        account.proxy_id = Number(selectedProxyId.value)
+      }
 
       if (mode === 'custom' && customHost.value) {
         if (proto === 'imap') {
@@ -412,6 +565,64 @@ const handleSubmit = () => {
   if (accounts.length > 0) {
     emit('submit', accounts)
   }
+}
+
+const extractEmailFromInputLine = (line: string) => {
+  const processedLine = String(line || '').trim().replace(/^卡号[：:]\s*/i, '')
+  const parts = processedLine.split(/[\s]+|[-]{2,}|[—–]+|[,，]/).filter(p => p.trim())
+  const email = String(parts[0] || '').trim()
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? normalizeEmail(email) : ''
+}
+
+const removeInputLineByEmail = (email: string) => {
+  const target = normalizeEmail(email)
+  if (!target) return
+
+  accountsText.value = String(accountsText.value || '')
+    .split('\n')
+    .filter((line) => {
+      const lineEmail = extractEmailFromInputLine(line)
+      return !lineEmail || lineEmail !== target
+    })
+    .join('\n')
+    .trim()
+}
+
+const resolveResultStatusText = (status: 'pending' | 'success' | 'error') => {
+  if (status === 'success') return '添加成功'
+  if (status === 'error') return '添加失败'
+  return '等待处理'
+}
+
+const resolveExportStatus = (
+  resultStatus: 'pending' | 'success' | 'error',
+  oauthStatus?: 'pending' | 'authorizing' | 'success' | 'error'
+) => {
+  if (oauthStatus === 'success') return 'OAuth 授权成功'
+  if (oauthStatus === 'error') return 'OAuth 授权失败'
+  if (oauthStatus === 'authorizing') return 'OAuth 授权中'
+  if (oauthStatus === 'pending') return '等待 OAuth 授权'
+  return resolveResultStatusText(resultStatus)
+}
+
+const exportResults = () => {
+  if (exportRows.value.length === 0) return
+
+  const worksheet = XLSX.utils.json_to_sheet(
+    exportRows.value.map((item) => ({
+      邮箱: item.email,
+      结果: item.status,
+      登录方式: item.auth_mode,
+      说明: item.message,
+    }))
+  )
+  const workbook = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(workbook, worksheet, '添加结果')
+
+  const now = new Date()
+  const pad = (value: number) => String(value).padStart(2, '0')
+  const timestamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`
+  XLSX.writeFile(workbook, `批量添加邮箱结果_${timestamp}.xlsx`)
 }
 
 // ===== OAuth 方法 =====
@@ -454,7 +665,7 @@ const getOAuthRowClass = (status: string) => {
   switch (status) {
     case 'success': return 'bg-green-50'
     case 'error': return 'bg-red-50'
-    case 'authorizing': return 'bg-blue-50'
+    case 'authorizing': return 'bg-primary-50'
     default: return ''
   }
 }
@@ -572,6 +783,7 @@ const markAuthorizedByEmail = (returnedEmail: string, fallbackIndex: number) => 
   }
 
   oauthAccounts.value[targetIndex].status = 'success'
+  removeInputLineByEmail(oauthAccounts.value[targetIndex].email)
   oauthErrorMessage.value = ''
 }
 
@@ -716,10 +928,19 @@ const handleClose = () => {
 
 // ===== 暴露方法给父组件 =====
 defineExpose({
+  updatePending: (email: string, message?: string) => {
+    const index = results.value.findIndex(r => r.email === email)
+    if (index !== -1) {
+      results.value[index] = { email, status: 'pending', message }
+    }
+  },
   updateResult: (email: string, status: 'success' | 'error', message?: string) => {
     const index = results.value.findIndex(r => r.email === email)
     if (index !== -1) {
       results.value[index] = { email, status, message }
+    }
+    if (status === 'success') {
+      removeInputLineByEmail(email)
     }
   },
   initResults: (emails: string[]) => {
@@ -744,3 +965,52 @@ defineExpose({
   startOAuthAuthorization
 })
 </script>
+
+<style scoped>
+.mailbox-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 2px solid #d1d5db;
+  background-color: #fff;
+  position: relative;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.mailbox-checkbox[type='checkbox'] {
+  border-radius: 4px;
+}
+
+.mailbox-checkbox[type='radio'] {
+  border-radius: 9999px;
+}
+
+.mailbox-checkbox:checked {
+  background-color: rgb(var(--color-primary-500));
+  border-color: rgb(var(--color-primary-500));
+}
+
+.mailbox-checkbox[type='checkbox']:checked::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 1px;
+  width: 4px;
+  height: 8px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.mailbox-checkbox[type='radio']:checked::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  height: 6px;
+  width: 6px;
+  border-radius: 9999px;
+  background-color: white;
+  transform: translate(-50%, -50%);
+}
+</style>
