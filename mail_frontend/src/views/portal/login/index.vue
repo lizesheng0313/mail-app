@@ -22,9 +22,6 @@
     </div>
     <div class="w-full max-w-4xl">
       <div class="mb-8 text-center">
-        <div class="mx-auto h-[120px] w-[120px] overflow-visible bg-transparent flex items-center justify-center">
-          <img :src="logoImage" alt="logo" class="h-[120px] w-[120px] object-contain" />
-        </div>
         <h2 class="mt-6 text-3xl font-bold text-black">{{ t('pageHeader.siteName') }}</h2>
         <p class="mt-2 text-sm text-black">
           {{ isResetMode ? t('login.subtitleReset') : (isLoginMode ? t('login.subtitleLogin') : t('login.subtitleRegister')) }}
@@ -333,7 +330,6 @@ import { useUserStore } from '@/stores/user'
 import authAPI from '@/api/auth'
 import BaseInput from '@/components/BaseInput/index.vue'
 import LanguageSwitcher from '@/components/LanguageSwitcher/index.vue'
-import logoImage from '@/assets/img/logo.png'
 import { showMessage } from '@/utils/message'
 import { isTauri } from '@/services/api'
 
