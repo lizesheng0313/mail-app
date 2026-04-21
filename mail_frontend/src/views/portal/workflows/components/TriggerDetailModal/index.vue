@@ -123,6 +123,19 @@
                         </details>
                       </div>
                     </div>
+
+                    <div class="mt-4 border-t border-gray-100 pt-3">
+                      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                        <div>
+                          <span class="text-black">{{ t('triggerDetail.executionMode') }}:</span>
+                          <span class="ml-1 text-black">{{ getExecutionModeLabel() }}</span>
+                        </div>
+                        <div v-if="getExecutionScheduleSummary()">
+                          <span class="text-black">{{ t('triggerDetail.executionPlan') }}:</span>
+                          <span class="ml-1 text-black">{{ getExecutionScheduleSummary() }}</span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -361,6 +374,38 @@ const getMatchTypeLabel = () => {
     'content_contains': t('triggerDetail.matchBody')
   }
   return typeMap[matchType] || matchType || t('triggerDetail.unconfigured')
+}
+
+const getExecutionSchedule = () => props.trigger?.trigger_config?.execution_schedule || null
+
+const getExecutionModeLabel = () => {
+  const executionSchedule = getExecutionSchedule()
+  if (!executionSchedule?.enabled) {
+    return t('triggerDetail.executionImmediate')
+  }
+  if (executionSchedule.mode === 'fixed_times') {
+    return t('triggerDetail.executionFixedTimes')
+  }
+  if (executionSchedule.mode === 'random_window') {
+    return t('triggerDetail.executionRandomWindow')
+  }
+  return t('triggerDetail.unconfigured')
+}
+
+const getExecutionScheduleSummary = () => {
+  const executionSchedule = getExecutionSchedule()
+  if (!executionSchedule?.enabled) {
+    return ''
+  }
+  if (executionSchedule.mode === 'fixed_times') {
+    return (executionSchedule.time_points || []).join(', ')
+  }
+  if (executionSchedule.mode === 'random_window') {
+    if (executionSchedule.window_start && executionSchedule.window_end) {
+      return `${executionSchedule.window_start} - ${executionSchedule.window_end}`
+    }
+  }
+  return ''
 }
 
 const formatCondition = (condition) => {

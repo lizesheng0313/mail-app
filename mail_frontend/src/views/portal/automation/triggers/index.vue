@@ -504,9 +504,6 @@ const viewExecutionLogs = async (trigger: any) => {
       const data = await response.json()
       if (data.code === 0 && data.data) {
         executionLogs.value = data.data.logs || []
-        if (executionLogs.value.length === 0) {
-          showMessage(t('triggerManagement.noRecordsInfo'), 'info')
-        }
       } else {
         executionLogs.value = []
         console.warn('获取日志失败:', data.message)
@@ -573,6 +570,7 @@ const closeCreateDialog = () => {
 // 日志相关辅助函数
 const getResultText = (result: string) => {
   const resultMap = {
+    'waiting': t('triggerManagement.resultWaiting'),
     'success': t('triggerManagement.resultSuccess'),
     'failed': t('triggerManagement.resultFailed'),
     'no_match': t('triggerManagement.resultNoMatch'),
@@ -583,6 +581,7 @@ const getResultText = (result: string) => {
 
 const getResultColor = (result: string) => {
   const colorMap = {
+    'waiting': 'bg-yellow-100 text-yellow-800',
     'success': 'bg-primary-100 text-success-800',
     'failed': 'bg-red-100 text-red-800',
     'no_match': 'bg-yellow-100 text-yellow-800',

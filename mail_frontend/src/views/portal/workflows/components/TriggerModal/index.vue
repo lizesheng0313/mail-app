@@ -1,9 +1,9 @@
 <template>
   <div class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-    <div class="relative top-10 mx-auto p-0 border max-w-4xl shadow-lg rounded-lg bg-white">
+    <div class="relative top-6 mx-auto p-0 border max-w-3xl shadow-lg rounded-lg bg-white">
       <!-- 头部 -->
-      <div class="flex items-center justify-between p-6 border-b">
-        <h3 class="text-xl font-semibold text-black">
+      <div class="flex items-center justify-between px-4 py-3 border-b">
+        <h3 class="text-lg font-semibold text-black">
           {{ isEdit ? t('triggerModal.titleEdit') : t('triggerModal.titleCreate') }}
         </h3>
         <button
@@ -17,14 +17,13 @@
       </div>
 
       <!-- 内容 -->
-      <div class="p-6">
-        <form @submit.prevent="handleSubmit">
+      <div class="p-4">
+        <div>
           <!-- 基本信息 -->
-          <div class="mb-6">
-            <h4 class="text-lg font-medium text-black mb-4">{{ t('triggerModal.basicInfo') }}</h4>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="mb-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
-                <label for="name" class="block text-sm font-medium text-black mb-2">
+                <label for="name" class="block text-sm font-medium text-black mb-1.5">
                   {{ t('triggerModal.name') }} *
                 </label>
                 <BaseInput
@@ -38,7 +37,7 @@
                 />
               </div>
               <div>
-                <label for="trigger_type" class="block text-sm font-medium text-black mb-2">
+                <label for="trigger_type" class="block text-sm font-medium text-black mb-1.5">
                   {{ t('triggerModal.triggerType') }} *
                 </label>
                 <CustomSelect
@@ -53,10 +52,9 @@
           </div>
 
           <!-- 关联工作流 -->
-          <div class="mb-6">
-            <h4 class="text-lg font-medium text-black mb-4">{{ t('triggerModal.relatedWorkflow') }}</h4>
+          <div class="mb-4">
             <div>
-              <label for="workflow_id" class="block text-sm font-medium text-black mb-2">
+              <label for="workflow_id" class="block text-sm font-medium text-black mb-1.5">
                 {{ t('triggerModal.selectWorkflow') }} *
               </label>
               <CustomSelect
@@ -71,14 +69,106 @@
           </div>
 
           <!-- 触发器配置 -->
-          <div class="mb-6">
-            <h4 class="text-lg font-medium text-black mb-4">{{ t('triggerModal.config') }}</h4>
-            
+          <div class="mb-4">
             <!-- 邮件触发配置 -->
-            <div v-if="form.trigger_type === 'email'" class="space-y-4">
+            <div v-if="form.trigger_type === 'email'" class="space-y-3">
+              <!-- 执行方式 -->
+              <div class="space-y-3">
+                <div>
+                  <label class="block text-sm font-medium text-black mb-1.5">
+                    {{ t('triggerModal.executionMode') }}
+                  </label>
+                  <CustomSelect
+                    :model-value="emailExecutionMode"
+                    :options="emailExecutionModeOptions"
+                    @update:modelValue="handleEmailExecutionModeChange"
+                  />
+                </div>
+
+                <div v-if="emailExecutionMode === 'fixed_times'" class="space-y-2">
+                  <div>
+                    <label for="fixed_times" class="block text-sm font-medium text-black mb-1.5">
+                      {{ t('triggerModal.fixedTimes') }} *
+                    </label>
+                    <div
+                      class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 focus-within:border-primary-500 focus-within:ring-2 focus-within:ring-primary-500 focus-within:ring-opacity-20"
+                      :class="errors.fixed_times ? 'border-red-300 focus-within:border-red-500 focus-within:ring-red-500' : ''"
+                    >
+                      <div class="flex items-center gap-2 overflow-x-auto whitespace-nowrap">
+                        <span
+                          v-for="time in fixedTimeTags"
+                          :key="time"
+                          class="inline-flex flex-shrink-0 items-center gap-1 rounded-md bg-primary-50 px-2 py-1 text-xs font-medium text-primary-700"
+                        >
+                          {{ time }}
+                          <button
+                            type="button"
+                            class="text-primary-500 hover:text-primary-700"
+                            @click="removeFixedTimeTag(time)"
+                          >
+                            <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </span>
+                        <input
+                          id="fixed_times"
+                          v-model="fixedTimesInput"
+                          type="text"
+                          class="min-w-[96px] flex-1 border-0 p-0 text-sm text-black placeholder-gray-500 focus:outline-none focus:ring-0"
+                          :placeholder="fixedTimeTags.length ? '' : t('triggerModal.fixedTimesPlaceholder')"
+                          @blur="commitFixedTimeInput"
+                          @keydown.enter.prevent="commitFixedTimeInput"
+                          @keydown.tab="handleFixedTimeTab"
+                          @input="clearError('fixed_times')"
+                        />
+                      </div>
+                    </div>
+                    <p v-if="errors.fixed_times" class="mt-2 text-sm text-red-600">{{ errors.fixed_times }}</p>
+                    <p class="mt-1 text-xs text-black">
+                      {{ t('triggerModal.fixedTimesHelp') }}
+                    </p>
+                  </div>
+                </div>
+
+                <div v-else-if="emailExecutionMode === 'random_window'" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label for="window_start" class="block text-sm font-medium text-black mb-1.5">
+                      {{ t('triggerModal.windowStart') }} *
+                    </label>
+                    <BaseInput
+                      id="window_start"
+                      v-model="randomWindowStart"
+                      type="text"
+                      :placeholder="t('triggerModal.timePlaceholder')"
+                      :error-message="errors.window_start"
+                      @input="clearError('window_start')"
+                    />
+                  </div>
+                  <div>
+                    <label for="window_end" class="block text-sm font-medium text-black mb-1.5">
+                      {{ t('triggerModal.windowEnd') }} *
+                    </label>
+                    <BaseInput
+                      id="window_end"
+                      v-model="randomWindowEnd"
+                      type="text"
+                      :placeholder="t('triggerModal.timePlaceholder')"
+                      :error-message="errors.window_end"
+                      @input="clearError('window_end')"
+                    />
+                  </div>
+                  <div class="md:col-span-2">
+                    <p class="text-xs text-black">
+                      {{ t('triggerModal.randomWindowHelp') }}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               <!-- 配置方式选择 -->
               <div>
-                <label class="block text-sm font-medium text-black mb-3">
+                <label class="block text-sm font-medium text-black mb-2">
                   {{ t('triggerModal.configMode') }}
                 </label>
                 <div class="flex space-x-4">
@@ -104,10 +194,10 @@
               </div>
 
               <!-- 简单匹配配置 -->
-              <div v-if="configMode === 'simple'" class="space-y-4">
+              <div v-if="configMode === 'simple'" class="space-y-3">
                 <!-- 匹配类型选择 -->
                 <div>
-                  <label class="block text-sm font-medium text-black mb-2">
+                  <label class="block text-sm font-medium text-black mb-1.5">
                     {{ t('triggerModal.matchCondition') }} *
                   </label>
                   <CustomSelect
@@ -122,7 +212,7 @@
 
                 <!-- 匹配内容 -->
                 <div>
-                  <label for="match_content" class="block text-sm font-medium text-black mb-2">
+                  <label for="match_content" class="block text-sm font-medium text-black mb-1.5">
                     {{ t('triggerModal.matchContent') }} *
                   </label>
                   <BaseInput
@@ -134,26 +224,27 @@
                     :error-message="errors.match_content"
                     @input="clearError('match_content')"
                   />
-                  <p class="mt-1 text-sm text-black">
+                  <p class="mt-1 text-xs text-black">
                     {{ getMatchDescription() }}
                   </p>
                 </div>
               </div>
 
               <!-- 高级规则配置 -->
-              <div v-if="configMode === 'advanced'" class="space-y-4">
+              <div v-if="configMode === 'advanced'" class="space-y-3">
                 <RuleBuilder
                   v-model="form.trigger_config.rules"
                   @update:modelValue="clearError('rules')"
                 />
                 <p v-if="errors.rules" class="mt-2 text-sm text-red-600">{{ errors.rules }}</p>
               </div>
+
             </div>
 
             <!-- 定时触发配置 -->
-            <div v-else-if="form.trigger_type === 'schedule'" class="space-y-4">
+            <div v-else-if="form.trigger_type === 'schedule'" class="space-y-3">
               <div>
-                <label for="cron_expression" class="block text-sm font-medium text-black mb-2">
+                <label for="cron_expression" class="block text-sm font-medium text-black mb-1.5">
                   {{ t('triggerModal.cronExpression') }} *
                 </label>
                 <BaseInput
@@ -163,12 +254,12 @@
                   required
                   :placeholder="t('triggerModal.cronPlaceholder')"
                 />
-                <p class="mt-1 text-sm text-black">
+                <p class="mt-1 text-xs text-black">
                   {{ t('triggerModal.cronHelp') }}
                 </p>
               </div>
               <div>
-                <label for="timezone" class="block text-sm font-medium text-black mb-2">
+                <label for="timezone" class="block text-sm font-medium text-black mb-1.5">
                   {{ t('triggerModal.timezone') }}
                 </label>
                 <CustomSelect
@@ -180,9 +271,9 @@
             </div>
 
             <!-- Webhook触发配置 -->
-            <div v-else-if="form.trigger_type === 'webhook'" class="space-y-4">
+            <div v-else-if="form.trigger_type === 'webhook'" class="space-y-3">
               <div>
-                <label for="webhook_url" class="block text-sm font-medium text-black mb-2">
+                <label for="webhook_url" class="block text-sm font-medium text-black mb-1.5">
                   {{ t('triggerModal.webhookUrl') }} *
                 </label>
                 <BaseInput
@@ -194,7 +285,7 @@
                 />
               </div>
               <div>
-                <label for="secret" class="block text-sm font-medium text-black mb-2">
+                <label for="secret" class="block text-sm font-medium text-black mb-1.5">
                   {{ t('triggerModal.secret') }}
                 </label>
                 <BaseInput
@@ -217,23 +308,17 @@
           </div>
 
           <!-- 按钮 -->
-          <div class="flex justify-end space-x-3 pt-6 border-t">
+          <div class="flex justify-end pt-4 border-t">
             <button
               type="button"
-              @click="$emit('close')"
-              class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-black bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
-            >
-              {{ t('triggerModal.cancel') }}
-            </button>
-            <button
-              type="submit"
+              @click="handleSubmit"
               :disabled="submitting"
               class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50"
             >
               {{ submitting ? t('triggerModal.saving') : (isEdit ? t('triggerModal.update') : t('triggerModal.create')) }}
             </button>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   </div>
@@ -273,6 +358,11 @@ const form = ref({
 })
 
 const configMode = ref('simple') // 'simple' | 'advanced'
+const emailExecutionMode = ref('immediate')
+const fixedTimesInput = ref('')
+const fixedTimeTags = ref([])
+const randomWindowStart = ref('')
+const randomWindowEnd = ref('')
 
 // 计算属性
 const isEdit = computed(() => !!props.trigger)
@@ -289,6 +379,12 @@ const matchTypeOptions = computed(() => [
   { label: t('triggerModal.matchRecipient'), value: 'recipient_contains' },
   { label: t('triggerModal.matchSubject'), value: 'subject_contains' },
   { label: t('triggerModal.matchBody'), value: 'content_contains' }
+])
+
+const emailExecutionModeOptions = computed(() => [
+  { label: t('triggerModal.executionImmediate'), value: 'immediate' },
+  { label: t('triggerModal.executionFixedTimes'), value: 'fixed_times' },
+  { label: t('triggerModal.executionRandomWindow'), value: 'random_window' }
 ])
 
 const workflowOptions = computed(() => {
@@ -336,7 +432,77 @@ const handleTypeChange = (type) => {
     configMode.value = 'simple'
     form.value.trigger_config.match_type = 'subject_contains'
     form.value.trigger_config.match_content = ''
+    emailExecutionMode.value = 'immediate'
+    fixedTimesInput.value = ''
+    fixedTimeTags.value = []
+    randomWindowStart.value = ''
+    randomWindowEnd.value = ''
   }
+}
+
+const handleEmailExecutionModeChange = (value) => {
+  emailExecutionMode.value = value || 'immediate'
+  clearError('fixed_times')
+  clearError('window_start')
+  clearError('window_end')
+}
+
+const normalizeTimeValue = (value) => {
+  const normalized = String(value || '').trim().replace('：', ':')
+  const match = normalized.match(/^(\d{1,2}):(\d{1,2})$/)
+  if (!match) return ''
+  const hour = Number(match[1])
+  const minute = Number(match[2])
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return ''
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
+}
+
+const parseFixedTimes = () => {
+  return [...fixedTimeTags.value]
+}
+
+const commitFixedTimeInput = () => {
+  const timeValue = normalizeTimeValue(fixedTimesInput.value)
+  if (timeValue && !fixedTimeTags.value.includes(timeValue)) {
+    fixedTimeTags.value = [...fixedTimeTags.value, timeValue].sort()
+  }
+  fixedTimesInput.value = ''
+}
+
+const handleFixedTimeTab = (event) => {
+  const normalized = normalizeTimeValue(fixedTimesInput.value)
+  if (!normalized) {
+    return
+  }
+  event.preventDefault()
+  commitFixedTimeInput()
+}
+
+const removeFixedTimeTag = (time) => {
+  fixedTimeTags.value = fixedTimeTags.value.filter(item => item !== time)
+}
+
+const buildExecutionSchedulePayload = () => {
+  if (emailExecutionMode.value === 'fixed_times') {
+    return {
+      enabled: true,
+      mode: 'fixed_times',
+      time_points: parseFixedTimes(),
+      timezone: 'Asia/Shanghai'
+    }
+  }
+
+  if (emailExecutionMode.value === 'random_window') {
+    return {
+      enabled: true,
+      mode: 'random_window',
+      window_start: normalizeTimeValue(randomWindowStart.value),
+      window_end: normalizeTimeValue(randomWindowEnd.value),
+      timezone: 'Asia/Shanghai'
+    }
+  }
+
+  return null
 }
 
 const getMatchPlaceholder = () => {
@@ -399,6 +565,26 @@ const validateForm = () => {
         errors.value.rules = t('triggerModal.validationRules')
       }
     }
+
+    if (emailExecutionMode.value === 'fixed_times') {
+      const timePoints = parseFixedTimes()
+      if (!timePoints.length) {
+        errors.value.fixed_times = t('triggerModal.validationFixedTimes')
+      }
+    } else if (emailExecutionMode.value === 'random_window') {
+      const startTime = normalizeTimeValue(randomWindowStart.value)
+      const endTime = normalizeTimeValue(randomWindowEnd.value)
+
+      if (!startTime) {
+        errors.value.window_start = t('triggerModal.validationWindowStart')
+      }
+      if (!endTime) {
+        errors.value.window_end = t('triggerModal.validationWindowEnd')
+      }
+      if (startTime && endTime && startTime >= endTime) {
+        errors.value.window_end = t('triggerModal.validationWindowOrder')
+      }
+    }
   }
 
   return Object.keys(errors.value).length === 0
@@ -419,11 +605,23 @@ const handleSubmit = async () => {
   try {
     submitting.value = true
 
+    const triggerConfig = {
+      ...form.value.trigger_config
+    }
+
+    if (form.value.trigger_type === 'email') {
+      delete triggerConfig.execution_schedule
+      const executionSchedule = buildExecutionSchedulePayload()
+      if (executionSchedule) {
+        triggerConfig.execution_schedule = executionSchedule
+      }
+    }
+
     const data = {
       name: form.value.name,
       trigger_type: form.value.trigger_type,
       workflow_id: parseInt(form.value.workflow_id),
-      trigger_config: form.value.trigger_config
+      trigger_config: triggerConfig
     }
 
     if (isEdit.value) {
@@ -467,7 +665,7 @@ watch(() => props.trigger, (trigger) => {
       name: trigger.name || '',
       trigger_type: trigger.trigger_type || '',
       workflow_id: trigger.workflow_id || '',  // 确保不是null
-      trigger_config: trigger.trigger_config || {}
+      trigger_config: { ...(trigger.trigger_config || {}) }
     }
     
     // 根据已有配置确定配置模式
@@ -477,7 +675,34 @@ watch(() => props.trigger, (trigger) => {
       } else {
         configMode.value = 'simple'
       }
+
+      const executionSchedule = trigger.trigger_config?.execution_schedule
+      if (executionSchedule?.enabled && executionSchedule.mode === 'fixed_times') {
+        emailExecutionMode.value = 'fixed_times'
+        fixedTimeTags.value = [...(executionSchedule.time_points || [])]
+        fixedTimesInput.value = ''
+        randomWindowStart.value = ''
+        randomWindowEnd.value = ''
+      } else if (executionSchedule?.enabled && executionSchedule.mode === 'random_window') {
+        emailExecutionMode.value = 'random_window'
+        fixedTimesInput.value = ''
+        fixedTimeTags.value = []
+        randomWindowStart.value = executionSchedule.window_start || ''
+        randomWindowEnd.value = executionSchedule.window_end || ''
+      } else {
+        emailExecutionMode.value = 'immediate'
+        fixedTimesInput.value = ''
+        fixedTimeTags.value = []
+        randomWindowStart.value = ''
+        randomWindowEnd.value = ''
+      }
     }
+  } else {
+    emailExecutionMode.value = 'immediate'
+    fixedTimesInput.value = ''
+    fixedTimeTags.value = []
+    randomWindowStart.value = ''
+    randomWindowEnd.value = ''
   }
 }, { immediate: true })
 

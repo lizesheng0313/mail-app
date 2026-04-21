@@ -137,6 +137,7 @@ const formatTime = (timestamp) => {
 // 获取执行结果文本
 const getResultText = (result) => {
   const resultMap = {
+    'waiting': t('triggerLogs.resultWaiting'),
     'success': t('triggerLogs.resultSuccess'),
     'failed': t('triggerLogs.resultFailed'),
     'no_match': t('triggerLogs.resultNoMatch'),
@@ -148,6 +149,7 @@ const getResultText = (result) => {
 // 获取执行结果徽章颜色
 const getResultBadgeColor = (result) => {
   const colorMap = {
+    'waiting': 'bg-yellow-100 text-yellow-800',
     'success': 'bg-primary-100 text-success-800',
     'failed': 'bg-red-100 text-red-800',
     'no_match': 'bg-gray-100 text-black',
