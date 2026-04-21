@@ -210,7 +210,7 @@ const zhCN = {
     batchWorkbench: '批量工作台',
     backInbox: '返回收件箱',
     bulkSend: '批量发送邮件',
-    outbox: '发件箱',
+    outbox: '已发送邮件',
     guestTitle: '肥猫猫邮箱服务',
     guestDescription:
       '肥猫猫邮箱服务是一个邮箱管理平台，提供临时邮箱收件、第三方邮箱批量接入、邮件批量收发以及邮件自动化工作流，帮助个人和团队更高效地管理多邮箱任务。',
@@ -585,7 +585,7 @@ const zhCN = {
     externalMailboxBatchOps: '邮箱批量操作',
     batchVerify: '批量验号',
     bulkSend: '批量发送邮件',
-    outbox: '发件箱',
+    outbox: '已发送邮件',
     groupManagement: '分组管理',
     batchRepair: '批量修复',
     proxyManagement: '邮箱代理',

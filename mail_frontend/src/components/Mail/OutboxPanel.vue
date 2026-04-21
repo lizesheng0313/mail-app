@@ -83,7 +83,7 @@
 
         <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
           <div v-if="selectedRecord" class="space-y-5">
-            <div class="flex flex-col gap-3 border-b border-gray-100 pb-4 sm:flex-row sm:items-start sm:justify-between">
+            <div class="flex flex-col gap-3 border-b border-gray-100 pb-4">
               <div class="min-w-0">
                 <div class="flex flex-wrap items-center gap-2">
                   <h3 class="text-lg font-semibold text-gray-900">{{ selectedRecord.subject || '（无主题）' }}</h3>
@@ -100,7 +100,7 @@
               </div>
               <button
                 type="button"
-                class="inline-flex shrink-0 items-center justify-center rounded-lg border border-primary-200 bg-white px-3 py-2 text-sm text-primary-600 transition-colors hover:border-primary-300 hover:bg-primary-50"
+                class="inline-flex w-fit items-center justify-center rounded-lg border border-primary-200 bg-white px-3 py-2 text-sm text-primary-600 transition-colors hover:border-primary-300 hover:bg-primary-50"
                 @click="$emit('reedit', selectedRecord)"
               >
                 重新编辑
