@@ -103,9 +103,9 @@
             v-if="mailboxType === 'external'"
             type="button"
             @click="goToExternalOpsWorkbench"
-            class="px-4 py-2 border border-slate-300 bg-white text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-50 transition-colors"
+            class="px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {{ t('home.mailBatchOps') }}
+            工作台
           </button>
         </div>
       </div>
@@ -450,6 +450,7 @@
         v-if="mailStore.selectedEmail"
         :email="mailStore.selectedEmail"
         @expand="openEmailModal"
+        @reply="handleReplyExternalEmail"
       />
       </template>
 
@@ -3030,6 +3031,29 @@ const handleSelectExternalEmail = async (email: any) => {
       console.error('标记已读失败:', error)
     }
   }
+}
+
+const handleReplyExternalEmail = async (email: any) => {
+  const mailboxId = Number(email?.mailbox_id || selectedExternalMailboxId.value || 0)
+  const replyTo = String(email?.from_addr || '').trim()
+
+  if (!mailboxId || !replyTo) {
+    showMessage(t('home.loadEmailDetailFailed'), 'error')
+    return
+  }
+
+  mailboxType.value = 'external'
+  currentView.value = 'send-email'
+  selectedExternalMailboxId.value = mailboxId
+  selectedExternalMailboxIds.value = [mailboxId]
+  selectedExternalAuthType.value =
+    externalMailboxAuthTypeMap.value[mailboxId] || selectedExternalAuthType.value
+
+  await nextTick()
+  sendEmailPanelRef.value?.loadReplyDraft?.({
+    to: replyTo,
+    subject: String(email?.subject || '')
+  })
 }
 
 // 切换外部邮件未读筛选

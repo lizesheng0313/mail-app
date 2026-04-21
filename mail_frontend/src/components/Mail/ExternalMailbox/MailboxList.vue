@@ -7,6 +7,7 @@
     :selectedId="activeMailboxId ?? selectedId"
     :showPagination="true"
     :hideBatchMode="isSendEmailView"
+    :batch-action-text="isSendEmailView ? '' : '工作台'"
     :searchable="true"
     :search-keyword="searchKeyword"
     @select="$emit('select', $event)"
@@ -33,7 +34,7 @@
         :checked="selectedIds.includes(toAccountId(account))"
         :card-class="[
           getSendItemClass(account, selectedId, batchMode, selectedIds),
-          isSendEmailView && !hasSmtp(account.email) ? 'cursor-not-allowed' : 'cursor-pointer'
+          isSendEmailView && !hasSendCapability(account) ? 'cursor-not-allowed' : 'cursor-pointer'
         ]"
         @click="handleItemClick(account, batchMode, toggleSelection, onSelect)"
       >
@@ -43,7 +44,7 @@
             class="mr-2 flex h-5 w-5 flex-shrink-0 items-center justify-center"
           >
             <svg
-              v-if="(selectedSendIds || []).map(toNumberId).includes(toAccountId(account))"
+              v-if="(selectedSendIds || []).map(toNumberId).includes(toAccountId(account)) && hasSendCapability(account)"
               class="h-5 w-5 text-primary-600"
               fill="none"
               stroke="currentColor"
@@ -59,15 +60,20 @@
             <div
               v-else
               class="h-4 w-4 rounded-full border-2"
-              :class="hasSmtp(account.email) ? 'border-gray-300' : 'border-gray-200'"
+              :class="hasSendCapability(account) ? 'border-gray-300' : 'border-gray-200'"
             ></div>
           </div>
         </template>
         <div class="flex items-center gap-2 min-w-0">
           <span
-            v-if="account.status === 'active'"
+            v-if="isSendEmailView ? hasSendCapability(account) : account.status === 'active'"
             class="w-2 h-2 rounded-full flex-shrink-0 bg-green-500"
             :title="t('externalMailbox.online')"
+          ></span>
+          <span
+            v-else-if="isSendEmailView && !hasSendCapability(account)"
+            class="w-2 h-2 rounded-full flex-shrink-0 bg-gray-400"
+            :title="account.smtp_error || '未配置 SMTP，不可选'"
           ></span>
           <span
             v-else-if="account.status === 'failed'"
@@ -81,16 +87,23 @@
           ></span>
           <div class="min-w-0 max-w-full text-left">
             <code
+              :title="account.email"
               class="block text-sm truncate"
               :class="[
                 account.status === 'failed' ? 'text-red-600' : 'text-black',
-                isSendEmailView && !hasSmtp(account.email) ? 'opacity-50' : ''
+                isSendEmailView && !hasSendCapability(account) ? 'text-slate-400' : ''
               ]"
             >
               {{ account.email }}
             </code>
           </div>
         </div>
+        <p
+          v-if="isSendEmailView && !hasSendCapability(account)"
+          class="mt-1 text-xs text-slate-400"
+        >
+          {{ account.smtp_error || '未配置 SMTP，不可选' }}
+        </p>
         <p
           v-if="!isSendEmailView || (account.status === 'failed' && account.error_message)"
           class="text-xs mt-1"
@@ -112,7 +125,7 @@
           :initial-sites="tagsData[toAccountId(account)]?.sites || []"
           :initial-tags="tagsData[toAccountId(account)]?.tags || []"
         />
-        <template #actions>
+        <template v-if="!isSendEmailView" #actions>
           <div
             class="relative"
             @mouseenter="handleActionMenuEnter(toAccountId(account), $event)"
@@ -143,7 +156,6 @@
                 {{ t('externalMailbox.copyMailbox') }}
               </button>
               <button
-                v-if="!isSendEmailView"
                 type="button"
                 class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-50"
                 @click.stop="handleShareAction(account)"
@@ -152,7 +164,7 @@
                 {{ t('externalMailbox.shareMailbox') }}
               </button>
               <button
-                v-if="!isSendEmailView && isDesktop"
+                v-if="isDesktop"
                 type="button"
                 class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
                 :disabled="mergedFetchingIds.includes(toAccountId(account))"
@@ -233,6 +245,23 @@ const smtpEmailSet = computed(() => {
 })
 
 const hasSmtp = (email: string) => smtpEmailSet.value.has(normalizeSmtpEmail(email))
+const hasSendCapability = (account: any) => {
+  if (props.isSendEmailView) {
+    if (!account || !Object.prototype.hasOwnProperty.call(account, 'smtp_verified')) {
+      return false
+    }
+
+    const smtpVerified = account.smtp_verified
+    if (typeof smtpVerified === 'string') {
+      const normalized = smtpVerified.trim().toLowerCase()
+      return ['1', 'true', 'yes'].includes(normalized)
+    }
+
+    return smtpVerified === true || smtpVerified === 1
+  }
+
+  return hasSmtp(account?.email || '')
+}
 const toNumberId = (value: unknown) => {
   const id = Number(value)
   return Number.isFinite(id) ? id : 0
@@ -242,9 +271,9 @@ const toAccountId = (account: any) => toNumberId(account?.id)
 const getSendItemClass = (account: any, selectedId: any, batchMode: boolean, selectedIds: any) => {
   const accountId = toAccountId(account)
   if (props.isSendEmailView) {
+    if (!hasSendCapability(account)) return 'border border-slate-200 bg-slate-50 opacity-50'
     const selected = (props.selectedSendIds || []).map(toNumberId).includes(accountId)
     if (selected) return 'bg-primary-100 border-primary-300'
-    if (!hasSmtp(account.email)) return 'bg-gray-50 opacity-60'
     return 'bg-gray-50 hover:bg-primary-50'
   }
   if (batchMode && selectedIds?.map?.(toNumberId)?.includes?.(accountId)) return 'bg-primary-100 border-primary-200'
@@ -264,7 +293,7 @@ const handleItemClick = (
     return
   }
   // 发件模式下，SMTP未验证的不让选
-  if (props.isSendEmailView && !hasSmtp(account.email)) {
+  if (props.isSendEmailView && !hasSendCapability(account)) {
     return
   }
   closeActionMenu()
@@ -309,8 +338,8 @@ const displayAccounts = computed(() => {
   }
 
   return [...accounts.value].sort((first: any, second: any) => {
-    const firstCanSend = hasSmtp(first.email) ? 1 : 0
-    const secondCanSend = hasSmtp(second.email) ? 1 : 0
+    const firstCanSend = hasSendCapability(first) ? 1 : 0
+    const secondCanSend = hasSendCapability(second) ? 1 : 0
     if (firstCanSend !== secondCanSend) {
       return secondCanSend - firstCanSend
     }

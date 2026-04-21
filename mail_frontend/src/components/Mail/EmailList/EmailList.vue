@@ -1,5 +1,8 @@
 <template>
-  <div class="flex flex-col h-full">
+  <div
+    class="flex h-full flex-col"
+    :class="batchSelection.isBatchMode.value ? 'pb-24' : ''"
+  >
     <!-- 标题栏 -->
     <div class="border-b border-gray-200 pb-4 mb-4">
       <div class="flex min-h-8 justify-between items-center flex-wrap gap-2">
@@ -20,18 +23,13 @@
         </div>
 
         <div class="flex min-h-8 min-w-8 items-center gap-1.5 flex-shrink-0 justify-end">
-          <HoverTooltip
+          <button
             v-if="!batchSelection.isBatchMode.value && emails.length > 0"
-            :text="t('mail.batchAction')"
+            @click="startBatchMode"
+            class="inline-flex h-7 items-center justify-center rounded-md bg-transparent px-2 text-xs font-medium text-primary-600 transition-colors hover:bg-primary-50 hover:text-primary-700"
           >
-            <button
-              @click="startBatchMode"
-              class="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-500 transition-colors hover:bg-primary-50 hover:text-primary-700"
-              :title="t('mail.batchAction')"
-            >
-              <BaseIcon name="list" size="sm" />
-            </button>
-          </HoverTooltip>
+            {{ t('mail.batchAction') }}
+          </button>
 
           <slot name="actions"></slot>
         </div>
@@ -68,7 +66,11 @@
     </div>
 
     <!-- 邮件列表 -->
-    <div ref="listScrollRef" class="flex-1 overflow-y-auto scrollbar-stable space-y-2">
+    <div
+      ref="listScrollRef"
+      class="flex-1 overflow-y-auto scrollbar-stable space-y-2"
+      :class="batchSelection.isBatchMode.value ? 'pb-4' : ''"
+    >
       <slot 
         name="content"
         :emails="emails"
@@ -91,7 +93,11 @@
     </div>
     
     <!-- 分页 -->
-    <div v-if="showPagination" class="mt-4">
+    <div
+      v-if="showPagination"
+      class="mt-4"
+      :class="batchSelection.isBatchMode.value ? 'mb-2' : ''"
+    >
       <slot name="pagination"></slot>
     </div>
     
@@ -113,8 +119,6 @@ import { computed, ref, watch, toRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useBatchSelection } from '@/composables/useBatchSelection'
 import MultiSelectToolbar from '@/components/MultiSelectToolbar/index.vue'
-import BaseIcon from '@/components/BaseIcon/index.vue'
-import HoverTooltip from '@/components/HoverTooltip/index.vue'
 
 interface Email {
   id: number

@@ -3,15 +3,25 @@
     <!-- 标题栏 -->
     <div class="mb-4 flex items-center justify-between border-b border-gray-200 pb-4">
       <h2 class="text-base font-semibold text-black">{{ title }}</h2>
-      <HoverTooltip v-if="email" :text="t('emailDetail.fullscreen')">
+      <div class="flex items-center gap-2">
         <button
-          @click="$emit('expand', email)"
-          class="expand-button"
-          :aria-label="t('emailDetail.fullscreen')"
+          v-if="canReplyWithMailbox"
+          type="button"
+          class="inline-flex h-8 items-center justify-center rounded-md bg-primary-50 px-3 text-xs font-medium text-primary-700 hover:bg-primary-100"
+          @click="$emit('reply', email!)"
         >
-          <ArrowsPointingOutIcon class="h-4 w-4" />
+          {{ t('emailDetail.replyWithMailbox') }}
         </button>
-      </HoverTooltip>
+        <HoverTooltip v-if="email" :text="t('emailDetail.fullscreen')">
+          <button
+            @click="$emit('expand', email)"
+            class="expand-button"
+            :aria-label="t('emailDetail.fullscreen')"
+          >
+            <ArrowsPointingOutIcon class="h-4 w-4" />
+          </button>
+        </HoverTooltip>
+      </div>
     </div>
 
     <!-- 邮件详情内容 -->
@@ -146,6 +156,7 @@ const { t } = useI18n()
 
 defineEmits<{
   expand: [email: Email]
+  reply: [email: Email]
 }>()
 
 const title = computed(() => props.title || t('emailDetail.title'))
@@ -161,6 +172,15 @@ const isExternalEmail = computed(() => {
 
 const canDownloadExternalAttachment = computed(() => {
   return isExternalEmail.value && isTauri()
+})
+
+const canReplyWithMailbox = computed(() => {
+  if (!props.email) return false
+  return (
+    props.email.mailbox_type === 'external' &&
+    Number(props.email.mailbox_id) > 0 &&
+    String(props.email.from_addr || '').includes('@')
+  )
 })
 
 const isBounceEmail = computed(() => {

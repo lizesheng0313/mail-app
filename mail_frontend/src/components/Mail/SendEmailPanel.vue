@@ -21,10 +21,16 @@
         <p class="text-sm">{{ tc('emptyState') }}</p>
       </div>
 
+      <div
+        v-if="useComposeOverlay"
+        class="fixed inset-0 z-[70] bg-slate-950/20 backdrop-blur-[2px]"
+        @click="toggleComposeFullscreen"
+      ></div>
+
       <section
         v-if="!(selectedAccountIds.length === 0 && !pageMode)"
         ref="composeSectionRef"
-        :class="pageMode ? 'compose-section flex h-full min-h-0 flex-col overflow-hidden rounded-[28px] bg-white' : 'compose-section rounded-[28px] border border-gray-200 bg-white shadow-sm'"
+        :class="composeSectionClass"
       >
         <div :class="pageMode ? 'flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 pb-4' : 'border-b border-gray-100 px-5 py-4 sm:px-6'">
           <div class="flex flex-1 flex-wrap items-center justify-between gap-3">
@@ -32,8 +38,8 @@
               <p class="text-base font-semibold text-gray-900">{{ tc('panelTitle') }}</p>
               <p class="mt-1 text-sm text-gray-500">{{ tc('panelDescription') }}</p>
             </div>
-            <div class="flex w-full min-w-0 items-center justify-between gap-3 pr-3">
-              <div class="flex min-w-0 flex-nowrap gap-2">
+            <div class="flex w-full min-w-0 flex-wrap items-center justify-between gap-3">
+              <div class="flex min-w-0 flex-wrap gap-2">
                 <button
                   @click="downloadTemplate"
                   class="inline-flex items-center gap-1 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-600 transition-colors hover:border-primary-200 hover:bg-primary-50 hover:text-primary-700"
@@ -53,7 +59,7 @@
                   {{ tc('importExcel') }}
                 </button>
               </div>
-              <div v-if="pageMode" class="flex flex-shrink-0 items-center gap-2">
+              <div v-if="pageMode" class="ml-auto flex flex-shrink-0 items-center gap-2">
                 <button
                   type="button"
                   @click="toggleComposeFullscreen"
@@ -85,14 +91,14 @@
           </div>
         </div>
 
-        <div :class="pageMode ? 'grid min-h-0 flex-1 gap-4 overflow-hidden pt-4 xl:grid-cols-[minmax(0,1fr)_340px]' : 'space-y-6 px-5 py-5 sm:px-6'">
+        <div :class="composeGridClass">
           <div :class="pageMode ? 'flex min-h-0 min-w-0 flex-col gap-2.5 overflow-hidden' : 'min-w-0 space-y-6'">
             <div>
               <div class="mb-1.5 flex items-center justify-between">
                 <label class="block text-sm font-medium text-gray-700">
                   {{ t('sendEmail.recipient') }} <span class="text-red-500">*</span>
                 </label>
-                <span class="text-xs text-gray-400">{{ tc('recipientHint') }}</span>
+                <span v-if="!isCompactAiPanel" class="text-xs text-gray-400">{{ tc('recipientHint') }}</span>
               </div>
               <div
                 :class="[
@@ -479,7 +485,7 @@
                 </div>
                 <div>
                   <p class="text-base font-semibold text-slate-900">{{ tc('aiTitle') }}</p>
-                  <p class="mt-1 text-xs text-slate-500">{{ tc('aiSubtitle') }}</p>
+                  <p v-if="!isCompactAiPanel" class="mt-1 text-xs text-slate-500">{{ tc('aiSubtitle') }}</p>
                 </div>
               </div>
               <div class="rounded-full bg-slate-100 p-1">
@@ -504,15 +510,15 @@
               </div>
             </div>
 
-            <div class="min-h-0 flex-1 overflow-y-auto p-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              <div class="rounded-[26px] border border-slate-200 bg-white p-3 shadow-sm">
+            <div :class="aiPanelBodyClass">
+              <div :class="aiPromptCardClass">
                 <textarea
                   v-model="aiPrompt"
-                  :placeholder="aiMode === 'compose' ? tc('aiComposePlaceholder') : tc('aiPolishPlaceholder')"
-                  class="min-h-[150px] w-full resize-none border-none bg-transparent px-1 py-1 text-sm leading-6 text-slate-700 outline-none placeholder:text-slate-400 focus:ring-0"
+                  :placeholder="isCompactAiPanel ? '' : (aiMode === 'compose' ? tc('aiComposePlaceholder') : tc('aiPolishPlaceholder'))"
+                  :class="aiPromptTextareaClass"
                 ></textarea>
 
-                <div class="mt-3 grid grid-cols-4 gap-2">
+                <div v-if="visibleAiQuickOptions.length > 0" :class="isCompactAiPanel ? 'mt-3 grid grid-cols-2 gap-2' : 'mt-3 grid grid-cols-4 gap-2'">
                   <button
                     v-for="option in visibleAiQuickOptions"
                     :key="option.label"
@@ -547,7 +553,7 @@
                 </div>
               </div>
 
-              <div class="mt-4 rounded-[22px] border border-slate-200 bg-white p-3">
+              <div v-if="!isCompactAiPanel" class="mt-4 rounded-[22px] border border-slate-200 bg-white p-3">
                 <div class="flex items-center justify-between">
                   <span class="text-xs font-medium text-slate-500">{{ tc('aiTone') }}</span>
                   <div class="flex rounded-full bg-slate-100 p-1">
@@ -673,6 +679,11 @@ interface SentEmailRecord {
   attachments?: HistoricalAttachmentHint[]
 }
 
+interface ReplyDraftPayload {
+  to?: string
+  subject?: string
+}
+
 const props = defineProps<{
   selectedMailboxIds?: number[]
   pageMode?: boolean
@@ -707,6 +718,8 @@ const aiGenerating = ref(false)
 const pageMode = computed(() => Boolean(props.pageMode))
 const isComposeFullscreen = ref(false)
 const aiBusy = computed(() => aiGenerating.value || polishing.value)
+const useComposeOverlay = computed(() => pageMode.value && isComposeFullscreen.value)
+const isCompactAiPanel = computed(() => pageMode.value && !isComposeFullscreen.value)
 const aiToneOptions = computed(() => [
   { value: 'formal', label: tc('toneFormal') },
   { value: 'friendly', label: tc('toneFriendly') },
@@ -729,9 +742,11 @@ const aiPolishQuickOptions = computed(() => [
   { label: tc('quickTranslate'), prompt: tc('quickTranslatePrompt') },
   { label: tc('quickCta'), prompt: tc('quickCtaPrompt') },
 ])
-const visibleAiQuickOptions = computed(() =>
-  aiMode.value === 'compose' ? aiComposeQuickOptions.value : aiPolishQuickOptions.value
-)
+const visibleAiQuickOptions = computed(() => {
+  const options = aiMode.value === 'compose' ? aiComposeQuickOptions.value : aiPolishQuickOptions.value
+  if (!pageMode.value) return options
+  return isComposeFullscreen.value ? options : options.slice(0, 2)
+})
 const selectedToneLabel = computed(() => aiToneOptions.value.find((item) => item.value === aiTone.value)?.label || '')
 const selectedLengthLabel = computed(() => aiLengthOptions.value.find((item) => item.value === aiLength.value)?.label || '')
 const bodyPanelClass = computed(() => {
@@ -752,9 +767,45 @@ const htmlTextareaClass = computed(() => {
   return 'h-full min-h-0 flex-1 resize-none'
 })
 const aiPanelClass = computed(() => {
-  return isComposeFullscreen.value
-    ? 'flex min-h-0 flex-col overflow-hidden rounded-[30px] border border-slate-200 bg-[#fbfcfb] shadow-sm'
-    : 'flex min-h-0 flex-col overflow-hidden rounded-[28px] border border-slate-200 bg-[#fbfcfb] shadow-sm'
+  if (isComposeFullscreen.value) {
+    return 'flex h-full min-h-0 self-stretch flex-col overflow-hidden rounded-[30px] border border-slate-200 bg-[#fbfcfb] shadow-sm'
+  }
+  return isCompactAiPanel.value
+    ? 'flex h-full min-h-0 self-stretch flex-col overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm'
+    : 'flex h-full min-h-0 self-stretch flex-col overflow-hidden rounded-[28px] border border-slate-200 bg-[#fbfcfb] shadow-sm'
+})
+const aiPanelBodyClass = computed(() => {
+  return isCompactAiPanel.value
+    ? 'flex min-h-0 flex-1 flex-col overflow-y-auto p-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
+    : 'min-h-0 flex-1 overflow-y-auto p-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
+})
+const aiPromptCardClass = computed(() => {
+  return isCompactAiPanel.value
+    ? 'flex min-h-0 flex-1 flex-col rounded-[26px] border border-slate-200 bg-white p-3 shadow-sm'
+    : 'rounded-[26px] border border-slate-200 bg-white p-3 shadow-sm'
+})
+const aiPromptTextareaClass = computed(() => {
+  return isCompactAiPanel.value
+    ? 'min-h-[150px] flex-1 w-full resize-none border-none bg-transparent px-1 py-1 text-sm leading-6 text-slate-700 outline-none placeholder:text-slate-400 focus:ring-0'
+    : 'min-h-[150px] w-full resize-none border-none bg-transparent px-1 py-1 text-sm leading-6 text-slate-700 outline-none placeholder:text-slate-400 focus:ring-0'
+})
+const composeSectionClass = computed(() => {
+  if (!pageMode.value) {
+    return 'compose-section rounded-[28px] border border-gray-200 bg-white shadow-sm'
+  }
+
+  if (useComposeOverlay.value) {
+    return 'compose-section fixed inset-4 z-[80] flex min-h-0 flex-col overflow-hidden rounded-[32px] border border-slate-200 bg-white px-5 py-5 shadow-2xl'
+  }
+
+  return 'compose-section flex h-full min-h-0 flex-col overflow-hidden rounded-[28px] bg-white'
+})
+const composeGridClass = computed(() => {
+  if (!pageMode.value) return 'space-y-6 px-5 py-5 sm:px-6'
+  if (useComposeOverlay.value) {
+    return 'grid min-h-0 flex-1 items-stretch gap-4 overflow-hidden pt-4 xl:grid-cols-[minmax(0,1fr)_360px]'
+  }
+  return 'grid min-h-0 flex-1 items-stretch gap-4 overflow-hidden pt-4 xl:grid-cols-[minmax(0,1fr)_320px]'
 })
 
 const selectedAccountIds = computed(() => props.selectedMailboxIds || [])
@@ -1071,6 +1122,24 @@ const loadDraftFromSent = (record: SentEmailRecord) => {
   historicalAttachmentHints.value = Array.isArray(record.attachments) ? [...record.attachments] : []
 }
 
+const loadReplyDraft = (payload: ReplyDraftPayload) => {
+  const replyTo = String(payload?.to || '').trim()
+  const replySubject = String(payload?.subject || '').trim()
+
+  recipients.value = splitEmails(replyTo)
+  recipientInput.value = ''
+  ccRecipients.value = []
+  bccRecipients.value = []
+  ccInput.value = ''
+  bccInput.value = ''
+  showCcBcc.value = false
+  form.value.subject = /^re\s*:/i.test(replySubject) ? replySubject : (replySubject ? `Re: ${replySubject}` : '')
+  attachments.value = []
+  historicalAttachmentHints.value = []
+  aiPrompt.value = ''
+  clearBodyContent()
+}
+
 const triggerImport = () => {
   fileInput.value?.click()
 }
@@ -1125,6 +1194,18 @@ const formatFileSize = (size: number) => {
   if (size < 1024) return `${size}B`
   if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)}KB`
   return `${(size / (1024 * 1024)).toFixed(1)}MB`
+}
+
+const shouldDisableSenderByError = (message: string) => {
+  const normalized = String(message || '').toLowerCase()
+  return (
+    normalized.includes('smtp 返回 543') ||
+    normalized.includes('smtp return 543') ||
+    normalized.includes('suspected spams') ||
+    normalized.includes('account(ip) invalid') ||
+    normalized.includes('account(ip)') ||
+    normalized.includes('ip invalid')
+  )
 }
 
 const handleFileImport = (event: Event) => {
@@ -1230,12 +1311,25 @@ const sendEmail = async () => {
     let saveRecordFailed = false
     const sentRecords = []
     const failedDetails: Array<{ recipient: string; message: string }> = []
+    const disabledSenderIds = new Set<number>()
+    let senderCursor = 0
 
     for (let i = 0; i < recipientList.length; i++) {
-      const account = accounts[i % accounts.length]
+      const availableAccounts = accounts.filter((account) => !disabledSenderIds.has(account.id))
+      if (availableAccounts.length === 0) {
+        failCount++
+        failedDetails.push({
+          recipient: recipientList[i],
+          message: tc('noAvailableSender'),
+        })
+        continue
+      }
+
+      const account = availableAccounts[senderCursor % availableAccounts.length]
+      senderCursor += 1
+      const contentHtml = form.value.contentHtml || plainTextToHtml(bodyContentText.value)
       try {
         const runtimeProxy = await previewRuntimeProxy(account.email)
-        const contentHtml = form.value.contentHtml || plainTextToHtml(bodyContentText.value)
         const sendResult: any = await tauriInvoke('send_smtp_email', {
           fromEmail: account.email,
           password: account.smtp_password || account.password,
@@ -1282,6 +1376,27 @@ const sendEmail = async () => {
           recipient: recipientList[i],
           message,
         })
+
+        if (shouldDisableSenderByError(message)) {
+          disabledSenderIds.add(account.id)
+          try {
+            await smtpAccountsAPI.reportSendFailure({
+              email: account.email,
+              error_message: message,
+              disable_smtp: true,
+            })
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(
+                new CustomEvent('external-smtp-status-updated', {
+                  detail: { email: account.email }
+                })
+              )
+            }
+          } catch (reportError) {
+            console.error(tc('recordSyncFailed'), reportError)
+          }
+        }
+
         sentRecords.push({
           smtp_account_id: account.smtp_id,
           external_mailbox_id: account.id,
@@ -1344,7 +1459,7 @@ const sendEmail = async () => {
     }
 
     if (saveRecordFailed) {
-      showMessage(tc('recordSyncFailed'), 'warning')
+      console.error(tc('recordSyncFailed'))
     }
   } catch (error: any) {
     const message = error.response?.data?.message || error.message || error.toString()
@@ -1421,34 +1536,28 @@ const runAiAction = async () => {
   await composeEmailWithAI()
 }
 
-const syncComposeFullscreenState = () => {
+const syncComposeOverlay = () => {
   if (typeof document === 'undefined') return
-  isComposeFullscreen.value = document.fullscreenElement === composeSectionRef.value
+  const shouldLock = useComposeOverlay.value
+  document.body.style.overflow = shouldLock ? 'hidden' : ''
+  document.documentElement.style.overflow = shouldLock ? 'hidden' : ''
+}
+
+const handleComposeOverlayKeydown = (event: KeyboardEvent) => {
+  if (event.key !== 'Escape' || !useComposeOverlay.value) return
+  isComposeFullscreen.value = false
 }
 
 const toggleComposeFullscreen = async () => {
-  if (!pageMode.value || typeof document === 'undefined') return
-
-  try {
-    if (document.fullscreenElement === composeSectionRef.value) {
-      await document.exitFullscreen()
-      return
-    }
-
-    if (document.fullscreenElement) {
-      await document.exitFullscreen()
-    }
-
-    await composeSectionRef.value?.requestFullscreen()
-  } catch (error) {
-    showMessage(tc('fullscreenFailed'), 'error')
-  }
+  if (!pageMode.value) return
+  isComposeFullscreen.value = !isComposeFullscreen.value
 }
 
 defineExpose({
   smtpAccounts,
   loadData,
   loadDraftFromSent,
+  loadReplyDraft,
 })
 
 watch(bodyMode, (mode) => {
@@ -1473,16 +1582,22 @@ watch(bodyEditor, (editor) => {
   syncBodyState(initialHtml)
 })
 
+watch(useComposeOverlay, () => {
+  syncComposeOverlay()
+})
+
 onMounted(() => {
   loadData()
   if (typeof document !== 'undefined') {
-    document.addEventListener('fullscreenchange', syncComposeFullscreenState)
+    document.addEventListener('keydown', handleComposeOverlayKeydown)
   }
 })
 
 onBeforeUnmount(() => {
   if (typeof document !== 'undefined') {
-    document.removeEventListener('fullscreenchange', syncComposeFullscreenState)
+    document.removeEventListener('keydown', handleComposeOverlayKeydown)
+    document.body.style.overflow = ''
+    document.documentElement.style.overflow = ''
   }
   bodyEditor.value?.destroy()
 })

@@ -427,7 +427,13 @@ async fn verify_smtp_connection(
     smtp_port: u16,
     proxy: Option<&RuntimeProxy>,
 ) -> Result<(), String> {
-    use lettre::transport::smtp::authentication::{Credentials, DEFAULT_MECHANISMS};
+    use lettre::{
+        Address,
+        transport::smtp::{
+            authentication::{Credentials, DEFAULT_MECHANISMS},
+            commands::{Mail, Rcpt, Rset},
+        },
+    };
 
     let mut conn = open_smtp_connection_with_proxy(smtp_host, smtp_port, proxy).await?;
     let creds = Credentials::new(email.to_string(), password.to_string());
@@ -438,6 +444,19 @@ async fn verify_smtp_connection(
         conn.abort().await;
         return Err("SMTP 连接校验失败".to_string());
     }
+
+    let sender: Address = email
+        .parse()
+        .map_err(|e| format!("SMTP 发件地址无效: {}", e))?;
+
+    conn.command(Mail::new(Some(sender.clone()), vec![]))
+        .await
+        .map_err(format_smtp_send_error)?;
+    conn.command(Rcpt::new(sender, vec![]))
+        .await
+        .map_err(format_smtp_send_error)?;
+    let _ = conn.command(Rset).await;
+
     let _ = conn.quit().await;
     Ok(())
 }

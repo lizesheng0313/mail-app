@@ -23,7 +23,11 @@ export const smtpAccountsAPI = {
 
     // 删除 SMTP 发件账号
     deleteAccount: (accountId) =>
-        api.delete(`/smtp-accounts/${accountId}`)
+        api.delete(`/smtp-accounts/${accountId}`),
+
+    // 上报发信失败（用于把被风控/被封禁账号标成不可发）
+    reportSendFailure: (data) =>
+        api.post('/smtp-accounts/report-send-failure', data)
 }
 
 export default smtpAccountsAPI

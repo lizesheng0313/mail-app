@@ -1,7 +1,8 @@
 <template>
   <div class="flex h-full min-h-0 gap-4">
-    <div class="w-[320px] flex-shrink-0 min-h-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div class="w-[272px] flex-shrink-0 min-h-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <ExternalMailboxList
+        ref="externalMailboxListRef"
         :is-send-email-view="true"
         :selected-send-ids="selectedMailboxIds"
         :smtp-accounts="smtpAccounts"
@@ -16,7 +17,7 @@
 </template>
 
 <script setup lang="ts">
-import { nextTick, onMounted, ref } from 'vue'
+import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import ExternalMailboxList from '@/components/Mail/ExternalMailbox/MailboxList.vue'
 import SendEmailPanel from '@/components/Mail/SendEmailPanel.vue'
 import smtpAccountsAPI from '@/api/smtpAccounts'
@@ -24,11 +25,19 @@ import smtpAccountsAPI from '@/api/smtpAccounts'
 const smtpAccounts = ref<any[]>([])
 const selectedMailboxIds = ref<number[]>([])
 const sendEmailPanelRef = ref<any>(null)
+const externalMailboxListRef = ref<any>(null)
 
 const DRAFT_STORAGE_KEY = 'external-bulk-send-draft'
 
-const handleSelectMailbox = (mailboxId: number) => {
-  const normalizedId = Number(mailboxId)
+const handleExternalSmtpStatusUpdated = async () => {
+  await loadSmtpAccounts()
+  await externalMailboxListRef.value?.loadAccounts?.()
+}
+
+const handleSelectMailbox = (mailbox: number | { id?: number | string | null }) => {
+  const normalizedId = Number(
+    typeof mailbox === 'object' && mailbox !== null ? mailbox.id : mailbox
+  )
   if (!Number.isFinite(normalizedId) || normalizedId <= 0) return
 
   if (selectedMailboxIds.value.includes(normalizedId)) {
@@ -67,6 +76,12 @@ const restoreDraft = async () => {
 
 onMounted(async () => {
   await loadSmtpAccounts()
+  await externalMailboxListRef.value?.loadAccounts?.()
   await restoreDraft()
+  window.addEventListener('external-smtp-status-updated', handleExternalSmtpStatusUpdated)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('external-smtp-status-updated', handleExternalSmtpStatusUpdated)
 })
 </script>
