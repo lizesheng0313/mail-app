@@ -59,6 +59,10 @@ export const batchLoginAPI = {
     }
   },
 
+  // 导出全部邮箱账号
+  exportAccounts: (requestConfig = {}) =>
+    api.get('/unified-emails/external-mailboxes/export', requestConfig),
+
   // 批量登录
   batchLogin: (accountIds = []) =>
     api.post('/batch-login/login', { account_ids: accountIds }),

@@ -7,7 +7,6 @@
     :selectedId="activeMailboxId ?? selectedId"
     :showPagination="true"
     :hideBatchMode="isSendEmailView"
-    :batch-action-text="isSendEmailView ? '' : '工作台'"
     :searchable="true"
     :search-keyword="searchKeyword"
     @select="$emit('select', $event)"
@@ -16,6 +15,16 @@
     @batch-mode-start="$emit('batch-mode-start')"
     @search="handleSearch"
   >
+    <template v-if="!isSendEmailView" #header-actions>
+      <button
+        type="button"
+        class="inline-flex h-7 items-center justify-center rounded-md bg-transparent px-2 text-xs font-medium text-primary-600 transition-colors hover:bg-primary-50 hover:text-primary-700 disabled:cursor-not-allowed disabled:text-gray-400 disabled:hover:bg-transparent"
+        :disabled="exporting || totalAccounts === 0"
+        @click="handleExportAccounts"
+      >
+        {{ exporting ? t('externalMailbox.exporting') : t('externalMailbox.exportPasswords') }}
+      </button>
+    </template>
     <template #pagination>
       <Pagination
         :current-page="currentPage"
@@ -120,7 +129,7 @@
           v-if="!isSendEmailView && toAccountId(account) in tagsData"
           :mailbox-id="toAccountId(account)"
           mailbox-type="external"
-          :editable="!batchMode"
+          :editable="true"
           :max-display="3"
           :initial-sites="tagsData[toAccountId(account)]?.sites || []"
           :initial-tags="tagsData[toAccountId(account)]?.tags || []"
@@ -316,6 +325,7 @@ const deleting = ref(false)
 const isDeleting = ref({ batch: false, ids: [] as number[] })
 const selectedId = ref<number | null>(null)
 const fetchingIds = ref<number[]>([])
+const exporting = ref(false)
 const mailboxListRef = ref()
 const tagsData = ref<Record<number, { sites: any[]; tags: any[] }>>({})
 const openMenuId = ref<number | null>(null)
@@ -596,6 +606,45 @@ const handleBatchShare = (ids: number[]) => {
 const copy = (text: string) => {
   navigator.clipboard.writeText(text)
   showMessage(t('mail.copied'), 'success')
+}
+
+const downloadTextFile = (content: string, filename: string) => {
+  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' })
+  const url = window.URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  window.URL.revokeObjectURL(url)
+}
+
+const handleExportAccounts = async () => {
+  if (exporting.value) return
+
+  exporting.value = true
+  try {
+    const response = await batchLoginAPI.exportAccounts()
+    if (response.code !== 0) {
+      showMessage(response.message || t('externalMailbox.exportFailed'), 'error')
+      return
+    }
+
+    const content = String(response.data?.content || '')
+    if (!content.trim()) {
+      showMessage(t('externalMailbox.noExportableAccounts'), 'warning')
+      return
+    }
+
+    const filename = String(response.data?.filename || `external-mailboxes-${Date.now()}.txt`)
+    downloadTextFile(content, filename)
+    showMessage(response.message || t('externalMailbox.exportSuccess'), 'success')
+  } catch (error: any) {
+    showMessage(error?.message || t('externalMailbox.exportFailed'), 'error')
+  } finally {
+    exporting.value = false
+  }
 }
 
 const handleRefreshAction = (accountId: number) => {

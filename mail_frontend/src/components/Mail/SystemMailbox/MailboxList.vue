@@ -77,7 +77,7 @@
           v-if="mailbox.id in tagsData"
           :mailbox-id="mailbox.id"
           :mailbox-type="mailboxType"
-          :editable="!batchMode"
+          :editable="true"
           :max-display="3"
           :initial-sites="tagsData[mailbox.id]?.sites || []"
           :initial-tags="tagsData[mailbox.id]?.tags || []"

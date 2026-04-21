@@ -1,8 +1,5 @@
 <template>
-  <div
-    class="flex h-full flex-col"
-    :class="batchSelection.isBatchMode.value ? 'pb-24' : ''"
-  >
+  <div class="flex h-full flex-col">
     <!-- 标题栏 -->
     <div class="border-b border-gray-200 pb-4 mb-4">
       <div class="flex min-h-8 justify-between items-center flex-wrap gap-2">
@@ -24,11 +21,11 @@
 
         <div class="flex min-h-8 min-w-8 items-center gap-1.5 flex-shrink-0 justify-end">
           <button
-            v-if="!batchSelection.isBatchMode.value && emails.length > 0"
-            @click="startBatchMode"
+            v-if="emails.length > 0"
+            @click="toggleBatchMode"
             class="inline-flex h-7 items-center justify-center rounded-md bg-transparent px-2 text-xs font-medium text-primary-600 transition-colors hover:bg-primary-50 hover:text-primary-700"
           >
-            {{ t('mail.batchAction') }}
+            {{ batchSelection.isBatchMode.value ? t('mailToolbar.exitBatch') : t('mail.batchAction') }}
           </button>
 
           <slot name="actions"></slot>
@@ -69,7 +66,6 @@
     <div
       ref="listScrollRef"
       class="flex-1 overflow-y-auto scrollbar-stable space-y-2"
-      :class="batchSelection.isBatchMode.value ? 'pb-4' : ''"
     >
       <slot 
         name="content"
@@ -96,7 +92,6 @@
     <div
       v-if="showPagination"
       class="mt-4"
-      :class="batchSelection.isBatchMode.value ? 'mb-2' : ''"
     >
       <slot name="pagination"></slot>
     </div>
@@ -186,6 +181,14 @@ const handleSelect = (email: Email) => {
 const startBatchMode = () => {
   emit('batch-mode-start')  // 通知父组件，让其他批量模式关闭
   batchSelection.startBatchMode()
+}
+
+const toggleBatchMode = () => {
+  if (batchSelection.isBatchMode.value) {
+    batchSelection.cancelBatchMode()
+    return
+  }
+  startBatchMode()
 }
 
 // 批量操作
