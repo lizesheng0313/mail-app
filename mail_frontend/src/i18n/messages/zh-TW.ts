@@ -271,6 +271,7 @@ const zhTW = {
     batchAddAlreadyExists: '無需授權（已存在）',
     initialFetchSuccessSuffix: '，首次收取完成（新增 {count} 封）',
     initialFetchFailedSuffix: '，首次收取失敗',
+    initialFetchQueuedSuffix: '，後台收取中',
     oauthTokenImportSuccess: 'OAuth Token 匯入成功{status}',
     oauthTokenImportFailed: 'Token 匯入失敗',
     desktopApiNotReady: '桌面端能力尚未就緒，請稍後重試',

@@ -4,12 +4,14 @@ use crate::mail::provider_constants::{find_hosted_provider_by_mx, find_known_pro
 use crate::mail::types::{get_server_config, EmailData, FetchResult, LoginResult, RuntimeProxy};
 use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::collections::{HashMap, HashSet};
 use std::pin::Pin;
 use std::path::PathBuf;
 use std::process::Command;
 use std::sync::{Mutex, OnceLock};
 use std::task::{Context, Poll};
+use std::time::{Duration, Instant};
 use tauri_plugin_updater::UpdaterExt;
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 
@@ -27,6 +29,14 @@ pub struct SmtpSendResult {
     smtp_port: u16,
     response_code: Option<u16>,
     response_message: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct OAuth2TokenRefreshResult {
+    access_token: String,
+    refresh_token: String,
+    expires_at: i64,
+    expires_in: i64,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -1078,6 +1088,120 @@ pub async fn fetch_emails(
     })
 }
 
+/// 本地刷新 OAuth2 token，避免批量 Outlook 令牌都从服务器 IP 请求微软。
+#[tauri::command]
+pub async fn refresh_oauth2_token_locally(
+    provider: String,
+    email: String,
+    refresh_token: String,
+    client_id: String,
+) -> Result<OAuth2TokenRefreshResult, String> {
+    let provider = provider.trim().to_lowercase();
+    let email = email.trim().to_string();
+    let refresh_token = refresh_token.trim().to_string();
+    let client_id = client_id.trim().to_string();
+
+    if refresh_token.is_empty() {
+        return Err("refresh_token 不能为空".to_string());
+    }
+    if client_id.is_empty() {
+        return Err("client_id 不能为空".to_string());
+    }
+
+    let token_url = match provider.as_str() {
+        "microsoft" | "outlook" => "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+        _ => return Err("当前仅支持 Outlook 本地刷新 token".to_string()),
+    };
+
+    let params = vec![
+        ("client_id", client_id),
+        ("refresh_token", refresh_token.clone()),
+        ("grant_type", "refresh_token".to_string()),
+    ];
+    let started_at = Instant::now();
+    info!("开始本地刷新 OAuth2 token: provider={}, email={}", provider, email);
+
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(30))
+        .build()
+        .map_err(|e| format!("创建本地刷新客户端失败: {}", e))?;
+
+    let resp = client
+        .post(token_url)
+        .form(&params)
+        .send()
+        .await
+        .map_err(|e| {
+            warn!(
+                "本地刷新 OAuth2 token 请求失败: provider={}, email={}, elapsed_ms={}, error={}",
+                provider,
+                email,
+                started_at.elapsed().as_millis(),
+                e
+            );
+            format!("本地刷新 token 请求失败: {}", e)
+        })?;
+
+    let status = resp.status();
+    let body = resp
+        .text()
+        .await
+        .map_err(|e| format!("读取本地刷新响应失败: {}", e))?;
+
+    if !status.is_success() {
+        warn!(
+            "本地刷新 OAuth2 token 返回失败: provider={}, email={}, status={}, elapsed_ms={}",
+            provider,
+            email,
+            status,
+            started_at.elapsed().as_millis()
+        );
+        return Err(format!(
+            "本地刷新 token 失败: {}",
+            body.chars().take(300).collect::<String>()
+        ));
+    }
+
+    let data: Value = serde_json::from_str(&body)
+        .map_err(|e| format!("解析本地刷新响应失败: {}", e))?;
+    let access_token = data
+        .get("access_token")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .trim()
+        .to_string();
+
+    if access_token.is_empty() {
+        return Err("本地刷新后未返回 access_token".to_string());
+    }
+
+    let new_refresh_token = data
+        .get("refresh_token")
+        .and_then(|v| v.as_str())
+        .unwrap_or(&refresh_token)
+        .trim()
+        .to_string();
+    let expires_in = data
+        .get("expires_in")
+        .and_then(|v| v.as_i64())
+        .unwrap_or(3600)
+        .max(1);
+    let expires_at = chrono::Utc::now().timestamp_millis() + expires_in * 1000;
+    info!(
+        "本地刷新 OAuth2 token 成功: provider={}, email={}, elapsed_ms={}",
+        provider,
+        email,
+        started_at.elapsed().as_millis()
+    );
+
+    Ok(OAuth2TokenRefreshResult {
+        access_token,
+        refresh_token: new_refresh_token,
+        expires_at,
+        expires_in,
+    })
+}
+
 /// 同步邮件到远程服务器，返回实际新增数量
 async fn sync_emails_to_server(
     server_url: &str,
@@ -1087,7 +1211,11 @@ async fn sync_emails_to_server(
 ) -> Result<usize, String> {
     info!("同步 {} 封邮件到服务器", emails.len());
 
-    let client = reqwest::Client::new();
+    let started_at = Instant::now();
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(20))
+        .build()
+        .map_err(|e| format!("创建同步客户端失败: {}", e))?;
     let url = format!("{}/unified-emails/external-emails/sync", server_url);
 
     let request_body = SyncEmailsRequest {
@@ -1101,7 +1229,13 @@ async fn sync_emails_to_server(
         .json(&request_body)
         .send()
         .await
-        .map_err(|e| format!("请求失败: {}", e))?;
+        .map_err(|e| {
+            if e.is_timeout() {
+                format!("同步邮件到服务器超时，请稍后手动收取")
+            } else {
+                format!("请求失败: {}", e)
+            }
+        })?;
 
     if response.status().is_success() {
         let body: serde_json::Value = response
@@ -1110,7 +1244,11 @@ async fn sync_emails_to_server(
             .map_err(|e| format!("解析响应失败: {}", e))?;
 
         let new_count = body["data"]["count"].as_u64().unwrap_or(0) as usize;
-        info!("✅ 邮件同步成功，新增 {} 封", new_count);
+        info!(
+            "✅ 邮件同步成功，新增 {} 封，耗时 {}ms",
+            new_count,
+            started_at.elapsed().as_millis()
+        );
         Ok(new_count)
     } else {
         let status = response.status();

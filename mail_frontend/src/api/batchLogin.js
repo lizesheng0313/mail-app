@@ -95,7 +95,7 @@ export const batchLoginAPI = {
 
   // ========== OAuth2 相关 ==========
 
-  // 批量导入 OAuth2 账号（通过 refresh_token + 自定义 client_id）
+  // 批量导入 OAuth2 账号（桌面端可先本地刷新 token，再交给后端入库）
   batchImportOAuth2: (accounts) =>
     api.post('/oauth2/batch-import', { accounts }),
 

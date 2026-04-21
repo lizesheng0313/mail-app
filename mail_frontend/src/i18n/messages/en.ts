@@ -278,6 +278,7 @@ const en = {
     batchAddAlreadyExists: 'Already exists, no authorization needed',
     initialFetchSuccessSuffix: ', initial fetch completed ({count} new emails)',
     initialFetchFailedSuffix: ', initial fetch failed',
+    initialFetchQueuedSuffix: ', fetching in background',
     oauthTokenImportSuccess: 'OAuth token imported successfully{status}',
     oauthTokenImportFailed: 'Token import failed',
     desktopApiNotReady: 'Desktop capability is not ready yet. Please try again later.',

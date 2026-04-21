@@ -272,6 +272,7 @@ const zhCN = {
     batchAddAlreadyExists: '无需授权（已存在）',
     initialFetchSuccessSuffix: '，首次收取完成（新增 {count} 封）',
     initialFetchFailedSuffix: '，首次收取失败',
+    initialFetchQueuedSuffix: '，后台收取中',
     oauthTokenImportSuccess: 'OAuth Token 导入成功{status}',
     oauthTokenImportFailed: 'Token 导入失败',
     desktopApiNotReady: '桌面端能力未就绪，请稍后重试',

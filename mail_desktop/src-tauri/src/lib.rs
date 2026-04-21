@@ -4,7 +4,7 @@ mod local_api_server;
 mod mail;
 mod oauth_callback_server;
 
-use commands::{add_external_mailbox, check_for_update, download_and_install_update, download_attachment, fetch_emails, get_attachment_path, is_tauri, open_external_url, open_local_attachment, recover_and_fetch_external_mailbox, recover_external_mailbox_session, send_smtp_email};
+use commands::{add_external_mailbox, check_for_update, download_and_install_update, download_attachment, fetch_emails, get_attachment_path, is_tauri, open_external_url, open_local_attachment, recover_and_fetch_external_mailbox, recover_external_mailbox_session, refresh_oauth2_token_locally, send_smtp_email};
 use local_api_server::start_local_api_server;
 use oauth_callback_server::start_oauth_callback_server;
 use tauri::Manager;
@@ -36,6 +36,7 @@ pub fn run() {
             fetch_emails,
             recover_and_fetch_external_mailbox,
             recover_external_mailbox_session,
+            refresh_oauth2_token_locally,
             is_tauri,
             check_for_update,
             download_and_install_update,

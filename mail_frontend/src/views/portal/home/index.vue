@@ -529,7 +529,7 @@
     ref="batchAddModalRef"
     :visible="showBatchAddModal"
     :loading="batchLoginLoading"
-    @close="showBatchAddModal = false"
+    @close="handleCloseBatchAddModal"
     @submit="handleBatchAddAccounts"
     @oauth-complete="handleOAuth2Complete"
   />
@@ -695,6 +695,7 @@ const showEmailModal = ref(false)
 const modalEmail = ref<any>(null)
 const showBatchAddModal = ref(false)
 const batchAddModalRef = ref<any>(null)
+const batchAddRunId = ref(0)
 const pendingOAuthAccounts = ref<Array<{ email: string; provider: string }>>([])
 const pendingOAuthBootstrapEmails = ref<string[]>([])
 const showDownloadDialog = ref(false)
@@ -1034,6 +1035,14 @@ const syncAutoRefreshStates = () => {
 const setExternalMailboxFetchingIds = (ids: number[]) => {
   externalMailboxFetchingIds.value = Array.from(
     new Set(ids.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0))
+  )
+}
+
+const addExternalMailboxFetchingIds = (ids: number[]) => {
+  const nextIds = ids.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0)
+  if (nextIds.length === 0) return
+  externalMailboxFetchingIds.value = Array.from(
+    new Set([...externalMailboxFetchingIds.value, ...nextIds])
   )
 }
 
@@ -1618,8 +1627,17 @@ const handleEmailSent = () => {
   }
 }
 
+const handleCloseBatchAddModal = () => {
+  showBatchAddModal.value = false
+  batchAddRunId.value += 1
+}
+
 // 批量添加账号
 const handleBatchAddAccounts = async (accounts: any[]) => {
+  const currentBatchAddRunId = batchAddRunId.value
+  const isBatchAddCancelled = () =>
+    currentBatchAddRunId !== batchAddRunId.value || !showBatchAddModal.value
+
   batchLoginLoading.value = true
 
   // 初始化结果列表（全部邮箱）
@@ -1710,6 +1728,58 @@ const handleBatchAddAccounts = async (accounts: any[]) => {
       return Number(fetchResult?.count || 0)
     }
 
+    const startBackgroundInitialFetch = (
+      mailboxId: number,
+      accountData: any,
+      runtimeProxy: any = null
+    ) => {
+      if (!mailboxId || !isTauri()) return
+
+      addExternalMailboxFetchingIds([mailboxId])
+      void (async () => {
+        try {
+          const tauriInvoke = await getTauriInvoke()
+          if (!tauriInvoke) {
+            throw new Error(t('home.desktopApiNotReady'))
+          }
+          await fetchNewMailboxOnce(tauriInvoke, mailboxId, accountData, runtimeProxy)
+        } catch (fetchError: any) {
+          const fetchErrorMessage = resolveErrorMessage(fetchError)
+          try {
+            await batchLoginAPI.updateMailboxStatus(mailboxId, 'failed', fetchErrorMessage)
+          } catch (statusError) {
+            console.error('更新邮箱后台收取状态失败:', statusError)
+          }
+        } finally {
+          removeExternalMailboxFetchingIds([mailboxId])
+        }
+      })()
+    }
+
+    const startBackgroundOAuthInitialFetch = (mailboxId: number, account: any) => {
+      if (!mailboxId || !isTauri()) return
+
+      addExternalMailboxFetchingIds([mailboxId])
+      void (async () => {
+        try {
+          const tauriInvoke = await getTauriInvoke()
+          if (!tauriInvoke) {
+            throw new Error(t('home.desktopApiNotReady'))
+          }
+          await fetchOAuthMailboxOnceById(tauriInvoke, mailboxId, { account })
+        } catch (fetchError: any) {
+          const fetchErrorMessage = resolveErrorMessage(fetchError)
+          try {
+            await batchLoginAPI.updateMailboxStatus(mailboxId, 'failed', fetchErrorMessage)
+          } catch (statusError) {
+            console.error('更新 OAuth 邮箱后台收取状态失败:', statusError)
+          }
+        } finally {
+          removeExternalMailboxFetchingIds([mailboxId])
+        }
+      })()
+    }
+
     const markNoNeedOAuth = (email: string) => {
       skippedCount++
       if (batchAddModalRef.value) {
@@ -1758,56 +1828,61 @@ const handleBatchAddAccounts = async (accounts: any[]) => {
     )
 
     if (tokenAccounts.length > 0) {
-      try {
-        // 根据邮箱后缀推断 provider
-        const importItems = tokenAccounts.map((account: any) => ({
-          email: account.email,
-          provider: resolveOAuthProviderByEmail(account.email),
-          password: account.password,
-          refresh_token: account.oauth_refresh_token,
-          client_id: account.oauth_client_id
-        }))
+      for (const account of tokenAccounts) {
+        if (isBatchAddCancelled()) break
+        try {
+          const provider = resolveOAuthProviderByEmail(account.email)
+          if (!provider) {
+            throw new Error(t('home.oauthReauthorizeUnsupported'))
+          }
+          let refreshedToken: any = null
 
-        const res = await batchLoginAPI.batchImportOAuth2(importItems)
-        const importResults = res.data?.results || res.results || []
-        const tauriInvoke = isTauri() ? await getTauriInvoke() : null
+          if (provider === 'microsoft') {
+            if (!isTauri()) {
+              throw new Error('Outlook Token 导入需要桌面端本地刷新')
+            }
 
-        for (const r of importResults) {
+            const tauriInvoke = await getTauriInvoke()
+            if (!tauriInvoke) {
+              throw new Error(t('home.desktopApiNotReady'))
+            }
+
+            batchAddModalRef.value?.updatePending?.(account.email, '正在本地刷新 Token')
+            refreshedToken = await tauriInvoke('refresh_oauth2_token_locally', {
+              provider,
+              email: account.email,
+              refreshToken: account.oauth_refresh_token,
+              clientId: account.oauth_client_id
+            })
+          }
+
+          batchAddModalRef.value?.updatePending?.(account.email, '正在写入账号')
+          const importItems = [{
+            email: account.email,
+            provider,
+            password: account.password,
+            refresh_token: refreshedToken?.refresh_token || account.oauth_refresh_token,
+            client_id: account.oauth_client_id,
+            access_token: refreshedToken?.access_token,
+            expires_at: refreshedToken?.expires_at
+          }]
+
+          const res = await batchLoginAPI.batchImportOAuth2(importItems)
+          const importResults = res.data?.results || res.results || []
+          const r = importResults[0]
+          if (!r) {
+            throw new Error(res.message || t('home.oauthTokenImportFailed'))
+          }
           if (r.success) {
             successCount++
-            let fetchStatus = ''
             const mailboxId = Number(r.mailbox_id || 0)
-
-            if (tauriInvoke && mailboxId > 0) {
-              try {
-                setExternalMailboxFetchingIds([mailboxId])
-                const importedAccount =
-                  tokenAccounts.find(
-                    (item: any) =>
-                      String(item.email || '').toLowerCase() === String(r.email || '').toLowerCase()
-                  ) || null
-                const newCount = await fetchOAuthMailboxOnceById(tauriInvoke, mailboxId, {
-                  account: importedAccount
-                })
-                fetchStatus = t('home.initialFetchSuccessSuffix', { count: newCount })
-              } catch (fetchError: any) {
-                const fetchErrorMessage = resolveErrorMessage(fetchError)
-                try {
-                  await batchLoginAPI.updateMailboxStatus(mailboxId, 'failed', fetchErrorMessage)
-                } catch (statusError) {
-                  console.error('更新 OAuth 邮箱收取状态失败:', statusError)
-                }
-                fetchStatus = t('home.initialFetchFailedSuffix')
-              } finally {
-                clearExternalMailboxFetchingIds()
-              }
-            }
+            startBackgroundOAuthInitialFetch(mailboxId, account)
 
             if (batchAddModalRef.value) {
               batchAddModalRef.value.updateResult(
                 r.email,
                 'success',
-                t('home.oauthTokenImportSuccess', { status: fetchStatus })
+                t('home.oauthTokenImportSuccess', { status: t('home.initialFetchQueuedSuffix') })
               )
             }
           } else {
@@ -1820,13 +1895,10 @@ const handleBatchAddAccounts = async (accounts: any[]) => {
               )
             }
           }
-        }
-      } catch (error: any) {
-        // 批量接口整体失败，逐个标记
-        for (const a of tokenAccounts) {
+        } catch (error: any) {
           failCount++
           if (batchAddModalRef.value) {
-            batchAddModalRef.value.updateResult(a.email, 'error', resolveErrorMessage(error))
+            batchAddModalRef.value.updateResult(account.email, 'error', resolveErrorMessage(error))
           }
         }
       }
@@ -1835,6 +1907,7 @@ const handleBatchAddAccounts = async (accounts: any[]) => {
     // ========== 普通账号：走密码登录流程 ==========
     // 所有邮箱都先尝试密码登录
     for (const account of normalAccounts) {
+      if (isBatchAddCancelled()) break
       const domain = account.email.split('@')[1]?.toLowerCase()
       const oauthProvider = domain ? resolveOAuthProviderByDomain(domain) : null
 
@@ -1960,28 +2033,16 @@ const handleBatchAddAccounts = async (accounts: any[]) => {
                   : canSend
                     ? t('home.smtpReceiveAndSend')
                     : t('home.smtpReceiveOnly')
-              let fetchStatus = ''
-
-              if (mailboxId > 0) {
-                try {
-                  const newCount = await fetchNewMailboxOnce(tauriInvoke, mailboxId, accountData, runtimeProxy)
-                  fetchStatus = t('home.initialFetchSuccessSuffix', { count: newCount })
-                } catch (fetchError: any) {
-                  const fetchErrorMessage = resolveErrorMessage(fetchError)
-                  try {
-                    await batchLoginAPI.updateMailboxStatus(mailboxId, 'failed', fetchErrorMessage)
-                  } catch (statusError) {
-                    console.error('更新邮箱收取状态失败:', statusError)
-                  }
-                  fetchStatus = t('home.initialFetchFailedSuffix')
-                }
-              }
+              startBackgroundInitialFetch(mailboxId, accountData, runtimeProxy)
 
               if (batchAddModalRef.value) {
                 batchAddModalRef.value.updateResult(
                   account.email,
                   'success',
-                  t('home.localVerifySuccess', { smtpStatus, status: fetchStatus })
+                  t('home.localVerifySuccess', {
+                    smtpStatus,
+                    status: t('home.initialFetchQueuedSuffix')
+                  })
                 )
               }
             } else {
@@ -2076,19 +2137,19 @@ const handleBatchAddAccounts = async (accounts: any[]) => {
     }
 
     // 如果有需要 OAuth2 授权的邮箱，在同一个弹窗内显示授权列表
-    if (pendingOAuthAccounts.value.length > 0) {
+    if (!isBatchAddCancelled() && pendingOAuthAccounts.value.length > 0) {
       if (batchAddModalRef.value?.addOAuthAccounts) {
         batchAddModalRef.value.addOAuthAccounts(pendingOAuthAccounts.value)
       }
     }
 
     // 显示结果
-    if (successCount > 0) {
+    if (!isBatchAddCancelled() && successCount > 0) {
       showMessage(t('home.batchAddSuccess', { count: successCount }), 'success')
     }
 
     // 如果有普通邮箱需要桌面端，提示下载
-    if (needDesktopDownload) {
+    if (!isBatchAddCancelled() && needDesktopDownload) {
       openDesktopDownloadDialog(t('home.desktopRequiredMessage'))
     }
 
