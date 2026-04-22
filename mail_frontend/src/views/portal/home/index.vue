@@ -1344,8 +1344,12 @@ const resolvePreferredHostedDomainId = () => {
   }
 
   const verifiedDomains = hostedDomains.value.filter(
-    (item: any) =>
-      Boolean(item?.is_active) && String(item?.verification_status || '') === 'verified'
+    (item: any) => {
+      const verificationStatus = String(
+        item?.verification_status || item?.status || ''
+      ).toLowerCase()
+      return item?.is_active !== false && verificationStatus === 'verified'
+    }
   )
   if (!verifiedDomains.length) {
     return null

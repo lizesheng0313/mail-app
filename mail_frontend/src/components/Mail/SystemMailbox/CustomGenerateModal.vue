@@ -490,8 +490,11 @@ const syncCustomGenerateDomainSelection = () => {
 const normalizeHostedDomainRows = (items: any[] = []) =>
   items
     .filter((item: any) => {
-      const isVerified = String(item?.verification_status || '').toLowerCase() === 'verified'
-      const isActive = Boolean(item?.is_active)
+      const verificationStatus = String(
+        item?.verification_status || item?.status || ''
+      ).toLowerCase()
+      const isVerified = verificationStatus === 'verified'
+      const isActive = item?.is_active !== false
       const isDeleted = Boolean(item?.is_deleted)
       const expiresAt = Number(item?.expires_at || 0)
       const isExpired = expiresAt > 0 && expiresAt < Date.now()
