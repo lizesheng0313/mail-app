@@ -12,6 +12,7 @@ use std::process::Command;
 use std::sync::{Mutex, OnceLock};
 use std::task::{Context, Poll};
 use std::time::{Duration, Instant};
+use tauri::{AppHandle, Emitter};
 use tauri_plugin_updater::UpdaterExt;
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 
@@ -21,6 +22,7 @@ const HISTORY_BACKFILL_THRESHOLD: usize = 100;
 const AUTO_RECOVERY_MAX_FAILURES: u32 = 3;
 const AUTO_RECOVERY_WINDOW_MS: i64 = 30 * 60 * 1000;
 const AUTO_RECOVERY_LIMIT_MARKER: &str = "__AUTO_RECOVERY_LIMIT__::";
+const EXTERNAL_VERIFY_PROGRESS_EVENT: &str = "external-verify-progress";
 
 #[derive(Debug, Clone, Serialize)]
 pub struct SmtpSendResult {
@@ -37,6 +39,26 @@ pub struct OAuth2TokenRefreshResult {
     refresh_token: String,
     expires_at: i64,
     expires_in: i64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct ExternalVerifyProgressPayload {
+    email: String,
+    stage: String,
+    message: String,
+}
+
+fn emit_external_verify_progress(app: Option<&AppHandle>, email: &str, stage: &str, message: &str) {
+    if let Some(app_handle) = app {
+        let _ = app_handle.emit(
+            EXTERNAL_VERIFY_PROGRESS_EVENT,
+            ExternalVerifyProgressPayload {
+                email: email.to_string(),
+                stage: stage.to_string(),
+                message: message.to_string(),
+            },
+        );
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -474,8 +496,8 @@ async fn verify_smtp_connection(
 /// 添加外部邮箱（验证登录）
 /// 前端调用：invoke('add_external_mailbox', { email, password, protocol, host?, port?, verifySmtp? })
 /// protocol: "imap" | "pop3" | "auto"（自动检测，先试IMAP再试POP3）
-#[tauri::command]
-pub async fn add_external_mailbox(
+async fn add_external_mailbox_inner(
+    app: Option<&AppHandle>,
     email: String,
     password: String,
     protocol: String,
@@ -503,12 +525,19 @@ pub async fn add_external_mailbox(
 
     // 用户指定了自定义服务器
     if let (Some(h), Some(p)) = (host.clone(), port) {
+        emit_external_verify_progress(
+            app,
+            &email,
+            &proto,
+            if proto == "imap" { "IMAP 验证中" } else { "POP3 验证中" },
+        );
         let mut result = if proto == "imap" {
             mail::imap::verify_login(&email, &password, &h, p, proxy.clone()).await?
         } else {
             mail::pop3::verify_login(&email, &password, &h, p, proxy.clone()).await?
         };
         if result.success && should_verify_smtp {
+            emit_external_verify_progress(app, &email, "smtp", "SMTP 验证中");
             try_smtp_verify(&mut result, &email, &password, domain, proxy.as_ref()).await;
         }
         return Ok(result);
@@ -521,18 +550,22 @@ pub async fn add_external_mailbox(
     if proto == "auto" {
         // 自动模式：先试 IMAP，失败再试 POP3
         info!("自动检测协议：先尝试 IMAP {}:{}", config.imap_host, config.imap_port);
+        emit_external_verify_progress(app, &email, "imap", "IMAP 验证中");
         let mut imap_result = mail::imap::verify_login(&email, &password, &config.imap_host, config.imap_port, proxy.clone()).await?;
         if imap_result.success {
             if should_verify_smtp {
+                emit_external_verify_progress(app, &email, "smtp", "SMTP 验证中");
                 try_smtp_verify(&mut imap_result, &email, &password, domain, proxy.as_ref()).await;
             }
             return Ok(imap_result);
         }
 
         info!("IMAP 登录失败({}), 尝试 POP3 {}:{}", imap_result.message, config.pop3_host, config.pop3_port);
+        emit_external_verify_progress(app, &email, "pop3", "POP3 验证中");
         let mut pop3_result = mail::pop3::verify_login(&email, &password, &config.pop3_host, config.pop3_port, proxy.clone()).await?;
         if pop3_result.success {
             if should_verify_smtp {
+                emit_external_verify_progress(app, &email, "smtp", "SMTP 验证中");
                 try_smtp_verify(&mut pop3_result, &email, &password, domain, proxy.as_ref()).await;
             }
             return Ok(pop3_result);
@@ -551,18 +584,58 @@ pub async fn add_external_mailbox(
             smtp_error: None,
         })
     } else if proto == "imap" {
+        emit_external_verify_progress(app, &email, "imap", "IMAP 验证中");
         let mut result = mail::imap::verify_login(&email, &password, &config.imap_host, config.imap_port, proxy.clone()).await?;
         if result.success && should_verify_smtp {
+            emit_external_verify_progress(app, &email, "smtp", "SMTP 验证中");
             try_smtp_verify(&mut result, &email, &password, domain, proxy.as_ref()).await;
         }
         Ok(result)
     } else {
+        emit_external_verify_progress(app, &email, "pop3", "POP3 验证中");
         let mut result = mail::pop3::verify_login(&email, &password, &config.pop3_host, config.pop3_port, proxy.clone()).await?;
         if result.success && should_verify_smtp {
+            emit_external_verify_progress(app, &email, "smtp", "SMTP 验证中");
             try_smtp_verify(&mut result, &email, &password, domain, proxy.as_ref()).await;
         }
         Ok(result)
     }
+}
+
+#[tauri::command]
+pub async fn add_external_mailbox(
+    app: tauri::AppHandle,
+    email: String,
+    password: String,
+    protocol: String,
+    host: Option<String>,
+    port: Option<u16>,
+    verify_smtp: Option<bool>,
+    proxy: Option<RuntimeProxy>,
+) -> Result<LoginResult, String> {
+    add_external_mailbox_inner(
+        Some(&app),
+        email,
+        password,
+        protocol,
+        host,
+        port,
+        verify_smtp,
+        proxy,
+    )
+    .await
+}
+
+pub async fn add_external_mailbox_without_events(
+    email: String,
+    password: String,
+    protocol: String,
+    host: Option<String>,
+    port: Option<u16>,
+    verify_smtp: Option<bool>,
+    proxy: Option<RuntimeProxy>,
+) -> Result<LoginResult, String> {
+    add_external_mailbox_inner(None, email, password, protocol, host, port, verify_smtp, proxy).await
 }
 
 /// 获取本地出口 IP（用于验证）
@@ -827,7 +900,7 @@ async fn recover_external_mailbox_session_inner(
         .map_err(|e| finalize_recovery_failure(mailbox_id, e))?;
     let (host, port, protocol) = resolve_relogin_server(&config)?;
 
-    let login_result = add_external_mailbox(
+    let login_result = add_external_mailbox_without_events(
         config.email.clone(),
         config.password.clone(),
         protocol,

@@ -803,9 +803,13 @@ const composeSectionClass = computed(() => {
 const composeGridClass = computed(() => {
   if (!pageMode.value) return 'space-y-6 px-5 py-5 sm:px-6'
   if (useComposeOverlay.value) {
-    return 'grid min-h-0 flex-1 items-stretch gap-4 overflow-hidden pt-4 xl:grid-cols-[minmax(0,1fr)_360px]'
+    return isDesktop.value
+      ? 'grid min-h-0 flex-1 items-stretch gap-4 overflow-hidden pt-4 grid-cols-[minmax(0,1fr)_360px]'
+      : 'grid min-h-0 flex-1 items-stretch gap-4 overflow-hidden pt-4 lg:grid-cols-[minmax(0,1fr)_360px]'
   }
-  return 'grid min-h-0 flex-1 items-stretch gap-4 overflow-hidden pt-4 xl:grid-cols-[minmax(0,1fr)_320px]'
+  return isDesktop.value
+    ? 'grid min-h-0 flex-1 items-stretch gap-4 overflow-hidden pt-4 grid-cols-[minmax(0,1fr)_320px]'
+    : 'grid min-h-0 flex-1 items-stretch gap-4 overflow-hidden pt-4 lg:grid-cols-[minmax(0,1fr)_320px]'
 })
 
 const selectedAccountIds = computed(() => props.selectedMailboxIds || [])

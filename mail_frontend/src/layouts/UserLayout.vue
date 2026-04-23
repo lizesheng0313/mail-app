@@ -166,7 +166,7 @@ const menuSections = computed(() => [
     items: [
       {
         path: '/user/external-batch-verify',
-        label: `${t('userLayout.batchVerify')}（桌面端）`,
+        label: t('userLayout.batchVerify'),
         icon: {
           render: () =>
             h('svg', { fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' }, [
@@ -181,7 +181,7 @@ const menuSections = computed(() => [
       },
       {
         path: '/user/external-bulk-send',
-        label: `${t('userLayout.bulkSend')}（桌面端）`,
+        label: t('userLayout.bulkSend'),
         icon: {
           render: () =>
             h('svg', { fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' }, [

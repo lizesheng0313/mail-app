@@ -1,4 +1,4 @@
-use crate::commands::{add_external_mailbox, fetch_emails, send_smtp_email, SendEmailAttachment};
+use crate::commands::{add_external_mailbox_without_events, fetch_emails, send_smtp_email, SendEmailAttachment};
 use crate::mail::types::RuntimeProxy;
 use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
@@ -245,7 +245,7 @@ async fn handle_http_request(request: HttpRequest) -> HttpResponse {
         ),
         ("POST", "/local-api/v1/external-mailboxes/verify") => {
             match parse_json::<VerifyMailboxRequest>(&request.body) {
-                Ok(payload) => match add_external_mailbox(
+                Ok(payload) => match add_external_mailbox_without_events(
                     payload.email,
                     payload.password,
                     payload.protocol,

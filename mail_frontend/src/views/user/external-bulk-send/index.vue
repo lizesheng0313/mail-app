@@ -1,6 +1,9 @@
 <template>
   <div class="flex h-full min-h-0 flex-col gap-4">
-    <div class="flex items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+    <div
+      v-if="!isDesktop"
+      class="flex items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"
+    >
       <svg class="h-5 w-5 flex-shrink-0 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 4h.01M10.29 3.86l-7.5 13A1 1 0 003.65 18h16.7a1 1 0 00.86-1.5l-7.5-13a1 1 0 00-1.72 0z" />
       </svg>
@@ -30,6 +33,7 @@ import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import ExternalMailboxList from '@/components/Mail/ExternalMailbox/MailboxList.vue'
 import SendEmailPanel from '@/components/Mail/SendEmailPanel.vue'
 import smtpAccountsAPI from '@/api/smtpAccounts'
+import { isTauri } from '@/services/api'
 
 const smtpAccounts = ref<any[]>([])
 const selectedMailboxIds = ref<number[]>([])
@@ -37,6 +41,7 @@ const sendEmailPanelRef = ref<any>(null)
 const externalMailboxListRef = ref<any>(null)
 
 const DRAFT_STORAGE_KEY = 'external-bulk-send-draft'
+const isDesktop = isTauri()
 
 const handleExternalSmtpStatusUpdated = async () => {
   await loadSmtpAccounts()

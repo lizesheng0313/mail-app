@@ -1,6 +1,9 @@
 <template>
   <div class="flex h-full min-h-0 flex-col gap-4 pb-4">
-    <div class="flex items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+    <div
+      v-if="!isDesktop"
+      class="flex items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"
+    >
       <svg class="h-5 w-5 flex-shrink-0 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 4h.01M10.29 3.86l-7.5 13A1 1 0 003.65 18h16.7a1 1 0 00.86-1.5l-7.5-13a1 1 0 00-1.72 0z" />
       </svg>
@@ -69,7 +72,9 @@
 
     <div
       class="grid min-h-0 flex-1 gap-4"
-      :class="showSidePanel ? 'xl:grid-cols-2' : 'grid-cols-1'"
+      :class="showSidePanel
+        ? (isDesktop ? 'grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]' : 'grid-cols-1 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]')
+        : 'grid-cols-1'"
     >
       <section class="flex min-h-0 flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <div class="flex items-start justify-between gap-4">
@@ -222,7 +227,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import * as XLSX from 'xlsx'
 import externalVerifyPoolAPI from '@/api/externalVerifyPool'
 import mailboxProxyApi from '@/api/mailboxProxy'
@@ -251,6 +256,8 @@ const liveProgress = ref({
 })
 const GOOGLE_OAUTH_TOKEN_DOMAIN_SUFFIXES = ['gmail.com', 'googlemail.com']
 const MICROSOFT_OAUTH_TOKEN_DOMAIN_SUFFIXES = ['outlook.', 'hotmail.', 'live.', 'msn.', 'live.cn']
+const isDesktop = isTauri()
+let unlistenVerifyProgress: null | (() => void) = null
 
 const getTauriInvoke = async () => {
   if (!isTauri()) return null
@@ -554,7 +561,8 @@ const resolveSmtpBadge = (item: any) => {
 const resolvePanelTooltip = (item: any) => {
   if (showLivePanel.value) {
     if (item.status === 'success') return ''
-    if (item.status === 'running' || item.status === 'pending') return ''
+    if (item.status === 'running') return item.message || '验证中'
+    if (item.status === 'pending') return ''
     if (item.status === 'error') return compactDetailMessage(item.message || '')
     return item.message || '等待验号'
   }
@@ -563,7 +571,7 @@ const resolvePanelTooltip = (item: any) => {
 
 const resolvePanelShortMessage = (item: any) => {
   if (showLivePanel.value) {
-    if (item.status === 'running') return '验证中'
+    if (item.status === 'running') return item.message || '验证中'
     if (item.status === 'pending') return '等待验证'
     if (item.status === 'error') return simplifyErrorMessage(item.message || '')
     return ''
@@ -586,6 +594,22 @@ const buildLiveResultItem = (item: any) => ({
         : '验号通过')
     : (item.error_message || item.verify_message || '等待验号')
 })
+
+const resolveRunningMessage = (protocol: string) => {
+  const normalized = String(protocol || 'auto').toLowerCase()
+  if (normalized === 'imap') return 'IMAP 验证中'
+  if (normalized === 'pop3') return 'POP3 验证中'
+  return 'IMAP 验证中'
+}
+
+const handleVerifyProgressEvent = (payload: any) => {
+  const email = String(payload?.email || '').trim().toLowerCase()
+  if (!email) return
+  const currentLiveItem = liveResults.value.find((entry: any) => String(entry?.email || '').trim().toLowerCase() === email)
+  if (!currentLiveItem || currentLiveItem.status === 'success' || currentLiveItem.status === 'error') return
+  currentLiveItem.status = 'running'
+  currentLiveItem.message = String(payload?.message || '').trim() || '验证中'
+}
 
 const loadBatchRows = async (batchNo: string) => {
   if (!batchNo) return
@@ -750,7 +774,7 @@ const runImportedVerification = async (importedItems: any[], batchNo: string, pr
       const currentLiveItem = liveResults.value.find((entry: any) => entry.id === item.id)
       if (currentLiveItem) {
         currentLiveItem.status = 'running'
-        currentLiveItem.message = '正在连接邮箱'
+        currentLiveItem.message = resolveRunningMessage(item?.input_protocol || item?.protocol || 'auto')
       }
       const protocol = String(item?.input_protocol || 'auto').toLowerCase() || 'auto'
       const host = protocol === 'imap' ? item?.imap_host : protocol === 'pop3' ? item?.pop3_host : null
@@ -832,7 +856,7 @@ const runImportedVerification = async (importedItems: any[], batchNo: string, pr
         const currentLiveItem = liveResults.value.find((entry: any) => entry.id === item.id)
         if (currentLiveItem) {
           currentLiveItem.status = 'running'
-          currentLiveItem.message = '正在验证 OAuth Token'
+          currentLiveItem.message = 'OAuth Token 验证中'
         }
 
         const oauthVerifyResponse: any = await externalVerifyPoolAPI.verifyOAuthCandidates({
@@ -880,11 +904,6 @@ const runImportedVerification = async (importedItems: any[], batchNo: string, pr
       await loadBatchRows(currentBatchNo.value)
     }
 
-    const successCount = verifyResults.filter((item) => item.success).length
-    const failedCount = verifyResults.length - successCount
-    const smtpCount = verifyResults.filter((item) => item.success && item.smtp_verified).length
-    const smtpMessage = verifySmtp.value ? `，SMTP可发 ${smtpCount}` : ''
-    showMessage(`验号完成：成功 ${successCount}，失败 ${failedCount}${smtpMessage}`, successCount > 0 ? 'success' : 'warning')
   } finally {
     liveProgress.value.currentEmail = ''
     verifying.value = false
@@ -968,6 +987,20 @@ const retryFailedItems = async () => {
 
 onMounted(async () => {
   await loadProxyOptions()
+  if (!isDesktop) return
+  try {
+    const { listen } = await import('@tauri-apps/api/event')
+    unlistenVerifyProgress = await listen('external-verify-progress', (event: any) => {
+      handleVerifyProgressEvent(event?.payload)
+    })
+  } catch (error) {
+    console.error('注册验号进度监听失败', error)
+  }
+})
+
+onBeforeUnmount(() => {
+  unlistenVerifyProgress?.()
+  unlistenVerifyProgress = null
 })
 </script>
 
