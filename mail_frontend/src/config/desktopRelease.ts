@@ -1,4 +1,4 @@
-export const DESKTOP_RELEASE_VERSION = '3.8.2'
+export const DESKTOP_RELEASE_VERSION = '3.9.0'
 
 const DESKTOP_RELEASE_BASE_URL = 'https://zjkdongao.cn/downloads'
 
