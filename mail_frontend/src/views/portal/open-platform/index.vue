@@ -108,7 +108,13 @@
             <div class="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
               <div class="rounded-2xl bg-gray-50 p-5">
                 <p class="text-sm font-semibold text-gray-900">{{ t('openPlatform.step1Title') }}</p>
-                <p class="mt-2 text-sm leading-6 text-gray-600">{{ t('openPlatform.step1Desc') }}</p>
+                <p class="mt-2 text-sm leading-6 text-gray-600">
+                  {{ t('openPlatform.step1DescPrefix') }}
+                  <router-link to="/user/developer/api-keys" class="text-primary-600 hover:text-primary-700">
+                    {{ t('openPlatform.step1DescLink') }}
+                  </router-link>
+                  {{ t('openPlatform.step1DescSuffix') }}
+                </p>
               </div>
               <div class="rounded-2xl bg-gray-50 p-5">
                 <p class="text-sm font-semibold text-gray-900">{{ t('openPlatform.step2Title') }}</p>
@@ -117,6 +123,31 @@
               <div class="rounded-2xl bg-gray-50 p-5">
                 <p class="text-sm font-semibold text-gray-900">{{ t('openPlatform.step3Title') }}</p>
                 <p class="mt-2 text-sm leading-6 text-gray-600">{{ t('openPlatform.step3Desc') }}</p>
+              </div>
+            </div>
+
+            <div class="mt-6 overflow-hidden rounded-xl border border-gray-200">
+              <div class="border-b border-gray-200 bg-gray-50 px-4 py-3 text-sm font-medium text-gray-900">{{ t('openPlatform.commonHeadersTitle') }}</div>
+              <div class="divide-y divide-gray-100">
+                <div
+                  v-for="header in commonHeaders"
+                  :key="header.name"
+                  class="grid grid-cols-1 gap-2 px-4 py-3 lg:grid-cols-[220px,1fr]"
+                >
+                  <div>
+                    <div class="flex flex-wrap items-center gap-2">
+                      <code class="text-sm text-primary-700">{{ header.name }}</code>
+                      <span
+                        :class="header.required ? 'bg-red-50 text-red-700' : 'bg-gray-100 text-gray-600'"
+                        class="rounded-full px-2 py-0.5 text-xs"
+                      >
+                        {{ header.required ? t('common.required') : t('common.optional') }}
+                      </span>
+                    </div>
+                    <div class="mt-1 text-xs text-gray-500">{{ header.type }}</div>
+                  </div>
+                  <div class="text-sm leading-6 text-gray-600">{{ header.description }}</div>
+                </div>
               </div>
             </div>
 
@@ -343,6 +374,13 @@ type EndpointTarget = {
   kind: 'desktop' | 'online'
 }
 
+type CommonHeaderItem = {
+  name: string
+  required: boolean
+  type: string
+  description: string
+}
+
 const loading = ref(false)
 const meta = ref<any>(null)
 const docsData = ref<any>(null)
@@ -560,9 +598,18 @@ const getAuthModeLabel = (mode?: string) => {
   return mode || '-'
 }
 
+const commonHeaders = computed<CommonHeaderItem[]>(() => [
+  {
+    name: 'X-API-Key',
+    required: true,
+    type: 'string',
+    description: t('openPlatform.commonApiKeyDesc')
+  }
+])
+
 const sampleCurl = computed(() => {
   const origin = typeof window !== 'undefined' ? window.location.origin : ''
-  return `curl -X GET '${origin}/open/v1/verification-codes/latest?mailbox_type=system' \\\n  -H 'Authorization: Bearer sk_live_xxx'`
+  return `curl -X GET '${origin}/open/v1/verification-codes/latest?mailbox_type=system' \\\n  -H 'X-API-Key: sk_live_xxx'`
 })
 
 const getScopeLabel = (scope?: string) => {
@@ -594,13 +641,15 @@ const getEndpointParameters = (endpoint: EndpointItem) => {
   const schema = endpoint.request_schema
   const properties = schema?.properties || {}
   const requiredSet = new Set(Array.isArray(schema?.required) ? schema.required : [])
-  return Object.entries(properties).map(([name, item]: [string, any]) => ({
-    name,
-    required: requiredSet.has(name),
-    type: getSchemaTypeLabel(item),
-    enumText: Array.isArray(item?.enum) && item.enum.length ? item.enum.join(' / ') : '',
-    description: String(item?.description || '').trim()
-  }))
+  return Object.entries(properties)
+    .filter(([name]) => String(name).toLowerCase() !== 'x-api-key')
+    .map(([name, item]: [string, any]) => ({
+      name,
+      required: requiredSet.has(name),
+      type: getSchemaTypeLabel(item),
+      enumText: Array.isArray(item?.enum) && item.enum.length ? item.enum.join(' / ') : '',
+      description: String(item?.description || '').trim()
+    }))
 }
 
 const hasRenderableExample = (value: any) => {
