@@ -40,7 +40,7 @@
               </svg>
               <div class="ml-3 text-sm text-primary-800">
                 <p class="font-medium">预计维护时间：5-10分钟</p>
-                <p class="mt-1">如有紧急问题，请查看关于我们页面</p>
+                <p class="mt-1">如有紧急问题，请查看帮助中心页面</p>
               </div>
             </div>
           </div>
@@ -65,7 +65,7 @@
                 <svg class="mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                关于
+                帮助中心
               </span>
             </button>
           </div>
@@ -108,7 +108,7 @@ const retry = () => {
   window.location.reload()
 }
 
-// 跳转到关于我们页面
+// 跳转到帮助中心页面
 const goToAbout = () => {
   visible.value = false
   router.push('/about')

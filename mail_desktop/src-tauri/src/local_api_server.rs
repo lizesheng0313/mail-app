@@ -29,6 +29,7 @@ struct VerifyMailboxRequest {
 
 #[derive(Debug, Deserialize)]
 struct FetchMailboxRequest {
+    #[serde(default)]
     mailbox_id: i64,
     email: String,
     #[serde(default)]
@@ -37,7 +38,9 @@ struct FetchMailboxRequest {
     protocol: String,
     host: Option<String>,
     port: Option<u16>,
+    #[serde(default)]
     token: String,
+    #[serde(default)]
     server_url: String,
     auth_type: Option<String>,
     access_token: Option<String>,
@@ -47,16 +50,62 @@ struct FetchMailboxRequest {
 #[derive(Debug, Deserialize)]
 struct SendEmailRequest {
     from_email: String,
-    password: String,
-    smtp_host: String,
-    smtp_port: u16,
     to_email: String,
     subject: String,
+    #[serde(default)]
     content: String,
     content_html: Option<String>,
     cc: Option<String>,
     bcc: Option<String>,
     attachments: Option<Vec<SendEmailAttachment>>,
+    proxy: Option<RuntimeProxy>,
+}
+
+#[derive(Debug, Deserialize)]
+struct OpenApiValidationResponse {
+    code: i32,
+    message: String,
+    data: Option<AuthorizedSmtpAccount>,
+}
+
+#[derive(Debug, Deserialize)]
+struct AuthorizedSmtpAccount {
+    from_email: String,
+    password: String,
+    smtp_host: String,
+    smtp_port: u16,
+}
+
+#[derive(Debug, Deserialize)]
+struct OpenApiFetchAuthorizeResponse {
+    code: i32,
+    message: String,
+    data: Option<AuthorizedFetchMailbox>,
+}
+
+#[derive(Debug, Deserialize)]
+struct AuthorizedFetchMailbox {
+    mailbox_id: i64,
+    email: String,
+    password: String,
+    protocol: String,
+    host: Option<String>,
+    port: Option<u16>,
+    auth_type: Option<String>,
+    access_token: Option<String>,
+}
+
+struct ResolvedFetchMailboxRequest {
+    mailbox_id: i64,
+    email: String,
+    password: String,
+    protocol: String,
+    host: Option<String>,
+    port: Option<u16>,
+    token: String,
+    server_url: String,
+    auth_type: Option<String>,
+    access_token: Option<String>,
     proxy: Option<RuntimeProxy>,
 }
 
@@ -278,29 +327,39 @@ async fn handle_http_request(request: HttpRequest) -> HttpResponse {
         }
         ("POST", "/local-api/v1/external-mailboxes/fetch") => {
             match parse_json::<FetchMailboxRequest>(&request.body) {
-                Ok(payload) => match fetch_emails(
-                    payload.mailbox_id,
-                    payload.email,
-                    payload.password,
-                    payload.protocol,
-                    payload.host,
-                    payload.port,
-                    payload.token,
-                    payload.server_url,
-                    payload.auth_type,
-                    payload.access_token,
-                    payload.proxy,
-                )
-                .await
-                {
-                    Ok(result) => HttpResponse::json(
-                        200,
-                        LocalApiResponse {
-                            code: 0,
-                            message: "本地收信成功".to_string(),
-                            data: serde_json::to_value(result).unwrap_or(json!(None::<String>)),
-                        },
-                    ),
+                Ok(payload) => match resolve_fetch_mailbox_request(&request.headers, payload).await {
+                    Ok(resolved) => match fetch_emails(
+                        resolved.mailbox_id,
+                        resolved.email,
+                        resolved.password,
+                        resolved.protocol,
+                        resolved.host,
+                        resolved.port,
+                        resolved.token,
+                        resolved.server_url,
+                        resolved.auth_type,
+                        resolved.access_token,
+                        resolved.proxy,
+                    )
+                    .await
+                    {
+                        Ok(result) => HttpResponse::json(
+                            200,
+                            LocalApiResponse {
+                                code: 0,
+                                message: "本地收信成功".to_string(),
+                                data: serde_json::to_value(result).unwrap_or(json!(None::<String>)),
+                            },
+                        ),
+                        Err(err) => HttpResponse::json(
+                            200,
+                            LocalApiResponse {
+                                code: 1,
+                                message: err,
+                                data: json!(None::<String>),
+                            },
+                        ),
+                    },
                     Err(err) => HttpResponse::json(
                         200,
                         LocalApiResponse {
@@ -314,30 +373,40 @@ async fn handle_http_request(request: HttpRequest) -> HttpResponse {
             }
         }
         ("POST", "/local-api/v1/smtp/send") => match parse_json::<SendEmailRequest>(&request.body) {
-            Ok(payload) => match send_smtp_email(
-                payload.from_email,
-                payload.password,
-                payload.smtp_host,
-                payload.smtp_port,
-                payload.to_email,
-                payload.subject,
-                payload.content,
-                payload.content_html,
-                payload.cc,
-                payload.bcc,
-                payload.attachments,
-                payload.proxy,
-            )
-            .await
-            {
-                Ok(result) => HttpResponse::json(
-                    200,
-                    LocalApiResponse {
-                        code: 0,
-                        message: "本地发信成功".to_string(),
-                        data: serde_json::to_value(result).unwrap_or(json!({"success": true})),
-                    },
-                ),
+            Ok(payload) => match validate_local_send_api_key(&request.headers, &payload.from_email).await {
+                Ok(account) => match send_smtp_email(
+                    account.from_email,
+                    account.password,
+                    account.smtp_host,
+                    account.smtp_port,
+                    payload.to_email,
+                    payload.subject,
+                    payload.content,
+                    payload.content_html,
+                    payload.cc,
+                    payload.bcc,
+                    payload.attachments,
+                    payload.proxy,
+                )
+                .await
+                {
+                    Ok(result) => HttpResponse::json(
+                        200,
+                        LocalApiResponse {
+                            code: 0,
+                            message: "本地发信成功".to_string(),
+                            data: serde_json::to_value(result).unwrap_or(json!({"success": true})),
+                        },
+                    ),
+                    Err(err) => HttpResponse::json(
+                        200,
+                        LocalApiResponse {
+                            code: 1,
+                            message: err,
+                            data: json!(None::<String>),
+                        },
+                    ),
+                },
                 Err(err) => HttpResponse::json(
                     200,
                     LocalApiResponse {
@@ -358,6 +427,118 @@ async fn handle_http_request(request: HttpRequest) -> HttpResponse {
             },
         ),
     }
+}
+
+async fn validate_local_send_api_key(
+    headers: &HashMap<String, String>,
+    from_email: &str,
+) -> Result<AuthorizedSmtpAccount, String> {
+    let api_key = headers
+        .get("x-api-key")
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .ok_or("请在请求头传 X-API-Key".to_string())?;
+
+    let client = reqwest::Client::new();
+    let resp = client
+        .post(format!("{}/open/v1/desktop-local/smtp/send/authorize", OPEN_API_PROXY_ORIGIN))
+        .header("X-API-Key", api_key)
+        .header("Accept-Language", "zh-CN")
+        .json(&json!({ "from_email": from_email }))
+        .send()
+        .await
+        .map_err(|err| format!("校验访问密钥失败: {}", err))?;
+
+    let status = resp.status();
+    let body = resp
+        .json::<OpenApiValidationResponse>()
+        .await
+        .map_err(|err| format!("读取访问密钥校验结果失败: {}", err))?;
+
+    if status.is_success() && body.code == 0 {
+        return body.data.ok_or("授权结果缺少发信配置".to_string());
+    }
+
+    if body.message.trim().is_empty() {
+        return Err("访问密钥无效".to_string());
+    }
+
+    Err(body.message)
+}
+
+async fn resolve_fetch_mailbox_request(
+    headers: &HashMap<String, String>,
+    payload: FetchMailboxRequest,
+) -> Result<ResolvedFetchMailboxRequest, String> {
+    if let Some(api_key) = headers
+        .get("x-api-key")
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+    {
+        let account = authorize_local_fetch_mailbox(&api_key, &payload.email).await?;
+        return Ok(ResolvedFetchMailboxRequest {
+            mailbox_id: account.mailbox_id,
+            email: account.email,
+            password: account.password,
+            protocol: account.protocol,
+            host: account.host,
+            port: account.port,
+            token: api_key,
+            server_url: format!("{}/open/v1/desktop-local", OPEN_API_PROXY_ORIGIN),
+            auth_type: account.auth_type,
+            access_token: account.access_token,
+            proxy: payload.proxy,
+        });
+    }
+
+    if payload.mailbox_id <= 0 || payload.token.trim().is_empty() || payload.server_url.trim().is_empty() {
+        return Err("请在请求头传 X-API-Key，或传完整的内部收信参数".to_string());
+    }
+
+    Ok(ResolvedFetchMailboxRequest {
+        mailbox_id: payload.mailbox_id,
+        email: payload.email,
+        password: payload.password,
+        protocol: payload.protocol,
+        host: payload.host,
+        port: payload.port,
+        token: payload.token,
+        server_url: payload.server_url,
+        auth_type: payload.auth_type,
+        access_token: payload.access_token,
+        proxy: payload.proxy,
+    })
+}
+
+async fn authorize_local_fetch_mailbox(
+    api_key: &str,
+    email: &str,
+) -> Result<AuthorizedFetchMailbox, String> {
+    let client = reqwest::Client::new();
+    let resp = client
+        .post(format!("{}/open/v1/desktop-local/external-mailboxes/fetch/authorize", OPEN_API_PROXY_ORIGIN))
+        .header("X-API-Key", api_key)
+        .header("Accept-Language", "zh-CN")
+        .json(&json!({ "email": email }))
+        .send()
+        .await
+        .map_err(|err| format!("校验收信权限失败: {}", err))?;
+
+    let status = resp.status();
+    let body = resp
+        .json::<OpenApiFetchAuthorizeResponse>()
+        .await
+        .map_err(|err| format!("读取收信授权结果失败: {}", err))?;
+
+    if status.is_success() && body.code == 0 {
+        return body.data.ok_or("授权结果缺少收信配置".to_string());
+    }
+
+    if body.message.trim().is_empty() {
+        return Err("收信授权失败".to_string());
+    }
+
+    Err(body.message)
 }
 
 async fn forward_open_request(request: HttpRequest) -> HttpResponse {
@@ -444,7 +625,7 @@ fn cors_headers() -> Vec<(&'static str, &'static str)> {
     vec![
         ("Access-Control-Allow-Origin", "*"),
         ("Access-Control-Allow-Methods", "GET, POST, OPTIONS"),
-        ("Access-Control-Allow-Headers", "Content-Type, Authorization"),
+        ("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key"),
     ]
 }
 

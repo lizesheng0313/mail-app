@@ -195,10 +195,10 @@ const router = createRouter({
       component: AboutPage,
       meta: {
         seo: {
-          title: '关于肥猫猫 - 邮箱管理与邮件自动化平台',
+          title: '帮助中心 - 肥猫猫邮箱服务',
           description:
-            '了解肥猫猫的产品定位与服务能力。我们提供邮箱管理、第三方邮箱接入、工作流市场和邮件自动化解决方案。',
-          keywords: '关于我们, 邮箱管理, 第三方邮箱, 邮件自动化, 工作流市场, 肥猫猫',
+            '查看肥猫猫邮箱服务的帮助中心，了解临时邮箱、域名邮箱、第三方邮箱的使用方式与常见操作。',
+          keywords: '帮助中心, 临时邮箱, 域名邮箱, 第三方邮箱, 验号, 收件, DNS, 肥猫猫',
           canonicalPath: '/about'
         }
       }

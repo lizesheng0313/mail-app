@@ -69,7 +69,7 @@ const zhTW = {
     automationCenter: '自動化中心',
     batchWorkbench: '批量工作台',
     downloadClient: '下載客戶端',
-    about: '關於我們',
+    about: '幫助中心',
     login: '登入',
     notices: '公告通知',
     systemAnnouncements: '系統公告',
@@ -215,7 +215,7 @@ const zhTW = {
       '肥貓貓郵箱服務是一個郵箱管理平台，提供臨時郵箱收件、第三方郵箱批量接入、郵件批量收發以及郵件自動化工作流，幫助個人和團隊更高效地管理多郵箱任務。',
     workflowMarket: '工作流市場',
     downloadDesktop: '下載桌面端',
-    learnMore: '了解產品',
+    learnMore: '幫助中心',
     refreshing: '刷新中',
     refreshNow: '立即刷新',
     viewAll: '查看全部',
@@ -293,17 +293,17 @@ const zhTW = {
     windowsReq: 'Windows 10/11（64 位）'
   },
   about: {
-    title: '關於我們',
-    subtitle: '郵箱管理與郵件自動化平台',
+    title: '幫助中心',
+    subtitle: '按臨時郵箱、網域郵箱、第三方郵箱整理的使用指南',
     introTitle: '簡介',
     introBody:
-      '這是一個面向個人與團隊的郵箱管理平台，提供第三方郵箱接入、多郵箱統一處理、郵件自動化工作流與外掛擴充等功能。我們致力於為用戶提供高效、穩定、易用的郵件管理與協作解決方案。',
+      '這裡會逐步整理產品操作文件，後續每個功能都盡量配圖，方便用戶按步驟完成接入、收件、驗號和配置。',
     contactTitle: '聯絡我們',
     wechatTitle: '微信聯繫',
     wechatDesc: '如有問題或建議，歡迎添加微信諮詢',
     wechatId: '微信號：',
     copy: '複製',
-    thanks: '感謝您使用本系統，我們將持續優化產品體驗',
+    thanks: '幫助中心會持續補充截圖和常見問題',
     copied: '微信號已複製到剪貼簿',
     copyFailed: '複製失敗，請手動複製'
   },
@@ -2228,10 +2228,10 @@ const zhTW = {
         keywords: ''
       },
       about: {
-        title: '關於肥貓貓 - 郵箱管理與郵件自動化平台',
+        title: '幫助中心 - 肥貓貓郵箱服務',
         description:
-          '了解肥貓貓的產品定位與服務能力。我們提供郵箱管理、第三方郵箱接入、工作流市場和郵件自動化解決方案。',
-        keywords: '關於我們, 郵箱管理, 第三方郵箱, 郵件自動化, 工作流市場, 肥貓貓'
+          '查看臨時郵箱、網域郵箱、第三方郵箱的使用說明，後續會持續補截圖和常見問題。',
+        keywords: '幫助中心, 臨時郵箱, 網域郵箱, 第三方郵箱, 驗號, 收件, DNS'
       },
       privacyPolicy: {
         title: '隱私權政策 - 肥貓貓',

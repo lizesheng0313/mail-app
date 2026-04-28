@@ -69,7 +69,7 @@ const en = {
     automationCenter: 'Automation',
     batchWorkbench: 'Batch Workbench',
     downloadClient: 'Download',
-    about: 'About',
+    about: 'Help Center',
     login: 'Sign in',
     notices: 'Announcements',
     systemAnnouncements: 'System Announcements',
@@ -221,7 +221,7 @@ const en = {
       'FeiMao Mail is a mailbox management platform for temporary inboxes, external mailbox connections, bulk mail handling, and email automation workflows.',
     workflowMarket: 'Workflow marketplace',
     downloadDesktop: 'Download desktop app',
-    learnMore: 'Learn more',
+    learnMore: 'Help Center',
     refreshing: 'Refreshing',
     refreshNow: 'Refresh now',
     viewAll: 'View all',
@@ -300,17 +300,17 @@ const en = {
     windowsReq: 'Windows 10/11 (64-bit)'
   },
   about: {
-    title: 'About Us',
-    subtitle: 'Mailbox management and email automation',
+    title: 'Help Center',
+    subtitle: 'Guides for temporary mailboxes, domain mailboxes, and external mailboxes',
     introTitle: 'Overview',
     introBody:
-      'This platform helps individuals and teams connect external mailboxes, manage multiple inboxes in one place, and automate email workflows with plugins and reusable tools.',
+      'This page collects product guides and will gradually add screenshots for each feature so users can follow the steps more easily.',
     contactTitle: 'Contact Us',
     wechatTitle: 'WeChat Support',
     wechatDesc: 'If you have questions or suggestions, feel free to reach out on WeChat.',
     wechatId: 'WeChat ID:',
     copy: 'Copy',
-    thanks: 'Thanks for using our service. We will keep improving the product experience.',
+    thanks: 'The help center will keep adding screenshots and common questions.',
     copied: 'WeChat ID copied to clipboard',
     copyFailed: 'Copy failed. Please copy it manually.'
   },
@@ -2283,11 +2283,11 @@ const en = {
         keywords: ''
       },
       about: {
-        title: 'About FeiMao Mail - Mailbox Management and Email Automation',
+        title: 'Help Center - FeiMao Mail',
         description:
-          'Learn about FeiMao Mail, our product direction, and how we help teams manage mailbox operations and automation workflows.',
+          'Read guides for temporary mailboxes, domain mailboxes, and external mailboxes, with more screenshots to be added later.',
         keywords:
-          'about, mailbox management, external mailbox, email automation, workflow marketplace'
+          'help center, temporary mailbox, domain mailbox, external mailbox, verification, dns, receiving mail'
       },
       privacyPolicy: {
         title: 'Privacy Policy - FeiMao Mail',

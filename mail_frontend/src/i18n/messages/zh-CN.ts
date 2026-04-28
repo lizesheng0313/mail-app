@@ -69,7 +69,7 @@ const zhCN = {
     automationCenter: '自动化中心',
     batchWorkbench: '批量工作台',
     downloadClient: '下载客户端',
-    about: '关于我们',
+    about: '帮助中心',
     login: '登录',
     notices: '公告通知',
     systemAnnouncements: '系统公告',
@@ -216,7 +216,7 @@ const zhCN = {
       '肥猫猫邮箱服务是一个邮箱管理平台，提供临时邮箱收件、第三方邮箱批量接入、邮件批量收发以及邮件自动化工作流，帮助个人和团队更高效地管理多邮箱任务。',
     workflowMarket: '工作流市场',
     downloadDesktop: '下载桌面端',
-    learnMore: '了解产品',
+    learnMore: '帮助中心',
     refreshing: '刷新中',
     refreshNow: '立即刷新',
     viewAll: '查看全部',
@@ -294,17 +294,17 @@ const zhCN = {
     windowsReq: 'Windows 10/11（64 位）'
   },
   about: {
-    title: '关于我们',
-    subtitle: '邮箱管理与邮件自动化平台',
+    title: '帮助中心',
+    subtitle: '按临时邮箱、域名邮箱、第三方邮箱整理的使用指南',
     introTitle: '简介',
     introBody:
-      '这是一个面向个人与团队的邮箱管理平台，提供第三方邮箱接入、多邮箱统一处理、邮件自动化工作流与插件扩展等功能。我们致力于为用户提供高效、稳定、易用的邮件管理与协作解决方案。',
+      '这里会逐步整理产品操作文档，后续每个功能都尽量配图，方便用户按步骤完成接入、收件、验号和配置。',
     contactTitle: '联系我们',
     wechatTitle: '微信联系',
     wechatDesc: '如有问题或建议，欢迎添加微信咨询',
     wechatId: '微信号：',
     copy: '复制',
-    thanks: '感谢您使用本系统，我们将持续优化产品体验',
+    thanks: '帮助中心会持续补充截图和常见问题',
     copied: '微信号已复制到剪贴板',
     copyFailed: '复制失败，请手动复制'
   },
@@ -2229,10 +2229,10 @@ const zhCN = {
         keywords: ''
       },
       about: {
-        title: '关于肥猫猫 - 邮箱管理与邮件自动化平台',
+        title: '帮助中心 - 肥猫猫邮箱服务',
         description:
-          '了解肥猫猫的产品定位与服务能力。我们提供邮箱管理、第三方邮箱接入、工作流市场和邮件自动化解决方案。',
-        keywords: '关于我们, 邮箱管理, 第三方邮箱, 邮件自动化, 工作流市场, 肥猫猫'
+          '查看临时邮箱、域名邮箱、第三方邮箱的使用说明，后续会持续补截图和常见问题。',
+        keywords: '帮助中心, 临时邮箱, 域名邮箱, 第三方邮箱, 验号, 收件, DNS'
       },
       privacyPolicy: {
         title: '隐私权政策 - 肥猫猫',
