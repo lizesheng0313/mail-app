@@ -11,7 +11,7 @@
           <slot name="header-actions"></slot>
 
           <button
-            v-if="!hideBatchMode && mailboxes.length > 0"
+            v-if="!hideDefaultBatchAction && !hideBatchMode && mailboxes.length > 0"
             @click="toggleBatchMode"
             class="inline-flex h-7 items-center justify-center rounded-md bg-transparent px-2 text-xs font-medium text-primary-600 transition-colors hover:bg-primary-50 hover:text-primary-700"
           >
@@ -111,6 +111,7 @@ interface Props {
   emptyText?: string
   showPagination?: boolean
   hideBatchMode?: boolean
+  hideDefaultBatchAction?: boolean
   searchable?: boolean
   searchKeyword?: string
   searchPlaceholder?: string
@@ -124,6 +125,7 @@ const props = withDefaults(defineProps<Props>(), {
   emptyText: '',
   showPagination: false,
   hideBatchMode: false,
+  hideDefaultBatchAction: false,
   searchable: false,
   searchKeyword: '',
   searchPlaceholder: '',
@@ -226,6 +228,7 @@ const cancelBatchMode = () => {
 
 defineExpose({
   cancelBatchMode,
+  toggleBatchMode,
   isBatchMode: batchSelection.isBatchMode,
   selectedIds: batchSelection.selectedIds,
   toggleSelection: batchSelection.toggleSelection

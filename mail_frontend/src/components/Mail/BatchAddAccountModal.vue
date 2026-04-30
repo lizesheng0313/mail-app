@@ -500,17 +500,18 @@ const parseAccounts = () => {
   const lines = accountsText.value.trim().split('\n')
   const accounts: any[] = []
 
-  for (const line of lines) {
-    if (!line.trim()) continue
+  lines.forEach((line, index) => {
+    if (!line.trim()) return
 
     let processedLine = line.trim()
     processedLine = processedLine.replace(/^卡号[：:]\s*/i, '')
 
-    const parts = processedLine.split(/[\s]+|[-]{2,}|[—–]+/).filter(p => p.trim())
+    const parts = processedLine.split(/[\s]+|[-]{2,}|[—–]+|[,，]/).filter(p => p.trim())
 
     if (parts.length >= 2) {
       const email = parts[0].trim()
       const domain = (email.split('@')[1] || '').toLowerCase()
+      const rowId = `${index}-${email || 'unknown'}`
 
       // 4段格式：邮箱----密码----Client_ID----Refresh_Token（OAuth Token 批量导入）
       if (parts.length >= 4 && isOAuthTokenDomain(domain)) {
@@ -519,13 +520,14 @@ const parseAccounts = () => {
         const oauthRefreshToken = parts[3].trim()
 
         accounts.push({
+          row_id: rowId,
           email,
           password,
           verify_smtp: enableSmtp.value,
           oauth_client_id: oauthClientId,
           oauth_refresh_token: oauthRefreshToken,
         })
-        continue
+        return
       }
 
       const password = parts.length >= 3 ? parts[2].trim() : parts[1].trim()
@@ -543,6 +545,7 @@ const parseAccounts = () => {
       }
 
       const account: any = { email, password, protocol: proto, verify_smtp: enableSmtp.value }
+      account.row_id = rowId
       if (selectedProxyId.value) {
         account.proxy_id = Number(selectedProxyId.value)
       }
@@ -559,7 +562,7 @@ const parseAccounts = () => {
 
       accounts.push(account)
     }
-  }
+  })
 
   return accounts
 }
@@ -581,12 +584,16 @@ const extractEmailFromInputLine = (line: string) => {
 const removeInputLineByEmail = (email: string) => {
   const target = normalizeEmail(email)
   if (!target) return
+  let removed = false
 
   accountsText.value = String(accountsText.value || '')
     .split('\n')
     .filter((line) => {
       const lineEmail = extractEmailFromInputLine(line)
-      return !lineEmail || lineEmail !== target
+      if (removed) return true
+      if (!lineEmail || lineEmail !== target) return true
+      removed = true
+      return false
     })
     .join('\n')
     .trim()
@@ -933,23 +940,45 @@ const handleClose = () => {
 
 // ===== 暴露方法给父组件 =====
 defineExpose({
-  updatePending: (email: string, message?: string) => {
-    const index = results.value.findIndex(r => r.email === email)
+  updatePending: (rowIdOrEmail: string, message?: string) => {
+    const index = results.value.findIndex(
+      r => r.row_id === rowIdOrEmail || r.email === rowIdOrEmail
+    )
     if (index !== -1) {
-      results.value[index] = { email, status: 'pending', message }
+      results.value[index] = {
+        ...results.value[index],
+        status: 'pending',
+        message
+      }
     }
   },
-  updateResult: (email: string, status: 'success' | 'error' | 'skipped', message?: string) => {
-    const index = results.value.findIndex(r => r.email === email)
+  updateResult: (rowIdOrEmail: string, status: 'success' | 'error' | 'skipped', message?: string) => {
+    const index = results.value.findIndex(
+      r => r.row_id === rowIdOrEmail || r.email === rowIdOrEmail
+    )
     if (index !== -1) {
-      results.value[index] = { email, status, message }
+      results.value[index] = {
+        ...results.value[index],
+        status,
+        message
+      }
     }
     if (status === 'success' || status === 'skipped') {
-      removeInputLineByEmail(email)
+      const targetEmail = index !== -1 ? results.value[index].email : rowIdOrEmail
+      removeInputLineByEmail(targetEmail)
     }
   },
-  initResults: (emails: string[]) => {
-    results.value = emails.map(email => ({ email, status: 'pending' as const }))
+  initResults: (rows: Array<string | { row_id?: string; email: string }>) => {
+    results.value = rows.map((row, index) => {
+      if (typeof row === 'string') {
+        return { row_id: `${index}-${row}`, email: row, status: 'pending' as const }
+      }
+      return {
+        row_id: row.row_id || `${index}-${row.email}`,
+        email: row.email,
+        status: 'pending' as const
+      }
+    })
   },
   clearResults: () => {
     results.value = []

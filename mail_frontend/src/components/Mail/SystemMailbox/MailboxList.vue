@@ -152,10 +152,10 @@
     :visible="showConfirm"
     :mask="false"
     :title="isDeleting.batch ? t('systemMailbox.batchDeleteTitle') : t('systemMailbox.deleteTitle')"
-    :message="isDeleting.batch ? t('systemMailbox.deleteBatchMessage', { count: isDeleting.ids.length }) : t('systemMailbox.deleteSingleMessage')"
+    :message="isDeleting.batch ? t('systemMailbox.deleteBatchMessage', { count: pendingDeleteCount }) : t('systemMailbox.deleteSingleMessage')"
     :loading="deleting"
     @confirm="confirmDelete"
-    @cancel="showConfirm = false"
+    @cancel="closeDeleteConfirm"
   />
 </template>
 
@@ -313,6 +313,22 @@ const handleDelete = (id: number) => {
   showConfirm.value = true
 }
 
+const normalizeIds = (ids: unknown): number[] => {
+  const rawIds = Array.isArray(ids)
+    ? ids
+    : Array.isArray((ids as any)?.value)
+      ? (ids as any).value
+      : []
+
+  return Array.from(
+    new Set(
+      rawIds
+        .map((item) => Number(item))
+        .filter((item) => Number.isFinite(item) && item > 0)
+    )
+  )
+}
+
 const closeActionMenu = () => {
   if (closeMenuTimer) {
     clearTimeout(closeMenuTimer)
@@ -327,11 +343,19 @@ const resolveMenuPlacement = (event: Event) => {
 
   const triggerRect = target.getBoundingClientRect()
   const scrollContainer = target.closest('.scrollbar-stable') as HTMLElement | null
+  const containerTop = scrollContainer
+    ? Math.max(scrollContainer.getBoundingClientRect().top, 0)
+    : 0
   const containerBottom = scrollContainer
     ? Math.min(scrollContainer.getBoundingClientRect().bottom, window.innerHeight)
     : window.innerHeight
+  const menuHeight = 160
+  const spaceAbove = triggerRect.top - containerTop
   const spaceBelow = containerBottom - triggerRect.bottom
-  return spaceBelow < 160 ? 'up' : 'down'
+
+  if (spaceBelow >= menuHeight) return 'down'
+  if (spaceAbove >= menuHeight) return 'up'
+  return spaceBelow >= spaceAbove ? 'down' : 'up'
 }
 
 const openActionMenu = (mailboxId: number, event: Event) => {
@@ -398,6 +422,31 @@ const handleBatchDelete = (ids: number[]) => {
   showConfirm.value = true
 }
 
+const getCurrentBatchSelectedIds = () => normalizeIds(mailboxListRef.value?.selectedIds)
+
+const filterDeletableIds = (ids: number[]) =>
+  ids.filter((id) => {
+    const targetMailbox = resolvedMailboxes.value.find((item: any) => Number(item.id) === Number(id))
+    return !targetMailbox || !isProtectedHostedCatchAll(targetMailbox)
+  })
+
+const resolvePendingDeleteIds = () => {
+  if (!isDeleting.value.batch) {
+    return normalizeIds(isDeleting.value.ids)
+  }
+
+  const currentIds = getCurrentBatchSelectedIds()
+  const sourceIds = currentIds.length ? currentIds : normalizeIds(isDeleting.value.ids)
+  return filterDeletableIds(sourceIds)
+}
+
+const pendingDeleteCount = computed(() => resolvePendingDeleteIds().length)
+
+const closeDeleteConfirm = () => {
+  showConfirm.value = false
+  isDeleting.value = { batch: false, ids: [] }
+}
+
 const handleBatchShare = (ids: number[]) => {
   console.log('🟢 系统邮箱 - 批量分享，ids:', ids)
   // 获取选中的邮箱对象
@@ -440,7 +489,14 @@ const handleWindowClick = () => {
 const confirmDelete = async () => {
   deleting.value = true
   try {
-    const deletedIds = [...isDeleting.value.ids]
+    const deletedIds = resolvePendingDeleteIds()
+    if (!deletedIds.length) {
+      showMessage(
+        isDeleting.value.batch ? t('systemMailbox.selectDeleteWarning') : t('systemMailbox.deleteFailed'),
+        isDeleting.value.batch ? 'warning' : 'error'
+      )
+      return
+    }
     if (isDeleting.value.batch) {
       // 使用批量删除接口
       await unifiedAPI.batchDeleteMailboxes(deletedIds, props.mailboxType)
@@ -468,7 +524,7 @@ const confirmDelete = async () => {
     }
   } finally {
     deleting.value = false
-    showConfirm.value = false
+    closeDeleteConfirm()
   }
 }
 

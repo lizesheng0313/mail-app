@@ -7,6 +7,7 @@
     :selectedId="activeMailboxId ?? selectedId"
     :showPagination="true"
     :hideBatchMode="isSendEmailView"
+    :hide-default-batch-action="!isSendEmailView"
     :searchable="true"
     :search-keyword="searchKeyword"
     @select="$emit('select', $event)"
@@ -16,14 +17,55 @@
     @search="handleSearch"
   >
     <template v-if="!isSendEmailView" #header-actions>
-      <button
-        type="button"
-        class="inline-flex h-7 items-center justify-center rounded-md bg-transparent px-2 text-xs font-medium text-primary-600 transition-colors hover:bg-primary-50 hover:text-primary-700 disabled:cursor-not-allowed disabled:text-gray-400 disabled:hover:bg-transparent"
-        :disabled="exporting || totalAccounts === 0"
-        @click="handleExportAccounts"
-      >
-        {{ exporting ? t('externalMailbox.exporting') : t('externalMailbox.exportPasswords') }}
-      </button>
+      <div class="relative">
+        <button
+          type="button"
+          class="inline-flex h-7 items-center justify-center gap-1 rounded-md bg-transparent px-2 text-xs font-medium text-primary-600 transition-colors hover:bg-primary-50 hover:text-primary-700"
+          :title="t('externalMailbox.moreActions')"
+          @click.stop="toggleHeaderActionMenu"
+        >
+          <span>{{ t('externalMailbox.moreActions') }}</span>
+          <BaseIcon :name="showHeaderActionMenu ? 'chevron-up' : 'chevron-down'" size="xs" />
+        </button>
+        <div
+          v-if="showHeaderActionMenu"
+          class="absolute right-0 top-full z-20 mt-2 min-w-[160px] overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg"
+          @click.stop
+        >
+          <button
+            v-if="isDesktop"
+            type="button"
+            class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+            :disabled="fetchingAllDisabled"
+            @click.stop="handleFetchAllAction"
+          >
+            <BaseIcon
+              name="refresh"
+              size="sm"
+              :class="{ 'animate-spin': props.fetchingAll }"
+            />
+            {{ props.fetchingAll ? t('home.fetchingAll') : t('home.fetchAll') }}
+          </button>
+          <button
+            type="button"
+            class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+            :disabled="exporting || totalAccounts === 0"
+            @click.stop="handleExportAccounts"
+          >
+            <BaseIcon name="download" size="sm" />
+            {{ exporting ? t('externalMailbox.exporting') : t('externalMailbox.exportPasswords') }}
+          </button>
+          <button
+            type="button"
+            class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+            :disabled="totalAccounts === 0"
+            @click.stop="toggleBatchActionMode"
+          >
+            <BaseIcon name="list" size="sm" />
+            {{ isBatchModeActive ? t('mailToolbar.exitBatch') : t('mail.batchAction') }}
+          </button>
+        </div>
+      </div>
     </template>
     <template #pagination>
       <Pagination
@@ -135,11 +177,7 @@
           :initial-tags="tagsData[toAccountId(account)]?.tags || []"
         />
         <template v-if="!isSendEmailView" #actions>
-          <div
-            class="relative"
-            @mouseenter="handleActionMenuEnter(toAccountId(account), $event)"
-            @mouseleave="handleActionMenuLeave(toAccountId(account))"
-          >
+          <div class="relative">
             <button
               type="button"
               class="flex h-8 w-8 items-center justify-center rounded-full text-gray-500 transition-colors hover:bg-white hover:text-gray-700"
@@ -205,10 +243,10 @@
     :visible="showConfirm"
     :mask="false"
     :title="isDeleting.batch ? t('externalMailbox.batchDeleteTitle') : t('externalMailbox.deleteTitle')"
-    :message="isDeleting.batch ? t('externalMailbox.deleteBatchMessage', { count: isDeleting.ids.length }) : t('externalMailbox.deleteSingleMessage')"
+    :message="isDeleting.batch ? t('externalMailbox.deleteBatchMessage', { count: pendingDeleteCount }) : t('externalMailbox.deleteSingleMessage')"
     :loading="deleting"
     @confirm="confirmDelete"
-    @cancel="showConfirm = false"
+    @cancel="closeDeleteConfirm"
   />
 </template>
 
@@ -236,6 +274,7 @@ const props = defineProps<{
   activeMailboxId?: number | null
   selectedSendIds?: number[]
   smtpAccounts?: any[]
+  fetchingAll?: boolean
   fetchingIds?: number[]
 }>()
 const { t } = useI18n()
@@ -313,6 +352,7 @@ const handleItemClick = (
 const emit = defineEmits<{
   select: [id: number]
   refresh: []
+  'fetch-all': []
   share: [mailboxes: any[]]
   'oauth-reauthorize': [account: any]
   'batch-mode-start': []
@@ -328,13 +368,20 @@ const fetchingIds = ref<number[]>([])
 const exporting = ref(false)
 const mailboxListRef = ref()
 const tagsData = ref<Record<number, { sites: any[]; tags: any[] }>>({})
+const showHeaderActionMenu = ref(false)
 const openMenuId = ref<number | null>(null)
 const openMenuPlacement = ref<'up' | 'down'>('down')
-let closeMenuTimer: ReturnType<typeof setTimeout> | null = null
 const mergedFetchingIds = computed(() => {
   const ids = [...(props.fetchingIds || []), ...fetchingIds.value]
   return Array.from(new Set(ids))
 })
+const isBatchModeActive = computed(() => Boolean(mailboxListRef.value?.isBatchMode?.value))
+const fetchingAllDisabled = computed(
+  () =>
+    totalAccounts.value === 0 ||
+    Boolean(props.fetchingAll) ||
+    mergedFetchingIds.value.length > 0
+)
 
 // 分页数据
 const currentPage = ref(1)
@@ -375,11 +422,11 @@ const handleRecoveredMailbox = () => {
 }
 
 const closeActionMenu = () => {
-  if (closeMenuTimer) {
-    clearTimeout(closeMenuTimer)
-    closeMenuTimer = null
-  }
   openMenuId.value = null
+}
+
+const closeHeaderActionMenu = () => {
+  showHeaderActionMenu.value = false
 }
 
 const resolveMenuPlacement = (event: Event) => {
@@ -388,35 +435,34 @@ const resolveMenuPlacement = (event: Event) => {
 
   const triggerRect = target.getBoundingClientRect()
   const scrollContainer = target.closest('.scrollbar-stable') as HTMLElement | null
+  const containerTop = scrollContainer
+    ? Math.max(scrollContainer.getBoundingClientRect().top, 0)
+    : 0
   const containerBottom = scrollContainer
     ? Math.min(scrollContainer.getBoundingClientRect().bottom, window.innerHeight)
     : window.innerHeight
+  const menuHeight = isDesktop ? 200 : 168
+  const spaceAbove = triggerRect.top - containerTop
   const spaceBelow = containerBottom - triggerRect.bottom
-  return spaceBelow < 200 ? 'up' : 'down'
+
+  if (spaceBelow >= menuHeight) return 'down'
+  if (spaceAbove >= menuHeight) return 'up'
+  return spaceBelow >= spaceAbove ? 'down' : 'up'
 }
 
 const openActionMenu = (accountId: number, event: Event) => {
-  if (closeMenuTimer) {
-    clearTimeout(closeMenuTimer)
-    closeMenuTimer = null
+  if (openMenuId.value === accountId) {
+    closeActionMenu()
+    return
   }
+  closeHeaderActionMenu()
   openMenuId.value = accountId
   openMenuPlacement.value = resolveMenuPlacement(event)
 }
 
-const handleActionMenuEnter = (accountId: number, event: Event) => {
-  openActionMenu(accountId, event)
-}
-
-const handleActionMenuLeave = (accountId: number) => {
-  if (openMenuId.value === accountId) {
-    closeMenuTimer = setTimeout(() => {
-      if (openMenuId.value === accountId) {
-        openMenuId.value = null
-      }
-      closeMenuTimer = null
-    }, 160)
-  }
+const toggleHeaderActionMenu = () => {
+  showHeaderActionMenu.value = !showHeaderActionMenu.value
+  closeActionMenu()
 }
 
 const applyAccountsPagination = (pagination?: any, fallbackCount = accounts.value.length) => {
@@ -561,6 +607,40 @@ const handleDelete = (id: number) => {
   showConfirm.value = true
 }
 
+const normalizeIds = (ids: unknown): number[] => {
+  const rawIds = Array.isArray(ids)
+    ? ids
+    : Array.isArray((ids as any)?.value)
+      ? (ids as any).value
+      : []
+
+  return Array.from(
+    new Set(
+      rawIds
+        .map((item) => Number(item))
+        .filter((item) => Number.isFinite(item) && item > 0)
+    )
+  )
+}
+
+const getCurrentBatchSelectedIds = () => normalizeIds(mailboxListRef.value?.selectedIds)
+
+const resolvePendingDeleteIds = () => {
+  if (!isDeleting.value.batch) {
+    return normalizeIds(isDeleting.value.ids)
+  }
+
+  const currentIds = getCurrentBatchSelectedIds()
+  return currentIds.length ? currentIds : normalizeIds(isDeleting.value.ids)
+}
+
+const pendingDeleteCount = computed(() => resolvePendingDeleteIds().length)
+
+const closeDeleteConfirm = () => {
+  showConfirm.value = false
+  isDeleting.value = { batch: false, ids: [] }
+}
+
 const handleShare = (account: any) => {
   emit('share', [account])
 }
@@ -603,6 +683,11 @@ const handleBatchShare = (ids: number[]) => {
   emit('share', selectedAccounts)
 }
 
+const toggleBatchActionMode = () => {
+  closeHeaderActionMenu()
+  mailboxListRef.value?.toggleBatchMode?.()
+}
+
 const copy = (text: string) => {
   navigator.clipboard.writeText(text)
   showMessage(t('mail.copied'), 'success')
@@ -620,9 +705,30 @@ const downloadTextFile = (content: string, filename: string) => {
   window.URL.revokeObjectURL(url)
 }
 
+const saveTextFileOnDesktop = async (content: string, filename: string) => {
+  const { save } = await import('@tauri-apps/plugin-dialog')
+  const { writeFile } = await import('@tauri-apps/plugin-fs')
+
+  const savePath = await save({
+    defaultPath: filename,
+    filters: [
+      {
+        name: 'Text',
+        extensions: ['txt'],
+      },
+    ],
+  })
+
+  if (!savePath) return false
+
+  await writeFile(savePath, new TextEncoder().encode(content))
+  return true
+}
+
 const handleExportAccounts = async () => {
   if (exporting.value) return
 
+  closeHeaderActionMenu()
   exporting.value = true
   try {
     const response = await batchLoginAPI.exportAccounts()
@@ -638,13 +744,24 @@ const handleExportAccounts = async () => {
     }
 
     const filename = String(response.data?.filename || `external-mailboxes-${Date.now()}.txt`)
-    downloadTextFile(content, filename)
+    if (isDesktop) {
+      const saved = await saveTextFileOnDesktop(content, filename)
+      if (!saved) return
+    } else {
+      downloadTextFile(content, filename)
+    }
     showMessage(response.message || t('externalMailbox.exportSuccess'), 'success')
   } catch (error: any) {
     showMessage(error?.message || t('externalMailbox.exportFailed'), 'error')
   } finally {
     exporting.value = false
   }
+}
+
+const handleFetchAllAction = () => {
+  if (fetchingAllDisabled.value) return
+  closeHeaderActionMenu()
+  emit('fetch-all')
 }
 
 const handleRefreshAction = (accountId: number) => {
@@ -654,22 +771,30 @@ const handleRefreshAction = (accountId: number) => {
 
 const handleWindowClick = () => {
   closeActionMenu()
+  closeHeaderActionMenu()
 }
 
 const confirmDelete = async () => {
   deleting.value = true
   try {
-    const deletedIds = [...isDeleting.value.ids]
+    const deletedIds = resolvePendingDeleteIds()
+    if (!deletedIds.length) {
+      showMessage(t('externalMailbox.selectDeleteWarning'), 'warning')
+      return
+    }
     await Promise.all(deletedIds.map((id) => unifiedAPI.deleteMailbox(id, 'external')))
     showMessage(t('externalMailbox.batchDeleted', { count: deletedIds.length }))
     emit('deleted', deletedIds)
+    if (isDeleting.value.batch && mailboxListRef.value?.cancelBatchMode) {
+      mailboxListRef.value.cancelBatchMode()
+    }
     await loadAccounts()
     emit('refresh')
   } catch (e: any) {
     showMessage(e.message || t('systemMailbox.deleteFailed'), 'error')
   } finally {
     deleting.value = false
-    showConfirm.value = false
+    closeDeleteConfirm()
   }
 }
 
@@ -821,10 +946,6 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
-  if (closeMenuTimer) {
-    clearTimeout(closeMenuTimer)
-    closeMenuTimer = null
-  }
   window.removeEventListener('click', handleWindowClick)
   window.removeEventListener('external-mailbox-recovered', handleRecoveredMailbox)
   window.removeEventListener('external-mailbox-updated', handleRecoveredMailbox)

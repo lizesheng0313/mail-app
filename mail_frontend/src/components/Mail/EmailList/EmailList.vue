@@ -211,6 +211,7 @@ const scrollToTop = () => {
 defineExpose({
   cancelBatchMode,
   clearSearch,
-  scrollToTop
+  scrollToTop,
+  selectedIds: batchSelection.selectedIds
 })
 </script>

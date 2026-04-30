@@ -232,10 +232,17 @@ import * as XLSX from 'xlsx'
 import externalVerifyPoolAPI from '@/api/externalVerifyPool'
 import mailboxProxyApi from '@/api/mailboxProxy'
 import { isTauri } from '@/services/api'
+import {
+  DEFAULT_PASSWORD_VERIFY_CONCURRENCY,
+  isOAuthTokenDomain,
+  resolveOAuthProviderByDomain,
+  runPasswordMailboxPool
+} from '@/utils/externalMailboxRules'
 import { showMessage } from '@/utils/message'
 import CustomSelect from '@/components/CustomSelect/index.vue'
 
 const SUPPORTED_PROTOCOLS = ['auto', 'imap', 'pop3']
+const OAUTH_VERIFY_DISPLAY_CONCURRENCY = 6
 const rawText = ref('')
 const verifying = ref(false)
 const promoting = ref(false)
@@ -254,8 +261,6 @@ const liveProgress = ref({
   failed: 0,
   currentEmail: ''
 })
-const GOOGLE_OAUTH_TOKEN_DOMAIN_SUFFIXES = ['gmail.com', 'googlemail.com']
-const MICROSOFT_OAUTH_TOKEN_DOMAIN_SUFFIXES = ['outlook.', 'hotmail.', 'live.', 'msn.', 'live.cn']
 const isDesktop = isTauri()
 let unlistenVerifyProgress: null | (() => void) = null
 
@@ -296,26 +301,6 @@ const loadSelectedRuntimeProxy = async () => {
   return response?.data?.runtime_proxy || null
 }
 
-const isOAuthTokenDomain = (domain: string) => {
-  const normalizedDomain = String(domain || '').toLowerCase().trim()
-  if (!normalizedDomain) return false
-
-  if (
-    GOOGLE_OAUTH_TOKEN_DOMAIN_SUFFIXES.some(
-      (suffix) => normalizedDomain === suffix || normalizedDomain.endsWith(`.${suffix}`)
-    )
-  ) {
-    return true
-  }
-
-  return MICROSOFT_OAUTH_TOKEN_DOMAIN_SUFFIXES.some(
-    (suffix) =>
-      normalizedDomain === suffix ||
-      normalizedDomain.startsWith(suffix) ||
-      normalizedDomain.endsWith(`.${suffix}`)
-  )
-}
-
 const parseVerifyLines = (text: string) =>
   String(text || '')
     .split('\n')
@@ -328,6 +313,7 @@ const parseVerifyLines = (text: string) =>
       const email = String(parts[0] || '').trim()
       const domain = (email.split('@')[1] || '').toLowerCase()
       const isOAuthToken = parts.length >= 4 && isOAuthTokenDomain(domain)
+      const oauthProvider = isOAuthToken ? resolveOAuthProviderByDomain(domain) : ''
       const password = String(parts.length >= 3 && !isOAuthToken ? parts[2] : parts[1] || '').trim()
       const oauthClientId = String(parts[2] || '').trim()
       const oauthRefreshToken = String(parts[3] || '').trim()
@@ -370,7 +356,7 @@ const parseVerifyLines = (text: string) =>
         email,
         password,
         auth_type: isOAuthToken ? 'oauth2' : 'password',
-        oauth_provider: isOAuthToken ? (domain.includes('gmail') || domain.includes('googlemail') ? 'google' : 'microsoft') : null,
+        oauth_provider: oauthProvider || null,
         oauth_client_id: isOAuthToken ? oauthClientId : null,
         oauth_refresh_token: isOAuthToken ? oauthRefreshToken : null,
         protocol,
@@ -595,6 +581,16 @@ const buildLiveResultItem = (item: any) => ({
     : (item.error_message || item.verify_message || '等待验号')
 })
 
+const syncLiveProgressStats = () => {
+  liveProgress.value.success = liveResults.value.filter((entry: any) => entry.status === 'success').length
+  liveProgress.value.failed = liveResults.value.filter((entry: any) => entry.status === 'error').length
+}
+
+const markVerifyCompleted = () => {
+  liveProgress.value.completed += 1
+  syncLiveProgressStats()
+}
+
 const resolveRunningMessage = (protocol: string) => {
   const normalized = String(protocol || 'auto').toLowerCase()
   if (normalized === 'imap') return 'IMAP 验证中'
@@ -769,103 +765,126 @@ const runImportedVerification = async (importedItems: any[], batchNo: string, pr
       return
     }
 
-    for (const item of passwordItems) {
-      liveProgress.value.currentEmail = item.email
-      const currentLiveItem = liveResults.value.find((entry: any) => entry.id === item.id)
-      if (currentLiveItem) {
-        currentLiveItem.status = 'running'
-        currentLiveItem.message = resolveRunningMessage(item?.input_protocol || item?.protocol || 'auto')
-      }
-      const protocol = String(item?.input_protocol || 'auto').toLowerCase() || 'auto'
-      const host = protocol === 'imap' ? item?.imap_host : protocol === 'pop3' ? item?.pop3_host : null
-      const port = protocol === 'imap' ? item?.imap_port : protocol === 'pop3' ? item?.pop3_port : null
-
-      try {
-        const result: any = await tauriInvoke('add_external_mailbox', {
-          email: item.email,
-          password: item.password,
-          protocol,
-          host: host || null,
-          port: port || null,
-          verifySmtp: verifySmtp.value,
-          proxy: selectedRuntimeProxy || item.runtime_proxy || null
-        })
-
-        if (result?.success) {
+    if (passwordItems.length > 0) {
+      const passwordVerifyResults = await runPasswordMailboxPool(passwordItems, {
+        scene: 'verify',
+        defaultConcurrency: DEFAULT_PASSWORD_VERIFY_CONCURRENCY,
+        getEmail: (item: any) => item.email,
+        worker: async (item: any) => {
+          const currentLiveItem = liveResults.value.find((entry: any) => entry.id === item.id)
           if (currentLiveItem) {
-            currentLiveItem.status = 'success'
-            currentLiveItem.protocol = String(result?.protocol || protocol || 'auto').toLowerCase()
-            currentLiveItem.resolved_protocol = String(result?.protocol || protocol || 'auto').toLowerCase()
-            currentLiveItem.smtp_verified = Boolean(result?.smtp_verified)
-            currentLiveItem.message = result?.smtp_verified
-              ? '验号通过，SMTP 可发'
-              : verifySmtp.value
-                ? `验号通过，SMTP 不可发${result?.smtp_error ? `：${result.smtp_error}` : ''}`
-                : '验号通过'
+            currentLiveItem.status = 'running'
+            currentLiveItem.message = resolveRunningMessage(item?.input_protocol || item?.protocol || 'auto')
           }
-          verifyResults.push({
-            candidate_id: item.id,
-            success: true,
-            protocol: String(result?.protocol || protocol || 'auto').toLowerCase(),
-            host: result?.host || null,
-            port: Number(result?.port || 0) || null,
-            smtp_verified: Boolean(result?.smtp_verified),
-            smtp_host: result?.smtp_host || null,
-            smtp_port: Number(result?.smtp_port || 0) || null,
-            smtp_error: result?.smtp_error || null,
-            verify_message: result?.message || '验号成功'
-          })
-        } else {
-          if (currentLiveItem) {
-            currentLiveItem.status = 'error'
-            currentLiveItem.protocol = protocol
-            currentLiveItem.resolved_protocol = null
-            currentLiveItem.smtp_verified = false
-            currentLiveItem.message = result?.message || '验号失败'
+
+          const protocol = String(item?.input_protocol || 'auto').toLowerCase() || 'auto'
+          const host = protocol === 'imap' ? item?.imap_host : protocol === 'pop3' ? item?.pop3_host : null
+          const port = protocol === 'imap' ? item?.imap_port : protocol === 'pop3' ? item?.pop3_port : null
+
+          try {
+            const result: any = await tauriInvoke('add_external_mailbox', {
+              email: item.email,
+              password: item.password,
+              protocol,
+              host: host || null,
+              port: port || null,
+              verifySmtp: verifySmtp.value,
+              proxy: selectedRuntimeProxy || item.runtime_proxy || null
+            })
+
+            if (result?.success) {
+              if (currentLiveItem) {
+                currentLiveItem.status = 'success'
+                currentLiveItem.protocol = String(result?.protocol || protocol || 'auto').toLowerCase()
+                currentLiveItem.resolved_protocol = String(result?.protocol || protocol || 'auto').toLowerCase()
+                currentLiveItem.smtp_verified = Boolean(result?.smtp_verified)
+                currentLiveItem.message = result?.smtp_verified
+                  ? '验号通过，SMTP 可发'
+                  : verifySmtp.value
+                    ? `验号通过，SMTP 不可发${result?.smtp_error ? `：${result.smtp_error}` : ''}`
+                    : '验号通过'
+              }
+
+              return {
+                candidate_id: item.id,
+                success: true,
+                protocol: String(result?.protocol || protocol || 'auto').toLowerCase(),
+                host: result?.host || null,
+                port: Number(result?.port || 0) || null,
+                smtp_verified: Boolean(result?.smtp_verified),
+                smtp_host: result?.smtp_host || null,
+                smtp_port: Number(result?.smtp_port || 0) || null,
+                smtp_error: result?.smtp_error || null,
+                verify_message: result?.message || '验号成功'
+              }
+            }
+
+            if (currentLiveItem) {
+              currentLiveItem.status = 'error'
+              currentLiveItem.protocol = protocol
+              currentLiveItem.resolved_protocol = null
+              currentLiveItem.smtp_verified = false
+              currentLiveItem.message = result?.message || '验号失败'
+            }
+
+            return {
+              candidate_id: item.id,
+              success: false,
+              protocol,
+              error_message: result?.message || '验号失败'
+            }
+          } catch (error: any) {
+            if (currentLiveItem) {
+              currentLiveItem.status = 'error'
+              currentLiveItem.protocol = protocol
+              currentLiveItem.resolved_protocol = null
+              currentLiveItem.smtp_verified = false
+              currentLiveItem.message = String(error?.message || error || '验号失败')
+            }
+
+            return {
+              candidate_id: item.id,
+              success: false,
+              protocol,
+              error_message: String(error?.message || error || '验号失败')
+            }
+          } finally {
+            markVerifyCompleted()
           }
-          verifyResults.push({
-            candidate_id: item.id,
-            success: false,
-            protocol,
-            error_message: result?.message || '验号失败'
-          })
         }
-      } catch (error: any) {
-        if (currentLiveItem) {
-          currentLiveItem.status = 'error'
-          currentLiveItem.protocol = protocol
-          currentLiveItem.resolved_protocol = null
-          currentLiveItem.smtp_verified = false
-          currentLiveItem.message = String(error?.message || error || '验号失败')
-        }
-        verifyResults.push({
-          candidate_id: item.id,
-          success: false,
-          protocol,
-          error_message: String(error?.message || error || '验号失败')
-        })
-      }
-      liveProgress.value.completed += 1
-      liveProgress.value.success = liveResults.value.filter((entry: any) => entry.status === 'success').length
-      liveProgress.value.failed = liveResults.value.filter((entry: any) => entry.status === 'error').length
+      })
+
+      verifyResults.push(...passwordVerifyResults)
     }
 
     if (oauthItems.length > 0) {
-      for (const item of oauthItems) {
-        liveProgress.value.currentEmail = item.email
+      for (const [index, item] of oauthItems.entries()) {
         const currentLiveItem = liveResults.value.find((entry: any) => entry.id === item.id)
         if (currentLiveItem) {
-          currentLiveItem.status = 'running'
-          currentLiveItem.message = 'OAuth Token 验证中'
+          if (index < OAUTH_VERIFY_DISPLAY_CONCURRENCY) {
+            currentLiveItem.status = 'running'
+            currentLiveItem.message = 'OAuth Token 验证中'
+          } else {
+            currentLiveItem.status = 'pending'
+            currentLiveItem.message = 'OAuth Token 排队中'
+          }
         }
+      }
 
-        const oauthVerifyResponse: any = await externalVerifyPoolAPI.verifyOAuthCandidates({
-          ids: [item.id],
-          verify_smtp: verifySmtp.value
-        })
-        if (oauthVerifyResponse.code !== 0) return
+      const oauthVerifyResponse: any = await externalVerifyPoolAPI.verifyOAuthCandidates({
+        ids: oauthItems.map((item: any) => item.id),
+        verify_smtp: verifySmtp.value
+      })
+      if (oauthVerifyResponse.code !== 0) return
 
-        const result = Array.isArray(oauthVerifyResponse?.data?.items) ? oauthVerifyResponse.data.items[0] : null
+      const oauthResultMap = new Map<number, any>()
+      for (const result of Array.isArray(oauthVerifyResponse?.data?.items) ? oauthVerifyResponse.data.items : []) {
+        oauthResultMap.set(Number(result?.candidate_id || 0), result)
+      }
+
+      for (const item of oauthItems) {
+        const result = oauthResultMap.get(Number(item.id))
+        const currentLiveItem = liveResults.value.find((entry: any) => entry.id === item.id)
         if (result) {
           verifyResults.push(result)
           if (currentLiveItem) {
@@ -886,9 +905,7 @@ const runImportedVerification = async (importedItems: any[], batchNo: string, pr
           currentLiveItem.message = 'OAuth 验号失败'
         }
 
-        liveProgress.value.completed += 1
-        liveProgress.value.success = liveResults.value.filter((entry: any) => entry.status === 'success').length
-        liveProgress.value.failed = liveResults.value.filter((entry: any) => entry.status === 'error').length
+        markVerifyCompleted()
       }
     }
 

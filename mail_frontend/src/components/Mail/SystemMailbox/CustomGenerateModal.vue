@@ -89,6 +89,9 @@
                 <p class="mt-1 text-xs text-gray-500">
                   {{ t('home.domainMailboxCount', { count: domain.mailbox_count || 0 }) }}
                 </p>
+                <p class="mt-1 text-xs text-gray-500">
+                  {{ formatDomainExpiresAt(domain.expires_at) }}
+                </p>
               </div>
               <span
                 :class="[
@@ -296,6 +299,7 @@ import { mailboxAPI } from '@/api/mailbox'
 import { hostedDomainAPI } from '@/api/hostedDomain'
 import { getBalance } from '@/api/milkCoin'
 import { showMessage } from '@/utils/message'
+import { formatTimestamp } from '@/utils/timeUtils'
 
 const props = defineProps({
   visible: {
@@ -469,6 +473,14 @@ const filteredDomainOptions = computed(() => {
   )
 })
 
+const formatDomainExpiresAt = (timestamp: number | string | null | undefined) => {
+  const expiresAt = Number(timestamp || 0)
+  const displayValue = expiresAt > 0
+    ? formatTimestamp(expiresAt, 'datetime')
+    : t('shareMailbox.permanentValid')
+  return t('mail.expiresAt', { date: displayValue })
+}
+
 const canSubmitCustomGenerate = computed(() => {
   if (customGenerateLoading.value || domainLoading.value) return false
   if (!customGenerateForm.value.domain_ids.length) return false
@@ -504,6 +516,7 @@ const normalizeHostedDomainRows = (items: any[] = []) =>
       id: String(item.id),
       raw_id: Number(item.id),
       domain_name: item.domain_name,
+      expires_at: item.expires_at,
       mailbox_count: Number(item.mailbox_count || 0),
       is_public_domain: Boolean(item.is_public)
     }))
@@ -622,7 +635,10 @@ const performHostedCustomGenerate = async () => {
     if (result.code !== 0) {
       throw new Error(result.message || t('home.customGenerateFailed'))
     }
-    createdItems.push(result.data)
+    createdItems.push({
+      ...(result.data || {}),
+      domain_expires_at: selectedDomain.expires_at || null
+    })
   }
 
   return {

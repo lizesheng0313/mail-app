@@ -234,6 +234,7 @@ const en = {
     batchDeleteTitle: 'Delete selected',
     deleteEmailMessage: 'Delete this email?',
     deleteEmailsMessage: 'Delete {count} emails?',
+    selectDeleteWarning: 'Select at least one email first',
     desktopRequiredTitle: 'Desktop required',
     desktopRequiredMessage:
       'External mailboxes can only be added and fetched on desktop. Download the desktop app now?',
@@ -279,6 +280,7 @@ const en = {
     initialFetchSuccessSuffix: ', initial fetch completed ({count} new emails)',
     initialFetchFailedSuffix: ', initial fetch failed',
     initialFetchQueuedSuffix: ', fetching in background',
+    manualFetchReadySuffix: ', connected and ready for manual fetch',
     oauthTokenImportSuccess: 'OAuth token imported successfully{status}',
     oauthTokenImportFailed: 'Token import failed',
     desktopApiNotReady: 'Desktop capability is not ready yet. Please try again later.',
@@ -920,6 +922,7 @@ const en = {
     deleteTitle: 'Delete mailbox',
     deleteBatchMessage: 'Delete {count} mailboxes?',
     deleteSingleMessage: 'Delete this mailbox?',
+    selectDeleteWarning: 'Select at least one mailbox first',
     protectedDeleteWarning: 'Catch-all mailboxes cannot be deleted',
     skippedCatchAllWarning: 'Catch-all mailboxes were skipped',
     batchDeleted: '{count} mailboxes deleted',

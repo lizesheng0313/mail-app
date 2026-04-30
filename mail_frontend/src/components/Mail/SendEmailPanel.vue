@@ -36,7 +36,6 @@
           <div class="flex flex-1 flex-wrap items-center justify-between gap-3">
             <div v-if="!pageMode">
               <p class="text-base font-semibold text-gray-900">{{ tc('panelTitle') }}</p>
-              <p class="mt-1 text-sm text-gray-500">{{ tc('panelDescription') }}</p>
             </div>
             <div class="flex w-full min-w-0 flex-wrap items-center justify-between gap-3">
               <div class="flex min-w-0 flex-wrap gap-2">
