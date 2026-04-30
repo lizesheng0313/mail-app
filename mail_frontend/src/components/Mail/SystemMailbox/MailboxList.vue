@@ -100,7 +100,7 @@
               v-if="openMenuId === mailbox.id"
               :class="[
                 'absolute right-0 z-20 min-w-[128px] overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg',
-                openMenuPlacement === 'up' ? 'bottom-full mb-2' : 'top-full mt-2'
+                openMenuPlacement === 'up' ? 'bottom-full' : 'top-full'
               ]"
               @click.stop
             >

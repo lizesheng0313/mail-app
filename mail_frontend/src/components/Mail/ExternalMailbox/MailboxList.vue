@@ -177,7 +177,11 @@
           :initial-tags="tagsData[toAccountId(account)]?.tags || []"
         />
         <template v-if="!isSendEmailView" #actions>
-          <div class="relative">
+          <div
+            class="relative"
+            @mouseenter="handleActionMenuEnter(toAccountId(account), $event)"
+            @mouseleave="handleActionMenuLeave(toAccountId(account))"
+          >
             <button
               type="button"
               class="flex h-8 w-8 items-center justify-center rounded-full text-gray-500 transition-colors hover:bg-white hover:text-gray-700"
@@ -190,7 +194,7 @@
               v-if="openMenuId === toAccountId(account)"
               :class="[
                 'absolute right-0 z-20 min-w-[128px] overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg',
-                openMenuPlacement === 'up' ? 'bottom-full mb-2' : 'top-full mt-2'
+                openMenuPlacement === 'up' ? 'bottom-full' : 'top-full'
               ]"
               @click.stop
             >
@@ -371,6 +375,7 @@ const tagsData = ref<Record<number, { sites: any[]; tags: any[] }>>({})
 const showHeaderActionMenu = ref(false)
 const openMenuId = ref<number | null>(null)
 const openMenuPlacement = ref<'up' | 'down'>('down')
+let closeMenuTimer: ReturnType<typeof setTimeout> | null = null
 const mergedFetchingIds = computed(() => {
   const ids = [...(props.fetchingIds || []), ...fetchingIds.value]
   return Array.from(new Set(ids))
@@ -422,6 +427,10 @@ const handleRecoveredMailbox = () => {
 }
 
 const closeActionMenu = () => {
+  if (closeMenuTimer) {
+    clearTimeout(closeMenuTimer)
+    closeMenuTimer = null
+  }
   openMenuId.value = null
 }
 
@@ -455,9 +464,28 @@ const openActionMenu = (accountId: number, event: Event) => {
     closeActionMenu()
     return
   }
+  if (closeMenuTimer) {
+    clearTimeout(closeMenuTimer)
+    closeMenuTimer = null
+  }
   closeHeaderActionMenu()
   openMenuId.value = accountId
   openMenuPlacement.value = resolveMenuPlacement(event)
+}
+
+const handleActionMenuEnter = (accountId: number, event: Event) => {
+  openActionMenu(accountId, event)
+}
+
+const handleActionMenuLeave = (accountId: number) => {
+  if (openMenuId.value === accountId) {
+    closeMenuTimer = setTimeout(() => {
+      if (openMenuId.value === accountId) {
+        openMenuId.value = null
+      }
+      closeMenuTimer = null
+    }, 160)
+  }
 }
 
 const toggleHeaderActionMenu = () => {
@@ -946,6 +974,10 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  if (closeMenuTimer) {
+    clearTimeout(closeMenuTimer)
+    closeMenuTimer = null
+  }
   window.removeEventListener('click', handleWindowClick)
   window.removeEventListener('external-mailbox-recovered', handleRecoveredMailbox)
   window.removeEventListener('external-mailbox-updated', handleRecoveredMailbox)
