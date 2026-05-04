@@ -471,12 +471,25 @@ const showDeleteConfirm = ref(false)
 const domainToDelete = ref<any | null>(null)
 const domainModalDetail = ref<any | null>(null)
 
-const createForm = ref({
+const getNextYearTodayDateInput = () => {
+  const nextYearToday = new Date()
+  nextYearToday.setFullYear(nextYearToday.getFullYear() + 1)
+  const year = nextYearToday.getFullYear()
+  const month = String(nextYearToday.getMonth() + 1).padStart(2, '0')
+  const day = String(nextYearToday.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+const getDefaultCreateForm = () => ({
   domain_name: '',
   display_name: '',
-  expires_at: '',
+  expires_at: getNextYearTodayDateInput(),
   catch_all_enabled: true,
   is_public: false
+})
+
+const createForm = ref({
+  ...getDefaultCreateForm()
 })
 
 const editForm = ref({
@@ -533,25 +546,13 @@ const loadDomains = async () => {
 const openCreateModal = () => {
   showDomainModal.value = true
   domainModalDetail.value = null
-  createForm.value = {
-    domain_name: '',
-    display_name: '',
-    expires_at: '',
-    catch_all_enabled: true,
-    is_public: false
-  }
+  createForm.value = getDefaultCreateForm()
 }
 
 const closeDomainModal = () => {
   showDomainModal.value = false
   domainModalDetail.value = null
-  createForm.value = {
-    domain_name: '',
-    display_name: '',
-    expires_at: '',
-    catch_all_enabled: true,
-    is_public: false
-  }
+  createForm.value = getDefaultCreateForm()
 }
 
 const handleCreateDomain = async () => {
