@@ -225,27 +225,6 @@
 
     <div class="h-16"></div>
 
-    <!-- 注册提示横幅 -->
-    <div v-if="!userStore.isAuthenticated" class="bg-gradient-to-r from-primary-600 to-primary-700 text-white">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center space-x-3">
-            <svg class="w-5 h-5 register-banner-details" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-            </svg>
-            <span class="text-sm font-medium">
-              <span class="register-banner-details">🎉 </span>{{ t('pageHeader.registerBanner') }}
-            </span>
-          </div>
-          <router-link
-            to="/login?mode=register"
-            class="bg-white text-primary-600 px-4 py-1 rounded-full text-sm font-medium hover:bg-gray-100 transition-colors"
-          >
-            {{ t('pageHeader.registerNow') }}
-          </router-link>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 

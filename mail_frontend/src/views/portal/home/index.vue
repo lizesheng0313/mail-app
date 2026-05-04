@@ -6,7 +6,7 @@
   >
     <!-- 顶部工具栏 -->
     <template #toolbar>
-      <div v-if="userStore.isAuthenticated" class="flex flex-col gap-3">
+      <div class="flex flex-col gap-3">
         <!-- Tab切换 -->
         <div class="flex border-b border-gray-200">
           <button
@@ -18,7 +18,22 @@
                 : 'text-gray-500 border-transparent hover:text-gray-700 hover:border-gray-300'
             ]"
           >
-            {{ t('home.temporaryMailbox') }}
+            <span class="inline-flex items-center gap-1">
+              <span>{{ t('home.temporaryMailbox') }}</span>
+              <span class="group relative ml-[5px] inline-flex items-center">
+                <BaseIcon
+                  name="info"
+                  size="sm"
+                  class="text-black opacity-60 transition-opacity hover:opacity-100"
+                  @click.stop
+                />
+                <span
+                  class="pointer-events-none absolute left-1/2 top-full z-20 hidden w-52 -translate-x-1/2 rounded-lg bg-gray-900 px-3 py-2 text-left text-[11px] font-normal leading-5 text-white shadow-lg group-hover:block"
+                >
+                  {{ t('home.temporaryMailboxTip') }}
+                </span>
+              </span>
+            </span>
           </button>
           <button
             @click="switchMailboxType('hosted')"
@@ -29,7 +44,22 @@
                 : 'text-gray-500 border-transparent hover:text-gray-700 hover:border-gray-300'
             ]"
           >
-            {{ t('home.hostedMailbox') }}
+            <span class="inline-flex items-center gap-1">
+              <span>{{ t('home.hostedMailbox') }}</span>
+              <span class="group relative ml-[5px] inline-flex items-center">
+                <BaseIcon
+                  name="info"
+                  size="sm"
+                  class="text-black opacity-60 transition-opacity hover:opacity-100"
+                  @click.stop
+                />
+                <span
+                  class="pointer-events-none absolute left-1/2 top-full z-20 hidden w-52 -translate-x-1/2 rounded-lg bg-gray-900 px-3 py-2 text-left text-[11px] font-normal leading-5 text-white shadow-lg group-hover:block"
+                >
+                  {{ t('home.hostedMailboxTip') }}
+                </span>
+              </span>
+            </span>
           </button>
           <button
             @click="switchMailboxType('external')"
@@ -40,7 +70,22 @@
                 : 'text-gray-500 border-transparent hover:text-gray-700 hover:border-gray-300'
             ]"
           >
-            {{ t('home.externalMailbox') }}
+            <span class="inline-flex items-center gap-1">
+              <span>{{ t('home.externalMailbox') }}</span>
+              <span class="group relative ml-[5px] inline-flex items-center">
+                <BaseIcon
+                  name="info"
+                  size="sm"
+                  class="text-black opacity-60 transition-opacity hover:opacity-100"
+                  @click.stop
+                />
+                <span
+                  class="pointer-events-none absolute left-1/2 top-full z-20 hidden w-52 -translate-x-1/2 rounded-lg bg-gray-900 px-3 py-2 text-left text-[11px] font-normal leading-5 text-white shadow-lg group-hover:block"
+                >
+                  {{ t('home.externalMailboxTip') }}
+                </span>
+              </span>
+            </span>
           </button>
         </div>
 
@@ -49,7 +94,7 @@
           <!-- 生成系统邮箱按钮 -->
           <button
             v-if="mailboxType === 'system'"
-            @click="allocateMailbox"
+            @click="handleSystemMailboxEntryAction"
             :disabled="mailboxStore.loading"
             class="px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
@@ -58,7 +103,7 @@
 
           <button
             v-if="mailboxType === 'system'"
-            @click="showCustomGenerateModal = true"
+            @click="handleSystemCustomGenerateAction"
             class="px-4 py-2 border border-primary-200 bg-primary-50 text-primary-700 text-sm font-medium rounded-lg hover:bg-primary-100 transition-colors"
           >
             {{ t('home.customGenerate') }}
@@ -66,7 +111,7 @@
 
           <button
             v-if="mailboxType === 'hosted'"
-            @click="generateHostedMailbox"
+            @click="handleHostedGenerateAction"
             :disabled="mailboxStore.loading"
             class="px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 transition-colors"
           >
@@ -75,7 +120,7 @@
 
           <button
             v-if="mailboxType === 'hosted'"
-            @click="showHostedCustomGenerateModal = true"
+            @click="handleHostedCustomGenerateAction"
             class="px-4 py-2 border border-primary-200 bg-primary-50 text-primary-700 text-sm font-medium rounded-lg hover:bg-primary-100 transition-colors"
           >
             {{ t('home.customGenerate') }}
@@ -83,7 +128,7 @@
 
           <button
             v-if="mailboxType === 'hosted'"
-            @click="goToDomainWorkbench()"
+            @click="handleHostedWorkbenchAction"
             class="px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors"
           >
             {{ t('home.manageDomains') }}
@@ -92,7 +137,7 @@
           <!-- 添加邮箱按钮（第三方邮箱） -->
           <button
             v-if="mailboxType === 'external'"
-            @click="handleBatchLogin"
+            @click="handleExternalAddMailboxAction"
             :disabled="batchLoginLoading"
             class="px-4 py-2 border border-primary-200 bg-primary-50 text-primary-700 text-sm font-medium rounded-lg hover:bg-primary-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
@@ -102,48 +147,42 @@
           <button
             v-if="mailboxType === 'external'"
             type="button"
-            @click="goToExternalOpsWorkbench"
+            @click="handleExternalWorkbenchAction"
             class="px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             工作台
           </button>
         </div>
       </div>
-      <section v-else class="rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm">
-        <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div class="min-w-0">
-            <h1 class="text-lg font-semibold text-gray-900">{{ t('home.guestTitle') }}</h1>
-            <p class="mt-1 text-sm text-gray-600">
-              {{ t('home.guestDescription') }}
-            </p>
-          </div>
-          <div class="flex flex-wrap gap-2 flex-shrink-0">
-            <a
-              href="/market"
-              class="inline-flex items-center rounded-md bg-primary-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-primary-700"
-            >
-              {{ t('home.workflowMarket') }}
-            </a>
-            <a
-              href="/download"
-              class="inline-flex items-center rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:border-gray-400 hover:bg-gray-50"
-            >
-              {{ t('home.downloadDesktop') }}
-            </a>
-            <a
-              href="/about"
-              class="inline-flex items-center rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:border-gray-400 hover:bg-gray-50"
-            >
-              {{ t('home.learnMore') }}
-            </a>
-          </div>
-        </div>
-      </section>
     </template>
 
     <!-- 左栏：邮箱 -->
     <template #left>
-      <TempMailbox v-if="!userStore.isAuthenticated" />
+      <div v-if="!userStore.isAuthenticated" class="h-full">
+        <div v-show="mailboxType === 'system'" class="h-full">
+          <TempMailbox />
+        </div>
+
+        <div
+          v-show="mailboxType === 'hosted' || mailboxType === 'external'"
+          class="flex h-full flex-col"
+        >
+          <div class="mb-4 border-b border-gray-200 pb-4">
+            <div class="flex min-h-8 items-center justify-between gap-2">
+              <h2 class="text-base font-semibold text-black">{{ guestPreviewFeatureLabel }}</h2>
+            </div>
+          </div>
+
+          <div class="flex flex-1 items-center justify-center overflow-y-auto">
+            <div class="p-8 text-center text-gray-400">
+              <svg class="w-16 h-16 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+              </svg>
+              <p class="text-sm">{{ t('mail.noMailbox') }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <!-- 系统邮箱和外部邮箱（两套独立组件，用v-show切换）-->
       <div v-else class="h-full">
@@ -288,6 +327,18 @@
         </EmailList>
       </div>
 
+      <div
+        v-else-if="!userStore.isAuthenticated && currentView === 'emails' && (mailboxType === 'hosted' || mailboxType === 'external')"
+        class="h-full"
+      >
+        <EmailList
+          :title="t('mail.allEmails')"
+          :emails="guestPreviewEmails"
+          :show-pagination="false"
+          :searchable="true"
+        />
+      </div>
+
       <div v-else-if="currentView === 'emails' && mailboxType === 'hosted'" class="h-full">
         <EmailList
           ref="hostedEmailListRef"
@@ -421,12 +472,28 @@
     <!-- 右栏：详情-->
     <template #right>
       <template v-if="currentView === 'emails'">
-      <EmailDetail
-        v-if="mailStore.selectedEmail"
-        :email="mailStore.selectedEmail"
-        @expand="openEmailModal"
-        @reply="handleReplyExternalEmail"
-      />
+        <div
+          v-if="!userStore.isAuthenticated && mailboxType !== 'system'"
+          class="flex h-full flex-col"
+        >
+          <div class="mb-4 flex items-center justify-between border-b border-gray-200 pb-4">
+            <h2 class="text-base font-semibold text-black">{{ t('emailDetail.title') }}</h2>
+          </div>
+          <div class="flex flex-1 items-center justify-center overflow-y-auto">
+            <div class="p-8 text-center text-gray-400">
+              <svg class="w-16 h-16 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path>
+              </svg>
+              <p class="text-sm">{{ t('emailDetail.emptyText') }}</p>
+            </div>
+          </div>
+        </div>
+        <EmailDetail
+          v-else-if="mailStore.selectedEmail"
+          :email="mailStore.selectedEmail"
+          @expand="openEmailModal"
+          @reply="handleReplyExternalEmail"
+        />
       </template>
 
       <OutboxDetailPanel
@@ -519,6 +586,19 @@
     :cancel-text="t('common.cancel')"
     @confirm="openDownloadDesktop"
     @cancel="showDownloadDialog = false"
+  />
+
+  <ConfirmDialog
+    :visible="showGuestRegisterDialog"
+    :mask="false"
+    :title="t('home.guestRegisterTitle')"
+    :message="guestRegisterMessage"
+    type="info"
+    :show-warning="false"
+    :confirm-text="t('pageHeader.registerNow')"
+    :cancel-text="t('common.cancel')"
+    @confirm="handleGuestRegisterConfirm"
+    @cancel="showGuestRegisterDialog = false"
   />
 
   <!-- 分享邮箱弹窗 -->
@@ -651,6 +731,8 @@ const batchAddModalRef = ref<any>(null)
 const batchAddRunId = ref(0)
 const pendingOAuthAccounts = ref<Array<{ email: string; provider: string }>>([])
 const showDownloadDialog = ref(false)
+const showGuestRegisterDialog = ref(false)
+const guestRegisterFeature = ref('')
 const downloadDialogTitle = ref(t('home.desktopRequiredTitle'))
 const downloadDialogMessage = ref(t('home.desktopRequiredMessage'))
 const showCustomGenerateModal = ref(false)
@@ -766,6 +848,22 @@ const hostedMailboxItems = computed(() =>
     ...item,
     domain_name: hostedDomainNameMap.value[Number(item.domain_id)] || item.domain_name || ''
   }))
+)
+
+const guestPreviewFeatureLabel = computed(() =>
+  mailboxType.value === 'hosted'
+    ? t('home.hostedMailbox')
+    : mailboxType.value === 'external'
+      ? t('home.externalMailbox')
+      : t('home.temporaryMailbox')
+)
+
+const guestPreviewEmails = computed(() => [])
+
+const guestRegisterMessage = computed(() =>
+  t('home.guestRegisterMessage', {
+    feature: guestRegisterFeature.value || guestPreviewFeatureLabel.value
+  })
 )
 
 const syncMailboxAuthTypeMap = (items: any[]) => {
@@ -964,6 +1062,17 @@ const handleBrowserVisibilityChange = () => {
 }
 
 const syncAutoRefreshStates = () => {
+  if (!userStore.isAuthenticated) {
+    if (mailboxType.value === 'system') {
+      if (!autoRefresh.isRunning.value) {
+        autoRefresh.start()
+      }
+    } else {
+      autoRefresh.stop()
+    }
+    return
+  }
+
   if (mailboxType.value === 'external') {
     autoRefresh.stop()
   } else if (!autoRefresh.isRunning.value) {
@@ -1167,6 +1276,16 @@ const saveMailboxType = (type: 'system' | 'hosted' | 'external') => {
   } catch {
     // ignore
   }
+}
+
+const promptGuestRegister = (feature = guestPreviewFeatureLabel.value) => {
+  guestRegisterFeature.value = feature
+  showGuestRegisterDialog.value = true
+}
+
+const handleGuestRegisterConfirm = () => {
+  showGuestRegisterDialog.value = false
+  router.push('/login?mode=register')
 }
 
 // 保存每个Tab的选中邮件
@@ -1457,6 +1576,62 @@ const handleMailboxBatchStart = () => {
   }
 }
 
+const handleSystemMailboxEntryAction = async () => {
+  if (!userStore.isAuthenticated) {
+    promptGuestRegister(t('home.temporaryMailbox'))
+    return
+  }
+  await allocateMailbox()
+}
+
+const handleSystemCustomGenerateAction = () => {
+  if (!userStore.isAuthenticated) {
+    promptGuestRegister(t('home.temporaryMailbox'))
+    return
+  }
+  showCustomGenerateModal.value = true
+}
+
+const handleHostedGenerateAction = async () => {
+  if (!userStore.isAuthenticated) {
+    promptGuestRegister(t('home.hostedMailbox'))
+    return
+  }
+  await generateHostedMailbox()
+}
+
+const handleHostedCustomGenerateAction = () => {
+  if (!userStore.isAuthenticated) {
+    promptGuestRegister(t('home.hostedMailbox'))
+    return
+  }
+  showHostedCustomGenerateModal.value = true
+}
+
+const handleHostedWorkbenchAction = () => {
+  if (!userStore.isAuthenticated) {
+    promptGuestRegister(t('home.hostedMailbox'))
+    return
+  }
+  goToDomainWorkbench()
+}
+
+const handleExternalAddMailboxAction = async () => {
+  if (!userStore.isAuthenticated) {
+    promptGuestRegister(t('home.externalMailbox'))
+    return
+  }
+  await handleBatchLogin()
+}
+
+const handleExternalWorkbenchAction = () => {
+  if (!userStore.isAuthenticated) {
+    promptGuestRegister(t('home.externalMailbox'))
+    return
+  }
+  goToExternalOpsWorkbench()
+}
+
 // 切换邮箱类型
 const switchMailboxType = (type: 'system' | 'hosted' | 'external') => {
   currentView.value = 'emails'
@@ -1472,6 +1647,16 @@ const switchMailboxType = (type: 'system' | 'hosted' | 'external') => {
   // 切换类型
   mailboxType.value = type
   saveMailboxType(type)
+
+  if (!userStore.isAuthenticated) {
+    if (type === 'system') {
+      mailStore.selectedEmail = systemSelectedEmail.value
+    } else {
+      mailStore.selectedEmail = null
+    }
+    syncAutoRefreshStates()
+    return
+  }
 
   // 恢复目标Tab的选中邮件
   if (type === 'system') {
@@ -2550,8 +2735,12 @@ onMounted(async () => {
       saveMailboxType(mailboxType.value)
     }
   } else {
-    // 未登录也写默认值，避免首次进入没有偏好
-    saveMailboxType(mailboxType.value)
+    const savedMailboxType = getSavedMailboxType()
+    if (savedMailboxType) {
+      mailboxType.value = savedMailboxType
+    } else {
+      saveMailboxType(mailboxType.value)
+    }
     syncAutoRefreshStates()
     return
   }

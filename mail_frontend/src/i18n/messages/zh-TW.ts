@@ -148,8 +148,11 @@ const zhTW = {
   },
   home: {
     temporaryMailbox: '臨時郵箱',
+    temporaryMailboxTip: '系統臨時分配一個可直接收件的郵箱，適合臨時註冊、接碼和短期使用。',
     hostedMailbox: '網域郵箱',
+    hostedMailboxTip: '用你自己的網域生成和管理郵箱，適合企業、品牌和長期營運。',
     externalMailbox: '第三方郵箱',
+    externalMailboxTip: '接入 Outlook、Gmail、QQ、189 等既有郵箱，統一收件、批量操作。',
     generating: '生成中',
     claiming: '獲取中...',
     createMailbox: '生成郵箱',
@@ -213,6 +216,16 @@ const zhTW = {
     guestTitle: '肥貓貓郵箱服務',
     guestDescription:
       '肥貓貓郵箱服務是一個郵箱管理平台，提供臨時郵箱收件、第三方郵箱批量接入、郵件批量收發以及郵件自動化工作流，幫助個人和團隊更高效地管理多郵箱任務。',
+    guestExperienceTip: '未登入也能先看完整欄目，網域郵箱和第三方郵箱註冊後使用。',
+    guestRegisterTitle: '註冊後使用',
+    guestRegisterMessage: '註冊後即可使用{feature}的真實資料、收件和批量功能。',
+    guestPreviewAction: '註冊後使用',
+    guestHostedPreviewHint: '這裡先展示網域郵箱的預覽樣式，註冊後載入你的真實郵箱。',
+    guestExternalPreviewHint: '這裡先展示第三方郵箱的預覽樣式，註冊後才能接入真實帳號。',
+    guestPreviewMailboxEmpty: '這裡先不展示虛擬郵箱，註冊後顯示你的真實郵箱列表。',
+    guestPreviewEmailEmpty: '這裡先不展示虛擬郵件，註冊後顯示真實郵件內容。',
+    guestPreviewDetailHint:
+      '目前展示的是預覽內容，註冊後才能查看真實郵件詳情、批量操作和更多能力。',
     workflowMarket: '工作流市場',
     downloadDesktop: '下載桌面端',
     learnMore: '幫助中心',

@@ -149,8 +149,14 @@ const en = {
   },
   home: {
     temporaryMailbox: 'Temporary Mailboxes',
+    temporaryMailboxTip:
+      'A temporary mailbox assigned by the system for quick receiving, sign-ups, and short-term use.',
     hostedMailbox: 'Domain Mailboxes',
+    hostedMailboxTip:
+      'Mailboxes generated and managed under your own domain, suitable for brands and long-term operations.',
     externalMailbox: 'External Mailboxes',
+    externalMailboxTip:
+      'Connect existing Outlook, Gmail, QQ, 189, and other mailboxes for unified receiving and batch actions.',
     generating: 'Creating...',
     claiming: 'Claiming...',
     createMailbox: 'Create mailbox',
@@ -219,6 +225,22 @@ const en = {
     guestTitle: 'FeiMao Mail',
     guestDescription:
       'FeiMao Mail is a mailbox management platform for temporary inboxes, external mailbox connections, bulk mail handling, and email automation workflows.',
+    guestExperienceTip:
+      'Guests can preview all sections first. Domain and external mailboxes require sign-up to use.',
+    guestRegisterTitle: 'Sign up to continue',
+    guestRegisterMessage:
+      'Create an account to use real data, fetching, and batch features for {feature}.',
+    guestPreviewAction: 'Use after sign up',
+    guestHostedPreviewHint:
+      'This area shows a preview of domain mailboxes. Sign up to load your real mailboxes.',
+    guestExternalPreviewHint:
+      'This area shows a preview of external mailboxes. Sign up to connect real accounts.',
+    guestPreviewMailboxEmpty:
+      'No sample mailboxes are shown here. Sign up to view your real mailbox list.',
+    guestPreviewEmailEmpty:
+      'No sample emails are shown here. Sign up to view real email content.',
+    guestPreviewDetailHint:
+      'This is preview content only. Sign up to view real email details, batch actions, and more.',
     workflowMarket: 'Workflow marketplace',
     downloadDesktop: 'Download desktop app',
     learnMore: 'Help Center',
