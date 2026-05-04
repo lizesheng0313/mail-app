@@ -143,14 +143,6 @@
               去登录
             </button>
           </div>
-          <div v-if="!userStore.isAuthenticated" class="mt-3 flex justify-end">
-            <button
-              class="rounded-xl border border-primary-200 bg-primary-50 px-4 py-2 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-100"
-              @click="goToLogin"
-            >
-              去登录
-            </button>
-          </div>
         </div>
       </div>
     </Transition>
