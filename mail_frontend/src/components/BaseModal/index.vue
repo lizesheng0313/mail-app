@@ -12,7 +12,7 @@
         <!-- 弹窗内容 -->
         <div
           class="relative bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[calc(100vh-5rem)] sm:max-h-[calc(100vh-3rem)] flex flex-col"
-          :class="sizeClass"
+          :class="[sizeClass, contentClass]"
         >
           <!-- 头部 -->
           <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200">
@@ -31,7 +31,7 @@
           </div>
 
           <!-- 内容区域 -->
-          <div class="px-6 py-4 overflow-y-auto flex-1">
+          <div class="px-6 py-4 flex-1" :class="bodyClass || 'overflow-y-auto'">
             <slot></slot>
           </div>
 
@@ -116,6 +116,14 @@ const props = defineProps({
   closeOnClickOutside: {
     type: Boolean,
     default: true
+  },
+  contentClass: {
+    type: [String, Array, Object],
+    default: ''
+  },
+  bodyClass: {
+    type: [String, Array, Object],
+    default: ''
   }
 })
 

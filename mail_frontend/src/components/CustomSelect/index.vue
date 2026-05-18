@@ -3,8 +3,7 @@
     <button
       type="button"
       @click="toggleDropdown"
-      class="relative w-full bg-white border border-gray-300 rounded-md pl-3 pr-10 py-2 text-left cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm"
-      :class="{ 'border-primary-500 ring-2 ring-primary-500': isOpen }"
+      :class="[buttonClass, { 'border-primary-500 ring-2 ring-primary-500': isOpen }]"
     >
       <span class="block truncate pr-2">{{ displayText }}</span>
       <span class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
@@ -62,11 +61,13 @@ interface Props {
   options: Option[]
   placeholder?: string
   placement?: 'top' | 'bottom'
+  size?: 'md' | 'sm'
 }
 
 const props = withDefaults(defineProps<Props>(), {
   placeholder: '请选择',
-  placement: 'bottom'
+  placement: 'bottom',
+  size: 'md'
 })
 
 const emit = defineEmits<{
@@ -76,6 +77,13 @@ const emit = defineEmits<{
 
 const isOpen = ref(false)
 const selectRef = ref<HTMLElement>()
+
+const buttonClass = computed(() => {
+  if (props.size === 'sm') {
+    return 'relative h-10 w-full cursor-pointer rounded-lg border border-gray-300 bg-white pl-3 pr-9 text-left text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500'
+  }
+  return 'relative h-[46px] w-full cursor-pointer rounded-lg border border-gray-300 bg-white pl-4 pr-10 text-left text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500'
+})
 
 // 显示文本
 const displayText = computed(() => {

@@ -36,6 +36,89 @@
         <p class="text-black">{{ t('paymentPage.noPackages') }}</p>
       </div>
 
+      <!-- 邮件包列表 -->
+      <div v-else-if="purchaseType === 'email-package'" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div
+          v-for="pkg in emailPackages"
+          :key="pkg.id"
+          class="relative bg-white rounded-2xl p-6 transition-all duration-300 transform hover:-translate-y-2 flex flex-col"
+          :class="{
+            'ring-2 ring-primary-600 shadow-xl hover:shadow-2xl': pkg.recommended,
+            'border border-gray-200 shadow-md hover:shadow-xl': !pkg.recommended
+          }"
+        >
+          <div
+            v-if="pkg.recommended"
+            class="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-gradient-to-r from-primary-600 to-primary-700 text-white px-4 py-1 rounded-full text-xs font-bold shadow-md"
+          >
+            ⭐ {{ t('paymentPage.recommended') }}
+          </div>
+
+          <div class="flex justify-center mb-4 mt-1">
+            <div class="w-14 h-14 rounded-full bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center shadow-md">
+              <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+            </div>
+          </div>
+
+          <div class="text-center mb-3">
+            <h3 class="text-lg font-bold text-black mb-2">{{ pkg.name }}</h3>
+            <div class="inline-flex items-center justify-center bg-primary-100 text-primary-700 px-3 py-1.5 rounded-full text-sm">
+              <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+              <span class="font-semibold">{{ pkg.quota.toLocaleString() }} 封</span>
+            </div>
+          </div>
+
+          <div class="text-center mb-4 flex-grow">
+            <div class="text-xs text-gray-400 line-through mb-1">{{ t('paymentPage.originalPrice', { price: pkg.originalPrice }) }}</div>
+            <div class="flex items-baseline justify-center mb-2">
+              <span class="text-4xl font-extrabold bg-gradient-to-r from-primary-700 to-primary-800 bg-clip-text text-transparent">{{ pkg.price }}</span>
+              <span class="text-lg text-primary-600 font-bold ml-1">{{ t('paymentPage.coins') }}</span>
+            </div>
+            <div class="inline-block bg-primary-100 text-primary-700 px-2.5 py-0.5 rounded-full text-xs font-medium">
+              {{ t('paymentPage.discount', { percent: Math.round((1 - pkg.price / pkg.originalPrice) * 100) }) }}
+            </div>
+          </div>
+
+          <div class="text-center text-black text-sm mb-4 pb-4 border-b border-gray-100">
+            <p>{{ pkg.description }}</p>
+          </div>
+
+          <div class="space-y-2 mb-5">
+            <div class="flex items-center text-xs text-black">
+              <svg class="w-4 h-4 text-success-500 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+              </svg>
+              <span>{{ t('paymentPage.stableReliable') }}</span>
+            </div>
+            <div class="flex items-center text-xs text-black">
+              <svg class="w-4 h-4 text-success-500 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+              </svg>
+              <span>{{ t('paymentPage.instantArrival') }}</span>
+            </div>
+            <div class="flex items-center text-xs text-black">
+              <svg class="w-4 h-4 text-success-500 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+              </svg>
+              <span>{{ t('paymentPage.support') }}</span>
+            </div>
+          </div>
+
+          <button
+            @click="handleBuy(pkg)"
+            :disabled="buyingPackageId === pkg.id"
+            class="w-full h-11 btn-primary font-bold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-md hover:shadow-lg"
+          >
+            <div v-if="buyingPackageId === pkg.id" class="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+            <span>{{ buyingPackageId === pkg.id ? t('paymentPage.processing') : t('paymentPage.buyNow') }}</span>
+          </button>
+        </div>
+      </div>
+
       <!-- 邮箱套餐列表 -->
       <div v-else-if="purchaseType === 'mailbox'" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <div
@@ -312,6 +395,7 @@ import PageHeader from '@/components/PageHeader/index.vue'
 import ConfirmDialog from '@/components/ConfirmDialog/index.vue'
 import api from '@/services/api'
 import pluginApi from '@/api/plugin'
+import emailReachApi from '@/api/emailReach'
 import { showMessage } from '@/utils/message'
 import QRCode from 'qrcode'
 
@@ -334,6 +418,16 @@ interface PluginPricing {
   original_price: number
   sort_order: number
   discount: number
+}
+
+interface EmailPackage {
+  id: number
+  name: string
+  quota: number
+  price: number
+  originalPrice: number
+  description: string
+  recommended?: boolean
 }
 
 interface CurrentOrder {
@@ -364,8 +458,13 @@ const showConfirmDialog = ref(false)
 const confirmDialogTitle = ref('')
 const confirmDialogMessage = ref('')
 const currentBuyingItem = ref<any>(null)
+const emailPackages: EmailPackage[] = [
+  { id: 10000, name: '起步包', quota: 10000, price: 99, originalPrice: 129, description: '适合测试和小批量发送' },
+  { id: 50000, name: '标准包', quota: 50000, price: 450, originalPrice: 599, description: '适合会员通知和常规活动', recommended: true },
+  { id: 100000, name: '进阶包', quota: 100000, price: 850, originalPrice: 1199, description: '适合长期发送和稳定投放' }
+]
 
-// 购买类型：mailbox 或 plugin
+// 购买类型：mailbox、plugin 或 email-package
 const purchaseType = computed(() => route.query.type || 'mailbox')
 const pluginId = computed(() => route.query.id as string)
 
@@ -374,12 +473,18 @@ const pageTitle = computed(() => {
   if (purchaseType.value === 'plugin') {
     return pluginInfo.value?.name || t('paymentPage.choosePluginPlan')
   }
+  if (purchaseType.value === 'email-package') {
+    return '购买邮件包'
+  }
   return t('paymentPage.choosePackage')
 })
 
 const pageSubtitle = computed(() => {
   if (purchaseType.value === 'plugin') {
     return t('paymentPage.pluginSubtitle')
+  }
+  if (purchaseType.value === 'email-package') {
+    return '按邮件封数补充发送额度'
   }
   return t('paymentPage.mailboxSubtitle')
 })
@@ -472,6 +577,9 @@ const handleBuy = async (item: any) => {
     }
     
     confirmDialogMessage.value = message
+  } else if (purchaseType.value === 'email-package') {
+    confirmDialogTitle.value = '购买邮件包'
+    confirmDialogMessage.value = `确认购买 ${Number(item.quota).toLocaleString()} 封邮件吗？本次将扣除 ${item.price} 奶片。`
   } else {
     confirmDialogTitle.value = t('paymentPage.buyMailboxTitle')
     confirmDialogMessage.value = t('paymentPage.confirmMailboxMessage', {
@@ -505,6 +613,20 @@ const confirmBuy = async () => {
         setTimeout(() => {
           router.back()
         }, 1000)
+      } else {
+        showMessage(res.message || t('paymentPage.buyFailed'), 'error')
+      }
+    } else if (purchaseType.value === 'email-package') {
+      res = await emailReachApi.purchaseQuota({
+        quota_count: item.quota
+      })
+
+      if (res.code === 0) {
+        showMessage('购买成功', 'success')
+        showConfirmDialog.value = false
+        setTimeout(() => {
+          router.push('/user/email-reach/quota')
+        }, 800)
       } else {
         showMessage(res.message || t('paymentPage.buyFailed'), 'error')
       }
@@ -647,6 +769,8 @@ onMounted(() => {
   
   if (purchaseType.value === 'plugin') {
     loadPluginPricing()
+  } else if (purchaseType.value === 'email-package') {
+    loading.value = false
   } else {
     loadMailboxPackages()
   }

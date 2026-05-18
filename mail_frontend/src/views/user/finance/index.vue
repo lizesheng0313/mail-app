@@ -105,8 +105,37 @@
         </div>
       </div>
 
+      <div
+        v-if="isMailboxPayment"
+        class="mb-3 rounded-xl bg-white p-5 shadow-lg"
+      >
+        <div class="mb-4 flex items-center justify-between">
+          <div>
+            <h3 class="text-lg font-bold text-gray-900">邮件包</h3>
+            <p class="mt-1 text-sm text-gray-500">先选邮件封数，再充值对应奶片</p>
+          </div>
+          <div class="text-sm text-gray-500">当前选择：{{ selectedMailboxPackageLabel }}</div>
+        </div>
+
+        <div class="grid grid-cols-1 gap-3 lg:grid-cols-3">
+          <button
+            v-for="item in mailboxPackages"
+            :key="item.quota"
+            type="button"
+            class="rounded-xl border-2 p-5 text-left transition-all"
+            :class="selectedMailboxPackage === item.quota ? 'border-primary-500 bg-primary-50' : 'border-gray-200 bg-white hover:border-primary-200'"
+            @click="selectMailboxPackage(item)"
+          >
+            <div class="text-sm text-gray-500">{{ item.name }}</div>
+            <div class="mt-3 text-4xl font-bold text-gray-900">{{ Number(item.quota).toLocaleString() }}</div>
+            <div class="mt-1 text-xl font-semibold text-primary-600">{{ item.price }} 奶片</div>
+            <div class="mt-2 text-sm text-gray-500">{{ item.desc }}</div>
+          </button>
+        </div>
+      </div>
+
       <!-- 充值和提现 - 三列布局 -->
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-3">
+      <div class="grid grid-cols-1 gap-3" :class="isMailboxPayment ? 'lg:grid-cols-1' : 'lg:grid-cols-3'">
         <!-- 充值 -->
         <div id="recharge" class="bg-white rounded-xl shadow-lg p-4 flex flex-col">
           <div class="flex items-center mb-3">
@@ -125,7 +154,7 @@
                 />
               </svg>
             </div>
-            <h3 class="text-lg font-bold text-gray-900">{{ t('financePage.rechargeCoins') }}</h3>
+            <h3 class="text-lg font-bold text-gray-900">{{ isMailboxPayment ? '充值奶片' : t('financePage.rechargeCoins') }}</h3>
           </div>
 
           <div class="flex-1">
@@ -149,6 +178,7 @@
             <div class="mb-3">
               <div class="grid grid-cols-3 gap-2">
                 <button
+                  v-if="!isMailboxPayment"
                   v-for="amount in [10, 50, 100, 300, 500, 1000]"
                   :key="amount"
                   @click="rechargeAmount = amount"
@@ -156,13 +186,24 @@
                 >
                   {{ amount }}
                 </button>
+                <button
+                  v-else
+                  v-for="item in mailboxPackages"
+                  :key="`recharge-${item.quota}`"
+                  @click="selectMailboxPackage(item)"
+                  class="px-3 py-2 border-2 rounded-lg text-sm font-medium transition-all"
+                  :class="selectedMailboxPackage === item.quota ? 'border-primary-500 bg-primary-50 text-primary-600' : 'border-gray-200 hover:border-primary-500 hover:bg-primary-50 hover:text-primary-600'"
+                >
+                  {{ Number(item.quota).toLocaleString() }} 封
+                </button>
               </div>
             </div>
 
             <div class="bg-primary-50 rounded-lg p-3 mb-3">
               <div class="text-center">
-                <p class="text-xs text-gray-600 mb-1">{{ t('financePage.coinsReceived') }}</p>
+                <p class="text-xs text-gray-600 mb-1">{{ isMailboxPayment ? '本次需充值' : t('financePage.coinsReceived') }}</p>
                 <p class="text-2xl font-bold text-primary-600">{{ rechargeAmount || '0' }}</p>
+                <p v-if="isMailboxPayment" class="mt-1 text-xs text-gray-500">{{ selectedMailboxPackageLabel }}</p>
               </div>
             </div>
           </div>
@@ -176,13 +217,13 @@
               {{ t('financePage.rechargeNow') }}
             </button>
             <p class="text-xs text-center text-gray-500 mt-2">
-              {{ t('financePage.exchangeRateHint') }}
+              {{ isMailboxPayment ? '充值完成后即可回去购买邮件包' : t('financePage.exchangeRateHint') }}
             </p>
           </div>
         </div>
 
         <!-- 提现 -->
-        <div class="bg-white rounded-xl shadow-lg p-4 flex flex-col">
+        <div v-if="!isMailboxPayment" class="bg-white rounded-xl shadow-lg p-4 flex flex-col">
           <div class="flex items-center mb-3">
             <div class="h-10 w-10 bg-primary-100 rounded-lg flex items-center justify-center mr-3">
               <svg
@@ -289,7 +330,7 @@
         </div>
 
         <!-- 收款账户卡片 -->
-        <div class="bg-white rounded-xl shadow-lg p-4">
+        <div v-if="!isMailboxPayment" class="bg-white rounded-xl shadow-lg p-4">
           <div class="flex items-center justify-between mb-3">
             <div class="flex items-center">
               <div
@@ -551,6 +592,7 @@
 </template>
 <script setup>
 import { ref, computed, onMounted, watch, nextTick } from 'vue'
+import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { showMessage } from '@/utils/message'
 import { showConfirm, showPrompt, showAlert } from '@/utils/dialog'
@@ -576,7 +618,17 @@ import QRCode from 'qrcode'
 // 从 userStore 获取当前用户ID
 const userStore = useUserStore()
 const { t } = useI18n()
+const route = useRoute()
 const userId = computed(() => userStore.user?.id || null)
+const isMailboxPayment = computed(() => String(route.query.type || '') === 'email-package')
+const mailboxPackages = [
+  { name: '起步包', quota: 10000, price: 99, desc: '适合刚开始测试和小批量发送' },
+  { name: '标准包', quota: 50000, price: 450, desc: '适合常规营销和会员通知' },
+  { name: '进阶包', quota: 100000, price: 850, desc: '适合长期发送和稳定投放' }
+]
+const selectedMailboxPackage = ref(10000)
+const selectedMailboxPackageInfo = computed(() => mailboxPackages.find((item) => item.quota === selectedMailboxPackage.value) || mailboxPackages[0])
+const selectedMailboxPackageLabel = computed(() => `${Number(selectedMailboxPackageInfo.value.quota).toLocaleString()} 封 / ${selectedMailboxPackageInfo.value.price} 奶片`)
 
 // 充值相关
 const rechargeAmount = ref('')
@@ -636,6 +688,11 @@ const canRecharge = computed(() => {
   const amount = parseFloat(rechargeAmount.value) || 0
   return amount >= 1
 })
+
+const selectMailboxPackage = (item) => {
+  selectedMailboxPackage.value = item.quota
+  rechargeAmount.value = String(item.price)
+}
 
 // 是否可以提现
 const canWithdraw = computed(() => {
@@ -983,6 +1040,9 @@ const handleWithdrawInput = () => {
 }
 
 onMounted(() => {
+  if (isMailboxPayment.value) {
+    selectMailboxPackage(mailboxPackages[0])
+  }
   loadBalance()
   loadAccounts()
   loadFeeConfig() // 加载手续费配置

@@ -47,7 +47,7 @@ let hooksInstalled = false
 export const resolveExternalUrl = (rawUrl?: string | null, baseUrl?: string) => {
   if (!rawUrl) return null
   const trimmed = rawUrl.trim()
-  if (!trimmed || trimmed.startsWith('#') || /^(javascript|data|about):/i.test(trimmed)) return null
+  if (!trimmed || trimmed.startsWith('#') || trimmed.includes('{{') || /^(javascript|data|about):/i.test(trimmed)) return null
 
   try {
     const parsed = new URL(trimmed, baseUrl || window.location.href)

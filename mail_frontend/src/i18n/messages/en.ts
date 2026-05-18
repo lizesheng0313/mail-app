@@ -66,6 +66,7 @@ const en = {
     myAssets: 'My Assets',
     resourceMarket: 'Marketplace',
     openPlatform: 'Open Platform',
+    emailReach: 'Email Reach',
     automationCenter: 'Automation',
     batchWorkbench: 'Batch Workbench',
     downloadClient: 'Download',
@@ -625,6 +626,15 @@ const en = {
     apiKeys: 'API Keys',
     hostedMailbox: 'Domain Mailboxes',
     myDomains: 'My Domains',
+    emailReach: 'Email Reach',
+    emailReachDashboard: 'Reach Overview',
+    emailReachTemplates: 'Templates',
+    emailReachQuota: 'Mail Quota',
+    emailReachMembers: 'Members',
+    emailReachTasks: 'Triggered Tasks',
+    emailReachRecords: 'Send Records',
+    emailReachRecipients: 'Block List',
+    emailReachUnsubscribes: 'Unsubscribes',
     externalMailboxBatchOps: 'External mailbox batch ops',
     batchVerify: 'Batch verify',
     bulkSend: 'Bulk send',
@@ -649,6 +659,22 @@ const en = {
     pluginStoreDescription: 'Browse and install available plugins.',
     myDomainsDescription:
       'Connect your own domain, complete DNS verification, and create receiving addresses.',
+    emailReachDashboardDescription:
+      'Review account status, package abilities, and sending quotas.',
+    emailReachTemplatesDescription:
+      'Manage transactional and marketing templates with AI generation and AI review.',
+    emailReachQuotaDescription:
+      'Review remaining quota, top-up pricing, and purchase entries.',
+    emailReachMembersDescription:
+      'Import members and configure custom fields, tags, and groups.',
+    emailReachTasksDescription:
+      'Manage event-triggered tasks and bulk sending tasks in one place.',
+    emailReachRecordsDescription:
+      'Review sending results, status changes, and failure reasons.',
+    emailReachRecipientsDescription:
+      'Manage invalid addresses, complaint addresses, and blacklists with automatic blocking before send.',
+    emailReachUnsubscribesDescription:
+      'Manage unsubscribe rules and marketing opt-out boundaries in one place.',
     batchVerifyDescription:
       'Import accounts, preview formats, and later connect the desktop local verification flow.',
     bulkSendDescription:

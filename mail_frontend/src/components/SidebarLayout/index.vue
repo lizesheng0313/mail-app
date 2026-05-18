@@ -90,20 +90,31 @@
           </button>
 
           <div v-if="!sidebarCollapsed && isSectionOpen(section.name)" class="mb-1">
-            <router-link
-              v-for="item in section.items"
-              :key="item.path"
-              :to="item.path"
-              class="group mb-1 ml-2 flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-gray-50"
-              :class="$route.path === item.path ? 'bg-primary-50 text-primary-700 border-r-2 border-primary-700' : 'text-gray-700 hover:text-gray-900'"
-            >
-              <component
-                :is="item.icon"
-                class="mr-3 h-5 w-5"
-                :class="$route.path === item.path ? 'text-primary-500' : 'text-gray-400 group-hover:text-gray-500'"
-              />
-              {{ item.label }}
-            </router-link>
+            <div v-for="item in section.items" :key="item.path || item.label">
+              <router-link
+                :to="item.path"
+                class="group mb-1 ml-2 flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-gray-50"
+                :class="itemActive(item) ? 'bg-primary-50 text-primary-700 border-r-2 border-primary-700' : 'text-gray-700 hover:text-gray-900'"
+              >
+                <component
+                  :is="item.icon"
+                  class="mr-3 h-5 w-5"
+                  :class="itemActive(item) ? 'text-primary-500' : 'text-gray-400 group-hover:text-gray-500'"
+                />
+                {{ item.label }}
+              </router-link>
+              <div v-if="item.children?.length && itemActive(item)" class="mb-1 ml-10">
+                <router-link
+                  v-for="child in item.children"
+                  :key="child.path"
+                  :to="child.path"
+                  class="mb-1 block rounded-md px-3 py-1.5 text-sm transition-colors"
+                  :class="$route.path === child.path ? 'bg-primary-50 text-primary-700 font-medium' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'"
+                >
+                  {{ child.label }}
+                </router-link>
+              </div>
+            </div>
           </div>
         </div>
       </nav>
@@ -184,7 +195,9 @@ const route = useRoute()
 const sidebarCollapsed = ref(false)
 const openSections = ref({})
 
-const sectionActive = (section) => section.items.some((item) => item.path === route.path)
+const itemActive = (item) => item.path === route.path || (item.children || []).some((child) => child.path === route.path)
+
+const sectionActive = (section) => section.items.some((item) => itemActive(item))
 
 const getSectionIcon = (section) => section.items?.[0]?.icon
 

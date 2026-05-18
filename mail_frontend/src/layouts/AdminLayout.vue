@@ -187,6 +187,55 @@
             </div>
           </div>
 
+          <div class="mb-2">
+            <button
+              @click="toggleMenu('emailReach')"
+              class="w-full flex items-center justify-between px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
+            >
+              <div class="flex items-center">
+                <svg class="mr-3 h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16v12H4z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8l8 5 8-5" />
+                </svg>
+                <span>邮件触达</span>
+              </div>
+              <svg class="h-4 w-4 transition-transform" :class="{ 'rotate-90': expandedMenus.emailReach }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+
+            <div v-show="expandedMenus.emailReach" class="ml-8 mt-1 space-y-1">
+              <router-link
+                to="/admin/email-reach-overview"
+                class="block px-3 py-2 text-sm rounded-md hover:bg-gray-50 transition-colors"
+                :class="$route.path === '/admin/email-reach-overview' ? 'bg-primary-50 text-primary-700 font-medium' : 'text-gray-600 hover:text-gray-900'"
+              >
+                运营看板
+              </router-link>
+              <router-link
+                to="/admin/email-reach-users"
+                class="block px-3 py-2 text-sm rounded-md hover:bg-gray-50 transition-colors"
+                :class="$route.path === '/admin/email-reach-users' ? 'bg-primary-50 text-primary-700 font-medium' : 'text-gray-600 hover:text-gray-900'"
+              >
+                邮箱用户
+              </router-link>
+              <router-link
+                to="/admin/email-reach-templates"
+                class="block px-3 py-2 text-sm rounded-md hover:bg-gray-50 transition-colors"
+                :class="$route.path === '/admin/email-reach-templates' ? 'bg-primary-50 text-primary-700 font-medium' : 'text-gray-600 hover:text-gray-900'"
+              >
+                模板管理
+              </router-link>
+              <router-link
+                to="/admin/email-reach-settings"
+                class="block px-3 py-2 text-sm rounded-md hover:bg-gray-50 transition-colors"
+                :class="$route.path === '/admin/email-reach-settings' ? 'bg-primary-50 text-primary-700 font-medium' : 'text-gray-600 hover:text-gray-900'"
+              >
+                发信配置
+              </router-link>
+            </div>
+          </div>
+
           <!-- 一级菜单：系统监控 -->
           <div class="mb-2">
             <router-link
@@ -281,7 +330,8 @@ const expandedMenus = reactive({
   user: false,
   workflow: false,
   finance: false,
-  miniapp: false
+  miniapp: false,
+  emailReach: false
 })
 
 // 切换菜单展开/收起
@@ -302,6 +352,16 @@ const autoExpandMenu = () => {
     expandedMenus.finance = true
   } else if (['/admin/miniapp-management', '/admin/miniapp-config'].includes(path)) {
     expandedMenus.miniapp = true
+  } else if ([
+    '/admin/email-reach-overview',
+    '/admin/email-reach-users',
+    '/admin/email-reach-templates',
+    '/admin/email-reach-risk',
+    '/admin/email-reach-unsubscribes',
+    '/admin/email-reach-image-reviews',
+    '/admin/email-reach-settings'
+  ].includes(path)) {
+    expandedMenus.emailReach = true
   }
 }
 
@@ -327,7 +387,14 @@ const pageTitle = computed(() => {
     '/admin/announcements': '公告管理',
     '/admin/transactions': '奶片交易',
     '/admin/miniapp-management': '小程序管理',
-    '/admin/miniapp-config': '视频激励配置'
+    '/admin/miniapp-config': '视频激励配置',
+    '/admin/email-reach-overview': '邮件触达运营看板',
+    '/admin/email-reach-users': '邮件触达邮箱用户',
+    '/admin/email-reach-templates': '邮件触达模板管理',
+    '/admin/email-reach-risk': '邮件触达风险名单',
+    '/admin/email-reach-unsubscribes': '邮件触达退订记录',
+    '/admin/email-reach-image-reviews': '邮件触达图片审核',
+    '/admin/email-reach-settings': '邮件触达发信配置'
   }
   return titles[route.path] || '管理后台'
 })
@@ -343,7 +410,13 @@ const pageDescription = computed(() => {
     '/admin/announcements': '发布和管理系统公告通知',
     '/admin/transactions': '查看和管理所有用户的奶片交易记录',
     '/admin/miniapp-management': '管理小程序基本信息和配置',
-    '/admin/miniapp-config': '配置小程序工作流和视频奖励规则'
+    '/admin/miniapp-config': '配置小程序工作流和视频奖励规则',
+    '/admin/email-reach-overview': '看使用账户数、模板数和整体发送量',
+    '/admin/email-reach-users': '查看所有使用邮件触达的客户和发件情况',
+    '/admin/email-reach-templates': '查看所有客户模板和审核拒绝记录',
+    '/admin/email-reach-unsubscribes': '查看所有客户的退订记录',
+    '/admin/email-reach-image-reviews': '查看客户上传图片的审核结果',
+    '/admin/email-reach-settings': '配置当前发件账号并查看失败统计'
   }
   return descriptions[route.path] || '系统管理中心'
 })

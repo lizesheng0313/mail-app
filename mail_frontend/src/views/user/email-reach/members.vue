@@ -1,0 +1,316 @@
+<template>
+  <div class="space-y-6">
+    <div
+      v-if="accessLoaded && access.status !== 'approved' && access.status !== 'trial'"
+      class="rounded-lg border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900"
+    >
+      <div class="font-medium">当前账号还没开通邮件触达</div>
+      <div class="mt-2">{{ access.reason }}</div>
+    </div>
+
+    <div v-if="canOperate" class="rounded-lg bg-white p-5 shadow-sm">
+      <div class="flex flex-wrap items-center justify-between gap-4">
+        <div class="flex flex-wrap items-center gap-3">
+          <BaseInput v-model="filters.search" placeholder="搜索邮箱" size="sm" class="w-64" />
+          <div class="w-44">
+            <CustomSelect v-model="filters.group_name" :options="groupOptions" placeholder="全部分组" size="sm" />
+          </div>
+          <div class="flex items-center">
+            <button type="button" class="h-10 whitespace-nowrap rounded-md bg-primary-600 px-5 text-sm text-white hover:bg-primary-700" @click="loadMembers">
+              查询
+            </button>
+          </div>
+        </div>
+        <div class="ml-auto flex shrink-0 items-center justify-end gap-3">
+          <button type="button" class="h-10 whitespace-nowrap rounded-md border border-gray-300 px-4 text-sm text-gray-700 hover:bg-gray-50" @click="downloadMembers">
+            导出
+          </button>
+          <button type="button" class="h-10 whitespace-nowrap rounded-md bg-primary-600 px-5 text-sm text-white hover:bg-primary-700" @click="showImportModal = true">
+            导入会员
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <AdminDataTable v-if="canOperate" title="会员列表" :loading="loading" :column-count="5">
+      <template #thead>
+        <tr>
+          <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-black">邮箱</th>
+          <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-black">分组</th>
+          <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-black">自定义字段</th>
+          <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-black">更新时间</th>
+          <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-black">操作</th>
+        </tr>
+      </template>
+      <template #tbody>
+        <tr v-if="!members.length && !loading">
+          <td colspan="5" class="px-6 py-12 text-center text-black">暂无会员</td>
+        </tr>
+        <tr v-for="item in members" :key="item.id" class="hover:bg-gray-50">
+          <td class="px-6 py-4 text-sm font-medium text-black">{{ item.email }}</td>
+          <td class="px-6 py-4 text-sm text-black">{{ item.group_name || '-' }}</td>
+          <td class="px-6 py-4 text-sm text-gray-600">
+            <div class="max-w-md truncate">{{ formatFields(item.fields) }}</div>
+          </td>
+          <td class="px-6 py-4 text-sm text-black">{{ formatTime(item.updated_at) }}</td>
+          <td class="px-6 py-4 text-sm">
+            <div class="flex items-center gap-2">
+              <ActionButton icon="delete" tooltip="删除" variant="delete" @click="handleDeleteMember(item)" />
+            </div>
+          </td>
+        </tr>
+      </template>
+    </AdminDataTable>
+
+    <BaseModal
+      v-model="showImportModal"
+      title="导入会员"
+      size="lg"
+      confirm-text="导入"
+      :confirm-loading="saving"
+      @confirm="handleImport"
+    >
+      <div class="space-y-3">
+        <div class="text-sm text-gray-600">上传 Excel 文件，固定列会直接入库，其他列会作为会员资料保存。</div>
+        <div>
+          <label class="mb-2 block text-sm font-medium text-gray-700">默认分组</label>
+          <CustomSelect v-model="defaultImportGroup" :options="groupOptions" placeholder="不设置分组" />
+        </div>
+        <input
+          ref="importFileRef"
+          type="file"
+          accept=".xlsx,.xls,.csv"
+          class="hidden"
+          @change="handleImportFileChange"
+        />
+        <div class="flex items-center gap-3 rounded-lg border border-dashed border-gray-300 p-4">
+          <button type="button" class="h-10 rounded-md border border-gray-300 px-4 text-sm text-gray-700 hover:bg-gray-50" @click="downloadImportTemplate">
+            下载模板
+          </button>
+          <button type="button" class="h-10 rounded-md bg-primary-600 px-5 text-sm text-white hover:bg-primary-700" @click="importFileRef?.click?.()">
+            选择文件
+          </button>
+          <div class="min-w-0 flex-1 truncate text-sm text-gray-700">{{ importFileName || '支持 .xlsx / .xls / .csv' }}</div>
+        </div>
+      </div>
+    </BaseModal>
+
+    <ConfirmDialog
+      :visible="showDeleteConfirm"
+      title="删除会员"
+      :message="deleteMessage"
+      type="danger"
+      confirm-text="删除"
+      :loading="deleting"
+      @confirm="confirmDeleteMember"
+      @cancel="closeDeleteDialog"
+    />
+  </div>
+</template>
+
+<script setup>
+import { computed, onMounted, reactive, ref } from 'vue'
+import * as XLSX from 'xlsx'
+import ActionButton from '@/components/ActionButton/index.vue'
+import AdminDataTable from '@/components/AdminDataTable/index.vue'
+import BaseInput from '@/components/BaseInput/index.vue'
+import BaseModal from '@/components/BaseModal/index.vue'
+import ConfirmDialog from '@/components/ConfirmDialog/index.vue'
+import CustomSelect from '@/components/CustomSelect/index.vue'
+import emailReachApi from '@/api/emailReach'
+import { showMessage } from '@/utils/message'
+
+const loading = ref(false)
+const saving = ref(false)
+const accessLoaded = ref(false)
+const members = ref([])
+const groups = ref([])
+const showImportModal = ref(false)
+const showDeleteConfirm = ref(false)
+const deleting = ref(false)
+const deletingMember = ref(null)
+const importFileRef = ref(null)
+const importFileName = ref('')
+const importRows = ref([])
+const rawImportRows = ref([])
+const defaultImportGroup = ref('')
+const access = ref({ status: 'pending', reason: '' })
+const filters = reactive({ search: '', group_name: '' })
+
+const canOperate = computed(() => access.value.status === 'approved' || access.value.status === 'trial')
+const groupOptions = computed(() => [{ label: '全部分组', value: '' }, ...groups.value.map((item) => ({ label: item.group_name, value: item.group_name }))])
+const deleteMessage = computed(() => `确认删除会员《${deletingMember.value?.email || ''}》吗？`)
+const fixedExcelColumns = {
+  邮箱: 'email',
+  分组: 'group_name'
+}
+
+const formatTime = (value) => {
+  if (!value) return '-'
+  const date = new Date(Number(value))
+  if (Number.isNaN(date.getTime())) return '-'
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
+}
+
+const formatFields = (value) => {
+  const fieldsValue = value || {}
+  const pairs = Object.entries(fieldsValue).filter(([, item]) => item !== undefined && item !== null && item !== '')
+  if (!pairs.length) return '-'
+  return pairs.map(([key, item]) => `${key}: ${item}`).join('，')
+}
+
+const normalizeExcelValue = (value) => {
+  if (value === undefined || value === null) return ''
+  return String(value).trim()
+}
+
+const mapExcelRowToMember = (row) => {
+  const member = {
+    email: '',
+    group_name: defaultImportGroup.value || '',
+    tags: [],
+    fields: {}
+  }
+  Object.entries(row || {}).forEach(([header, value]) => {
+    const key = String(header || '').trim()
+    const text = normalizeExcelValue(value)
+    if (!key || !text) return
+    const fixedKey = fixedExcelColumns[key]
+    if (fixedKey) {
+      member[fixedKey] = text
+      return
+    }
+    member.fields[key] = text
+  })
+  return member.email ? member : null
+}
+
+const handleImportFileChange = async (event) => {
+  const file = event.target.files?.[0]
+  if (!file) return
+  importFileName.value = file.name
+  try {
+    const buffer = await file.arrayBuffer()
+    const workbook = XLSX.read(buffer, { type: 'array', cellDates: false })
+    const sheet = workbook.Sheets[workbook.SheetNames[0]]
+    const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' })
+    rawImportRows.value = rows
+    importRows.value = rows.map(mapExcelRowToMember).filter(Boolean)
+    if (!importRows.value.length) {
+      showMessage('Excel 里没有可导入的会员邮箱', 'warning')
+      return
+    }
+    showMessage(`已读取 ${importRows.value.length} 条会员`, 'success')
+  } catch (error) {
+    importRows.value = []
+    showMessage('Excel 解析失败，请检查文件格式', 'error')
+  }
+}
+
+const downloadImportTemplate = () => {
+  const worksheet = XLSX.utils.json_to_sheet([
+    {
+      邮箱: 'test@example.com',
+      分组: 'VIP',
+      生日: '1998-08-01',
+      性别: '男'
+    }
+  ])
+  const workbook = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(workbook, worksheet, '导入模板')
+  XLSX.writeFile(workbook, '会员导入模板.xlsx')
+}
+
+const loadMeta = async () => {
+  const groupsRes = await emailReachApi.getMemberGroups()
+  if (groupsRes.code === 0) groups.value = groupsRes.data.items || []
+}
+
+const loadMembers = async () => {
+  loading.value = true
+  try {
+    const res = await emailReachApi.getMembers({ ...filters })
+    if (res.code === 0) members.value = res.data.items || []
+  } finally {
+    loading.value = false
+  }
+}
+
+const handleImport = async () => {
+  saving.value = true
+  try {
+    const rows = (rawImportRows.value.length ? rawImportRows.value : importRows.value).map(mapExcelRowToMember).filter(Boolean)
+    if (!rows.length) {
+      showMessage('先选择 Excel 文件', 'warning')
+      return
+    }
+    const res = await emailReachApi.importMembers({ members: rows, source: 'manual' })
+    if (res.code === 0) {
+      showMessage(`导入成功 ${res.data.imported_count || 0} 条`, 'success')
+      showImportModal.value = false
+      importRows.value = []
+      rawImportRows.value = []
+      importFileName.value = ''
+      defaultImportGroup.value = ''
+      if (importFileRef.value) importFileRef.value.value = ''
+      await loadMeta()
+      await loadMembers()
+      return
+    }
+    showMessage(res.message || '导入失败', 'error')
+  } catch (error) {
+    showMessage('导入失败，请检查 Excel 内容', 'error')
+  } finally {
+    saving.value = false
+  }
+}
+
+const downloadMembers = async () => {
+  const res = await emailReachApi.exportMembers({ ...filters })
+  if (res.code !== 0) return
+  const rows = (res.data.items || []).map((item) => ({
+    邮箱: item.email || '',
+    分组: item.group_name || '',
+    ...(item.fields || {})
+  }))
+  const worksheet = XLSX.utils.json_to_sheet(rows)
+  const workbook = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(workbook, worksheet, '会员')
+  XLSX.writeFile(workbook, `会员列表_${Date.now()}.xlsx`)
+}
+
+const handleDeleteMember = (item) => {
+  deletingMember.value = item
+  showDeleteConfirm.value = true
+}
+
+const closeDeleteDialog = () => {
+  showDeleteConfirm.value = false
+  deletingMember.value = null
+}
+
+const confirmDeleteMember = async () => {
+  if (!deletingMember.value?.id) return
+  deleting.value = true
+  try {
+    const res = await emailReachApi.deleteMember(deletingMember.value.id)
+    if (res.code === 0) {
+      showMessage('删除成功', 'success')
+      closeDeleteDialog()
+      await loadMembers()
+    }
+  } finally {
+    deleting.value = false
+  }
+}
+
+onMounted(async () => {
+  const accessRes = await emailReachApi.getAccessSummary()
+  accessLoaded.value = true
+  if (accessRes.code === 0) access.value = accessRes.data
+  if (canOperate.value) {
+    await loadMeta()
+    await loadMembers()
+  }
+})
+</script>

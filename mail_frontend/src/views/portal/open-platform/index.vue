@@ -491,6 +491,19 @@ const docEndpointGroups = computed<DocEndpointGroup[]>(() => {
       ]
     },
     {
+      name: 'email-reach',
+      label: '邮件触达',
+      description: '模板发信、变量替换和批量触达接口。',
+      groups: [
+        {
+          name: 'email-reach',
+          label: '发送接口',
+          description: groupMap.get('email-reach')?.description || '',
+          items: getItems('email-reach')
+        }
+      ]
+    },
+    {
       name: 'common',
       label: '通用',
       description: '第三方邮箱和临时邮箱都可以调用。',
@@ -537,6 +550,7 @@ const getEndpointAnchorGroup = (endpoint: EndpointItem, fallback: string) => {
   if (path.includes('/local-api/') || path.startsWith('http://127.0.0.1:19199')) return 'desktop-local'
   if (path.startsWith('/open/v1/smtp-accounts')) return 'smtp-accounts'
   if (path.startsWith('/open/v1/external-mailboxes')) return 'external-mailboxes'
+  if (path.startsWith('/open/v1/email-reach')) return 'email-reach'
   if (path.startsWith('/open/v1/emails')) return 'emails'
   if (path.startsWith('/open/v1/verification-codes')) return 'verification-codes'
   if (path.startsWith('/open/v1/workflow-executions')) return 'workflow-executions'

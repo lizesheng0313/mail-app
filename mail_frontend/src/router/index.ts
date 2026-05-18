@@ -33,6 +33,13 @@ const AnnouncementManagement = () => import('@/views/admin/announcement-manageme
 const TransactionManagement = () => import('@/views/admin/transaction-management/index.vue')
 const MiniappManagement = () => import('@/views/admin/miniapp-management/index.vue')
 const MiniappConfig = () => import('@/views/admin/miniapp-config/index.vue')
+const AdminEmailReachOverview = () => import('@/views/admin/email-reach-overview/index.vue')
+const AdminEmailReachUsers = () => import('@/views/admin/email-reach-users/index.vue')
+const AdminEmailReachTemplates = () => import('@/views/admin/email-reach-templates/index.vue')
+const AdminEmailReachRisk = () => import('@/views/admin/email-reach-risk/index.vue')
+const AdminEmailReachUnsubscribes = () => import('@/views/admin/email-reach-unsubscribes/index.vue')
+const AdminEmailReachImageReviews = () => import('@/views/admin/email-reach-image-reviews/index.vue')
+const AdminEmailReachSettings = () => import('@/views/admin/email-reach-settings/index.vue')
 
 // 用户中心组件
 const UserLayout = () => import('@/layouts/UserLayout.vue')
@@ -48,6 +55,15 @@ const UserExternalOutbox = () => import('@/views/user/external-outbox/index.vue'
 const UserExternalGroupManagement = () => import('@/views/user/external-group-management/index.vue')
 const UserExternalBatchRepair = () => import('@/views/user/external-batch-repair/index.vue')
 const UserExternalProxyManagement = () => import('@/views/user/external-proxy-management/index.vue')
+const UserEmailReachTemplates = () => import('@/views/user/email-reach/templates.vue')
+const UserEmailReachTemplateEditor = () => import('@/views/user/email-reach/template-editor.vue')
+const UserEmailReachQuota = () => import('@/views/user/email-reach/quota.vue')
+const UserEmailReachMembers = () => import('@/views/user/email-reach/members.vue')
+const UserEmailReachMemberGroups = () => import('@/views/user/email-reach/member-groups.vue')
+const UserEmailReachMemberTags = () => import('@/views/user/email-reach/member-tags.vue')
+const UserEmailReachTasks = () => import('@/views/user/email-reach/tasks.vue')
+const UserEmailReachRecipients = () => import('@/views/user/email-reach/recipients.vue')
+const UserEmailReachUnsubscribes = () => import('@/views/user/email-reach/unsubscribes.vue')
 
 // 工作流市场组件
 const WorkflowMarket = () => import('@/views/market/index.vue')
@@ -340,6 +356,60 @@ const router = createRouter({
           component: UserDomains
         },
         {
+          path: 'email-reach',
+          redirect: '/user/email-reach/templates'
+        },
+      {
+        path: 'email-reach/templates',
+        name: 'user-email-reach-templates',
+        component: UserEmailReachTemplates
+      },
+      {
+        path: 'email-reach/templates/create',
+        name: 'user-email-reach-template-create',
+        component: UserEmailReachTemplateEditor
+      },
+      {
+        path: 'email-reach/templates/:id/edit',
+        name: 'user-email-reach-template-edit',
+        component: UserEmailReachTemplateEditor
+      },
+      {
+        path: 'email-reach/quota',
+        name: 'user-email-reach-quota',
+        component: UserEmailReachQuota
+      },
+      {
+        path: 'email-reach/members',
+        name: 'user-email-reach-members',
+        component: UserEmailReachMembers
+      },
+      {
+        path: 'email-reach/member-groups',
+        name: 'user-email-reach-member-groups',
+        component: UserEmailReachMemberGroups
+      },
+      {
+        path: 'email-reach/member-tags',
+        name: 'user-email-reach-member-tags',
+        component: UserEmailReachMemberTags
+      },
+      {
+        path: 'email-reach/tasks',
+        name: 'user-email-reach-tasks',
+          component: UserEmailReachTasks
+        },
+        {
+          path: 'email-reach/recipients',
+          name: 'user-email-reach-recipients',
+          component: UserEmailReachRecipients
+        },
+        {
+          path: 'email-reach/unsubscribes',
+          name: 'user-email-reach-unsubscribes',
+          component: UserEmailReachUnsubscribes
+        },
+        {
           path: 'external-batch-verify',
           name: 'user-external-batch-verify',
           component: UserExternalBatchVerify
@@ -445,6 +515,41 @@ const router = createRouter({
           path: 'transactions',
           name: 'admin-transactions',
           component: TransactionManagement
+        },
+        {
+          path: 'email-reach-overview',
+          name: 'admin-email-reach-overview',
+          component: AdminEmailReachOverview
+        },
+        {
+          path: 'email-reach-users',
+          name: 'admin-email-reach-users',
+          component: AdminEmailReachUsers
+        },
+        {
+          path: 'email-reach-templates',
+          name: 'admin-email-reach-templates',
+          component: AdminEmailReachTemplates
+        },
+        {
+          path: 'email-reach-risk',
+          name: 'admin-email-reach-risk',
+          component: AdminEmailReachRisk
+        },
+        {
+          path: 'email-reach-unsubscribes',
+          name: 'admin-email-reach-unsubscribes',
+          component: AdminEmailReachUnsubscribes
+        },
+        {
+          path: 'email-reach-image-reviews',
+          name: 'admin-email-reach-image-reviews',
+          component: AdminEmailReachImageReviews
+        },
+        {
+          path: 'email-reach-settings',
+          name: 'admin-email-reach-settings',
+          component: AdminEmailReachSettings
         }
       ]
     },
