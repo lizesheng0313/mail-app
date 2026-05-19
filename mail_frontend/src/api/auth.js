@@ -6,11 +6,12 @@ import api from '@/services/api'
 
 export const authAPI = {
   // 发送邮箱验证码
-  sendCode: (email, purpose = 'register') => api.post('/auth/send-code', { email, purpose }),
+  sendCode: (email, purpose = 'register') =>
+    api.post('/auth/send-code', { email, purpose }, { suppressErrorMessage: true }),
 
   // 用户注册
   register: (email, password, verification_code) =>
-    api.post('/auth/register', { email, password, verification_code }),
+    api.post('/auth/register', { email, password, verification_code }, { suppressErrorMessage: true }),
 
   // 用户登录
   login: (email, password) =>
@@ -18,7 +19,7 @@ export const authAPI = {
 
   // 重置密码
   resetPassword: (email, verification_code, new_password) =>
-    api.post('/auth/reset-password', { email, verification_code, new_password }),
+    api.post('/auth/reset-password', { email, verification_code, new_password }, { suppressErrorMessage: true }),
 
   // 获取当前用户
   getCurrentUser: () => api.get('/auth/me'),

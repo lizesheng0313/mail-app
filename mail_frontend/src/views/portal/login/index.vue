@@ -131,39 +131,6 @@
               </template>
             </BaseInput>
 
-            <!-- 注册或重置密码时显示密码强度提示 -->
-            <div v-if="(!isLoginMode || isResetMode) && form.password" class="mt-2 p-3 bg-gray-50 rounded-lg text-sm">
-              <p class="text-black font-medium mb-2">{{ t('login.passwordStrength') }}</p>
-              <div class="space-y-1 text-xs">
-                <div :class="form.password.length >= 6 ? 'text-primary-600' : 'text-red-500'">
-                  <span class="mr-1">{{ form.password.length >= 6 ? '✓' : '✗' }}</span>
-                  {{ t('login.passwordRuleMin6') }}
-                </div>
-                <div :class="form.password.length >= 8 ? 'text-primary-600' : 'text-black'">
-                  <span class="mr-1">{{ form.password.length >= 8 ? '✓' : '○' }}</span>
-                  {{ t('login.passwordRuleMin8') }}
-                </div>
-                <div :class="/[A-Z]/.test(form.password) ? 'text-primary-600' : 'text-black'">
-                  <span class="mr-1">{{ /[A-Z]/.test(form.password) ? '✓' : '○' }}</span>
-                  {{ t('login.passwordRuleUpper') }}
-                </div>
-                <div :class="/[a-z]/.test(form.password) ? 'text-primary-600' : 'text-black'">
-                  <span class="mr-1">{{ /[a-z]/.test(form.password) ? '✓' : '○' }}</span>
-                  {{ t('login.passwordRuleLower') }}
-                </div>
-                <div :class="/[0-9]/.test(form.password) ? 'text-primary-600' : 'text-black'">
-                  <span class="mr-1">{{ /[0-9]/.test(form.password) ? '✓' : '○' }}</span>
-                  {{ t('login.passwordRuleNumber') }}
-                </div>
-                <div :class="/[!@#$%^&*(),.?':{}|<>]/.test(form.password) ? 'text-primary-600' : 'text-black'">
-                  <span class="mr-1">{{ /[!@#$%^&*(),.?':{}|<>]/.test(form.password) ? '✓' : '○' }}</span>
-                  {{ t('login.passwordRuleSpecial') }}
-                </div>
-              </div>
-              <div class="mt-2 text-xs text-black">
-                {{ t('login.strengthTip') }}
-              </div>
-            </div>
           </div>
 
           <div v-if="(!isLoginMode && !isResetMode) || (isResetMode && userStore.verificationCodeSent)">
@@ -365,22 +332,18 @@ const isFormValid = computed(() => {
     if (!userStore.verificationCodeSent) {
       return form.value.email.trim()
     } else {
-      const passwordValidation = validatePassword(form.value.password)
       return (
         form.value.email.trim() &&
         form.value.password.trim() &&
-        passwordValidation.valid &&
         form.value.confirmPassword.trim() &&
         form.value.password === form.value.confirmPassword &&
         form.value.verificationCode.trim()
       )
     }
   } else {
-    const passwordValidation = validatePassword(form.value.password)
     return (
       form.value.email.trim() &&
       form.value.password.trim() &&
-      passwordValidation.valid &&
       form.value.confirmPassword.trim() &&
       form.value.password === form.value.confirmPassword &&
       userStore.verificationCodeSent &&
@@ -468,39 +431,10 @@ const sendVerificationCode = async () => {
 }
 
 
-// 密码复杂度验证
-const validatePassword = (password: string): { valid: boolean; message: string } => {
-  if (password.length < 6) {
-    return { valid: false, message: t('login.errorPasswordTooShort') }
-  }
-
-  // 计算密码强度分数
-  let score = 0
-  if (password.length >= 8) score++
-  if (/[A-Z]/.test(password)) score++
-  if (/[a-z]/.test(password)) score++
-  if (/[0-9]/.test(password)) score++
-  if (/[!@#$%^&*(),.?":{}|<>]/.test(password)) score++
-
-  // 至少需要满足2个条件（除了长度）
-  if (score >= 2) {
-    return { valid: true, message: '' }
-  } else {
-    return { valid: false, message: t('login.errorPasswordWeak') }
-  }
-}
-
 const handleSubmit = async () => {
   error.value = ''
 
-  // 注册或重置密码时验证密码复杂度
   if (!isLoginMode.value || (isResetMode.value && userStore.verificationCodeSent)) {
-    const passwordValidation = validatePassword(form.value.password)
-    if (!passwordValidation.valid) {
-      error.value = passwordValidation.message
-      return
-    }
-
     if (form.value.password !== form.value.confirmPassword) {
       error.value = t('login.passwordMismatch')
       return

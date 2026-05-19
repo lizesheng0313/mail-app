@@ -33,6 +33,26 @@ export const emailReachApi = {
     return api.put(`/email-reach/admin/delivery-config/accounts/${accountId}/status`, data)
   },
 
+  getAdminAuthVerificationConfig() {
+    return api.get('/email-reach/admin/auth-verification-config')
+  },
+
+  saveAdminAuthVerificationConfig(data) {
+    return api.put('/email-reach/admin/auth-verification-config', data)
+  },
+
+  updateAdminAuthVerificationSmtpStatus(accountId, data) {
+    return api.put(`/email-reach/admin/auth-verification-config/accounts/${accountId}/status`, data)
+  },
+
+  createAdminSmtpAccount(data) {
+    return api.post('/email-reach/admin/smtp-accounts', data)
+  },
+
+  deleteAdminSmtpAccount(accountId) {
+    return api.delete(`/email-reach/admin/smtp-accounts/${accountId}`)
+  },
+
   getAdminFailureStats() {
     return api.get('/email-reach/admin/failure-stats')
   },
