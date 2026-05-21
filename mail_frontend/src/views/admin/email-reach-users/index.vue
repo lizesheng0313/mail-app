@@ -31,7 +31,7 @@
           <th class="px-6 py-3 text-left text-xs font-medium text-gray-500">状态</th>
           <th class="px-6 py-3 text-left text-xs font-medium text-gray-500">发件数</th>
           <th class="px-6 py-3 text-left text-xs font-medium text-gray-500">失败数</th>
-          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500">邮件额度</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500">剩余额度</th>
           <th class="px-6 py-3 text-left text-xs font-medium text-gray-500">最近发送</th>
           <th class="px-6 py-3 text-right text-xs font-medium text-gray-500">操作</th>
         </tr>
@@ -52,7 +52,10 @@
           </td>
           <td class="px-6 py-4 text-sm text-gray-700">{{ formatNumber(item.sent_count) }}</td>
           <td class="px-6 py-4 text-sm text-gray-700">{{ formatNumber(item.failed_count) }}</td>
-          <td class="px-6 py-4 text-sm text-gray-700">{{ formatNumber(item.included_quota) }}</td>
+          <td class="px-6 py-4 text-sm text-gray-700">
+            {{ formatNumber(item.remaining_quota) }}
+            <span class="ml-1 text-xs text-gray-400">/ {{ formatNumber(item.total_quota) }}</span>
+          </td>
           <td class="px-6 py-4 text-sm text-gray-500">{{ formatTime(item.last_sent_at) }}</td>
           <td class="px-6 py-4 text-right text-sm">
             <div class="flex items-center justify-end gap-1">
@@ -97,18 +100,20 @@ const pagination = reactive({
 const statusOptions = [
   { label: '全部状态', value: '' },
   { label: '正常', value: 'approved' },
+  { label: '试用中', value: 'trial' },
   { label: '已停用', value: 'disabled' },
   { label: '待开通', value: 'pending' }
 ]
 
 const statusLabel = (value) => {
   if (value === 'approved') return '正常'
+  if (value === 'trial') return '试用中'
   if (value === 'disabled') return '已停用'
   return '待开通'
 }
 
 const statusClass = (value) => {
-  if (value === 'approved') return 'bg-green-100 text-green-700'
+  if (value === 'approved' || value === 'trial') return 'bg-green-100 text-green-700'
   if (value === 'disabled') return 'bg-red-100 text-red-700'
   return 'bg-gray-100 text-gray-600'
 }

@@ -136,6 +136,18 @@
             </button>
             <button
               type="button"
+              @click="openLinkModal"
+              title="超链接"
+              class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
+            >
+              <svg class="h-4 w-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M6.2 9.8 9.8 6.2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M6.7 12.3H4.8a2.8 2.8 0 1 1 0-5.6h1.9" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M9.3 3.7h1.9a2.8 2.8 0 1 1 0 5.6H9.3" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+            <button
+              type="button"
               @click="toggleBulletList"
               title="列表"
               class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
@@ -249,6 +261,35 @@
     </BaseModal>
 
     <BaseModal
+      :model-value="linkModalVisible"
+      title="插入超链接"
+      confirm-text="确定"
+      @update:modelValue="linkModalVisible = $event"
+      @confirm="handleInsertLink"
+    >
+      <div class="space-y-4">
+        <div>
+          <label class="mb-2 block text-sm font-medium text-slate-700">链接地址</label>
+          <input
+            v-model="linkForm.url"
+            type="text"
+            class="h-[46px] w-full rounded-lg border border-gray-300 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
+            placeholder="例如：https://example.com"
+          />
+        </div>
+        <div>
+          <label class="mb-2 block text-sm font-medium text-slate-700">显示文字</label>
+          <input
+            v-model="linkForm.text"
+            type="text"
+            class="h-[46px] w-full rounded-lg border border-gray-300 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
+            placeholder="不填默认用选中文字或链接地址"
+          />
+        </div>
+      </div>
+    </BaseModal>
+
+    <BaseModal
       :model-value="reviewFailModalVisible"
       title="审核未通过"
       confirm-text="知道了"
@@ -292,6 +333,7 @@ import BaseIcon from '@/components/BaseIcon/index.vue'
 import CustomSelect from '@/components/CustomSelect/index.vue'
 import EmailHtmlRenderer from '@/components/Mail/EmailHtmlRenderer.vue'
 import SimpleImageExtension from './components/SimpleImageExtension'
+import SimpleLinkExtension from './components/SimpleLinkExtension'
 import TextStyleExtension from './components/TextStyleExtension'
 import emailReachApi from '@/api/emailReach'
 import { uploadImageFile } from '@/utils/imageUpload'
@@ -313,12 +355,17 @@ const customVariables = ref([])
 const syncingContent = ref(false)
 const htmlSource = ref('')
 const aiModalVisible = ref(false)
+const linkModalVisible = ref(false)
 const reviewFailModalVisible = ref(false)
 const editorMode = ref('rich')
 const lastEditorSelection = ref({ from: 0, to: 0 })
 const lastCodeSelection = ref({ start: 0, end: 0 })
 const selectedFontSize = ref('14px')
 const selectedTextColor = ref('#374151')
+const linkForm = reactive({
+  url: '',
+  text: ''
+})
 const access = ref({
   status: 'pending',
   reason: ''
@@ -461,10 +508,84 @@ const syncTextStyleState = () => {
   selectedTextColor.value = normalizeColorValue(attrs.color)
 }
 
+const resolveTextStyleRange = () => {
+  if (!editor.value) return null
+  const { selection } = editor.value.state
+  const currentFrom = Number(selection?.from || 0)
+  const currentTo = Number(selection?.to || 0)
+
+  if (currentTo > currentFrom) {
+    return { from: currentFrom, to: currentTo, restoreFrom: currentFrom }
+  }
+
+  const savedFrom = Number(lastEditorSelection.value?.from || 0)
+  const savedTo = Number(lastEditorSelection.value?.to || 0)
+  if (savedTo > savedFrom) {
+    return { from: savedFrom, to: savedTo, restoreFrom: savedFrom }
+  }
+
+  const $from = selection?.$from
+  const parent = $from?.parent
+  if (parent?.isTextblock && Number(parent.content.size || 0) > 0) {
+    const start = $from.start()
+    const end = start + parent.content.size
+    if (end > start) {
+      return { from: start, to: end, restoreFrom: currentFrom || start }
+    }
+  }
+
+  return null
+}
+
+const resolveExplicitSelectionRange = () => {
+  if (!editor.value) return null
+  const { selection } = editor.value.state
+  const currentFrom = Number(selection?.from || 0)
+  const currentTo = Number(selection?.to || 0)
+
+  if (currentTo > currentFrom) {
+    return { from: currentFrom, to: currentTo }
+  }
+
+  const savedFrom = Number(lastEditorSelection.value?.from || 0)
+  const savedTo = Number(lastEditorSelection.value?.to || 0)
+  if (savedTo > savedFrom) {
+    return { from: savedFrom, to: savedTo }
+  }
+
+  return null
+}
+
+const applyTextStyleAttrs = (nextAttrs) => {
+  if (!editor.value) return
+  const currentAttrs = editor.value.getAttributes('textStyle') || {}
+  const mergedAttrs = {
+    ...currentAttrs,
+    ...nextAttrs
+  }
+  const range = resolveTextStyleRange()
+  const chain = editor.value.chain().focus()
+
+  if (range?.to > range?.from) {
+    chain
+      .setTextSelection({ from: range.from, to: range.to })
+      .setMark('textStyle', mergedAttrs)
+      .setTextSelection({ from: range.restoreFrom, to: range.restoreFrom })
+      .run()
+  } else {
+    chain.setMark('textStyle', mergedAttrs).run()
+  }
+
+  form.content = editor.value.getHTML()
+  htmlSource.value = form.content
+  syncTextStyleState()
+}
+
 const editor = useEditor({
   extensions: [
     StarterKit,
     TextStyleExtension,
+    SimpleLinkExtension,
     SimpleImageExtension,
     Placeholder.configure({
       placeholder: '这里直接编辑邮件内容，看到的就是邮件样子。'
@@ -572,32 +693,82 @@ const triggerImageUpload = () => {
   imageInputRef.value?.click?.()
 }
 
+const escapeHtml = (value) => String(value || '')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#39;')
+
+const normalizeLinkUrl = (value) => {
+  const text = String(value || '').trim()
+  if (!text) return ''
+  if (/^(https?:\/\/|mailto:|tel:|\/)/i.test(text)) return text
+  return `https://${text}`
+}
+
+const getSelectedEditorText = () => {
+  if (!editor.value) return ''
+  const range = resolveExplicitSelectionRange()
+  if (!range?.to || range.to <= range.from) return ''
+  return String(editor.value.state.doc.textBetween(range.from, range.to, ' ') || '').trim()
+}
+
+const openLinkModal = () => {
+  if (editorMode.value === 'code' && htmlSourceRef.value) {
+    lastCodeSelection.value = {
+      start: htmlSourceRef.value.selectionStart || 0,
+      end: htmlSourceRef.value.selectionEnd || 0
+    }
+  }
+  linkForm.url = ''
+  linkForm.text = editorMode.value === 'code' ? '' : getSelectedEditorText()
+  linkModalVisible.value = true
+}
+
+const handleInsertLink = () => {
+  const normalizedUrl = normalizeLinkUrl(linkForm.url)
+  if (!normalizedUrl) {
+    showMessage('先填写链接地址', 'warning')
+    return
+  }
+
+  const selectedText = editorMode.value === 'code' ? '' : getSelectedEditorText()
+  const displayText = String(linkForm.text || '').trim() || selectedText || normalizedUrl
+  const snippet = `<a href="${escapeHtml(normalizedUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(displayText)}</a>`
+
+  if (editorMode.value === 'code') {
+    insertIntoCodeAtCursor(snippet)
+  } else if (editor.value) {
+    const range = resolveExplicitSelectionRange()
+    const chain = editor.value.chain().focus()
+    if (range?.to > range?.from) {
+      chain
+        .setTextSelection({ from: range.from, to: range.to })
+        .insertContent(snippet)
+        .run()
+    } else {
+      chain.insertContent(snippet).run()
+    }
+    form.content = editor.value.getHTML()
+    htmlSource.value = form.content
+  }
+
+  linkModalVisible.value = false
+  linkForm.url = ''
+  linkForm.text = ''
+}
+
 const applyFontSize = (value) => {
-  if (!editor.value) return
-  const currentAttrs = editor.value.getAttributes('textStyle') || {}
-  editor.value
-    .chain()
-    .focus()
-    .setMark('textStyle', {
-      ...currentAttrs,
-      fontSize: String(value || '14px')
-    })
-    .run()
-  syncTextStyleState()
+  applyTextStyleAttrs({
+    fontSize: String(value || '14px')
+  })
 }
 
 const applyTextColor = (value) => {
-  if (!editor.value) return
-  const currentAttrs = editor.value.getAttributes('textStyle') || {}
-  editor.value
-    .chain()
-    .focus()
-    .setMark('textStyle', {
-      ...currentAttrs,
-      color: String(value || '#374151')
-    })
-    .run()
-  syncTextStyleState()
+  applyTextStyleAttrs({
+    color: String(value || '#374151')
+  })
 }
 
 const toggleBold = () => {
