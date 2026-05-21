@@ -9,7 +9,11 @@ const SimpleLinkExtension = Mark.create({
     return {
       href: { default: null },
       target: { default: '_blank' },
-      rel: { default: 'noopener noreferrer' }
+      rel: { default: 'noopener noreferrer' },
+      style: {
+        default: 'color:#2563eb;text-decoration:underline;cursor:pointer;',
+        parseHTML: (element) => element.getAttribute('style') || 'color:#2563eb;text-decoration:underline;cursor:pointer;'
+      }
     }
   },
 

@@ -52,10 +52,7 @@
           </td>
           <td class="px-6 py-4 text-sm text-gray-700">{{ formatNumber(item.sent_count) }}</td>
           <td class="px-6 py-4 text-sm text-gray-700">{{ formatNumber(item.failed_count) }}</td>
-          <td class="px-6 py-4 text-sm text-gray-700">
-            {{ formatNumber(item.remaining_quota) }}
-            <span class="ml-1 text-xs text-gray-400">/ {{ formatNumber(item.total_quota) }}</span>
-          </td>
+          <td class="px-6 py-4 text-sm text-gray-700">{{ formatNumber(item.remaining_quota) }}</td>
           <td class="px-6 py-4 text-sm text-gray-500">{{ formatTime(item.last_sent_at) }}</td>
           <td class="px-6 py-4 text-right text-sm">
             <div class="flex items-center justify-end gap-1">

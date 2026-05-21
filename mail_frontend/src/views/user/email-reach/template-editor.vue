@@ -563,7 +563,7 @@ const applyTextStyleAttrs = (nextAttrs) => {
     ...currentAttrs,
     ...nextAttrs
   }
-  const range = resolveTextStyleRange()
+  const range = resolveExplicitSelectionRange()
   const chain = editor.value.chain().focus()
 
   if (range?.to > range?.from) {
@@ -735,7 +735,7 @@ const handleInsertLink = () => {
 
   const selectedText = editorMode.value === 'code' ? '' : getSelectedEditorText()
   const displayText = String(linkForm.text || '').trim() || selectedText || normalizedUrl
-  const snippet = `<a href="${escapeHtml(normalizedUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(displayText)}</a>`
+  const snippet = `<a href="${escapeHtml(normalizedUrl)}" target="_blank" rel="noopener noreferrer" style="color:#2563eb;text-decoration:underline;cursor:pointer;">${escapeHtml(displayText)}</a>`
 
   if (editorMode.value === 'code') {
     insertIntoCodeAtCursor(snippet)
@@ -1111,6 +1111,12 @@ onBeforeUnmount(() => {
 
 :deep(.mail-template-editor .ProseMirror p:last-child) {
   margin-bottom: 0;
+}
+
+:deep(.mail-template-editor .ProseMirror a) {
+  color: #2563eb;
+  text-decoration: underline;
+  cursor: pointer;
 }
 
 :deep(.mail-template-editor .ProseMirror ul),
