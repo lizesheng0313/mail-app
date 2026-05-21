@@ -97,6 +97,10 @@ export const emailReachApi = {
     return api.put(`/email-reach/admin/templates/${templateId}/block`, data)
   },
 
+  restoreAdminTemplate(templateId, data = {}) {
+    return api.put(`/email-reach/admin/templates/${templateId}/restore`, data)
+  },
+
   getTemplates() {
     return api.get('/email-reach/templates')
   },

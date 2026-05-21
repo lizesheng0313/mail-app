@@ -79,11 +79,11 @@
           <td class="px-6 py-4 text-right text-sm">
             <div class="flex items-center justify-end gap-1">
               <ActionButton
-                icon="disable"
-                tooltip="封禁模板"
-                variant="disable"
-                :disabled="blocking || item.review_status === 'rejected'"
-                @click="handleBlockTemplate(item)"
+                :icon="item.review_status === 'rejected' ? 'enable' : 'disable'"
+                :tooltip="item.review_status === 'rejected' ? '解封模板' : '封禁模板'"
+                :variant="item.review_status === 'rejected' ? 'enable' : 'disable'"
+                :disabled="blocking"
+                @click="handleToggleTemplate(item)"
               />
               <ActionButton icon="view" tooltip="查看详情" variant="view" @click="openDetail(item)" />
             </div>
@@ -135,11 +135,14 @@
           <div class="flex items-center gap-3 pt-2">
             <button
               type="button"
-              class="inline-flex items-center rounded-md border border-red-200 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
-              :disabled="blocking || detail.review_status === 'rejected'"
-              @click="handleBlockTemplate(detail)"
+              class="inline-flex items-center rounded-md px-4 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60"
+              :class="detail.review_status === 'rejected'
+                ? 'border border-primary-200 text-primary-600 hover:bg-primary-50'
+                : 'border border-red-200 text-red-600 hover:bg-red-50'"
+              :disabled="blocking"
+              @click="handleToggleTemplate(detail)"
             >
-              封禁模板
+              {{ detail.review_status === 'rejected' ? '解封模板' : '封禁模板' }}
             </button>
           </div>
         </div>
@@ -242,19 +245,22 @@ const openDetail = (item) => {
   detailVisible.value = true
 }
 
-const handleBlockTemplate = async (item) => {
+const handleToggleTemplate = async (item) => {
   const target = item || detail.value
   if (!target?.id || blocking.value) return
+  const isRejected = target.review_status === 'rejected'
   blocking.value = true
   try {
-    const res = await emailReachApi.blockAdminTemplate(target.id, { reason: '管理员手动封禁模板' })
+    const res = isRejected
+      ? await emailReachApi.restoreAdminTemplate(target.id, { reason: '管理员手动恢复模板' })
+      : await emailReachApi.blockAdminTemplate(target.id, { reason: '管理员手动封禁模板' })
     if (detail.value?.id === target.id) {
       detail.value = { ...detail.value, ...(res.data || {}) }
     }
-    showMessage('模板已封禁', 'success')
+    showMessage(isRejected ? '模板已解封' : '模板已封禁', 'success')
     await loadRows(pagination.page)
   } catch (error) {
-    showMessage(error?.message || '封禁失败', 'error')
+    showMessage(error?.message || (isRejected ? '解封失败' : '封禁失败'), 'error')
   } finally {
     blocking.value = false
   }
