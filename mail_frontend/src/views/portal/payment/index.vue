@@ -31,7 +31,7 @@
       </div>
 
       <!-- 空状态 -->
-      <div v-else-if="(purchaseType === 'mailbox' && packages.length === 0) || (purchaseType === 'plugin' && pluginPricing.length === 0)" class="text-center py-12">
+      <div v-else-if="(purchaseType === 'mailbox' && packages.length === 0) || (purchaseType === 'plugin' && pluginPricing.length === 0) || (purchaseType === 'email-package' && emailPackages.length === 0)" class="text-center py-12">
         <div class="text-5xl mb-3">📦</div>
         <p class="text-black">{{ t('paymentPage.noPackages') }}</p>
       </div>
@@ -458,11 +458,7 @@ const showConfirmDialog = ref(false)
 const confirmDialogTitle = ref('')
 const confirmDialogMessage = ref('')
 const currentBuyingItem = ref<any>(null)
-const emailPackages: EmailPackage[] = [
-  { id: 10000, name: '起步包', quota: 10000, price: 99, originalPrice: 129, description: '适合测试和小批量发送' },
-  { id: 50000, name: '标准包', quota: 50000, price: 450, originalPrice: 599, description: '适合会员通知和常规活动', recommended: true },
-  { id: 100000, name: '进阶包', quota: 100000, price: 850, originalPrice: 1199, description: '适合长期发送和稳定投放' }
-]
+const emailPackages = ref<EmailPackage[]>([])
 
 // 购买类型：mailbox、plugin 或 email-package
 const purchaseType = computed(() => route.query.type || 'mailbox')
@@ -511,6 +507,28 @@ const loadMailboxPackages = async () => {
     }
   } catch (error: any) {
     console.error('加载套餐错误：', error)
+  } finally {
+    loading.value = false
+  }
+}
+
+const loadEmailPackages = async () => {
+  loading.value = true
+  try {
+    const res = await emailReachApi.getQuotaPricing()
+    if (res.code === 0) {
+      emailPackages.value = (res.data?.packages || []).map((item: any) => ({
+        id: Number(item.quota || 0),
+        name: item.name || `${Number(item.quota || 0).toLocaleString()}封套餐`,
+        quota: Number(item.quota || 0),
+        price: Number(item.price || 0),
+        originalPrice: Number(item.original_price || item.price || 0),
+        description: item.description || '',
+        recommended: Boolean(item.recommended)
+      }))
+    }
+  } catch (error: any) {
+    console.error('加载邮件包错误：', error)
   } finally {
     loading.value = false
   }
@@ -770,7 +788,7 @@ onMounted(() => {
   if (purchaseType.value === 'plugin') {
     loadPluginPricing()
   } else if (purchaseType.value === 'email-package') {
-    loading.value = false
+    loadEmailPackages()
   } else {
     loadMailboxPackages()
   }

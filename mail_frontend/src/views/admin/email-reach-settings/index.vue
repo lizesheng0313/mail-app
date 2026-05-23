@@ -93,6 +93,79 @@
       </template>
     </AdminDataTable>
 
+    <div class="rounded-lg bg-white p-5 shadow-sm space-y-4">
+      <div class="flex items-center justify-between gap-4">
+        <div>
+          <div class="text-lg font-semibold text-gray-900">邮件补量套餐</div>
+          <div class="mt-1 text-sm text-gray-500">后台统一配置邮件封数和价格，前台购买页会直接同步这里</div>
+        </div>
+        <div class="flex items-center gap-2">
+          <button
+            type="button"
+            class="h-10 rounded-md border border-gray-300 px-4 text-sm text-gray-700 hover:bg-gray-50"
+            @click="handleAddQuotaPackage"
+          >
+            增加套餐
+          </button>
+          <button
+            type="button"
+            class="h-10 rounded-md bg-primary-600 px-4 text-sm text-white hover:bg-primary-700 disabled:opacity-50"
+            :disabled="quotaPricingSaving"
+            @click="handleSaveQuotaPricing"
+          >
+            {{ quotaPricingSaving ? '保存中...' : '保存套餐' }}
+          </button>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead>
+            <tr>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">套餐名称</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">邮件封数</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">价格</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">原价</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">说明</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">推荐</th>
+              <th class="px-4 py-3 text-right text-xs font-medium text-gray-500">操作</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
+            <tr v-if="!quotaPackages.length">
+              <td colspan="7" class="px-4 py-10 text-center text-sm text-gray-500">暂无套餐</td>
+            </tr>
+            <tr v-for="(item, index) in quotaPackages" :key="`quota-${index}`">
+              <td class="px-4 py-3">
+                <input v-model.trim="item.name" type="text" class="h-10 w-full rounded-md border border-gray-300 px-3 text-sm focus:border-primary-500 focus:outline-none" />
+              </td>
+              <td class="px-4 py-3">
+                <input v-model.number="item.quota" type="number" min="1" class="h-10 w-36 rounded-md border border-gray-300 px-3 text-sm focus:border-primary-500 focus:outline-none" />
+              </td>
+              <td class="px-4 py-3">
+                <input v-model.number="item.price" type="number" min="0" step="0.01" class="h-10 w-32 rounded-md border border-gray-300 px-3 text-sm focus:border-primary-500 focus:outline-none" />
+              </td>
+              <td class="px-4 py-3">
+                <input v-model.number="item.original_price" type="number" min="0" step="0.01" class="h-10 w-32 rounded-md border border-gray-300 px-3 text-sm focus:border-primary-500 focus:outline-none" />
+              </td>
+              <td class="px-4 py-3">
+                <input v-model.trim="item.description" type="text" class="h-10 w-full rounded-md border border-gray-300 px-3 text-sm focus:border-primary-500 focus:outline-none" />
+              </td>
+              <td class="px-4 py-3">
+                <label class="inline-flex items-center gap-2 text-sm text-gray-700">
+                  <input v-model="item.recommended" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
+                  推荐
+                </label>
+              </td>
+              <td class="px-4 py-3 text-right">
+                <ActionButton icon="delete" tooltip="删除套餐" variant="delete" @click="handleRemoveQuotaPackage(index)" />
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
     <BaseModal
       v-model="addModalVisible"
       title="添加发信账号"
@@ -161,6 +234,8 @@ const adding = ref(false)
 const showDeleteConfirm = ref(false)
 const deleting = ref(false)
 const deletingItem = ref(null)
+const quotaPricingSaving = ref(false)
+const quotaPackages = ref([])
 const filters = reactive({
   search: '',
   status: ''
@@ -240,9 +315,10 @@ const getStatusClass = (item) => {
 const loadPageData = async () => {
   loading.value = true
   try {
-    const [deliveryRes, authRes] = await Promise.all([
+    const [deliveryRes, authRes, quotaPricingRes] = await Promise.all([
       emailReachApi.getAdminDeliveryConfig(),
-      emailReachApi.getAdminAuthVerificationConfig()
+      emailReachApi.getAdminAuthVerificationConfig(),
+      emailReachApi.getAdminQuotaPricing()
     ])
     const accounts = mergeAdminAccounts(deliveryRes.data || {}, authRes.data || {})
     rows.value = buildRows(
@@ -250,8 +326,61 @@ const loadPageData = async () => {
       deliveryRes.data || {},
       authRes.data || {}
     )
+    quotaPackages.value = Array.isArray(quotaPricingRes?.data?.packages)
+      ? quotaPricingRes.data.packages.map((item) => ({
+        quota: Number(item.quota || 0),
+        price: Number(item.price || 0),
+        original_price: Number(item.original_price || 0),
+        name: item.name || '',
+        description: item.description || '',
+        recommended: Boolean(item.recommended)
+      }))
+      : []
   } finally {
     loading.value = false
+  }
+}
+
+const handleAddQuotaPackage = () => {
+  quotaPackages.value.push({
+    quota: 10000,
+    price: 0,
+    original_price: 0,
+    name: '',
+    description: '',
+    recommended: false
+  })
+}
+
+const handleRemoveQuotaPackage = (index) => {
+  quotaPackages.value.splice(index, 1)
+}
+
+const handleSaveQuotaPricing = async () => {
+  quotaPricingSaving.value = true
+  try {
+    const res = await emailReachApi.saveAdminQuotaPricing({
+      packages: quotaPackages.value.map((item) => ({
+        quota: Number(item.quota || 0),
+        price: Number(item.price || 0),
+        original_price: Number(item.original_price || 0),
+        name: item.name || '',
+        description: item.description || '',
+        recommended: Boolean(item.recommended)
+      }))
+    })
+    if (res?.code !== 0) return
+    quotaPackages.value = (res.data?.packages || []).map((item) => ({
+      quota: Number(item.quota || 0),
+      price: Number(item.price || 0),
+      original_price: Number(item.original_price || 0),
+      name: item.name || '',
+      description: item.description || '',
+      recommended: Boolean(item.recommended)
+    }))
+    showMessage('套餐保存成功', 'success')
+  } finally {
+    quotaPricingSaving.value = false
   }
 }
 

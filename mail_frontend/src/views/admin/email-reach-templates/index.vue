@@ -20,19 +20,30 @@
     </div>
 
     <div class="rounded-lg bg-white p-5 shadow-sm">
-      <div class="flex items-center gap-4">
-        <BaseInput
-          v-model="filters.search"
-          placeholder="客户/模板/主题/原因"
-          size="sm"
-          class="w-72"
-          @keyup.enter="loadRows(1)"
-        />
-        <div class="w-36">
-          <CustomSelect v-model="filters.review_status" :options="reviewOptions" placeholder="全部审核" size="sm" />
+      <div class="flex items-center justify-between gap-4">
+        <div class="flex items-center gap-4">
+          <BaseInput
+            v-model="filters.search"
+            placeholder="客户/模板/主题/原因"
+            size="sm"
+            class="w-72"
+            @keyup.enter="loadRows(1)"
+          />
+          <div class="w-36">
+            <CustomSelect v-model="filters.review_status" :options="reviewOptions" placeholder="全部审核" size="sm" />
+          </div>
+          <button type="button" class="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700" @click="loadRows(1)">
+            查询
+          </button>
         </div>
-        <button type="button" class="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700" @click="loadRows(1)">
-          查询
+        <button
+          v-if="activeTab === 'templates'"
+          type="button"
+          class="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          :disabled="!selectedTemplateIds.length || scanningAdPrefix"
+          @click="handleBatchScanAdPrefix"
+        >
+          {{ scanningAdPrefix ? '扫描中...' : `扫描广告标题${selectedTemplateIds.length ? `（${selectedTemplateIds.length}）` : ''}` }}
         </button>
       </div>
     </div>
@@ -41,11 +52,20 @@
       title="模板列表"
       :loading="loading"
       :pagination="pagination"
-      :column-count="5"
+      :column-count="6"
       @page-change="loadRows"
     >
       <template #thead>
         <tr>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500">
+            <input
+              v-if="activeTab === 'templates'"
+              :checked="allCurrentPageSelected"
+              type="checkbox"
+              class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+              @change="toggleSelectAll"
+            />
+          </th>
           <th class="px-6 py-3 text-left text-xs font-medium text-gray-500">客户</th>
           <th class="px-6 py-3 text-left text-xs font-medium text-gray-500">模板</th>
           <th class="px-6 py-3 text-left text-xs font-medium text-gray-500">审核</th>
@@ -55,9 +75,18 @@
       </template>
       <template #tbody>
         <tr v-if="!rows.length">
-          <td colspan="5" class="px-6 py-12 text-center text-sm text-gray-500">暂无模板数据</td>
+          <td colspan="6" class="px-6 py-12 text-center text-sm text-gray-500">暂无模板数据</td>
         </tr>
         <tr v-for="item in rows" :key="`${activeTab}-${item.id}`" class="hover:bg-gray-50">
+          <td class="px-6 py-4 text-sm text-gray-700">
+            <input
+              v-if="activeTab === 'templates'"
+              :checked="selectedTemplateIds.includes(Number(item.id || 0))"
+              type="checkbox"
+              class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+              @change="toggleTemplateSelection(item)"
+            />
+          </td>
           <td class="px-6 py-4 text-sm text-gray-700">
             <div class="font-medium text-gray-900">{{ item.user_email || '-' }}</div>
             <div class="mt-1 text-xs text-gray-500">{{ item.username || '未设置用户名' }}</div>
@@ -75,6 +104,9 @@
             <span :class="riskClass(item.risk_level)" class="inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium">
               {{ riskLabel(item.risk_level) }}
             </span>
+            <div v-if="riskReason(item)" class="mt-1 max-w-[260px] whitespace-normal text-xs leading-5 text-gray-500">
+              {{ riskReason(item) }}
+            </div>
           </td>
           <td class="px-6 py-4 text-right text-sm">
             <div class="flex items-center justify-end gap-1">
@@ -130,7 +162,19 @@
           </div>
           <div>
             <div class="mb-1 text-sm text-gray-500">审核结果</div>
-            <div class="text-sm leading-6 text-gray-700">{{ detail.review_reason || detail.reason || '-' }}</div>
+            <div class="text-sm leading-6 text-gray-700">{{ riskReason(detail) || '-' }}</div>
+          </div>
+          <div v-if="detail.review_result?.issues?.length">
+            <div class="mb-1 text-sm text-gray-500">风险问题</div>
+            <ul class="space-y-1 text-sm leading-6 text-gray-700">
+              <li v-for="(item, index) in detail.review_result.issues" :key="`issue-${index}`">• {{ item }}</li>
+            </ul>
+          </div>
+          <div v-if="detail.review_result?.suggestions?.length">
+            <div class="mb-1 text-sm text-gray-500">风险建议</div>
+            <ul class="space-y-1 text-sm leading-6 text-gray-700">
+              <li v-for="(item, index) in detail.review_result.suggestions" :key="`suggestion-${index}`">• {{ item }}</li>
+            </ul>
           </div>
           <div class="flex items-center gap-3 pt-2">
             <button
@@ -167,7 +211,7 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import AdminDataTable from '@/components/AdminDataTable/index.vue'
 import ActionButton from '@/components/ActionButton/index.vue'
 import BaseModal from '@/components/BaseModal/index.vue'
@@ -180,7 +224,9 @@ import { showMessage } from '@/utils/message'
 const activeTab = ref('templates')
 const loading = ref(false)
 const blocking = ref(false)
+const scanningAdPrefix = ref(false)
 const rows = ref([])
+const selectedTemplateIds = ref([])
 const pagination = reactive({ page: 1, limit: 20, total: 0, pages: 1 })
 const filters = reactive({ search: '', review_status: '' })
 const detailVisible = ref(false)
@@ -207,9 +253,22 @@ const riskClass = (value) => {
   return 'bg-gray-100 text-gray-600'
 }
 
+const riskReason = (item) => {
+  if (!item) return ''
+  const issues = Array.isArray(item.review_result?.issues) ? item.review_result.issues.filter(Boolean) : []
+  const suggestions = Array.isArray(item.review_result?.suggestions) ? item.review_result.suggestions.filter(Boolean) : []
+  return issues[0] || suggestions[0] || item.review_summary || ''
+}
+
+const allCurrentPageSelected = computed(() => {
+  if (activeTab.value !== 'templates' || !rows.value.length) return false
+  return rows.value.every((item) => selectedTemplateIds.value.includes(Number(item.id || 0)))
+})
+
 const switchTab = (tab) => {
   activeTab.value = tab
   rows.value = []
+  selectedTemplateIds.value = []
   pagination.page = 1
   loadRows(1)
 }
@@ -240,6 +299,31 @@ const loadRows = async (page = pagination.page) => {
   }
 }
 
+const toggleTemplateSelection = (item) => {
+  const templateId = Number(item?.id || 0)
+  if (!templateId) return
+  if (selectedTemplateIds.value.includes(templateId)) {
+    selectedTemplateIds.value = selectedTemplateIds.value.filter((id) => id !== templateId)
+    return
+  }
+  selectedTemplateIds.value = [...selectedTemplateIds.value, templateId]
+}
+
+const toggleSelectAll = (event) => {
+  const checked = Boolean(event?.target?.checked)
+  if (!checked) {
+    const currentPageIds = new Set((rows.value || []).map((item) => Number(item.id || 0)))
+    selectedTemplateIds.value = selectedTemplateIds.value.filter((id) => !currentPageIds.has(id))
+    return
+  }
+  const merged = new Set(selectedTemplateIds.value)
+  ;(rows.value || []).forEach((item) => {
+    const templateId = Number(item.id || 0)
+    if (templateId > 0) merged.add(templateId)
+  })
+  selectedTemplateIds.value = Array.from(merged)
+}
+
 const openDetail = (item) => {
   detail.value = item
   detailVisible.value = true
@@ -263,6 +347,23 @@ const handleToggleTemplate = async (item) => {
     showMessage(error?.message || (isRejected ? '解封失败' : '封禁失败'), 'error')
   } finally {
     blocking.value = false
+  }
+}
+
+const handleBatchScanAdPrefix = async () => {
+  if (!selectedTemplateIds.value.length || scanningAdPrefix.value) return
+  scanningAdPrefix.value = true
+  try {
+    const res = await emailReachApi.scanAdminTemplatesAdPrefix({
+      template_ids: selectedTemplateIds.value
+    })
+    showMessage(`扫描完成，更新 ${Number(res.data?.updated_count || 0)} 条`, 'success')
+    selectedTemplateIds.value = []
+    await loadRows(pagination.page)
+  } catch (error) {
+    showMessage(error?.message || '扫描失败', 'error')
+  } finally {
+    scanningAdPrefix.value = false
   }
 }
 

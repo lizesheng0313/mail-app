@@ -13,6 +13,10 @@ export const emailReachApi = {
     return api.get('/email-reach/quota-summary')
   },
 
+  getQuotaPricing() {
+    return api.get('/email-reach/quota-pricing')
+  },
+
   purchaseQuota(data) {
     return api.post('/email-reach/quota-purchase', data)
   },
@@ -23,6 +27,14 @@ export const emailReachApi = {
 
   getAdminDeliveryConfig() {
     return api.get('/email-reach/admin/delivery-config')
+  },
+
+  getAdminQuotaPricing() {
+    return api.get('/email-reach/admin/quota-pricing')
+  },
+
+  saveAdminQuotaPricing(data) {
+    return api.put('/email-reach/admin/quota-pricing', data)
   },
 
   saveAdminDeliveryConfig(data) {
@@ -99,6 +111,10 @@ export const emailReachApi = {
 
   restoreAdminTemplate(templateId, data = {}) {
     return api.put(`/email-reach/admin/templates/${templateId}/restore`, data)
+  },
+
+  scanAdminTemplatesAdPrefix(data = {}) {
+    return api.post('/email-reach/admin/templates/scan-ad-prefix', data)
   },
 
   getTemplates() {
