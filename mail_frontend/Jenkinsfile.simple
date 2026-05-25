@@ -47,7 +47,7 @@ pipeline {
                         corepack prepare pnpm@9.15.9 --activate
                         
                         # 安装依赖并构建
-                        pnpm install --frozen-lockfile
+                        pnpm install --frozen-lockfile --ignore-workspace
                         pnpm run build
                         
                         # 验证构建结果
