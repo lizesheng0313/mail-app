@@ -44,7 +44,7 @@ pipeline {
                         
                         # 启用 pnpm
                         corepack enable
-                        corepack prepare pnpm@latest --activate
+                        corepack prepare pnpm@9 --activate
                         
                         # 安装依赖并构建
                         pnpm install --frozen-lockfile

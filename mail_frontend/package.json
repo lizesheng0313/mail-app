@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "type": "module",
   "private": true,
+  "packageManager": "pnpm@9",
   "scripts": {
     "dev": "(cd ../../mail_backend && ./dev.sh) & vite",
     "dev:front": "vite",
