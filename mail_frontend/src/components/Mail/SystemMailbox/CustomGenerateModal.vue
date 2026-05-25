@@ -195,10 +195,7 @@
               />
             </label>
 
-            <label
-              v-if="isSystemMailbox"
-              class="block"
-            >
+            <label class="block">
               <span class="mb-2 block text-sm font-medium text-gray-900">
                 {{ t('home.customGenerateDomainPrefixLabel') }}
               </span>
@@ -473,7 +470,7 @@ const customGeneratePreviewDomain = computed(() => {
   const selectedId = customGenerateForm.value.domain_ids[0]
   const matchedDomain = domainOptions.value.find((item) => String(item.id) === String(selectedId))
   const baseDomain = matchedDomain?.domain_name || 'domain.com'
-  if (!isSystemMailbox.value || !normalizedDomainPrefix.value) {
+  if (!normalizedDomainPrefix.value) {
     return baseDomain
   }
   return `${normalizedDomainPrefix.value}.${baseDomain}`
@@ -655,6 +652,18 @@ const performHostedCustomGenerate = async () => {
       throw new Error(emptyDomainText.value)
     }
 
+    let targetDomain = selectedDomain
+    if (normalizedDomainPrefix.value) {
+      const targetDomainName = `${normalizedDomainPrefix.value}.${String(selectedDomain.domain_name || '').trim().toLowerCase()}`
+      const matchedDomain = domainOptions.value.find(
+        (item) => String(item.domain_name || '').trim().toLowerCase() === targetDomainName
+      )
+      if (!matchedDomain?.raw_id) {
+        throw new Error(`域名后缀对应的完整域名未接入: ${targetDomainName}`)
+      }
+      targetDomain = matchedDomain
+    }
+
     const payload: Record<string, any> = {
       route_mode: 'direct',
       is_public: false
@@ -666,13 +675,13 @@ const performHostedCustomGenerate = async () => {
       payload.local_part = buildHostedLocalPart(index)
     }
 
-    const result: any = await hostedDomainAPI.createMailbox(selectedDomain.raw_id, payload)
+    const result: any = await hostedDomainAPI.createMailbox(targetDomain.raw_id, payload)
     if (result.code !== 0) {
       throw new Error(result.message || t('home.customGenerateFailed'))
     }
     createdItems.push({
       ...(result.data || {}),
-      domain_expires_at: selectedDomain.expires_at || null
+      domain_expires_at: targetDomain.expires_at || null
     })
   }
 
