@@ -5,7 +5,11 @@
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex justify-between items-center h-16">
           <div class="flex items-center">
-            <router-link to="/" class="flex items-center hover:opacity-80 transition-opacity">
+            <router-link
+              to="/"
+              class="flex items-center hover:opacity-80 transition-opacity"
+              @click.prevent="handleSiteNameClick"
+            >
               <h1 class="text-xl font-semibold text-black">{{ t('pageHeader.siteName') }}</h1>
             </router-link>
           </div>
@@ -258,6 +262,21 @@ const announcementRef = ref<HTMLElement | null>(null)
 const announcements = ref<any[]>([])
 const announcementsLoading = ref(false)
 const unreadCount = ref(0)
+const siteUrl = 'https://zjkdongao.cn'
+
+const handleSiteNameClick = async () => {
+  if (isTauri()) {
+    try {
+      const { open } = await import('@tauri-apps/plugin-shell')
+      await open(siteUrl)
+      return
+    } catch (error) {
+      console.error('打开官网失败:', error)
+    }
+  }
+
+  await router.push('/')
+}
 
 const normalizeAnnouncementScene = (scene?: string | null) => {
   return (scene || '').trim().toLowerCase() || 'general'
