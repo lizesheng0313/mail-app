@@ -14,11 +14,21 @@ pipeline {
         stage('获取最新版本号') {
             steps {
                 script {
-                    // 自动获取最新 release 版本号
+                    // 自动获取最新 release 版本号（不依赖 gh 登录态）
                     env.VERSION = sh(
-                        script: "gh release list -R ${REPO} --limit 1 --json tagName -q '.[0].tagName'",
+                        script: """
+                            python3 - <<PY
+import json
+import urllib.request
+
+url = "https://api.github.com/repos/${REPO}/releases/latest"
+with urllib.request.urlopen(url) as response:
+    data = json.load(response)
+print(str(data.get("tag_name", "")).lstrip("v"))
+PY
+                        """,
                         returnStdout: true
-                    ).trim().replaceFirst('^v', '')
+                    ).trim()
 
                     echo "最新版本: ${env.VERSION}"
                 }
@@ -32,12 +42,44 @@ pipeline {
 
                     echo "📥 下载 v${env.VERSION} 的构建产物..."
 
-                    gh release download "v${env.VERSION}" -R "${REPO}" -p "*.dmg" -D release_artifacts || echo "⚠️ macOS dmg 未找到"
-                    gh release download "v${env.VERSION}" -R "${REPO}" -p "*.app.tar.gz" -D release_artifacts || echo "⚠️ macOS tar.gz 未找到"
-                    gh release download "v${env.VERSION}" -R "${REPO}" -p "*.app.tar.gz.sig" -D release_artifacts || echo "⚠️ macOS sig 未找到"
-                    gh release download "v${env.VERSION}" -R "${REPO}" -p "*.exe" -D release_artifacts || echo "⚠️ Windows exe 未找到"
-                    gh release download "v${env.VERSION}" -R "${REPO}" -p "*.nsis.zip" -D release_artifacts || echo "⚠️ Windows nsis.zip 未找到"
-                    gh release download "v${env.VERSION}" -R "${REPO}" -p "*.nsis.zip.sig" -D release_artifacts || echo "⚠️ Windows sig 未找到"
+                    python3 - <<PY
+import json
+import os
+import urllib.request
+
+repo = "${REPO}"
+version = "${env.VERSION}"
+api_url = f"https://api.github.com/repos/{repo}/releases/tags/v{version}"
+output_dir = "release_artifacts"
+
+with urllib.request.urlopen(api_url) as response:
+    release = json.load(response)
+
+with open(os.path.join(output_dir, "release.json"), "w", encoding="utf-8") as fh:
+    json.dump(release, fh, ensure_ascii=False)
+
+targets = [
+    (".dmg", "macOS dmg"),
+    (".app.tar.gz", "macOS tar.gz"),
+    (".app.tar.gz.sig", "macOS sig"),
+    (".exe", "Windows exe"),
+    (".nsis.zip", "Windows nsis.zip"),
+    (".nsis.zip.sig", "Windows sig"),
+]
+
+assets = release.get("assets", [])
+for suffix, label in targets:
+    asset = next((item for item in assets if str(item.get("name", "")).endswith(suffix)), None)
+    if not asset:
+        print(f"⚠️ {label} 未找到")
+        continue
+    name = asset["name"]
+    url = asset["browser_download_url"]
+    path = os.path.join(output_dir, name)
+    print(f"下载 {label}: {name}")
+    urllib.request.urlretrieve(url, path)
+    print(f"✅ {label}")
+PY
 
                     echo "📦 下载的文件："
                     ls -lh release_artifacts/
@@ -88,11 +130,21 @@ pipeline {
                     VERSION="${env.VERSION}"
                     PUB_DATE=\$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
-                    # 从 GitHub Release 读取更新说明
-                    RELEASE_BODY=\$(gh release view "v\${VERSION}" -R "${REPO}" --json body -q .body 2>/dev/null || true)
+                    # 从 GitHub Release API 读取更新说明
+                    RELEASE_BODY=\$(python3 - <<'PY'
+import json
+
+try:
+    with open('release_artifacts/release.json', 'r', encoding='utf-8') as fh:
+        data = json.load(fh)
+    print(data.get('body', ''), end='')
+except Exception:
+    print('', end='')
+PY
+                    )
                     if [ -z "\$RELEASE_BODY" ]; then
                         RELEASE_BODY="邮件管理客户端 v\${VERSION} 发布"
-                        echo "⚠️ 未找到 GitHub Release 说明，使用默认"
+                        echo "⚠️ 未找到 GitHub Release API 说明，使用默认"
                     else
                         echo "✅ 已读取 GitHub Release 更新说明"
                     fi
