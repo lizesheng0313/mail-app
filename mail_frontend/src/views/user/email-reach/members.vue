@@ -55,6 +55,7 @@
           <td class="px-6 py-4 text-sm text-black">{{ formatTime(item.updated_at) }}</td>
           <td class="px-6 py-4 text-sm">
             <div class="flex items-center gap-2">
+              <ActionButton icon="edit" tooltip="编辑" variant="edit" @click="handleEditMember(item)" />
               <ActionButton icon="delete" tooltip="删除" variant="delete" @click="handleDeleteMember(item)" />
             </div>
           </td>
@@ -95,6 +96,46 @@
       </div>
     </BaseModal>
 
+    <BaseModal
+      v-model="showEditModal"
+      title="编辑会员"
+      size="lg"
+      body-class="overflow-visible"
+      confirm-text="保存"
+      :confirm-loading="editing"
+      :close-on-click-outside="false"
+      @confirm="handleSaveMember"
+      @close="closeEditModal"
+    >
+      <div class="space-y-4">
+        <div>
+          <label class="mb-2 block text-sm font-medium text-gray-700">邮箱</label>
+          <BaseInput
+            v-model="editForm.email"
+            placeholder="请输入会员邮箱"
+            size="sm"
+          />
+        </div>
+        <div>
+          <label class="mb-2 block text-sm font-medium text-gray-700">分组</label>
+          <CustomSelect v-model="editForm.group_name" :options="editGroupOptions" placeholder="不设置分组" />
+        </div>
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div v-for="field in editableFieldDefinitions" :key="field.field_key" class="space-y-2">
+            <label class="block text-sm font-medium text-gray-700">{{ field.field_label }}</label>
+            <BaseInput
+              v-model="editForm.fields[field.field_key]"
+              :placeholder="`请输入${field.field_label}`"
+              size="sm"
+            />
+          </div>
+        </div>
+        <div v-if="!editableFieldDefinitions.length" class="rounded-lg border border-dashed border-gray-300 px-4 py-6 text-center text-sm text-gray-500">
+          当前会员没有可编辑的自定义字段
+        </div>
+      </div>
+    </BaseModal>
+
     <ConfirmDialog
       :visible="showDeleteConfirm"
       title="删除会员"
@@ -122,13 +163,17 @@ import { showMessage } from '@/utils/message'
 
 const loading = ref(false)
 const saving = ref(false)
+const editing = ref(false)
 const accessLoaded = ref(false)
 const members = ref([])
 const groups = ref([])
+const memberFields = ref([])
 const showImportModal = ref(false)
+const showEditModal = ref(false)
 const showDeleteConfirm = ref(false)
 const deleting = ref(false)
 const deletingMember = ref(null)
+const editingMember = ref(null)
 const importFileRef = ref(null)
 const importFileName = ref('')
 const importRows = ref([])
@@ -136,10 +181,35 @@ const rawImportRows = ref([])
 const defaultImportGroup = ref('')
 const access = ref({ status: 'pending', reason: '' })
 const filters = reactive({ search: '', group_name: '' })
+const editForm = reactive({ email: '', group_name: '', fields: {} })
 
 const canOperate = computed(() => access.value.status === 'approved' || access.value.status === 'trial')
 const groupOptions = computed(() => [{ label: '全部分组', value: '' }, ...groups.value.map((item) => ({ label: item.group_name, value: item.group_name }))])
+const editGroupOptions = computed(() => [{ label: '请选择', value: '' }, ...groups.value.map((item) => ({ label: item.group_name, value: item.group_name }))])
 const deleteMessage = computed(() => `确认删除会员《${deletingMember.value?.email || ''}》吗？`)
+const editableFieldDefinitions = computed(() => {
+  const seen = new Set()
+  const definitions = []
+  ;(memberFields.value || []).forEach((item) => {
+    const fieldKey = String(item.field_key || '').trim()
+    if (!fieldKey || seen.has(fieldKey)) return
+    seen.add(fieldKey)
+    definitions.push({
+      field_key: fieldKey,
+      field_label: item.field_label || fieldKey
+    })
+  })
+  Object.keys(editingMember.value?.fields || {}).forEach((fieldKey) => {
+    const normalizedKey = String(fieldKey || '').trim()
+    if (!normalizedKey || seen.has(normalizedKey)) return
+    seen.add(normalizedKey)
+    definitions.push({
+      field_key: normalizedKey,
+      field_label: normalizedKey
+    })
+  })
+  return definitions
+})
 const fixedExcelColumns = {
   邮箱: 'email',
   分组: 'group_name'
@@ -224,6 +294,8 @@ const downloadImportTemplate = () => {
 const loadMeta = async () => {
   const groupsRes = await emailReachApi.getMemberGroups()
   if (groupsRes.code === 0) groups.value = groupsRes.data.items || []
+  const fieldsRes = await emailReachApi.getMemberFields()
+  if (fieldsRes.code === 0) memberFields.value = fieldsRes.data.items || []
 }
 
 const loadMembers = async () => {
@@ -284,6 +356,28 @@ const handleDeleteMember = (item) => {
   showDeleteConfirm.value = true
 }
 
+const resetEditForm = () => {
+  editForm.email = ''
+  editForm.group_name = ''
+  editForm.fields = {}
+}
+
+const handleEditMember = (item) => {
+  editingMember.value = item
+  editForm.email = item.email || ''
+  editForm.group_name = item.group_name || ''
+  editForm.fields = Object.fromEntries(
+    Object.entries(item.fields || {}).map(([key, value]) => [key, value === undefined || value === null ? '' : String(value)])
+  )
+  showEditModal.value = true
+}
+
+const closeEditModal = () => {
+  showEditModal.value = false
+  editingMember.value = null
+  resetEditForm()
+}
+
 const closeDeleteDialog = () => {
   showDeleteConfirm.value = false
   deletingMember.value = null
@@ -301,6 +395,39 @@ const confirmDeleteMember = async () => {
     }
   } finally {
     deleting.value = false
+  }
+}
+
+const handleSaveMember = async () => {
+  if (!editingMember.value?.id) return
+  const email = String(editForm.email || '').trim().toLowerCase()
+  if (!email) {
+    showMessage('会员邮箱不能为空', 'warning')
+    return
+  }
+  editing.value = true
+  try {
+    const fields = {}
+    editableFieldDefinitions.value.forEach((field) => {
+      const value = editForm.fields[field.field_key]
+      const text = value === undefined || value === null ? '' : String(value).trim()
+      if (text) fields[field.field_key] = text
+    })
+    const res = await emailReachApi.updateMember(editingMember.value.id, {
+      email,
+      group_name: editForm.group_name || '',
+      fields
+    })
+    if (res.code === 0) {
+      showMessage('保存成功', 'success')
+      closeEditModal()
+      await loadMeta()
+      await loadMembers()
+      return
+    }
+    showMessage(res.message || '保存失败', 'error')
+  } finally {
+    editing.value = false
   }
 }
 

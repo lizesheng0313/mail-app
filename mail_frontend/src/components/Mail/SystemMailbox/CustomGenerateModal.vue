@@ -652,18 +652,6 @@ const performHostedCustomGenerate = async () => {
       throw new Error(emptyDomainText.value)
     }
 
-    let targetDomain = selectedDomain
-    if (normalizedDomainPrefix.value) {
-      const targetDomainName = `${normalizedDomainPrefix.value}.${String(selectedDomain.domain_name || '').trim().toLowerCase()}`
-      const matchedDomain = domainOptions.value.find(
-        (item) => String(item.domain_name || '').trim().toLowerCase() === targetDomainName
-      )
-      if (!matchedDomain?.raw_id) {
-        throw new Error(`域名后缀对应的完整域名未接入: ${targetDomainName}`)
-      }
-      targetDomain = matchedDomain
-    }
-
     const payload: Record<string, any> = {
       route_mode: 'direct',
       is_public: false
@@ -675,13 +663,17 @@ const performHostedCustomGenerate = async () => {
       payload.local_part = buildHostedLocalPart(index)
     }
 
-    const result: any = await hostedDomainAPI.createMailbox(targetDomain.raw_id, payload)
+    if (normalizedDomainPrefix.value) {
+      payload.domain_prefix = normalizedDomainPrefix.value
+    }
+
+    const result: any = await hostedDomainAPI.createMailbox(selectedDomain.raw_id, payload)
     if (result.code !== 0) {
       throw new Error(result.message || t('home.customGenerateFailed'))
     }
     createdItems.push({
       ...(result.data || {}),
-      domain_expires_at: targetDomain.expires_at || null
+      domain_expires_at: selectedDomain.expires_at || null
     })
   }
 

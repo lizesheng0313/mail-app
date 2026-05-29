@@ -185,6 +185,10 @@ export const emailReachApi = {
     return api.post('/email-reach/members/import', data)
   },
 
+  updateMember(memberId, data) {
+    return api.put(`/email-reach/members/${memberId}`, data)
+  },
+
   deleteMember(memberId) {
     return api.delete(`/email-reach/members/${memberId}`)
   },
