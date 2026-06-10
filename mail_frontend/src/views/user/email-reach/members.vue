@@ -1,14 +1,8 @@
 <template>
   <div class="space-y-6">
-    <div
-      v-if="accessLoaded && access.status !== 'approved' && access.status !== 'trial'"
-      class="rounded-lg border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900"
-    >
-      <div class="font-medium">当前账号还没开通邮件触达</div>
-      <div class="mt-2">{{ access.reason }}</div>
-    </div>
+    <AccessPendingAlert v-if="accessLoaded && !canOperate" :reason="access.reason" />
 
-    <div v-if="canOperate" class="rounded-lg bg-white p-5 shadow-sm">
+    <div v-if="canOperate" class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
       <div class="flex flex-wrap items-center justify-between gap-4">
         <div class="flex flex-wrap items-center gap-3">
           <BaseInput v-model="filters.search" placeholder="搜索邮箱" size="sm" class="w-64" />
@@ -16,16 +10,16 @@
             <CustomSelect v-model="filters.group_name" :options="groupOptions" placeholder="全部分组" size="sm" />
           </div>
           <div class="flex items-center">
-            <button type="button" class="h-10 whitespace-nowrap rounded-md bg-primary-600 px-5 text-sm text-white hover:bg-primary-700" @click="loadMembers">
+            <button type="button" class="h-10 whitespace-nowrap rounded-xl bg-primary-600 px-5 text-sm font-medium text-white hover:bg-primary-700" @click="loadMembers">
               查询
             </button>
           </div>
         </div>
         <div class="ml-auto flex shrink-0 items-center justify-end gap-3">
-          <button type="button" class="h-10 whitespace-nowrap rounded-md border border-gray-300 px-4 text-sm text-gray-700 hover:bg-gray-50" @click="downloadMembers">
+          <button type="button" class="h-10 whitespace-nowrap rounded-xl border border-slate-200 px-4 text-sm font-medium text-slate-700 hover:bg-slate-50" @click="downloadMembers">
             导出
           </button>
-          <button type="button" class="h-10 whitespace-nowrap rounded-md bg-primary-600 px-5 text-sm text-white hover:bg-primary-700" @click="showImportModal = true">
+          <button type="button" class="h-10 whitespace-nowrap rounded-xl bg-primary-600 px-5 text-sm font-medium text-white hover:bg-primary-700" @click="showImportModal = true">
             导入会员
           </button>
         </div>
@@ -44,7 +38,7 @@
       </template>
       <template #tbody>
         <tr v-if="!members.length && !loading">
-          <td colspan="5" class="px-6 py-12 text-center text-black">暂无会员</td>
+          <td colspan="5" :class="TABLE_EMPTY_CELL_CLASS">暂无会员</td>
         </tr>
         <tr v-for="item in members" :key="item.id" class="hover:bg-gray-50">
           <td class="px-6 py-4 text-sm font-medium text-black">{{ item.email }}</td>
@@ -52,7 +46,7 @@
           <td class="px-6 py-4 text-sm text-gray-600">
             <div class="max-w-md truncate">{{ formatFields(item.fields) }}</div>
           </td>
-          <td class="px-6 py-4 text-sm text-black">{{ formatTime(item.updated_at) }}</td>
+          <td class="px-6 py-4 text-sm text-black">{{ formatDateTime(item.updated_at) }}</td>
           <td class="px-6 py-4 text-sm">
             <div class="flex items-center gap-2">
               <ActionButton icon="edit" tooltip="编辑" variant="edit" @click="handleEditMember(item)" />
@@ -84,11 +78,11 @@
           class="hidden"
           @change="handleImportFileChange"
         />
-        <div class="flex items-center gap-3 rounded-lg border border-dashed border-gray-300 p-4">
-          <button type="button" class="h-10 rounded-md border border-gray-300 px-4 text-sm text-gray-700 hover:bg-gray-50" @click="downloadImportTemplate">
+        <div class="flex items-center gap-3 rounded-2xl border border-dashed border-slate-300 p-4">
+          <button type="button" class="h-10 rounded-xl border border-slate-200 px-4 text-sm font-medium text-slate-700 hover:bg-slate-50" @click="downloadImportTemplate">
             下载模板
           </button>
-          <button type="button" class="h-10 rounded-md bg-primary-600 px-5 text-sm text-white hover:bg-primary-700" @click="importFileRef?.click?.()">
+          <button type="button" class="h-10 rounded-xl bg-primary-600 px-5 text-sm font-medium text-white hover:bg-primary-700" @click="importFileRef?.click?.()">
             选择文件
           </button>
           <div class="min-w-0 flex-1 truncate text-sm text-gray-700">{{ importFileName || '支持 .xlsx / .xls / .csv' }}</div>
@@ -160,6 +154,8 @@ import ConfirmDialog from '@/components/ConfirmDialog/index.vue'
 import CustomSelect from '@/components/CustomSelect/index.vue'
 import emailReachApi from '@/api/emailReach'
 import { showMessage } from '@/utils/message'
+import AccessPendingAlert from './components/AccessPendingAlert.vue'
+import { TABLE_EMPTY_CELL_CLASS, formatDateTime, hasAccessStatus } from './ui'
 
 const loading = ref(false)
 const saving = ref(false)
@@ -183,7 +179,7 @@ const access = ref({ status: 'pending', reason: '' })
 const filters = reactive({ search: '', group_name: '' })
 const editForm = reactive({ email: '', group_name: '', fields: {} })
 
-const canOperate = computed(() => access.value.status === 'approved' || access.value.status === 'trial')
+const canOperate = computed(() => hasAccessStatus(access.value.status))
 const groupOptions = computed(() => [{ label: '全部分组', value: '' }, ...groups.value.map((item) => ({ label: item.group_name, value: item.group_name }))])
 const editGroupOptions = computed(() => [{ label: '请选择', value: '' }, ...groups.value.map((item) => ({ label: item.group_name, value: item.group_name }))])
 const deleteMessage = computed(() => `确认删除会员《${deletingMember.value?.email || ''}》吗？`)
@@ -213,13 +209,6 @@ const editableFieldDefinitions = computed(() => {
 const fixedExcelColumns = {
   邮箱: 'email',
   分组: 'group_name'
-}
-
-const formatTime = (value) => {
-  if (!value) return '-'
-  const date = new Date(Number(value))
-  if (Number.isNaN(date.getTime())) return '-'
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
 }
 
 const formatFields = (value) => {

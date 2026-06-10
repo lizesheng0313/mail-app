@@ -643,7 +643,7 @@ const confirmBuy = async () => {
         showMessage('购买成功', 'success')
         showConfirmDialog.value = false
         setTimeout(() => {
-          router.push('/user/email-reach/quota')
+          router.push('/user/email-reach/dashboard')
         }, 800)
       } else {
         showMessage(res.message || t('paymentPage.buyFailed'), 'error')

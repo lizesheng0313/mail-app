@@ -3,8 +3,8 @@
     :model-value="visible"
     title="新建发送任务"
     size="lg"
-    content-class="min-h-[560px] overflow-visible"
-    body-class="overflow-y-auto overflow-x-visible"
+    content-class="min-h-[560px] overflow-visible rounded-[28px] border border-slate-200 shadow-2xl"
+    body-class="overflow-y-auto overflow-x-visible px-6 py-5"
     :confirm-text="saving ? '创建中...' : '创建任务'"
     :confirm-loading="saving"
     :confirm-disabled="!canSubmit"
@@ -17,25 +17,25 @@
       <div class="grid grid-cols-1 gap-4 md:grid-cols-[1fr_220px_260px]">
         <BaseInput v-model="form.task_name" label="任务名称" placeholder="例如：会员活动通知" />
         <div>
-          <label class="mb-2 block text-sm font-medium text-gray-900">发送方式</label>
+          <label class="mb-2 block text-sm font-medium text-slate-900">发送方式</label>
           <CustomSelect v-model="form.send_mode" :options="sendModeOptions" />
         </div>
         <div>
-          <label class="mb-2 block text-sm font-medium text-gray-900">会员分组</label>
+          <label class="mb-2 block text-sm font-medium text-slate-900">会员分组</label>
           <CustomSelect v-model="form.recipient_filter.group_name" :options="groupOptions" placeholder="全部会员" />
         </div>
       </div>
 
       <div>
-        <label class="mb-2 block text-sm font-medium text-gray-900">发送模板</label>
+        <label class="mb-2 block text-sm font-medium text-slate-900">发送模板</label>
         <CustomSelect v-model="form.template_id" :options="templateOptions" placeholder="选择模板" />
       </div>
 
       <div v-if="templateVariables.length">
-        <div class="mb-3 text-sm font-medium text-gray-900">模板变量配置</div>
+        <div class="mb-3 text-sm font-medium text-slate-900">模板变量配置</div>
         <div class="grid grid-cols-1 gap-3">
-          <div v-for="item in templateVariables" :key="item" class="rounded-md border border-gray-100 p-3">
-            <div class="mb-2 text-sm font-medium text-gray-900">{{ item }}</div>
+          <div v-for="item in templateVariables" :key="item" class="rounded-2xl border border-slate-200 bg-slate-50/60 p-3">
+            <div class="mb-2 text-sm font-medium text-slate-900">{{ item }}</div>
             <div class="grid grid-cols-1 gap-3 md:grid-cols-[220px_1fr]">
               <CustomSelect v-model="variableSources[item]" :options="variableSourceOptions" placeholder="选择变量来源" />
               <BaseInput
@@ -43,7 +43,7 @@
                 v-model="variableValues[item]"
                 placeholder="填写固定内容"
               />
-              <div v-else class="flex h-[46px] items-center rounded-lg bg-green-50 px-4 text-sm text-green-700">
+              <div v-else class="flex h-[46px] items-center rounded-xl bg-emerald-50 px-4 text-sm text-emerald-700">
                 发送时按每个会员的字段自动替换
               </div>
             </div>
@@ -51,9 +51,9 @@
         </div>
       </div>
 
-      <div v-if="form.send_mode === 'scheduled'" class="grid grid-cols-1 gap-4 rounded-lg bg-gray-50 p-4">
+      <div v-if="form.send_mode === 'scheduled'" class="grid grid-cols-1 gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
         <div>
-          <label class="mb-2 block text-sm font-medium text-gray-900">定时类型</label>
+          <label class="mb-2 block text-sm font-medium text-slate-900">定时类型</label>
           <CustomSelect v-model="form.send_time_type" :options="scheduleTypeOptions" />
         </div>
         <BaseInput
@@ -70,7 +70,7 @@
         />
         <div v-if="['monthly_same_day', 'yearly_same_day'].includes(form.send_time_type)" class="grid grid-cols-1 gap-4 md:grid-cols-[1fr_220px]">
           <div>
-            <label class="mb-2 block text-sm font-medium text-gray-900">会员日期字段</label>
+            <label class="mb-2 block text-sm font-medium text-slate-900">会员日期字段</label>
             <CustomSelect v-model="form.trigger_rule.field" :options="triggerFieldOptions" placeholder="选择会员字段" />
           </div>
           <BaseInput v-model="triggerSendTimeInput" label="发送时间" placeholder="09:00" />

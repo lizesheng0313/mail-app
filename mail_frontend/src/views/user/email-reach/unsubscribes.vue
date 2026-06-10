@@ -1,14 +1,8 @@
 <template>
   <div class="space-y-6">
-    <div
-      v-if="accessLoaded && access.status !== 'approved' && access.status !== 'trial'"
-      class="rounded-lg border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900"
-    >
-      <div class="font-medium">当前账号还没开通邮件触达</div>
-      <div class="mt-2">{{ access.reason }}</div>
-    </div>
+    <AccessPendingAlert v-if="accessLoaded && !canOperate" :reason="access.reason" />
 
-    <div v-if="canOperate" class="rounded-lg border bg-white p-6 shadow-sm">
+    <div v-if="canOperate" class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
       <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div class="flex items-center gap-4">
           <BaseInput
@@ -19,7 +13,7 @@
           />
           <button
             type="button"
-            class="h-10 rounded-md bg-primary-600 px-4 text-sm text-white hover:bg-primary-700"
+            class="h-10 rounded-xl bg-primary-600 px-4 text-sm font-medium text-white hover:bg-primary-700"
             @click="applyFilters"
           >
             查询
@@ -27,7 +21,7 @@
         </div>
         <button
           type="button"
-          class="h-10 rounded-md bg-primary-600 px-4 text-sm text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
+          class="h-10 rounded-xl bg-primary-600 px-4 text-sm font-medium text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
           :disabled="!canOperate"
           @click="handleAddUnsubscribe"
         >
@@ -48,14 +42,16 @@
       </template>
       <template #tbody>
         <tr v-if="!filteredRows.length && !loading">
-          <td colspan="5" class="px-6 py-12 text-center text-black">暂无退订记录</td>
+          <td colspan="5" :class="TABLE_EMPTY_CELL_CLASS">暂无退订记录</td>
         </tr>
         <tr v-for="item in filteredRows" :key="item.id" class="hover:bg-gray-50">
           <td class="px-6 py-4 text-sm font-medium text-black">{{ item.email }}</td>
           <td class="px-6 py-4 text-sm text-black">{{ sourceLabel(item.source) }}</td>
-          <td class="px-6 py-4 text-sm text-black">{{ statusLabel(item.status) }}</td>
+          <td class="px-6 py-4 text-sm text-black">
+            <span :class="statusTagClass(item.status)">{{ statusLabel(item.status) }}</span>
+          </td>
           <td class="px-6 py-4 text-sm text-black">{{ item.reason || '-' }}</td>
-          <td class="px-6 py-4 text-sm text-black">{{ formatTime(item.updated_at) }}</td>
+          <td class="px-6 py-4 text-sm text-black">{{ formatDateTime(item.updated_at) }}</td>
         </tr>
       </template>
     </AdminDataTable>
@@ -73,7 +69,9 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import AdminDataTable from '@/components/AdminDataTable/index.vue'
 import BaseInput from '@/components/BaseInput/index.vue'
 import emailReachApi from '@/api/emailReach'
+import AccessPendingAlert from './components/AccessPendingAlert.vue'
 import UnsubscribeEditorModal from './components/UnsubscribeEditorModal.vue'
+import { TABLE_EMPTY_CELL_CLASS, buildBadgeClass, formatDateTime, getActiveStatusMeta, hasAccessStatus } from './ui'
 
 const loading = ref(false)
 const accessLoaded = ref(false)
@@ -89,7 +87,7 @@ const access = ref({
   status: 'pending',
   reason: ''
 })
-const canOperate = computed(() => access.value.status === 'approved' || access.value.status === 'trial')
+const canOperate = computed(() => hasAccessStatus(access.value.status))
 const filteredRows = computed(() => {
   const keyword = appliedFilters.keyword.trim().toLowerCase()
   return rows.value.filter((item) => !keyword || String(item.email || '').toLowerCase().includes(keyword))
@@ -105,15 +103,11 @@ const sourceLabel = (source) => {
 }
 
 const statusLabel = (status) => {
-  if (status === 'inactive') return '已取消'
-  return '生效中'
+  return getActiveStatusMeta(status).label
 }
 
-const formatTime = (value) => {
-  if (!value) return '-'
-  const date = new Date(Number(value))
-  if (Number.isNaN(date.getTime())) return '-'
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
+const statusTagClass = (status) => {
+  return buildBadgeClass(getActiveStatusMeta(status).tone)
 }
 
 const loadRows = async () => {

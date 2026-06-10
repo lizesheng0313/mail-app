@@ -1,22 +1,16 @@
 <template>
   <div class="flex min-h-full flex-col space-y-3 pb-4">
-    <div
-      v-if="accessLoaded && !canOperate"
-      class="rounded-lg border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900"
-    >
-      <div class="font-medium">当前账号还没开通邮件触达</div>
-      <div class="mt-2">{{ access.reason }}</div>
-    </div>
+    <AccessPendingAlert v-if="accessLoaded && !canOperate" :reason="access.reason" />
 
     <div v-else class="flex flex-col space-y-3">
-      <div class="rounded-2xl bg-white p-4 shadow-sm">
+      <div class="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
         <div class="grid items-end gap-3 xl:grid-cols-[260px_minmax(0,1fr)_auto_auto]">
           <div>
             <label class="mb-1.5 block pl-[2px] text-xs font-medium text-slate-500">模板名称</label>
             <input
               v-model="form.name"
               type="text"
-              class="h-[46px] w-full rounded-lg border border-gray-300 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
+              class="h-[46px] w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
               placeholder="例如：订单支付通知"
             />
           </div>
@@ -25,13 +19,13 @@
             <input
               v-model="form.subject"
               type="text"
-              class="h-[46px] w-full rounded-lg border border-gray-300 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
+              class="h-[46px] w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
               placeholder="输入邮件主题"
             />
           </div>
           <button
             type="button"
-            class="inline-flex h-[46px] items-center justify-center whitespace-nowrap rounded-lg border border-primary-200 bg-white px-4 text-sm font-medium text-primary-700 transition hover:bg-primary-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-50 disabled:text-slate-300"
+            class="inline-flex h-[46px] items-center justify-center whitespace-nowrap rounded-xl border border-primary-200 bg-white px-4 text-sm font-medium text-primary-700 transition hover:bg-primary-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-50 disabled:text-slate-300"
             :disabled="!canOperate || generating"
             @click="aiModalVisible = true"
           >
@@ -39,7 +33,7 @@
           </button>
           <button
             type="button"
-            class="inline-flex h-[46px] items-center justify-center whitespace-nowrap rounded-lg bg-primary-600 px-6 text-sm font-medium text-white transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:bg-primary-600 disabled:opacity-50"
+            class="inline-flex h-[46px] items-center justify-center whitespace-nowrap rounded-xl bg-primary-600 px-6 text-sm font-medium text-white transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:bg-primary-600 disabled:opacity-50"
             :disabled="saving || !canOperate"
             @click="handleSave"
           >
@@ -48,17 +42,17 @@
         </div>
       </div>
 
-      <div class="flex min-h-[620px] flex-col overflow-hidden rounded-[20px] bg-white shadow-sm">
+      <div class="flex min-h-[620px] flex-col overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
         <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-white px-4 py-3">
           <div class="flex flex-wrap items-center gap-2">
             <input
               v-model="customVariableInput"
               placeholder="例如：活动名称"
-              class="h-10 w-52 rounded-md border border-gray-300 px-3 text-sm text-gray-700 focus:border-primary-500 focus:outline-none"
+              class="h-10 w-52 rounded-xl border border-slate-200 px-3 text-sm text-slate-700 focus:border-primary-500 focus:outline-none"
             />
             <button
               type="button"
-              class="inline-flex h-10 items-center justify-center rounded-md border border-gray-300 px-4 text-sm text-gray-700 hover:bg-gray-50"
+              class="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 px-4 text-sm font-medium text-slate-700 hover:bg-slate-50"
               @click="addCustomVariable"
             >
               添加变量
@@ -332,12 +326,14 @@ import BaseModal from '@/components/BaseModal/index.vue'
 import BaseIcon from '@/components/BaseIcon/index.vue'
 import CustomSelect from '@/components/CustomSelect/index.vue'
 import EmailHtmlRenderer from '@/components/Mail/EmailHtmlRenderer.vue'
+import AccessPendingAlert from './components/AccessPendingAlert.vue'
 import SimpleImageExtension from './components/SimpleImageExtension'
 import SimpleLinkExtension from './components/SimpleLinkExtension'
 import TextStyleExtension from './components/TextStyleExtension'
 import emailReachApi from '@/api/emailReach'
 import { uploadImageFile } from '@/utils/imageUpload'
 import { showMessage } from '@/utils/message'
+import { hasAccessStatus } from './ui'
 
 const route = useRoute()
 const router = useRouter()
@@ -406,7 +402,7 @@ const createDefaultForm = () => ({
 })
 
 const form = reactive(createDefaultForm())
-const canOperate = computed(() => access.value.status === 'approved' || access.value.status === 'trial')
+const canOperate = computed(() => hasAccessStatus(access.value.status))
 const templateId = computed(() => String(route.params.id || '').trim())
 const isEdit = computed(() => route.name === 'user-email-reach-template-edit')
 const previewHtml = computed(() => buildManagedContent())

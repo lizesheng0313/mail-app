@@ -122,6 +122,7 @@ export interface AuthCodeStats {
 export interface Domain {
   id: number
   domain_name: string
+  domain_usage?: 'temporary' | 'permanent'
   description?: string
   is_active: boolean
   created_at: string

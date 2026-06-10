@@ -90,7 +90,17 @@
                   {{ t('home.domainMailboxCount', { count: domain.mailbox_count || 0 }) }}
                 </p>
                 <p class="mt-1 text-xs text-gray-500">
-                  {{ formatDomainExpiresAt(domain.expires_at) }}
+                  <template v-if="isPermanentDomain(domain)">
+                    <span>{{ getDomainExpiresPrefix() }}</span>
+                    <span
+                      class="ml-1 inline-flex flex-shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700"
+                    >
+                      {{ t('common.permanent') }}
+                    </span>
+                  </template>
+                  <template v-else>
+                    {{ formatDomainExpiresAt(domain.expires_at) }}
+                  </template>
                 </p>
               </div>
               <span
@@ -120,11 +130,12 @@
                 type="number"
                 min="1"
                 max="200"
+                :readonly="isSpecifiedMode"
                 class="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
               />
             </label>
 
-            <label class="block">
+            <label v-if="!isSpecifiedMode" class="block">
               <span class="mb-2 block text-sm font-medium text-gray-900">
                 {{ t('home.customGenerateStrategyLabel') }}
               </span>
@@ -133,13 +144,21 @@
                 :options="domainStrategyOptions"
               />
             </label>
+
+            <div v-if="isSystemMailbox && !isSpecifiedMode" class="block">
+              <span class="mb-2 block text-sm font-medium text-gray-900">
+                {{ t('home.customGenerateValidityModeLabel') }}
+              </span>
+              <div class="rounded-xl border border-gray-300 bg-gray-50 px-3 py-2.5 text-sm text-gray-700">
+                {{ customGenerateValidityDisplay }}
+              </div>
+            </div>
           </div>
         </div>
 
         <div class="rounded-2xl border border-gray-200 bg-white p-4">
           <div class="mb-3">
             <p class="text-sm font-medium text-gray-900">{{ t('home.customGenerateRuleLabel') }}</p>
-            <p class="mt-1 text-xs text-gray-500">{{ t('home.customGenerateRuleHint') }}</p>
           </div>
 
           <div class="grid grid-cols-1 gap-2">
@@ -176,11 +195,22 @@
             >
               {{ t('home.ruleSequence') }}
             </button>
+            <button
+              type="button"
+              @click="customGenerateForm.generation_mode = 'specified'"
+              :class="
+                customGenerateForm.generation_mode === 'specified'
+                  ? customRuleButtonActiveClass
+                  : customRuleButtonClass
+              "
+            >
+              {{ t('home.ruleSpecified') }}
+            </button>
           </div>
 
           <div class="mt-4 space-y-4">
             <label
-              v-if="customGenerateForm.generation_mode !== 'random'"
+              v-if="customGenerateForm.generation_mode !== 'random' && customGenerateForm.generation_mode !== 'specified'"
               class="block"
             >
               <span class="mb-2 block text-sm font-medium text-gray-900">
@@ -195,6 +225,22 @@
               />
             </label>
 
+            <label
+              v-if="customGenerateForm.generation_mode === 'specified'"
+              class="block"
+            >
+              <span class="mb-2 block text-sm font-medium text-gray-900">
+                {{ t('home.customGenerateSpecifiedLocalPartLabel') }}
+              </span>
+              <input
+                v-model.trim="customGenerateForm.exact_local_part"
+                type="text"
+                maxlength="64"
+                class="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
+                :placeholder="t('home.customGenerateSpecifiedLocalPartPlaceholder')"
+              />
+            </label>
+
             <label class="block">
               <span class="mb-2 block text-sm font-medium text-gray-900">
                 {{ t('home.customGenerateDomainPrefixLabel') }}
@@ -204,12 +250,11 @@
                 type="text"
                 maxlength="190"
                 class="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
-                :placeholder="t('home.customGenerateDomainPrefixPlaceholder')"
               />
             </label>
 
             <label
-              v-if="customGenerateForm.generation_mode !== 'sequence'"
+              v-if="customGenerateForm.generation_mode !== 'sequence' && customGenerateForm.generation_mode !== 'specified'"
               class="block"
             >
               <span class="mb-2 block text-sm font-medium text-gray-900">
@@ -218,6 +263,7 @@
               <input
                 v-model.number="customGenerateForm.random_length"
                 type="number"
+                min="1"
                 max="24"
                 class="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
               />
@@ -260,7 +306,7 @@
             v-if="isSystemMailbox"
             class="rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-600"
           >
-            {{ t('home.customGenerateUnitPriceValue') }}
+            {{ t('home.customGenerateUnitPriceValue', { price: customGenerateUnitPriceText }) }}
           </div>
 
           <div :class="isSystemMailbox ? 'mt-4' : ''" class="rounded-xl bg-gray-50 px-4 py-3">
@@ -366,6 +412,7 @@ const customGenerateForm = ref({
   quantity: 10,
   generation_mode: 'random',
   custom_prefix: '',
+  exact_local_part: '',
   domain_prefix: '',
   random_length: 8,
   sequence_padding: 3,
@@ -387,29 +434,21 @@ const createDefaultCustomGenerateForm = () => ({
   quantity: 10,
   generation_mode: 'random',
   custom_prefix: '',
+  exact_local_part: '',
   domain_prefix: '',
   random_length: 8,
   sequence_padding: 3,
   sequence_start: 1,
   domain_strategy: 'round_robin'
 })
+const isSpecifiedMode = computed(() => customGenerateForm.value.generation_mode === 'specified')
 
 const normalizedCustomGenerateQuantity = computed(() =>
-  Math.max(1, Number(customGenerateForm.value.quantity || 0) || 1)
-)
-
-const customGenerateTotalCost = computed(() =>
-  Number((normalizedCustomGenerateQuantity.value * 0.01).toFixed(2))
+  isSpecifiedMode.value ? 1 : Math.max(1, Number(customGenerateForm.value.quantity || 0) || 1)
 )
 
 const customGenerateBalanceDisplay = computed(() =>
   Number(customGenerateBalance.value || 0).toFixed(2)
-)
-
-const customGenerateTotalCostDisplay = computed(() => customGenerateTotalCost.value.toFixed(2))
-
-const customGenerateHasEnoughBalance = computed(
-  () => Number(customGenerateBalance.value || 0) >= customGenerateTotalCost.value
 )
 
 const resolvedRandomLength = computed(() => {
@@ -466,6 +505,95 @@ const domainStrategyOptions = computed(() => [
   }
 ])
 
+const selectedSystemDomains = computed(() =>
+  domainOptions.value.filter((item) => customGenerateForm.value.domain_ids.includes(String(item.id)))
+)
+
+const resolveDomainUnitPrice = (domain: any) => (Number(domain?.expires_at || 0) > 0 ? 0.1 : 0.2)
+
+const customGenerateValidityDisplay = computed(() => {
+  if (!isSystemMailbox.value) return '-'
+  const selectedDomains = selectedSystemDomains.value
+  if (!selectedDomains.length) return '-'
+  const expiresAtValues = selectedDomains
+    .map((item) => Number(item?.expires_at || 0))
+    .filter((value) => value > 0)
+  if (!expiresAtValues.length) {
+    return t('home.customGenerateValidityPermanent')
+  }
+  const uniqueValues = [...new Set(expiresAtValues)]
+  if (uniqueValues.length === 1 && expiresAtValues.length === selectedDomains.length) {
+    return formatTimestamp(uniqueValues[0], 'datetime')
+  }
+  return t('home.customGenerateValidityFollowDomain')
+})
+
+const customGeneratePricingSummary = computed(() => {
+  if (!isSystemMailbox.value) {
+    return {
+      unitPriceText: '0',
+      totalCostText: '0.00',
+      balanceRequired: 0,
+      isRange: false
+    }
+  }
+
+  const selectedDomains = selectedSystemDomains.value
+  if (!selectedDomains.length) {
+    return {
+      unitPriceText: '-',
+      totalCostText: '0.00',
+      balanceRequired: 0,
+      isRange: false
+    }
+  }
+
+  const domainUnitPrices = selectedDomains.map((item) => resolveDomainUnitPrice(item))
+  const uniqueUnitPrices = [...new Set(domainUnitPrices)]
+
+  if (customGenerateForm.value.domain_strategy === 'round_robin') {
+    let total = 0
+    for (let index = 0; index < normalizedCustomGenerateQuantity.value; index += 1) {
+      const domain = selectedDomains[index % selectedDomains.length]
+      total += resolveDomainUnitPrice(domain)
+    }
+    return {
+      unitPriceText:
+        uniqueUnitPrices.length === 1
+          ? `${uniqueUnitPrices[0]}`
+          : `${Math.min(...uniqueUnitPrices)}-${Math.max(...uniqueUnitPrices)}`,
+      totalCostText: total.toFixed(2),
+      balanceRequired: total,
+      isRange: uniqueUnitPrices.length > 1
+    }
+  }
+
+  if (uniqueUnitPrices.length === 1) {
+    const total = uniqueUnitPrices[0] * normalizedCustomGenerateQuantity.value
+    return {
+      unitPriceText: `${uniqueUnitPrices[0]}`,
+      totalCostText: total.toFixed(2),
+      balanceRequired: total,
+      isRange: false
+    }
+  }
+
+  const minUnit = Math.min(...uniqueUnitPrices)
+  const maxUnit = Math.max(...uniqueUnitPrices)
+  return {
+    unitPriceText: `${minUnit}-${maxUnit}`,
+    totalCostText: `${(minUnit * normalizedCustomGenerateQuantity.value).toFixed(2)}-${(maxUnit * normalizedCustomGenerateQuantity.value).toFixed(2)}`,
+    balanceRequired: maxUnit * normalizedCustomGenerateQuantity.value,
+    isRange: true
+  }
+})
+
+const customGenerateUnitPriceText = computed(() => customGeneratePricingSummary.value.unitPriceText)
+const customGenerateTotalCostDisplay = computed(() => customGeneratePricingSummary.value.totalCostText)
+const customGenerateHasEnoughBalance = computed(
+  () => Number(customGenerateBalance.value || 0) >= Number(customGeneratePricingSummary.value.balanceRequired || 0)
+)
+
 const customGeneratePreviewDomain = computed(() => {
   const selectedId = customGenerateForm.value.domain_ids[0]
   const matchedDomain = domainOptions.value.find((item) => String(item.id) === String(selectedId))
@@ -479,6 +607,7 @@ const customGeneratePreviewDomain = computed(() => {
 const customGeneratePreviewText = computed(() => {
   const previewDomain = customGeneratePreviewDomain.value
   const prefix = String(customGenerateForm.value.custom_prefix || '').trim().toLowerCase()
+  const exactLocalPart = String(customGenerateForm.value.exact_local_part || '').trim().toLowerCase()
 
   if (customGenerateForm.value.generation_mode === 'sequence') {
     const sequenceValue = String(resolvedSequenceStart.value).padStart(resolvedSequencePadding.value, '0')
@@ -490,8 +619,12 @@ const customGeneratePreviewText = computed(() => {
   if (customGenerateForm.value.generation_mode === 'custom') {
     const randomValue = 'x'.repeat(resolvedRandomLength.value)
     return isSystemMailbox.value
-      ? `${prefix}-${randomValue}@${previewDomain}`
+      ? `${randomValue ? `${prefix}-${randomValue}` : prefix}@${previewDomain}`
       : `${prefix}${randomValue}@${previewDomain}`
+  }
+
+  if (customGenerateForm.value.generation_mode === 'specified') {
+    return `${exactLocalPart || 'mailbox'}@${previewDomain}`
   }
 
   return `${'x'.repeat(resolvedRandomLength.value)}@${previewDomain}`
@@ -513,9 +646,21 @@ const formatDomainExpiresAt = (timestamp: number | string | null | undefined) =>
   return t('mail.expiresAt', { date: displayValue })
 }
 
+const getDomainExpiresPrefix = () => t('mail.expiresAt', { date: '' }).replace(/\s*$/, '')
+
+const isPermanentDomain = (domain: any) => Number(domain?.expires_at || 0) <= 0
+
+
 const canSubmitCustomGenerate = computed(() => {
   if (customGenerateLoading.value || domainLoading.value) return false
   if (!customGenerateForm.value.domain_ids.length) return false
+  if (isSpecifiedMode.value) {
+    if (customGenerateForm.value.domain_ids.length !== 1) return false
+    return Boolean(String(customGenerateForm.value.exact_local_part || '').trim())
+  }
+  if (customGenerateForm.value.generation_mode === 'random' && resolvedRandomLength.value <= 0) {
+    return false
+  }
   if (
     customGenerateForm.value.generation_mode !== 'random' &&
     !String(customGenerateForm.value.custom_prefix || '').trim()
@@ -592,6 +737,13 @@ const toggleCustomDomainSelection = (domainId: string) => {
   const normalizedId = String(domainId || '').trim()
   if (!normalizedId) return
 
+  if (isSpecifiedMode.value) {
+    customGenerateForm.value.domain_ids = customGenerateForm.value.domain_ids.includes(normalizedId)
+      ? []
+      : [normalizedId]
+    return
+  }
+
   const exists = customGenerateForm.value.domain_ids.includes(normalizedId)
   customGenerateForm.value.domain_ids = exists
     ? customGenerateForm.value.domain_ids.filter((item) => item !== normalizedId)
@@ -599,6 +751,12 @@ const toggleCustomDomainSelection = (domainId: string) => {
 }
 
 const selectAllCustomDomains = () => {
+  if (isSpecifiedMode.value) {
+    customGenerateForm.value.domain_ids = filteredDomainOptions.value[0]
+      ? [String(filteredDomainOptions.value[0].id)]
+      : []
+    return
+  }
   customGenerateForm.value.domain_ids = filteredDomainOptions.value.map((item) => String(item.id))
 }
 
@@ -626,6 +784,7 @@ const pickDomainOption = (items: any[], index: number) => {
 
 const buildHostedLocalPart = (index: number) => {
   const prefix = String(customGenerateForm.value.custom_prefix || '').trim().toLowerCase()
+  const exactLocalPart = String(customGenerateForm.value.exact_local_part || '').trim().toLowerCase()
   if (customGenerateForm.value.generation_mode === 'sequence') {
     const sequenceNumber = resolvedSequenceStart.value + index
     return `${prefix}${String(sequenceNumber).padStart(resolvedSequencePadding.value, '0')}`
@@ -633,6 +792,9 @@ const buildHostedLocalPart = (index: number) => {
   if (customGenerateForm.value.generation_mode === 'custom') {
     const randomSuffix = createRandomSuffix(resolvedRandomLength.value)
     return `${prefix}${randomSuffix}`
+  }
+  if (customGenerateForm.value.generation_mode === 'specified') {
+    return exactLocalPart
   }
   return ''
 }
@@ -643,6 +805,9 @@ const performHostedCustomGenerate = async () => {
   )
   if (!selectedDomains.length) {
     throw new Error(emptyDomainText.value)
+  }
+  if (isSpecifiedMode.value && selectedDomains.length !== 1) {
+    throw new Error(t('home.customGenerateSpecifiedDomainSingle'))
   }
 
   const createdItems: any[] = []
@@ -689,7 +854,9 @@ const performSystemCustomGenerate = async () => {
     domain_ids: customGenerateForm.value.domain_ids,
     quantity: normalizedCustomGenerateQuantity.value,
     generation_mode:
-      customGenerateForm.value.generation_mode === 'sequence'
+      customGenerateForm.value.generation_mode === 'specified'
+        ? 'exact'
+        : customGenerateForm.value.generation_mode === 'sequence'
         ? 'prefix_sequence'
         : customGenerateForm.value.generation_mode === 'custom'
           ? 'prefix_random'
@@ -700,8 +867,16 @@ const performSystemCustomGenerate = async () => {
     domain_strategy: customGenerateForm.value.domain_strategy
   }
 
-  if (customGenerateForm.value.generation_mode !== 'random') {
+  if (
+    customGenerateForm.value.generation_mode !== 'random' &&
+    customGenerateForm.value.generation_mode !== 'specified' &&
+    String(customGenerateForm.value.custom_prefix || '').trim()
+  ) {
     payload.custom_prefix = String(customGenerateForm.value.custom_prefix || '').trim()
+  }
+
+  if (isSpecifiedMode.value) {
+    payload.exact_local_part = String(customGenerateForm.value.exact_local_part || '').trim()
   }
 
   if (normalizedDomainPrefix.value) {
@@ -728,8 +903,15 @@ const performCustomGenerate = async () => {
     if (isHostedMailbox.value) {
       showMessage(t('home.customGenerateSuccessHosted', { count: successCount }), 'success')
     } else {
-      const cost = Number(data?.cost || 0).toFixed(2)
-      showMessage(t('home.customGenerateSuccess', { count: successCount, cost }), 'success')
+      const cost = String(data?.cost_text || Number(data?.cost || 0).toFixed(2))
+      showMessage(
+        t('home.customGenerateSuccess', {
+          count: successCount,
+          cost,
+          mode: customGenerateValidityDisplay.value
+        }),
+        'success'
+      )
     }
     emit('success', data)
   } catch (error: any) {
@@ -798,7 +980,8 @@ const handleCustomGenerate = async () => {
         })
       : t('home.customGenerateConfirmMessage', {
           quantity: normalizedCustomGenerateQuantity.value,
-          cost: customGenerateTotalCostDisplay.value
+          cost: customGenerateTotalCostDisplay.value,
+          mode: customGenerateValidityDisplay.value
         }),
     confirmText: t('home.customGenerateConfirm'),
     cancelText: t('common.cancel'),
@@ -819,8 +1002,20 @@ watch(
     if (domainOptions.value.length === 1) {
       customGenerateForm.value.domain_ids = [String(domainOptions.value[0].id)]
     }
-    if (!domainOptions.value.length) {
-      showMessage(emptyDomainText.value, 'warning')
+  }
+)
+
+watch(
+  () => customGenerateForm.value.generation_mode,
+  (mode) => {
+    if (mode === 'specified') {
+      customGenerateForm.value.quantity = 1
+      customGenerateForm.value.domain_strategy = 'round_robin'
+      customGenerateForm.value.domain_ids = customGenerateForm.value.domain_ids.slice(0, 1)
+      return
+    }
+    if (customGenerateForm.value.quantity < 1) {
+      customGenerateForm.value.quantity = 1
     }
   }
 )

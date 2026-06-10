@@ -33,7 +33,7 @@
           <button
             type="button"
             class="inline-flex items-center rounded-xl border border-red-200 bg-white px-4 py-2.5 text-sm font-medium text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-50 disabled:text-slate-300"
-            :disabled="failedRows.length === 0 || verifying"
+            :disabled="failedRows.length === 0 || verifyBusy"
             @click="retryFailedItems"
           >
             重试失败项{{ failedRows.length > 0 ? `(${failedRows.length})` : '' }}
@@ -57,14 +57,14 @@
           <button
             type="button"
             class="inline-flex items-center rounded-xl bg-primary-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:bg-primary-600 disabled:opacity-50"
-            :disabled="verifying"
+            :disabled="verifyBusy"
             @click="startVerify"
           >
-            <svg v-if="verifying" class="mr-2 h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+            <svg v-if="verifyBusy" class="mr-2 h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
               <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-opacity="0.35" stroke-width="2.5" />
               <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" />
             </svg>
-            {{ verifying ? '验号中...' : '开始验号' }}
+            {{ importingForVerify ? '准备中...' : verifying ? '验号中...' : '开始验号' }}
           </button>
         </div>
       </div>
@@ -245,6 +245,7 @@ const SUPPORTED_PROTOCOLS = ['auto', 'imap', 'pop3']
 const OAUTH_VERIFY_DISPLAY_CONCURRENCY = 6
 const rawText = ref('')
 const verifying = ref(false)
+const importingForVerify = ref(false)
 const promoting = ref(false)
 const verifySmtp = ref(true)
 const selectedProxyId = ref<number | ''>('')
@@ -263,6 +264,7 @@ const liveProgress = ref({
 })
 const isDesktop = isTauri()
 let unlistenVerifyProgress: null | (() => void) = null
+const processedCandidateSignatures = ref<Set<string>>(new Set())
 
 const getTauriInvoke = async () => {
   if (!isTauri()) return null
@@ -301,6 +303,28 @@ const loadSelectedRuntimeProxy = async () => {
   return response?.data?.runtime_proxy || null
 }
 
+const isSupportedProtocol = (value: string) =>
+  SUPPORTED_PROTOCOLS.includes(String(value || '').trim().toLowerCase())
+
+const getCandidateSignature = (item: any) => [
+  String(item?.email || '').trim().toLowerCase(),
+  String(item?.password || '').trim(),
+  String(item?.protocol || 'auto').trim().toLowerCase() || 'auto',
+  String(item?.auth_type || 'password').trim().toLowerCase() || 'password',
+  String(item?.oauth_provider || '').trim().toLowerCase(),
+  String(item?.oauth_client_id || '').trim(),
+  String(item?.oauth_refresh_token || '').trim()
+].join('\u0001')
+
+const markCandidatesProcessed = (items: any[]) => {
+  if (!items.length) return
+  const next = new Set(processedCandidateSignatures.value)
+  for (const item of items) {
+    next.add(getCandidateSignature(item))
+  }
+  processedCandidateSignatures.value = next
+}
+
 const parseVerifyLines = (text: string) =>
   String(text || '')
     .split('\n')
@@ -312,12 +336,14 @@ const parseVerifyLines = (text: string) =>
 
       const email = String(parts[0] || '').trim()
       const domain = (email.split('@')[1] || '').toLowerCase()
-      const isOAuthToken = parts.length >= 4 && isOAuthTokenDomain(domain)
+      const credentialParts = parts.slice(1).filter((part) => !isSupportedProtocol(part))
+      const explicitProtocol = parts.slice(1).find((part) => isSupportedProtocol(part))
+      const protocol = String(explicitProtocol || 'auto').trim().toLowerCase()
+      const isOAuthToken = credentialParts.length >= 3 && isOAuthTokenDomain(domain)
       const oauthProvider = isOAuthToken ? resolveOAuthProviderByDomain(domain) : ''
-      const password = String(parts.length >= 3 && !isOAuthToken ? parts[2] : parts[1] || '').trim()
-      const oauthClientId = String(parts[2] || '').trim()
-      const oauthRefreshToken = String(parts[3] || '').trim()
-      const protocol = 'auto'
+      const password = String(credentialParts[0] || '').trim()
+      const oauthClientId = String(credentialParts[1] || '').trim()
+      const oauthRefreshToken = String(credentialParts[2] || '').trim()
       const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
 
       if (!validEmail) {
@@ -372,6 +398,7 @@ const invalidItems = computed(() => parsedItems.value.filter((item: any) => !ite
 const successRows = computed(() => exportRows.value.filter((item: any) => item.verify_status === 'success'))
 const failedRows = computed(() => exportRows.value.filter((item: any) => item.verify_status === 'failed'))
 const promotableRows = computed(() => successRows.value.filter((item: any) => item.import_status !== 'imported'))
+const verifyBusy = computed(() => verifying.value || importingForVerify.value)
 const showLivePanel = computed(() => verifying.value || liveResults.value.length > 0)
 const showSidePanel = computed(() => showLivePanel.value || invalidItems.value.length > 0)
 const filteredLiveResults = computed(() => {
@@ -445,6 +472,7 @@ const clearAll = () => {
   resultFilter.value = 'all'
   failureReasonFilter.value = ''
   liveResults.value = []
+  processedCandidateSignatures.value = new Set()
   liveProgress.value = {
     total: 0,
     completed: 0,
@@ -927,79 +955,115 @@ const runImportedVerification = async (importedItems: any[], batchNo: string, pr
   }
 }
 
+const buildVerifyAccountPayload = (item: any) => ({
+  email: item.email,
+  password: item.password,
+  protocol: item.protocol,
+  auth_type: item.auth_type || 'password',
+  oauth_provider: item.oauth_provider || null,
+  oauth_client_id: item.oauth_client_id || null,
+  oauth_refresh_token: item.oauth_refresh_token || null
+})
+
+const getUnprocessedValidItems = () =>
+  validItems.value.filter((item: any) => !processedCandidateSignatures.value.has(getCandidateSignature(item)))
+
+const loadRuntimeProxyOrWarn = async () => {
+  if (!selectedProxyId.value) return null
+  const selectedRuntimeProxy = await loadSelectedRuntimeProxy()
+  if (!selectedRuntimeProxy) {
+    showMessage('所选代理当前不可用，请更换后重试', 'warning')
+    return undefined
+  }
+  return selectedRuntimeProxy
+}
+
 const startVerify = async () => {
+  if (verifyBusy.value) return
   if (validItems.value.length === 0) {
     showMessage('先导入可验账号', 'warning')
     return
   }
 
-  const importResponse: any = await externalVerifyPoolAPI.importCandidates({
-    accounts: validItems.value.map((item: any) => ({
-      email: item.email,
-      password: item.password,
-      protocol: item.protocol,
-      auth_type: item.auth_type || 'password',
-      oauth_provider: item.oauth_provider || null,
-      oauth_client_id: item.oauth_client_id || null,
-      oauth_refresh_token: item.oauth_refresh_token || null
-    }))
-  })
-
-  if (importResponse.code !== 0) return
-
-  const importedItems = Array.isArray(importResponse?.data?.items) ? importResponse.data.items : []
-  if (!importedItems.length) {
-    showMessage('没有可进入验号的账号', 'warning')
+  const targetItems = getUnprocessedValidItems()
+  if (targetItems.length === 0) {
+    showMessage('没有新增或改动的账号需要验号', 'warning')
     return
   }
 
-  const batchNo = String(importResponse?.data?.batch_no || '').trim()
-  const selectedRuntimeProxy = await loadSelectedRuntimeProxy()
-  if (selectedProxyId.value && !selectedRuntimeProxy) {
-    showMessage('所选代理当前不可用，请更换后重试', 'warning')
+  const selectedRuntimeProxy = await loadRuntimeProxyOrWarn()
+  if (selectedRuntimeProxy === undefined) return
+
+  const hasPasswordItems = targetItems.some((item: any) => String(item?.auth_type || 'password') !== 'oauth2')
+  if (hasPasswordItems && !isDesktop) {
+    showMessage('账号密码类批量验号需要在桌面端客户端里操作', 'warning')
     return
   }
-  await runImportedVerification(importedItems, batchNo, false, selectedRuntimeProxy)
+
+  importingForVerify.value = true
+  try {
+    const importResponse: any = await externalVerifyPoolAPI.importCandidates({
+      accounts: targetItems.map((item: any) => buildVerifyAccountPayload(item))
+    })
+
+    if (importResponse.code !== 0) return
+
+    const importedItems = Array.isArray(importResponse?.data?.items) ? importResponse.data.items : []
+    if (!importedItems.length) {
+      showMessage('没有可进入验号的账号', 'warning')
+      return
+    }
+
+    const batchNo = String(importResponse?.data?.batch_no || '').trim()
+    await runImportedVerification(importedItems, batchNo, false, selectedRuntimeProxy)
+    markCandidatesProcessed(targetItems)
+  } finally {
+    importingForVerify.value = false
+  }
 }
 
 const retryFailedItems = async () => {
+  if (verifyBusy.value) return
   if (failedRows.value.length === 0) {
     showMessage('当前没有可重试的失败项', 'warning')
     return
   }
 
-  const importResponse: any = await externalVerifyPoolAPI.importCandidates({
-    batch_no: currentBatchNo.value || undefined,
-    accounts: failedRows.value.map((item: any) => ({
-      email: item.email,
-      password: item.password,
-      protocol: item.input_protocol || item.resolved_protocol || item.protocol || 'auto',
-      auth_type: item.auth_type || 'password',
-      oauth_provider: item.oauth_provider || null,
-      oauth_client_id: item.oauth_client_id || null,
-      oauth_refresh_token: item.oauth_refresh_token || null,
-      pop3_host: item.pop3_host || null,
-      pop3_port: item.pop3_port || null,
-      imap_host: item.imap_host || null,
-      imap_port: item.imap_port || null
-    }))
-  })
+  const selectedRuntimeProxy = await loadRuntimeProxyOrWarn()
+  if (selectedRuntimeProxy === undefined) return
 
-  if (importResponse.code !== 0) return
+  importingForVerify.value = true
+  try {
+    const importResponse: any = await externalVerifyPoolAPI.importCandidates({
+      batch_no: currentBatchNo.value || undefined,
+      accounts: failedRows.value.map((item: any) => ({
+        email: item.email,
+        password: item.password,
+        protocol: item.input_protocol || item.resolved_protocol || item.protocol || 'auto',
+        auth_type: item.auth_type || 'password',
+        oauth_provider: item.oauth_provider || null,
+        oauth_client_id: item.oauth_client_id || null,
+        oauth_refresh_token: item.oauth_refresh_token || null,
+        pop3_host: item.pop3_host || null,
+        pop3_port: item.pop3_port || null,
+        imap_host: item.imap_host || null,
+        imap_port: item.imap_port || null
+      }))
+    })
 
-  const importedItems = Array.isArray(importResponse?.data?.items) ? importResponse.data.items : []
-  if (!importedItems.length) {
-    showMessage('没有可重试的失败项', 'warning')
-    return
+    if (importResponse.code !== 0) return
+
+    const importedItems = Array.isArray(importResponse?.data?.items) ? importResponse.data.items : []
+    if (!importedItems.length) {
+      showMessage('没有可重试的失败项', 'warning')
+      return
+    }
+
+    const batchNo = String(importResponse?.data?.batch_no || currentBatchNo.value || '').trim()
+    await runImportedVerification(importedItems, batchNo, true, selectedRuntimeProxy)
+  } finally {
+    importingForVerify.value = false
   }
-
-  const batchNo = String(importResponse?.data?.batch_no || currentBatchNo.value || '').trim()
-  const selectedRuntimeProxy = await loadSelectedRuntimeProxy()
-  if (selectedProxyId.value && !selectedRuntimeProxy) {
-    showMessage('所选代理当前不可用，请更换后重试', 'warning')
-    return
-  }
-  await runImportedVerification(importedItems, batchNo, true, selectedRuntimeProxy)
 }
 
 onMounted(async () => {

@@ -1,14 +1,8 @@
 <template>
   <div class="space-y-6">
-    <div
-      v-if="accessLoaded && access.status !== 'approved' && access.status !== 'trial'"
-      class="rounded-lg border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900"
-    >
-      <div class="font-medium">当前账号还没开通邮件触达</div>
-      <div class="mt-2">{{ access.reason }}</div>
-    </div>
+    <AccessPendingAlert v-if="accessLoaded && !canOperate" :reason="access.reason" />
 
-    <div v-if="canOperate" class="rounded-lg border bg-white p-6 shadow-sm">
+    <div v-if="canOperate" class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
       <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div class="flex items-center gap-4">
           <BaseInput
@@ -19,7 +13,7 @@
           />
           <button
             type="button"
-            class="h-10 rounded-md bg-primary-600 px-4 text-sm text-white hover:bg-primary-700"
+            class="h-10 rounded-xl bg-primary-600 px-4 text-sm font-medium text-white hover:bg-primary-700"
             @click="applyFilters"
           >
             查询
@@ -28,14 +22,14 @@
         <div class="flex items-center gap-3">
           <button
             type="button"
-            class="h-10 rounded-md border border-gray-200 bg-white px-4 text-sm text-gray-700 hover:bg-gray-50"
+            class="h-10 rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50"
             @click="protocolVisible = true"
           >
             使用协议
           </button>
           <button
             type="button"
-            class="h-10 rounded-md bg-primary-600 px-4 text-sm text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
+            class="h-10 rounded-xl bg-primary-600 px-4 text-sm font-medium text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
             :disabled="!canOperate"
             @click="openCreateModal"
           >
@@ -57,13 +51,13 @@
       </template>
       <template #tbody>
         <tr v-if="!filteredTemplates.length && !loading">
-          <td colspan="5" class="px-6 py-12 text-center text-black">暂无模板</td>
+          <td colspan="5" :class="TABLE_EMPTY_CELL_CLASS">暂无模板</td>
         </tr>
         <tr v-for="item in filteredTemplates" :key="item.template_id || item.id" class="hover:bg-gray-50">
           <td class="px-6 py-4 text-sm font-medium text-black">{{ item.template_id || '-' }}</td>
           <td class="px-6 py-4 text-sm font-medium text-black">{{ item.name || '未命名模板' }}</td>
           <td class="px-6 py-4 text-sm text-black">{{ item.subject || '-' }}</td>
-          <td class="px-6 py-4 text-sm text-black">{{ formatTime(item.updated_at) }}</td>
+          <td class="px-6 py-4 text-sm text-black">{{ formatDateTime(item.updated_at) }}</td>
           <td class="px-6 py-4 text-sm">
             <div class="flex items-center space-x-2">
               <ActionButton icon="edit" tooltip="编辑" variant="edit" @click="openEditModal(item)" />
@@ -235,6 +229,8 @@ import BaseModal from '@/components/BaseModal/index.vue'
 import ConfirmDialog from '@/components/ConfirmDialog/index.vue'
 import emailReachApi from '@/api/emailReach'
 import { showMessage } from '@/utils/message'
+import AccessPendingAlert from './components/AccessPendingAlert.vue'
+import { TABLE_EMPTY_CELL_CLASS, formatDateTime, hasAccessStatus } from './ui'
 
 const router = useRouter()
 const accessLoaded = ref(false)
@@ -256,7 +252,7 @@ const appliedFilters = reactive({
   keyword: ''
 })
 
-const canOperate = computed(() => access.value.status === 'approved' || access.value.status === 'trial')
+const canOperate = computed(() => hasAccessStatus(access.value.status))
 const deleteMessage = computed(() => `确认删除模板《${deletingTemplate.value?.name || '未命名模板'}》吗？`)
 const filteredTemplates = computed(() => {
   const keyword = appliedFilters.keyword.trim().toLowerCase()
@@ -265,13 +261,6 @@ const filteredTemplates = computed(() => {
 
 const applyFilters = () => {
   appliedFilters.keyword = filters.keyword
-}
-
-const formatTime = (value) => {
-  if (!value) return '-'
-  const date = new Date(Number(value))
-  if (Number.isNaN(date.getTime())) return '-'
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
 }
 
 const loadTemplates = async () => {

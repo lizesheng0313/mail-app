@@ -1,18 +1,12 @@
 <template>
   <div class="space-y-6">
-    <div
-      v-if="accessLoaded && access.status !== 'approved' && access.status !== 'trial'"
-      class="rounded-lg border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900"
-    >
-      <div class="font-medium">当前账号还没开通邮件触达</div>
-      <div class="mt-2">{{ access.reason }}</div>
-    </div>
+    <AccessPendingAlert v-if="accessLoaded && !canOperate" :reason="access.reason" />
 
     <template v-if="canOperate">
       <div class="flex justify-end">
         <button
           type="button"
-          class="rounded-md bg-primary-600 px-5 py-2 text-sm text-white shadow-sm hover:bg-primary-700"
+          class="rounded-xl bg-primary-600 px-5 py-2 text-sm font-medium text-white shadow-sm hover:bg-primary-700"
           @click="goToPayment"
         >
           购买邮件
@@ -56,7 +50,7 @@
       </div>
 
       <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div class="rounded-lg border bg-white p-6 shadow-sm">
+        <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <div class="mb-4 flex items-center justify-between gap-4">
             <div>
               <div class="text-base font-semibold text-black">近7天发送量</div>
@@ -68,7 +62,7 @@
           </div>
         </div>
 
-        <div class="rounded-lg border bg-white p-6 shadow-sm">
+        <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <div class="mb-4 flex items-center justify-between gap-4">
             <div>
               <div class="text-base font-semibold text-black">近7天退订数</div>
@@ -80,7 +74,7 @@
           </div>
         </div>
 
-        <div class="rounded-lg border bg-white p-6 shadow-sm">
+        <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <div class="mb-4 flex items-center justify-between gap-4">
             <div>
               <div class="text-base font-semibold text-black">近7天失败量</div>
@@ -92,7 +86,7 @@
           </div>
         </div>
 
-        <div class="rounded-lg border bg-white p-6 shadow-sm">
+        <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <div class="mb-4 flex items-center justify-between gap-4">
             <div>
               <div class="text-base font-semibold text-black">近7天拦截量</div>
@@ -113,6 +107,9 @@
 import * as echarts from 'echarts'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import emailReachApi from '@/api/emailReach'
+import { useMailboxStore } from '@/stores/auth'
+import AccessPendingAlert from './components/AccessPendingAlert.vue'
+import { formatNumber, hasAccessStatus } from './ui'
 
 const accessLoaded = ref(false)
 const access = ref({
@@ -129,8 +126,7 @@ const quotaSummary = ref({
   next_expire_at: null,
   price_per_10000: 0,
   daily_quota: 0,
-  hourly_quota: 0,
-  single_batch_limit: 0
+  hourly_quota: 0
 })
 const sendTrendRef = ref(null)
 const unsubscribeTrendRef = ref(null)
@@ -140,14 +136,13 @@ let sendTrendChart = null
 let unsubscribeTrendChart = null
 let failedTrendChart = null
 let blockedTrendChart = null
+const mailboxStore = useMailboxStore()
 const sevenDaySentTotal = ref(0)
 const sevenDayUnsubscribeTotal = ref(0)
 const sevenDayFailedTotal = ref(0)
 const sevenDayBlockedTotal = ref(0)
 
-const canOperate = computed(() => access.value.status === 'approved' || access.value.status === 'trial')
-
-const formatNumber = (value) => Number(value || 0).toLocaleString()
+const canOperate = computed(() => hasAccessStatus(access.value.status))
 
 const formatDayLabel = (date) => {
   const month = `${date.getMonth() + 1}`.padStart(2, '0')
@@ -293,6 +288,37 @@ const loadPageData = async () => {
   }
   if (quotaRes.code === 0) {
     quotaSummary.value = quotaRes.data || quotaSummary.value
+  }
+  if (
+    accessRes.code === 0 &&
+    ['approved', 'trial'].includes(String(access.value.status || '')) &&
+    Number(quotaSummary.value.total_quota || 0) > 0 &&
+    !String(access.value.reply_target?.email_address || '').trim()
+  ) {
+    const ensureRes = await emailReachApi.ensureReplyMailbox()
+    if (ensureRes.code === 0) {
+      const mailboxEmail = String(ensureRes.data?.email_address || '').trim()
+      if (mailboxEmail) {
+        access.value = {
+          ...access.value,
+          reply_target: {
+            email_address: mailboxEmail,
+            target_type: 'reply_mailbox',
+            status: String(ensureRes.data?.status || 'active'),
+            description: '客户回复会进入临时邮箱'
+          }
+        }
+        mailboxStore.upsertMailboxes([{
+          id: ensureRes.data?.mailbox_ref_id || ensureRes.data?.id,
+          email: mailboxEmail,
+          email_address: mailboxEmail,
+          mailbox_type: 'system',
+          created_at: ensureRes.data?.created_at || Date.now(),
+          expires_at: ensureRes.data?.expires_at || null,
+          is_active: true
+        }])
+      }
+    }
   }
   if (recordRes.code === 0 || unsubscribeRes.code === 0) {
     const recordItems = Array.isArray(recordRes.data)

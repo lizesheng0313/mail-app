@@ -165,8 +165,8 @@ const menuSections = computed(() => [
     name: t('userLayout.emailReach'),
     items: [
       {
-        path: '/user/email-reach/quota',
-        label: t('userLayout.emailReachQuota'),
+        path: '/user/email-reach/dashboard',
+        label: t('userLayout.emailReachDashboard'),
         icon: {
           render: () =>
             h('svg', { fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' }, [
@@ -174,7 +174,7 @@ const menuSections = computed(() => [
                 'stroke-linecap': 'round',
                 'stroke-linejoin': 'round',
                 'stroke-width': '2',
-                d: 'M12 8c-1.657 0-3 1.12-3 2.5S10.343 13 12 13s3 1.12 3 2.5S13.657 18 12 18m0-10V6m0 12v-2m9-4a9 9 0 11-18 0 9 9 0 0118 0z'
+                d: 'M4 19V5m0 14h16M8 16V9m4 7V7m4 9v-4'
               })
             ])
         }
@@ -230,6 +230,21 @@ const menuSections = computed(() => [
                 'stroke-linejoin': 'round',
                 'stroke-width': '2',
                 d: 'M9 13l2 2 4-4'
+              })
+            ])
+        }
+      },
+      {
+        path: '/user/email-reach/records',
+        label: '行为明细',
+        icon: {
+          render: () =>
+            h('svg', { fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' }, [
+              h('path', {
+                'stroke-linecap': 'round',
+                'stroke-linejoin': 'round',
+                'stroke-width': '2',
+                d: 'M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5s8.268 2.943 9.542 7c-1.274 4.057-5.065 7-9.542 7s-8.268-2.943-9.542-7z'
               })
             ])
         }
@@ -417,14 +432,16 @@ const currentPageTitle = computed(() => {
   if (route.path === '/user/automation/plugins') return t('userLayout.myPlugins')
   if (route.path === '/user/automation/plugins/store') return t('userLayout.pluginStore')
   if (route.path.startsWith('/user/developer/api-keys')) return t('userLayout.apiKeys')
+  if (route.path === '/user/email-reach/dashboard') return t('userLayout.emailReachDashboard')
   if (route.path === '/user/email-reach/templates') return t('userLayout.emailReachTemplates')
   if (route.path === '/user/email-reach/templates/create') return '新建模板'
   if (route.path.startsWith('/user/email-reach/templates/') && route.path.endsWith('/edit')) return '编辑模板'
-  if (route.path === '/user/email-reach/quota') return t('userLayout.emailReachQuota')
   if (route.path === '/user/email-reach/members') return t('userLayout.emailReachMembers')
   if (route.path === '/user/email-reach/member-groups') return '分组管理'
   if (route.path === '/user/email-reach/member-tags') return '标签管理'
   if (route.path === '/user/email-reach/tasks') return '发送任务'
+  if (route.path.startsWith('/user/email-reach/tasks/')) return '任务明细'
+  if (route.path === '/user/email-reach/records') return '行为明细'
   if (route.path === '/user/email-reach/recipients') return t('userLayout.emailReachRecipients')
   if (route.path === '/user/email-reach/unsubscribes') return t('userLayout.emailReachUnsubscribes')
 
@@ -452,14 +469,16 @@ const pageDescription = computed(() => {
   if (route.path === '/user/automation/plugins') return t('userLayout.myPluginsDescription')
   if (route.path === '/user/automation/plugins/store') return t('userLayout.pluginStoreDescription')
   if (route.path.startsWith('/user/developer/api-keys')) return t('userLayout.apiKeysDescription')
+  if (route.path === '/user/email-reach/dashboard') return t('userLayout.emailReachDashboardDescription')
   if (route.path === '/user/email-reach/templates') return t('userLayout.emailReachTemplatesDescription')
   if (route.path === '/user/email-reach/templates/create') return '创建一个新的邮件模板'
   if (route.path.startsWith('/user/email-reach/templates/') && route.path.endsWith('/edit')) return '修改当前邮件模板'
-  if (route.path === '/user/email-reach/quota') return t('userLayout.emailReachQuotaDescription')
   if (route.path === '/user/email-reach/members') return t('userLayout.emailReachMembersDescription')
   if (route.path === '/user/email-reach/member-groups') return '管理会员分组'
   if (route.path === '/user/email-reach/member-tags') return '管理会员标签'
   if (route.path === '/user/email-reach/tasks') return '管理发送任务和查看进度'
+  if (route.path.startsWith('/user/email-reach/tasks/')) return '查看单个任务的发送效果和收件人明细'
+  if (route.path === '/user/email-reach/records') return '查看打开、点击、回复和异常行为'
   if (route.path === '/user/email-reach/recipients') return t('userLayout.emailReachRecipientsDescription')
   if (route.path === '/user/email-reach/unsubscribes') return t('userLayout.emailReachUnsubscribesDescription')
 

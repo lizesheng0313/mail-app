@@ -1,22 +1,16 @@
 <template>
   <div class="space-y-6">
-    <div
-      v-if="accessLoaded && access.status !== 'approved' && access.status !== 'trial'"
-      class="rounded-lg border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900"
-    >
-      <div class="font-medium">当前账号还没开通邮件触达</div>
-      <div class="mt-2">{{ access.reason }}</div>
-    </div>
+    <AccessPendingAlert v-if="accessLoaded && !canOperate" :reason="access.reason" />
 
-    <div v-if="canOperate" class="rounded-lg bg-white p-5 shadow-sm">
+    <div v-if="canOperate" class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
       <div class="flex flex-wrap items-center justify-between gap-4">
         <div class="flex flex-wrap items-center gap-3">
           <BaseInput v-model="filters.keyword" placeholder="分组名称 / 说明" size="sm" class="w-64" />
-          <button type="button" class="h-10 rounded-md bg-primary-600 px-5 text-sm text-white hover:bg-primary-700" @click="loadGroups">
+          <button type="button" class="h-10 rounded-xl bg-primary-600 px-5 text-sm font-medium text-white hover:bg-primary-700" @click="loadGroups">
             查询
           </button>
         </div>
-        <button type="button" class="h-10 rounded-md bg-primary-600 px-5 text-sm text-white hover:bg-primary-700" @click="showModal = true">
+        <button type="button" class="h-10 rounded-xl bg-primary-600 px-5 text-sm font-medium text-white hover:bg-primary-700" @click="showModal = true">
           新增分组
         </button>
       </div>
@@ -33,12 +27,12 @@
       </template>
       <template #tbody>
         <tr v-if="!filteredGroups.length && !loading">
-          <td colspan="4" class="px-6 py-12 text-center text-black">暂无分组</td>
+          <td colspan="4" :class="TABLE_EMPTY_CELL_CLASS">暂无分组</td>
         </tr>
         <tr v-for="item in filteredGroups" :key="item.id" class="hover:bg-gray-50">
           <td class="px-6 py-4 text-sm font-medium text-black">{{ item.group_name }}</td>
           <td class="px-6 py-4 text-sm text-black">{{ item.description || '-' }}</td>
-          <td class="px-6 py-4 text-sm text-black">{{ formatTime(item.updated_at) }}</td>
+          <td class="px-6 py-4 text-sm text-black">{{ formatDateTime(item.updated_at) }}</td>
           <td class="px-6 py-4 text-sm">
             <div class="flex items-center gap-2">
               <ActionButton icon="delete" tooltip="删除" variant="delete" @click="handleDeleteGroup(item)" />
@@ -74,6 +68,8 @@ import BaseModal from '@/components/BaseModal/index.vue'
 import ConfirmDialog from '@/components/ConfirmDialog/index.vue'
 import emailReachApi from '@/api/emailReach'
 import { showMessage } from '@/utils/message'
+import AccessPendingAlert from './components/AccessPendingAlert.vue'
+import { TABLE_EMPTY_CELL_CLASS, formatDateTime, hasAccessStatus } from './ui'
 
 const loading = ref(false)
 const saving = ref(false)
@@ -87,20 +83,13 @@ const access = ref({ status: 'pending', reason: '' })
 const form = reactive({ group_name: '' })
 const filters = reactive({ keyword: '' })
 
-const canOperate = computed(() => access.value.status === 'approved' || access.value.status === 'trial')
+const canOperate = computed(() => hasAccessStatus(access.value.status))
 const deleteMessage = computed(() => `确认删除分组《${deletingGroup.value?.group_name || ''}》吗？会员不会删除，只会清空这个分组。`)
 const filteredGroups = computed(() => {
   const keyword = String(filters.keyword || '').trim().toLowerCase()
   if (!keyword) return groups.value
   return groups.value.filter((item) => `${item.group_name || ''} ${item.description || ''}`.toLowerCase().includes(keyword))
 })
-
-const formatTime = (value) => {
-  if (!value) return '-'
-  const date = new Date(Number(value))
-  if (Number.isNaN(date.getTime())) return '-'
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
-}
 
 const loadGroups = async () => {
   loading.value = true

@@ -182,6 +182,11 @@ const en = {
     domainMailboxCount: '{count} mailboxes already created',
     customGenerateQuantityLabel: 'Quantity',
     customGenerateStrategyLabel: 'Domain allocation',
+    customGenerateValidityModeLabel: 'Validity',
+    customGenerateValidityPermanent: 'Permanent',
+    customGenerateValidityExpireAt: 'Expires at',
+    customGenerateValidityFollowDomain: 'Follow selected domains',
+    customGenerateExpiresAtLabel: 'Expiration date',
     domainStrategyRoundRobin: 'Round robin',
     domainStrategyRandom: 'Random',
     customGenerateRuleLabel: 'Generation rule',
@@ -189,8 +194,11 @@ const en = {
     ruleRandom: 'System random',
     ruleCustom: 'Custom prefix + random suffix',
     ruleSequence: 'Sequential',
+    ruleSpecified: 'Exact mailbox',
     customGeneratePrefixLabel: 'Mailbox Prefix',
     customGeneratePrefixPlaceholder: 'For example sale, team, vip',
+    customGenerateSpecifiedLocalPartLabel: 'Mailbox name',
+    customGenerateSpecifiedLocalPartPlaceholder: 'For example support, service, hello',
     customGenerateDomainPrefixLabel: 'Domain Suffix (before the domain)',
     customGenerateDomainPrefixPlaceholder: 'For example xx.sdfds, without the at sign',
     customGenerateRandomLengthLabel: 'Random length',
@@ -198,7 +206,7 @@ const en = {
     customGenerateSequenceStartLabel: 'Starting number',
     customGeneratePreviewLabel: 'Preview',
     customGenerateSummaryQuantity: 'Quantity',
-    customGenerateUnitPriceValue: '1 mailbox = 0.01 coins',
+    customGenerateUnitPriceValue: 'Current price: {price} coins / mailbox',
     customGenerateRechargeHint:
       'Your current balance is {balance} coins. If it is not enough, you can recharge first.',
     customGenerateReadyHint: 'Everything is ready. Confirm to create the mailboxes now.',
@@ -208,12 +216,13 @@ const en = {
       'This generation costs {cost} coins, but your current balance is {balance} coins.',
     customGenerateConfirmTitle: 'Confirm generation',
     customGenerateConfirmMessage:
-      'This will generate {quantity} mailboxes and consume {cost} coins.',
+      'This will generate {quantity} mailboxes as {mode} and consume {cost} coins.',
     customGenerateConfirmMessageHosted:
       'This will generate {quantity} domain mailboxes.',
     customGenerateNoDomains: 'No system domains are available right now',
     customGenerateNoHostedDomains: 'No verified domains are available right now',
-    customGenerateSuccess: '{count} mailboxes created, {cost} coins consumed',
+    customGenerateSpecifiedDomainSingle: 'Exact mailbox generation supports only one domain',
+    customGenerateSuccess: '{count} {mode} mailboxes created, {cost} coins consumed',
     customGenerateSuccessHosted: '{count} domain mailboxes created',
     customGenerateFailed: 'Custom generation failed',
     goRecharge: 'Recharge',
@@ -662,7 +671,7 @@ const en = {
     myDomainsDescription:
       'Connect your own domain, complete DNS verification, and create receiving addresses.',
     emailReachDashboardDescription:
-      'Review account status, package abilities, and sending quotas.',
+      'Review sending volume, unsubscribes, and overall engagement.',
     emailReachTemplatesDescription:
       'Manage transactional and marketing templates with AI generation and AI review.',
     emailReachQuotaDescription:
@@ -672,7 +681,7 @@ const en = {
     emailReachTasksDescription:
       'Manage event-triggered tasks and bulk sending tasks in one place.',
     emailReachRecordsDescription:
-      'Review sending results, status changes, and failure reasons.',
+      'Review recipient behavior and link click counts.',
     emailReachRecipientsDescription:
       'Manage invalid addresses, complaint addresses, and blacklists with automatic blocking before send.',
     emailReachUnsubscribesDescription:

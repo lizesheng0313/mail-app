@@ -55,14 +55,15 @@ const UserExternalOutbox = () => import('@/views/user/external-outbox/index.vue'
 const UserExternalGroupManagement = () => import('@/views/user/external-group-management/index.vue')
 const UserExternalBatchRepair = () => import('@/views/user/external-batch-repair/index.vue')
 const UserExternalProxyManagement = () => import('@/views/user/external-proxy-management/index.vue')
+const UserEmailReachDashboard = () => import('@/views/user/email-reach/dashboard.vue')
 const UserEmailReachTemplates = () => import('@/views/user/email-reach/templates.vue')
 const UserEmailReachTemplateEditor = () => import('@/views/user/email-reach/template-editor.vue')
-const UserEmailReachQuota = () => import('@/views/user/email-reach/quota.vue')
 const UserEmailReachMembers = () => import('@/views/user/email-reach/members.vue')
 const UserEmailReachMemberGroups = () => import('@/views/user/email-reach/member-groups.vue')
 const UserEmailReachMemberTags = () => import('@/views/user/email-reach/member-tags.vue')
 const UserEmailReachTasks = () => import('@/views/user/email-reach/tasks.vue')
 const UserEmailReachRecipients = () => import('@/views/user/email-reach/recipients.vue')
+const UserEmailReachRecords = () => import('@/views/user/email-reach/records.vue')
 const UserEmailReachUnsubscribes = () => import('@/views/user/email-reach/unsubscribes.vue')
 
 // 工作流市场组件
@@ -357,8 +358,13 @@ const router = createRouter({
         },
         {
           path: 'email-reach',
-          redirect: '/user/email-reach/templates'
+          redirect: '/user/email-reach/dashboard'
         },
+      {
+        path: 'email-reach/dashboard',
+        name: 'user-email-reach-dashboard',
+        component: UserEmailReachDashboard
+      },
       {
         path: 'email-reach/templates',
         name: 'user-email-reach-templates',
@@ -376,8 +382,7 @@ const router = createRouter({
       },
       {
         path: 'email-reach/quota',
-        name: 'user-email-reach-quota',
-        component: UserEmailReachQuota
+        redirect: '/user/email-reach/dashboard'
       },
       {
         path: 'email-reach/members',
@@ -397,19 +402,32 @@ const router = createRouter({
       {
         path: 'email-reach/tasks',
         name: 'user-email-reach-tasks',
-          component: UserEmailReachTasks
-        },
-        {
-          path: 'email-reach/recipients',
-          name: 'user-email-reach-recipients',
-          component: UserEmailReachRecipients
-        },
-        {
-          path: 'email-reach/unsubscribes',
-          name: 'user-email-reach-unsubscribes',
-          component: UserEmailReachUnsubscribes
-        },
-        {
+        component: UserEmailReachTasks
+      },
+      {
+        path: 'email-reach/tasks/:id',
+        redirect: '/user/email-reach/tasks'
+      },
+      {
+        path: 'email-reach/replies',
+        redirect: '/user/email-reach/dashboard'
+      },
+      {
+        path: 'email-reach/records',
+        name: 'user-email-reach-records',
+        component: UserEmailReachRecords
+      },
+      {
+        path: 'email-reach/recipients',
+        name: 'user-email-reach-recipients',
+        component: UserEmailReachRecipients
+      },
+      {
+        path: 'email-reach/unsubscribes',
+        name: 'user-email-reach-unsubscribes',
+        component: UserEmailReachUnsubscribes
+      },
+      {
           path: 'external-batch-verify',
           name: 'user-external-batch-verify',
           component: UserExternalBatchVerify

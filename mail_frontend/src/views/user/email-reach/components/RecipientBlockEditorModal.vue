@@ -3,6 +3,8 @@
     :model-value="visible"
     title="新增拦截名单"
     size="md"
+    content-class="rounded-[28px] border border-slate-200 shadow-2xl"
+    body-class="overflow-y-auto px-6 py-5"
     :confirm-text="saving ? '保存中...' : '保存'"
     :confirm-loading="saving"
     :confirm-disabled="!canOperate"
@@ -15,17 +17,17 @@
       <BaseInput v-model="form.email" label="邮箱" placeholder="输入邮箱地址" />
       <div class="grid gap-4 md:grid-cols-2">
         <div>
-          <label class="mb-2 block text-sm font-medium text-gray-900">名单类型</label>
+          <label class="mb-2 block text-sm font-medium text-slate-900">名单类型</label>
           <CustomSelect v-model="form.block_type" :options="blockTypeOptions" placeholder="选择名单类型" />
         </div>
       </div>
       <div class="grid gap-4 md:grid-cols-2">
         <div>
-          <label class="mb-2 block text-sm font-medium text-gray-900">来源</label>
+          <label class="mb-2 block text-sm font-medium text-slate-900">来源</label>
           <CustomSelect v-model="form.source" :options="sourceOptions" placeholder="选择来源" />
         </div>
         <div>
-          <label class="mb-2 block text-sm font-medium text-gray-900">状态</label>
+          <label class="mb-2 block text-sm font-medium text-slate-900">状态</label>
           <CustomSelect v-model="form.status" :options="statusOptions" placeholder="选择状态" />
         </div>
       </div>

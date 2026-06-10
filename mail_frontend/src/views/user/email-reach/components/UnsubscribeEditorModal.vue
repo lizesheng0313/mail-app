@@ -3,6 +3,8 @@
     :model-value="visible"
     title="新增退订"
     size="md"
+    content-class="rounded-[28px] border border-slate-200 shadow-2xl"
+    body-class="overflow-y-auto px-6 py-5"
     :confirm-text="saving ? '保存中...' : '保存'"
     :confirm-loading="saving"
     :confirm-disabled="!canOperate"
@@ -15,7 +17,7 @@
       <BaseInput v-model="form.email" label="邮箱" placeholder="输入退订邮箱" />
       <div class="grid gap-4 md:grid-cols-1">
         <div>
-          <label class="mb-2 block text-sm font-medium text-gray-900">状态</label>
+          <label class="mb-2 block text-sm font-medium text-slate-900">状态</label>
           <CustomSelect v-model="form.status" :options="statusOptions" placeholder="选择状态" />
         </div>
       </div>

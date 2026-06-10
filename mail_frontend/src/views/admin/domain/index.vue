@@ -43,13 +43,14 @@
         :pagination="pagination"
         :loading="loading"
         :show-page-size-selector="true"
-        :column-count="6"
+        :column-count="7"
         @page-change="changePage"
         @page-size-change="changePageSize"
       >
         <template #thead>
           <tr>
                   <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">域名</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">用途</th>
                   <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">描述</th>
                   <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">状态</th>
                   <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">创建时间</th>
@@ -78,6 +79,14 @@
                         {{ domain.domain_name }}
                       </div>
                     </div>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-black">
+                    <span
+                      :class="domain.domain_usage === 'permanent' ? 'bg-amber-100 text-amber-800' : 'bg-sky-100 text-sky-800'"
+                      class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full"
+                    >
+                      {{ formatDomainUsage(domain) }}
+                    </span>
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap text-sm text-black">
                     {{ domain.description || '-' }}
@@ -128,7 +137,7 @@
                   </td>
           </tr>
           <tr v-if="domains.length === 0">
-            <td colspan="6" class="px-6 py-12 text-center text-black">
+            <td colspan="7" class="px-6 py-12 text-center text-black">
               暂无域名数据
             </td>
           </tr>
@@ -164,6 +173,16 @@
               v-model="createForm.description"
               type="text"
               placeholder="域名描述"
+              size="sm"
+            />
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-black mb-2">用途</label>
+            <CustomSelect
+              v-model="createForm.domain_usage"
+              :options="domainUsageOptions"
+              placeholder="请选择域名用途"
               size="sm"
             />
           </div>
@@ -223,6 +242,16 @@
           </div>
 
           <div>
+            <label class="block text-sm font-medium text-black mb-2">用途</label>
+            <CustomSelect
+              v-model="editForm.domain_usage"
+              :options="domainUsageOptions"
+              placeholder="请选择域名用途"
+              size="sm"
+            />
+          </div>
+
+          <div>
             <label class="block text-sm font-medium text-black mb-2">过期时间</label>
             <BaseInput
               v-model="editForm.expires_at"
@@ -270,6 +299,7 @@ import BaseInput from '@/components/BaseInput/index.vue'
 import ActionButton from '@/components/ActionButton/index.vue'
 import AdminDataTable from '@/components/AdminDataTable/index.vue'
 import ConfirmDialog from '@/components/ConfirmDialog/index.vue'
+import CustomSelect from '@/components/CustomSelect/index.vue'
 import { showMessage } from '@/utils/message'
 // 响应式数据
 const loading = ref(false)
@@ -298,7 +328,8 @@ const showCreateModal = ref(false)
 const createForm = ref({
   domain_name: '',
   description: '',
-  expires_at: ''
+  expires_at: '',
+  domain_usage: 'temporary'
 })
 
 // 编辑域名表单
@@ -307,8 +338,14 @@ const editForm = ref({
   id: 0,
   domain_name: '',
   description: '',
-  expires_at: ''
+  expires_at: '',
+  domain_usage: 'temporary'
 })
+
+const domainUsageOptions = [
+  { label: '临时域名', value: 'temporary' },
+  { label: '永久域名', value: 'permanent' }
+]
 
 
 
@@ -355,7 +392,8 @@ const createDomain = async () => {
   try {
     const payload: any = {
       domain_name: createForm.value.domain_name,
-      description: createForm.value.description
+      description: createForm.value.description,
+      domain_usage: createForm.value.domain_usage
     }
 
     // 如果设置了过期时间，添加到请求中（设置为当天23:59:59，避免时区问题）
@@ -370,7 +408,7 @@ const createDomain = async () => {
     if (response.code === 0) {
       showMessage('域名创建成功', 'success')
       // 重置表单
-      createForm.value = { domain_name: '', description: '', expires_at: '' }
+      createForm.value = { domain_name: '', description: '', expires_at: '', domain_usage: 'temporary' }
       showCreateModal.value = false
       // 刷新列表
       await fetchDomains()
@@ -387,7 +425,7 @@ const createDomain = async () => {
 // 取消创建域名
 const cancelCreate = () => {
   showCreateModal.value = false
-  createForm.value = { domain_name: '', description: '', expires_at: '' }
+  createForm.value = { domain_name: '', description: '', expires_at: '', domain_usage: 'temporary' }
 }
 
 // 编辑域名
@@ -396,7 +434,8 @@ const editDomain = (domain: Domain) => {
     id: domain.id,
     domain_name: domain.domain_name,
     description: domain.description || '',
-    expires_at: domain.expires_at ? new Date(domain.expires_at).toISOString().slice(0, 10) : ''
+    expires_at: domain.expires_at ? new Date(domain.expires_at).toISOString().slice(0, 10) : '',
+    domain_usage: domain.domain_usage || 'temporary'
   }
   showEditModal.value = true
 }
@@ -406,7 +445,8 @@ const updateDomain = async () => {
   loading.value = true
   try {
     const payload: any = {
-      description: editForm.value.description
+      description: editForm.value.description,
+      domain_usage: editForm.value.domain_usage
     }
 
     // 如果设置了过期时间，添加到请求中（设置为当天23:59:59，避免时区问题）
@@ -532,4 +572,7 @@ const isDomainExpired = (domain: Domain) => {
   
   return isExpired
 }
+
+const formatDomainUsage = (domain: Domain) =>
+  domain.domain_usage === 'permanent' ? '永久域名' : '临时域名'
 </script>

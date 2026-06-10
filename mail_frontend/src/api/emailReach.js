@@ -1,8 +1,16 @@
 import api from '@/services/api'
 
 export const emailReachApi = {
-  getAccessSummary() {
-    return api.get('/email-reach/access-summary')
+  getAccessSummary(config = {}) {
+    return api.get('/email-reach/access-summary', config)
+  },
+
+  getReplyMailbox() {
+    return api.get('/email-reach/reply-mailbox')
+  },
+
+  ensureReplyMailbox() {
+    return api.post('/email-reach/reply-mailbox/ensure')
   },
 
   acceptAccessAgreement() {
@@ -209,8 +217,32 @@ export const emailReachApi = {
     return api.get('/email-reach/send-records', { params })
   },
 
+  getTrackingOverview(params = {}) {
+    return api.get('/email-reach/analytics/overview', { params })
+  },
+
+  getLinkClickStats(params = {}) {
+    return api.get('/email-reach/analytics/link-clicks', { params })
+  },
+
+  getReplyEvents(params = {}, config = {}) {
+    return api.get('/email-reach/analytics/replies', { params, ...config })
+  },
+
+  syncReplyEvents() {
+    return api.post('/email-reach/reply-mailbox/sync-replies')
+  },
+
+  getRecipientBehaviors(params = {}) {
+    return api.get('/email-reach/recipient-behaviors', { params })
+  },
+
   getTaskSendRecords(taskId) {
     return api.get(`/email-reach/tasks/${taskId}/send-records`)
+  },
+
+  getTaskAnalytics(taskId) {
+    return api.get(`/email-reach/tasks/${taskId}/analytics`)
   },
 
   createTask(data) {

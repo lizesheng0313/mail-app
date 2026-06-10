@@ -3,6 +3,8 @@
     :model-value="visible"
     title="购买邮件量"
     size="sm"
+    content-class="rounded-[28px] border border-slate-200 shadow-2xl"
+    body-class="overflow-y-auto px-6 py-5"
     :confirm-text="submitting ? '购买中...' : '确定购买'"
     :confirm-loading="submitting"
     :confirm-disabled="!canSubmit"
@@ -12,7 +14,31 @@
     @close="handleClose"
   >
     <div class="space-y-4">
-      <div class="rounded-lg bg-gray-50 p-4 text-sm text-gray-700">
+      <div class="grid gap-3 sm:grid-cols-3">
+        <button
+          v-for="item in quotaOptions"
+          :key="item"
+          type="button"
+          class="rounded-2xl border px-4 py-3 text-left transition"
+          :class="Number(form.quota_count) === item
+            ? 'border-primary-500 bg-primary-50 text-primary-700'
+            : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'"
+          @click="form.quota_count = item"
+        >
+          <div class="text-xs text-slate-500">常用数量</div>
+          <div class="mt-1 text-base font-semibold">{{ item.toLocaleString() }} 封</div>
+        </button>
+      </div>
+
+      <div>
+        <BaseInput
+          v-model="quotaInput"
+          label="购买邮件量"
+          placeholder="请输入购买数量，例如 10000"
+        />
+      </div>
+
+      <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
         <div class="flex items-center justify-between gap-4">
           <span>购买邮件量</span>
           <span class="font-medium text-black">{{ Number(form.quota_count || 0).toLocaleString() }} 封</span>
@@ -34,6 +60,7 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import BaseModal from '@/components/BaseModal/index.vue'
+import BaseInput from '@/components/BaseInput/index.vue'
 import emailReachApi from '@/api/emailReach'
 import { showMessage } from '@/utils/message'
 
@@ -48,6 +75,8 @@ const emit = defineEmits(['update:visible', 'purchased'])
 
 const submitting = ref(false)
 const router = useRouter()
+const quotaOptions = [10000, 50000, 100000]
+const quotaInput = ref('10000')
 const form = reactive({
   quota_count: 10000
 })
@@ -65,6 +94,20 @@ const hasEnoughBalance = computed(() => Number(props.milkCoinBalance || 0) >= Nu
 watch(() => props.visible, (value) => {
   if (!value) return
   form.quota_count = Number(props.initialQuotaCount || 10000)
+  quotaInput.value = String(form.quota_count)
+})
+
+watch(quotaInput, (value) => {
+  const normalized = String(value || '').replace(/[^\d]/g, '')
+  quotaInput.value = normalized
+  form.quota_count = Number(normalized || 0)
+})
+
+watch(() => form.quota_count, (value) => {
+  const normalized = String(Number(value || 0) || '')
+  if (quotaInput.value !== normalized) {
+    quotaInput.value = normalized
+  }
 })
 
 const handleVisibleChange = (value) => emit('update:visible', value)

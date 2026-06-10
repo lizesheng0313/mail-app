@@ -1,14 +1,8 @@
 <template>
   <div class="space-y-6">
-    <div
-      v-if="accessLoaded && access.status !== 'approved' && access.status !== 'trial'"
-      class="rounded-lg border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900"
-    >
-      <div class="font-medium">当前账号还没开通邮件触达</div>
-      <div class="mt-2">{{ access.reason }}</div>
-    </div>
+    <AccessPendingAlert v-if="accessLoaded && !canOperate" :reason="access.reason" />
 
-    <div v-if="canOperate" class="rounded-lg bg-white px-5 py-4 shadow-sm">
+    <div v-if="canOperate" class="rounded-3xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
       <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div class="flex flex-wrap items-center gap-3">
           <BaseInput
@@ -19,7 +13,7 @@
           />
           <button
             type="button"
-            class="h-10 rounded-md bg-primary-600 px-5 text-sm text-white hover:bg-primary-700"
+            class="h-10 rounded-xl bg-primary-600 px-5 text-sm font-medium text-white hover:bg-primary-700"
             @click="applyFilters"
           >
             查询
@@ -27,7 +21,7 @@
         </div>
         <button
           type="button"
-          class="h-10 self-start rounded-md bg-primary-600 px-6 text-sm font-medium text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50 xl:self-auto"
+          class="h-10 self-start rounded-xl bg-primary-600 px-6 text-sm font-medium text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50 xl:self-auto"
           :disabled="!canOperate"
           @click="handleCreateTask"
         >
@@ -36,30 +30,32 @@
       </div>
     </div>
 
-    <AdminDataTable title="发送任务" :loading="loading" :column-count="8">
+    <AdminDataTable title="发送任务" :loading="loading" :column-count="8" table-class="min-w-[1230px] table-fixed">
       <template #thead>
         <tr>
-          <th class="px-5 py-3 text-left text-xs font-medium tracking-wider text-black">任务名</th>
-          <th class="px-5 py-3 text-left text-xs font-medium tracking-wider text-black">方式</th>
-          <th class="px-5 py-3 text-left text-xs font-medium tracking-wider text-black">收件范围</th>
-          <th class="px-5 py-3 text-left text-xs font-medium tracking-wider text-black">计划时间</th>
-          <th class="px-5 py-3 text-left text-xs font-medium tracking-wider text-black">状态</th>
-          <th class="px-5 py-3 text-left text-xs font-medium tracking-wider text-black">发送结果</th>
-          <th class="px-5 py-3 text-left text-xs font-medium tracking-wider text-black">更新时间</th>
-          <th class="px-5 py-3 text-left text-xs font-medium tracking-wider text-black">操作</th>
+          <th class="w-[160px] whitespace-nowrap px-5 py-3 text-left text-xs font-medium tracking-wider text-black">任务名</th>
+          <th class="w-[110px] whitespace-nowrap px-5 py-3 text-left text-xs font-medium tracking-wider text-black">方式</th>
+          <th class="w-[140px] whitespace-nowrap px-5 py-3 text-left text-xs font-medium tracking-wider text-black">收件范围</th>
+          <th class="w-[150px] whitespace-nowrap px-5 py-3 text-left text-xs font-medium tracking-wider text-black">计划时间</th>
+          <th class="w-[120px] whitespace-nowrap px-5 py-3 text-left text-xs font-medium tracking-wider text-black">状态</th>
+          <th class="w-[300px] whitespace-nowrap px-5 py-3 text-left text-xs font-medium tracking-wider text-black">发送结果</th>
+          <th class="w-[180px] whitespace-nowrap px-5 py-3 text-left text-xs font-medium tracking-wider text-black">更新时间</th>
+          <th class="sticky right-0 z-20 w-[70px] whitespace-nowrap bg-gray-50 px-5 py-3 text-left text-xs font-medium tracking-wider text-black shadow-[-8px_0_12px_-12px_rgba(15,23,42,0.45)]">操作</th>
         </tr>
       </template>
       <template #tbody>
         <tr v-if="!filteredTasks.length && !loading">
-          <td colspan="8" class="px-6 py-12 text-center text-black">暂无发送任务</td>
+          <td colspan="8" :class="TABLE_EMPTY_CELL_CLASS">暂无发送任务</td>
         </tr>
-        <tr v-for="item in filteredTasks" :key="item.id" class="hover:bg-gray-50">
-          <td class="max-w-[180px] px-5 py-4 text-sm font-medium text-black">
+        <tr v-for="item in filteredTasks" :key="item.id" class="group hover:bg-gray-50">
+          <td class="px-5 py-4 text-sm font-medium text-black">
             <div class="line-clamp-2">{{ item.task_name }}</div>
           </td>
           <td class="whitespace-nowrap px-5 py-4 text-sm text-black">{{ taskModeLabel(item) }}</td>
-          <td class="max-w-[180px] px-5 py-4 text-sm text-black">{{ recipientScopeLabel(item) }}</td>
-          <td class="whitespace-nowrap px-5 py-4 text-sm text-black">{{ formatTime(item.scheduled_at) }}</td>
+          <td class="px-5 py-4 text-sm text-black">
+            <div class="line-clamp-2">{{ recipientScopeLabel(item) }}</div>
+          </td>
+          <td class="whitespace-nowrap px-5 py-4 text-sm text-black">{{ formatDateTime(item.scheduled_at) }}</td>
           <td class="whitespace-nowrap px-5 py-4 text-sm text-black">
             <span :class="statusTagClass(item.status)">{{ statusLabel(item.status) }}</span>
           </td>
@@ -81,63 +77,23 @@
               </div>
             </div>
           </td>
-          <td class="whitespace-nowrap px-5 py-4 text-sm text-black">{{ formatTime(item.updated_at) }}</td>
-          <td class="whitespace-nowrap px-5 py-4 text-sm text-black">
+          <td class="whitespace-nowrap px-5 py-4 text-sm text-black">{{ formatDateTime(item.updated_at) }}</td>
+          <td class="sticky right-0 z-10 whitespace-nowrap bg-white px-5 py-4 text-sm text-black shadow-[-8px_0_12px_-12px_rgba(15,23,42,0.45)] group-hover:bg-gray-50">
             <ActionButton icon="eye" variant="view" tooltip="明细" @click="openTaskDetail(item)" />
           </td>
         </tr>
       </template>
     </AdminDataTable>
 
-    <BaseModal
-      v-model="detailVisible"
-      :title="detailTitle"
-      size="xl"
-      :show-footer="false"
-      :show-confirm="false"
-    >
-      <div class="max-h-[60vh] overflow-y-auto">
-        <table class="min-w-full divide-y divide-gray-200">
-          <thead class="bg-gray-50">
-            <tr>
-              <th class="px-4 py-3 text-left text-xs font-medium text-black">收件人</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-black">状态</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-black">失败原因</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-black">主题</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-black">更新时间</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-gray-100 bg-white">
-            <tr v-if="detailLoading">
-              <td colspan="5" class="px-4 py-10 text-center text-sm text-gray-500">加载中</td>
-            </tr>
-            <tr v-else-if="!detailRecords.length">
-              <td colspan="5" class="px-4 py-10 text-center text-sm text-gray-500">暂无明细</td>
-            </tr>
-            <template v-else>
-              <tr v-for="record in detailRecords" :key="record.id" class="hover:bg-gray-50">
-                <td class="whitespace-nowrap px-4 py-3 text-sm text-black">{{ record.recipient_email || '-' }}</td>
-                <td class="whitespace-nowrap px-4 py-3 text-sm text-black">
-                  <span :class="recordStatusTagClass(record.status)">{{ recordStatusLabel(record.status) }}</span>
-                </td>
-                <td class="max-w-[360px] px-4 py-3 text-sm text-red-600">
-                  <div class="whitespace-pre-wrap break-words">{{ record.error_message || '-' }}</div>
-                </td>
-                <td class="max-w-[260px] px-4 py-3 text-sm text-black">
-                  <div class="line-clamp-2">{{ record.subject || '-' }}</div>
-                </td>
-                <td class="whitespace-nowrap px-4 py-3 text-sm text-black">{{ formatTime(record.updated_at) }}</td>
-              </tr>
-            </template>
-          </tbody>
-        </table>
-      </div>
-    </BaseModal>
-
     <TaskEditorModal
       v-model:visible="showEditorModal"
       :can-operate="canOperate"
       @saved="handleSaved"
+    />
+
+    <TaskDetailModal
+      v-model:visible="showDetailModal"
+      :task="selectedTask"
     />
   </div>
 </template>
@@ -147,26 +103,32 @@ import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { io } from 'socket.io-client'
 import ActionButton from '@/components/ActionButton/index.vue'
 import AdminDataTable from '@/components/AdminDataTable/index.vue'
-import BaseModal from '@/components/BaseModal/index.vue'
 import BaseInput from '@/components/BaseInput/index.vue'
-import CustomSelect from '@/components/CustomSelect/index.vue'
 import emailReachApi from '@/api/emailReach'
 import { getApiBaseURL } from '@/services/api'
+import AccessPendingAlert from './components/AccessPendingAlert.vue'
 import TaskEditorModal from './components/TaskEditorModal.vue'
+import TaskDetailModal from './components/TaskDetailModal.vue'
+import {
+  TABLE_EMPTY_CELL_CLASS,
+  buildBadgeClass,
+  formatDateTime,
+  hasAccessStatus,
+  getTaskStatusMeta
+} from './ui'
 
 const loading = ref(false)
 const accessLoaded = ref(false)
 const tasks = ref([])
 const showEditorModal = ref(false)
-const detailLoading = ref(false)
-const detailVisible = ref(false)
-const detailTask = ref(null)
-const detailRecords = ref([])
+const showDetailModal = ref(false)
+const selectedTask = ref(null)
 let socket = null
 let socketConnecting = false
 const access = ref({
   status: 'pending',
-  reason: ''
+  reason: '',
+  reply_target: null
 })
 const filters = reactive({
   keyword: ''
@@ -176,8 +138,7 @@ const appliedFilters = reactive({
 })
 const SOCKET_IO_PATH = '/mail-api/v1/live-chat/socket.io'
 
-const canOperate = computed(() => access.value.status === 'approved' || access.value.status === 'trial')
-const detailTitle = computed(() => (detailTask.value?.task_name ? `发送明细 - ${detailTask.value.task_name}` : '发送明细'))
+const canOperate = computed(() => hasAccessStatus(access.value.status))
 const filteredTasks = computed(() => {
   const keyword = appliedFilters.keyword.trim().toLowerCase()
   return tasks.value.filter((item) => !keyword || String(item.task_name || '').toLowerCase().includes(keyword))
@@ -188,41 +149,11 @@ const applyFilters = () => {
 }
 
 const statusLabel = (status) => {
-  if (status === 'draft') return '草稿'
-  if (status === 'ready') return '待发送'
-  if (status === 'blocked') return '全部拦截'
-  if (status === 'scheduled') return '待发送'
-  if (status === 'sending') return '发送中'
-  if (status === 'completed') return '已完成'
-  if (status === 'partial_failed') return '部分失败'
-  if (status === 'failed') return '失败'
-  return status || '-'
-}
-
-const recordStatusLabel = (status) => {
-  if (status === 'queued') return '待发送'
-  if (status === 'sending') return '发送中'
-  if (status === 'sent') return '已发送'
-  if (status === 'failed') return '失败'
-  if (status === 'blocked') return '已拦截'
-  return status || '-'
+  return getTaskStatusMeta(status).label
 }
 
 const statusTagClass = (status) => {
-  if (status === 'completed') return 'inline-flex rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700'
-  if (status === 'sending') return 'inline-flex rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-700'
-  if (status === 'scheduled') return 'inline-flex rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700'
-  if (status === 'partial_failed') return 'inline-flex rounded-full bg-orange-100 px-3 py-1 text-xs font-medium text-orange-700'
-  if (status === 'failed' || status === 'blocked') return 'inline-flex rounded-full bg-red-100 px-3 py-1 text-xs font-medium text-red-700'
-  return 'inline-flex rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700'
-}
-
-const recordStatusTagClass = (status) => {
-  if (status === 'sent') return 'inline-flex rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700'
-  if (status === 'sending') return 'inline-flex rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-700'
-  if (status === 'queued') return 'inline-flex rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700'
-  if (status === 'failed' || status === 'blocked') return 'inline-flex rounded-full bg-red-100 px-3 py-1 text-xs font-medium text-red-700'
-  return 'inline-flex rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700'
+  return buildBadgeClass(getTaskStatusMeta(status).tone)
 }
 
 const taskModeLabel = (item) => {
@@ -272,9 +203,6 @@ const upsertTask = (task) => {
     tasks.value.splice(index, 1, task)
   } else {
     tasks.value.unshift(task)
-  }
-  if (detailTask.value?.id && Number(detailTask.value.id) === Number(task.id)) {
-    detailTask.value = task
   }
 }
 
@@ -329,16 +257,6 @@ const connectTaskSocket = () => {
   })
 }
 
-const formatTime = (value, dateOnly = false) => {
-  if (!value) return '-'
-  const date = new Date(Number(value))
-  if (Number.isNaN(date.getTime())) return '-'
-  if (dateOnly) {
-    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
-  }
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
-}
-
 const loadTasks = async () => {
   loading.value = true
   try {
@@ -359,20 +277,10 @@ const handleSaved = async () => {
   await loadTasks()
 }
 
-const openTaskDetail = async (item) => {
+const openTaskDetail = (item) => {
   if (!item?.id) return
-  detailTask.value = item
-  detailVisible.value = true
-  detailLoading.value = true
-  detailRecords.value = []
-  try {
-    const res = await emailReachApi.getTaskSendRecords(item.id)
-    if (res.code === 0) {
-      detailRecords.value = res.data.items || []
-    }
-  } finally {
-    detailLoading.value = false
-  }
+  selectedTask.value = item
+  showDetailModal.value = true
 }
 
 onMounted(async () => {

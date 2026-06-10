@@ -91,7 +91,37 @@
 
           <div v-if="!sidebarCollapsed && isSectionOpen(section.name)" class="mb-1">
             <div v-for="item in section.items" :key="item.path || item.label">
+              <button
+                v-if="item.children?.length"
+                type="button"
+                class="group mb-1 ml-2 flex w-[calc(100%-0.5rem)] items-center rounded-md px-3 py-2 text-left text-sm font-medium transition-colors hover:bg-gray-50"
+                :class="itemActive(item) ? 'bg-primary-50 text-primary-700 border-r-2 border-primary-700' : 'text-gray-700 hover:text-gray-900'"
+                @click="toggleMenuItem(item)"
+              >
+                <component
+                  :is="item.icon"
+                  class="mr-3 h-5 w-5 flex-shrink-0"
+                  :class="itemActive(item) ? 'text-primary-500' : 'text-gray-400 group-hover:text-gray-500'"
+                />
+                <span class="min-w-0 flex-1 truncate">{{ item.label }}</span>
+                <span
+                  v-if="item.badge"
+                  class="ml-2 inline-flex h-5 min-w-[1.25rem] flex-shrink-0 items-center justify-center rounded-full bg-red-500 px-1.5 text-[11px] font-semibold leading-none text-white"
+                >
+                  {{ item.badge }}
+                </span>
+                <svg
+                  class="ml-2 h-4 w-4 flex-shrink-0 transition-transform"
+                  :class="isMenuItemOpen(item) ? 'rotate-90' : ''"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
               <router-link
+                v-else
                 :to="item.path"
                 class="group mb-1 ml-2 flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-gray-50"
                 :class="itemActive(item) ? 'bg-primary-50 text-primary-700 border-r-2 border-primary-700' : 'text-gray-700 hover:text-gray-900'"
@@ -101,17 +131,29 @@
                   class="mr-3 h-5 w-5"
                   :class="itemActive(item) ? 'text-primary-500' : 'text-gray-400 group-hover:text-gray-500'"
                 />
-                {{ item.label }}
+                <span class="min-w-0 flex-1 truncate">{{ item.label }}</span>
+                <span
+                  v-if="item.badge"
+                  class="ml-2 inline-flex h-5 min-w-[1.25rem] flex-shrink-0 items-center justify-center rounded-full bg-red-500 px-1.5 text-[11px] font-semibold leading-none text-white"
+                >
+                  {{ item.badge }}
+                </span>
               </router-link>
-              <div v-if="item.children?.length && itemActive(item)" class="mb-1 ml-10">
+              <div v-if="item.children?.length && isMenuItemOpen(item)" class="mb-1 ml-10">
                 <router-link
                   v-for="child in item.children"
                   :key="child.path"
                   :to="child.path"
-                  class="mb-1 block rounded-md px-3 py-1.5 text-sm transition-colors"
+                  class="mb-1 flex items-center rounded-md px-3 py-1.5 text-sm transition-colors"
                   :class="$route.path === child.path ? 'bg-primary-50 text-primary-700 font-medium' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'"
                 >
-                  {{ child.label }}
+                  <span class="min-w-0 flex-1 truncate">{{ child.label }}</span>
+                  <span
+                    v-if="child.badge"
+                    class="ml-2 inline-flex h-5 min-w-[1.25rem] flex-shrink-0 items-center justify-center rounded-full bg-red-500 px-1.5 text-[11px] font-semibold leading-none text-white"
+                  >
+                    {{ child.badge }}
+                  </span>
                 </router-link>
               </div>
             </div>
@@ -194,6 +236,7 @@ const props = defineProps({
 const route = useRoute()
 const sidebarCollapsed = ref(false)
 const openSections = ref({})
+const openMenuItems = ref({})
 
 const itemActive = (item) => item.path === route.path || (item.children || []).some((child) => child.path === route.path)
 
@@ -219,6 +262,27 @@ const toggleSection = (sectionName) => {
   openSections.value = {
     ...openSections.value,
     [sectionName]: !isSectionOpen(sectionName)
+  }
+}
+
+const getMenuItemKey = (item) => item.path || item.label
+
+const isMenuItemOpen = (item) => {
+  const key = getMenuItemKey(item)
+  if (openMenuItems.value[key] !== undefined) {
+    return openMenuItems.value[key]
+  }
+  return itemActive(item)
+}
+
+const toggleMenuItem = (item) => {
+  if (sidebarCollapsed.value) {
+    sidebarCollapsed.value = false
+  }
+  const key = getMenuItemKey(item)
+  openMenuItems.value = {
+    ...openMenuItems.value,
+    [key]: !isMenuItemOpen(item)
   }
 }
 

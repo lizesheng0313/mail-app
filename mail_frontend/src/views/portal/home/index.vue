@@ -1722,10 +1722,33 @@ const handleOAuth2Login = async (provider: string) => {
 }
 
 // 处理分享邮箱
-const handleShareMailboxes = (mailboxes: any[]) => {
+const handleShareMailboxes = async (mailboxes: any[]) => {
   console.log('🔵 首页 - 处理分享邮箱', mailboxes)
-  shareMailboxes.value = mailboxes
-  shareMailboxIds.value = mailboxes.map((m) => m.id)
+  let resolvedMailboxes = mailboxes
+
+  if (mailboxType.value === 'system' && userStore.isAuthenticated && mailboxes.length > 0) {
+    const selectedEmailSet = new Set(
+      mailboxes
+        .map((item) => normalizeMailboxEmail(item?.email || item?.email_address || ''))
+        .filter(Boolean)
+    )
+    const refreshResult = await mailboxStore.fetchMailboxes(
+      mailboxStore.currentPage,
+      mailboxStore.pageSize,
+      mailboxStore.searchKeyword
+    )
+    if (refreshResult.success && selectedEmailSet.size > 0) {
+      const refreshedMailboxes = mailboxStore.mailboxes.filter((item: any) =>
+        selectedEmailSet.has(normalizeMailboxEmail(item?.email || item?.email_address || ''))
+      )
+      if (refreshedMailboxes.length === selectedEmailSet.size) {
+        resolvedMailboxes = refreshedMailboxes
+      }
+    }
+  }
+
+  shareMailboxes.value = resolvedMailboxes
+  shareMailboxIds.value = resolvedMailboxes.map((m) => m.id)
   showShareModal.value = true
 }
 

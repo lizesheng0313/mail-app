@@ -3,6 +3,8 @@
     :model-value="visible"
     :title="form.id ? '编辑模板' : '新建模板'"
     size="full"
+    content-class="rounded-[28px] border border-slate-200 shadow-2xl"
+    body-class="overflow-y-auto px-6 py-5"
     :confirm-text="saving ? '保存中...' : '确定'"
     :confirm-loading="saving"
     :confirm-disabled="!canOperate"
@@ -16,18 +18,18 @@
         <BaseInput v-model="form.name" label="模板名称" placeholder="例如：订单支付通知" />
         <BaseInput v-model="form.scene" label="场景" placeholder="例如：下单成功、发货提醒、会员活动" />
         <div>
-          <label class="mb-2 block text-sm font-medium text-gray-900">收件人来源</label>
+          <label class="mb-2 block text-sm font-medium text-slate-900">收件人来源</label>
           <CustomSelect v-model="form.recipient_source" :options="recipientSourceOptions" placeholder="选择收件人来源" />
         </div>
       </div>
 
       <BaseInput v-model="form.subject" label="邮件主题" placeholder="输入邮件主题" />
 
-      <div class="overflow-hidden rounded-[24px] bg-white shadow-[inset_0_0_0_1px_rgb(229_231_235)]">
-        <div class="border-b border-gray-100 bg-white px-4 py-3">
+      <div class="overflow-hidden rounded-[28px] border border-slate-200 bg-white">
+        <div class="border-b border-slate-100 bg-white px-4 py-3">
           <div class="mb-2 flex items-center justify-between gap-3">
-            <div class="text-sm font-medium text-gray-900">邮件内容</div>
-            <div class="text-xs text-gray-500">系统变量自动带，自定义变量自己加</div>
+            <div class="text-sm font-medium text-slate-900">邮件内容</div>
+            <div class="text-xs text-slate-500">系统变量自动带，自定义变量自己加</div>
           </div>
           <div class="flex flex-wrap items-center gap-2">
             <BaseInput
@@ -37,7 +39,7 @@
             />
             <button
               type="button"
-              class="rounded-md border border-gray-300 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50"
+              :class="secondaryButtonClass"
               @click="addCustomVariable"
             >
               添加变量
@@ -45,7 +47,7 @@
             <span
               v-for="item in customVariables"
               :key="item"
-              class="inline-flex items-center gap-2 rounded-full bg-gray-50 px-3 py-1 text-xs text-gray-700 ring-1 ring-gray-200"
+              class="inline-flex items-center gap-2 rounded-full bg-slate-50 px-3 py-1 text-xs text-slate-700 ring-1 ring-slate-200"
             >
               {{ item }}
               <button type="button" class="text-gray-400 hover:text-red-500" @click="removeCustomVariable(item)">×</button>
@@ -53,12 +55,12 @@
           </div>
         </div>
 
-        <div class="flex flex-wrap items-center gap-2 border-b border-gray-100 bg-white px-4 py-3">
+        <div class="flex flex-wrap items-center gap-2 border-b border-slate-100 bg-white px-4 py-3">
           <button
             v-for="item in variableButtons"
             :key="item.value"
             type="button"
-            class="rounded-md border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-100"
+            :class="tokenButtonClass"
             @click="insertAtCursor(item.value)"
           >
             {{ item.label }}
@@ -75,41 +77,41 @@
             <button
               type="button"
               @click="toggleBold"
-              class="rounded-md border border-gray-300 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50"
+              :class="toolbarButtonClass(editor?.isActive('bold'))"
             >
               加粗
             </button>
             <button
               type="button"
               @click="toggleItalic"
-              class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50"
+              :class="toolbarButtonClass(editor?.isActive('italic'))"
             >
               斜体
             </button>
             <button
               type="button"
               @click="toggleBulletList"
-              class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50"
+              :class="toolbarButtonClass(editor?.isActive('bulletList'))"
             >
               列表
             </button>
             <button
               type="button"
               @click="toggleOrderedList"
-              class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50"
+              :class="toolbarButtonClass(editor?.isActive('orderedList'))"
             >
               编号
             </button>
             <button
               type="button"
               @click="insertDivider"
-              class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50"
+              :class="toolbarButtonClass(false)"
             >
               分割线
             </button>
             <button
               type="button"
-              class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+              :class="toolbarButtonClass(false)"
               :disabled="uploadingImage"
               @click="triggerImageUpload"
             >
@@ -117,7 +119,7 @@
             </button>
             <button
               type="button"
-              class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50"
+              :class="toolbarButtonClass(false)"
               @click="clearContent"
             >
               清空
@@ -131,18 +133,18 @@
           class="mail-template-editor"
         />
 
-        <div class="border-t border-gray-100 bg-gray-50 px-4 py-3">
-          <label class="mb-2 block text-sm font-medium text-gray-900">AI辅助说明</label>
+        <div class="border-t border-slate-100 bg-slate-50 px-4 py-3">
+          <label class="mb-2 block text-sm font-medium text-slate-900">AI辅助说明</label>
           <div class="flex items-start gap-3">
             <textarea
               v-model="form.helper_prompt"
               rows="3"
-              class="min-h-[88px] flex-1 rounded-xl border border-gray-300 bg-white px-3 py-3 text-sm leading-6 text-gray-700 focus:border-primary-500 focus:outline-none"
+              class="min-h-[88px] flex-1 rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm leading-6 text-slate-700 focus:border-primary-500 focus:outline-none"
               placeholder="例如：语气更正式、突出优惠、适合老客户、保留下单变量"
             />
             <button
               type="button"
-              class="inline-flex h-11 items-center justify-center rounded-xl border border-gray-300 px-4 text-sm text-gray-700 hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+              class="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 px-4 text-sm font-medium text-slate-700 hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
               :disabled="!canOperate || generating"
               @click="handleGenerate"
             >
@@ -152,17 +154,17 @@
         </div>
       </div>
 
-      <div v-if="reviewResult" class="rounded-lg border border-gray-200 bg-gray-50 p-4">
+      <div v-if="reviewResult" class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
         <div class="flex items-center justify-between gap-3">
-          <div class="text-sm font-medium text-gray-900">审核结果</div>
+          <div class="text-sm font-medium text-slate-900">审核结果</div>
           <span class="rounded-full px-2 py-1 text-xs" :class="reviewResult.approved ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'">
             {{ reviewResult.approved ? '通过' : '未通过' }}
           </span>
         </div>
-        <div class="mt-2 text-sm text-gray-700">{{ reviewResult.summary || '-' }}</div>
+        <div class="mt-2 text-sm text-slate-700">{{ reviewResult.summary || '-' }}</div>
         <div v-if="reviewRows.length" class="mt-3 space-y-2">
-          <div v-for="item in reviewRows" :key="item.key" class="rounded-md bg-white px-3 py-2 text-sm text-gray-700">
-            <span class="font-medium text-gray-900">{{ item.type }}：</span>{{ item.content }}
+          <div v-for="item in reviewRows" :key="item.key" class="rounded-xl bg-white px-3 py-2 text-sm text-slate-700">
+            <span class="font-medium text-slate-900">{{ item.type }}：</span>{{ item.content }}
           </div>
         </div>
       </div>
@@ -198,6 +200,13 @@ const imageInputRef = ref(null)
 const customVariableInput = ref('')
 const customVariables = ref([])
 const syncingContent = ref(false)
+const secondaryButtonClass = 'rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50'
+const tokenButtonClass = 'rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100'
+
+const toolbarButtonClass = (active = false) =>
+  active
+    ? 'rounded-xl border border-primary-500 bg-primary-50 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-100 disabled:cursor-not-allowed disabled:opacity-50'
+    : 'rounded-xl border border-slate-200 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50'
 
 const recipientSourceOptions = [
   { label: '注册用户', value: 'registered_users' },

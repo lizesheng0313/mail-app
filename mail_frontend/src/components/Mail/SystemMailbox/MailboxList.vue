@@ -53,6 +53,12 @@
             {{ t('systemMailbox.catchAllDefault') }}
           </span>
           <span
+            v-if="isReplyMailbox(mailbox)"
+            class="px-1.5 py-0.5 text-xs bg-sky-100 text-sky-800 rounded whitespace-nowrap flex-shrink-0"
+          >
+            回信邮箱
+          </span>
+          <span
             v-if="props.mailboxType === 'hosted' && mailbox.is_public"
             class="px-1.5 py-0.5 text-xs bg-emerald-100 text-emerald-800 rounded whitespace-nowrap flex-shrink-0"
           >
@@ -69,8 +75,20 @@
         </div>
         <div class="mt-1 flex items-center justify-between text-xs text-gray-600">
           <span>{{ t('common.createdAt') }}：{{ formatDate(mailbox.created_at) }}</span>
-          <span v-if="getDisplayExpiresAt(mailbox)" :class="isExpired(mailbox) ? 'text-red-600 font-medium' : ''">
-            {{ t('common.expiresAtLabel') }}：{{ formatDate(getDisplayExpiresAt(mailbox)) }}
+          <span
+            v-if="getDisplayExpiresAt(mailbox) || isPermanentMailbox(mailbox)"
+            :class="getDisplayExpiresAt(mailbox) && isExpired(mailbox) ? 'text-red-600 font-medium' : ''"
+            class="inline-flex items-center gap-1"
+          >
+            <template v-if="isPermanentMailbox(mailbox)">
+              {{ t('common.expiresAtLabel') }}：
+              <span class="rounded-full bg-amber-100 px-1.5 py-0.5 text-[11px] leading-none text-amber-800">
+                {{ t('common.permanent') }}
+              </span>
+            </template>
+            <template v-else>
+              {{ t('common.expiresAtLabel') }}：{{ formatDate(getDisplayExpiresAt(mailbox)) }}
+            </template>
           </span>
         </div>
         <MailboxTags
@@ -122,9 +140,9 @@
               </button>
               <button
                 type="button"
-                :disabled="isProtectedHostedCatchAll(mailbox)"
-                :title="isProtectedHostedCatchAll(mailbox) ? t('systemMailbox.protectedDeleteTooltip') : t('systemMailbox.deleteMailbox')"
-                :class="isProtectedHostedCatchAll(mailbox)
+                :disabled="isProtectedMailbox(mailbox)"
+                :title="getDeleteTooltip(mailbox)"
+                :class="isProtectedMailbox(mailbox)
                   ? 'flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-400 cursor-not-allowed'
                   : 'flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 transition-colors hover:bg-red-50'"
                 @click.stop="handleDeleteAction(mailbox.id)"
@@ -247,6 +265,8 @@ const getDisplayExpiresAt = (mailbox: any) => {
   return mailboxExpiresAt || null
 }
 
+const isPermanentMailbox = (mailbox: any) => !getDisplayExpiresAt(mailbox)
+
 const isExpired = (mailbox: any) => {
   const expiresAt = Number(getDisplayExpiresAt(mailbox) || 0)
   return expiresAt > 0 && expiresAt < Date.now()
@@ -260,6 +280,18 @@ const isUnavailable = (mailbox: any) =>
 
 const isProtectedHostedCatchAll = (mailbox: any) =>
   props.mailboxType === 'hosted' && String(mailbox?.local_part || '').trim().toLowerCase() === 'admin'
+
+const isReplyMailbox = (mailbox: any) =>
+  props.mailboxType === 'system' && Boolean(mailbox?.is_reply_mailbox)
+
+const isProtectedMailbox = (mailbox: any) =>
+  isProtectedHostedCatchAll(mailbox) || isReplyMailbox(mailbox)
+
+const getDeleteTooltip = (mailbox: any) => {
+  if (isReplyMailbox(mailbox)) return '系统回信邮箱不允许删除'
+  if (isProtectedHostedCatchAll(mailbox)) return t('systemMailbox.protectedDeleteTooltip')
+  return t('systemMailbox.deleteMailbox')
+}
 
 const getPublicDomainTooltip = (mailbox: any) => {
   const providerName = String(mailbox?.public_domain_provider_name || '').trim()
@@ -398,7 +430,7 @@ const handleShareAction = (mailbox: any) => {
 
 const handleDeleteAction = (id: number) => {
   const targetMailbox = resolvedMailboxes.value.find((item: any) => Number(item.id) === Number(id))
-  if (targetMailbox && isProtectedHostedCatchAll(targetMailbox)) {
+  if (targetMailbox && isProtectedMailbox(targetMailbox)) {
     closeActionMenu()
     return
   }
@@ -409,7 +441,7 @@ const handleDeleteAction = (id: number) => {
 const handleBatchDelete = (ids: number[]) => {
   const deletableIds = ids.filter((id) => {
     const targetMailbox = resolvedMailboxes.value.find((item: any) => Number(item.id) === Number(id))
-    return !targetMailbox || !isProtectedHostedCatchAll(targetMailbox)
+    return !targetMailbox || !isProtectedMailbox(targetMailbox)
   })
   if (!deletableIds.length) {
     showMessage(t('systemMailbox.protectedDeleteWarning'), 'warning')
@@ -427,7 +459,7 @@ const getCurrentBatchSelectedIds = () => normalizeIds(mailboxListRef.value?.sele
 const filterDeletableIds = (ids: number[]) =>
   ids.filter((id) => {
     const targetMailbox = resolvedMailboxes.value.find((item: any) => Number(item.id) === Number(id))
-    return !targetMailbox || !isProtectedHostedCatchAll(targetMailbox)
+    return !targetMailbox || !isProtectedMailbox(targetMailbox)
   })
 
 const resolvePendingDeleteIds = () => {

@@ -618,8 +618,43 @@ const openVerifyModal = async (domain: any) => {
 }
 
 const formatRecordHost = (record: any) => {
-  const value = String(record?.record_host || '').trim()
-  return value || '@'
+  const value = String(record?.record_host || '@').trim() || '@'
+  const domainName = String(domainModalDetail.value?.domain?.domain_name || '').trim().toLowerCase()
+  const hostPrefix = getDnsZoneHostPrefix(domainName)
+  if (!hostPrefix) return value
+  if (value === '@') return hostPrefix
+  return `${value}.${hostPrefix}`
+}
+
+const getDnsZoneHostPrefix = (domainName: string) => {
+  const parts = String(domainName || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\.$/, '')
+    .split('.')
+    .filter(Boolean)
+  if (parts.length <= 2) return ''
+
+  const publicSuffix2 = parts.slice(-2).join('.')
+  const secondLevelPublicSuffixes = new Set([
+    'com.cn',
+    'net.cn',
+    'org.cn',
+    'gov.cn',
+    'edu.cn',
+    'com.tw',
+    'net.tw',
+    'org.tw',
+    'com.hk',
+    'net.hk',
+    'org.hk',
+    'co.uk',
+    'com.au',
+    'co.jp'
+  ])
+  const rootPartCount = secondLevelPublicSuffixes.has(publicSuffix2) ? 3 : 2
+  if (parts.length <= rootPartCount) return ''
+  return parts.slice(0, -rootPartCount).join('.')
 }
 
 const refreshDns = async (domainId: number | string) => {
