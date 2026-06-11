@@ -60,9 +60,7 @@
         <p class="mt-1 break-all text-base font-semibold text-slate-900">
           {{ replyTargetEmail || '暂未生成' }}
         </p>
-        <p class="mt-1 text-sm text-slate-500">
-          客户直接回复触达邮件时，会进入这个邮箱；在首页「临时邮箱」里按这个地址查看。
-        </p>
+        <p class="mt-1 text-sm text-slate-500">在首页「临时邮箱」中查看客户回复</p>
         <p v-if="replyTargetMessage" class="mt-2 text-sm text-amber-600">
           {{ replyTargetMessage }}
         </p>
@@ -242,7 +240,7 @@ const trendRows = computed(() => overview.value.trend || [])
 const weeklySent = computed(() => trendRows.value.reduce((sum, item) => sum + Number(item.sent_count || 0), 0))
 const weeklyFailed = computed(() => trendRows.value.reduce((sum, item) => sum + Number(item.failed_count || 0), 0))
 const replyTargetEmail = computed(() => String(access.value.reply_target?.email_address || '').trim())
-const replyTargetMessage = computed(() => String(access.value.reply_target?.message || access.value.reply_target?.description || '').trim())
+const replyTargetMessage = computed(() => String(access.value.reply_target?.message || '').trim())
 const replyNoticeText = computed(() => {
   const latest = replyNotice.value.latest || {}
   const sender = String(latest.from_email || '').trim()
