@@ -194,8 +194,6 @@ const zhCN = {
     customGeneratePrefixPlaceholder: '例如 sale、team、vip',
     customGenerateSpecifiedLocalPartLabel: '指定邮箱名',
     customGenerateSpecifiedLocalPartPlaceholder: '例如 support、service、hello',
-    customGenerateDomainPrefixLabel: '域名后缀（拼到域名前面）',
-    customGenerateDomainPrefixPlaceholder: '例如 xx.sdfds，不用带 at 符号',
     customGenerateRandomLengthLabel: '随机长度',
     customGenerateSequencePaddingLabel: '序号位数',
     customGenerateSequenceStartLabel: '起始序号',

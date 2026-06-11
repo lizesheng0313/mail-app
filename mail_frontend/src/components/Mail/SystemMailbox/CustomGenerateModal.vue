@@ -241,18 +241,6 @@
               />
             </label>
 
-            <label class="block">
-              <span class="mb-2 block text-sm font-medium text-gray-900">
-                {{ t('home.customGenerateDomainPrefixLabel') }}
-              </span>
-              <input
-                v-model.trim="customGenerateForm.domain_prefix"
-                type="text"
-                maxlength="190"
-                class="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
-              />
-            </label>
-
             <label
               v-if="customGenerateForm.generation_mode !== 'sequence' && customGenerateForm.generation_mode !== 'specified'"
               class="block"
@@ -413,7 +401,6 @@ const customGenerateForm = ref({
   generation_mode: 'random',
   custom_prefix: '',
   exact_local_part: '',
-  domain_prefix: '',
   random_length: 8,
   sequence_padding: 3,
   sequence_start: 1,
@@ -435,7 +422,6 @@ const createDefaultCustomGenerateForm = () => ({
   generation_mode: 'random',
   custom_prefix: '',
   exact_local_part: '',
-  domain_prefix: '',
   random_length: 8,
   sequence_padding: 3,
   sequence_start: 1,
@@ -470,13 +456,6 @@ const resolvedSequenceStart = computed(() => {
   if (!Number.isFinite(value)) return 1
   return Math.max(1, Math.floor(value))
 })
-
-const normalizedDomainPrefix = computed(() =>
-  String(customGenerateForm.value.domain_prefix || '')
-    .trim()
-    .toLowerCase()
-    .replace(/^\.+|\.+$/g, '')
-)
 
 const getDomainSuffix = (domainName: string) => {
   const normalizedName = String(domainName || '').trim().toLowerCase()
@@ -597,11 +576,7 @@ const customGenerateHasEnoughBalance = computed(
 const customGeneratePreviewDomain = computed(() => {
   const selectedId = customGenerateForm.value.domain_ids[0]
   const matchedDomain = domainOptions.value.find((item) => String(item.id) === String(selectedId))
-  const baseDomain = matchedDomain?.domain_name || 'domain.com'
-  if (!normalizedDomainPrefix.value) {
-    return baseDomain
-  }
-  return `${normalizedDomainPrefix.value}.${baseDomain}`
+  return matchedDomain?.domain_name || 'domain.com'
 })
 
 const customGeneratePreviewText = computed(() => {
@@ -828,10 +803,6 @@ const performHostedCustomGenerate = async () => {
       payload.local_part = buildHostedLocalPart(index)
     }
 
-    if (normalizedDomainPrefix.value) {
-      payload.domain_prefix = normalizedDomainPrefix.value
-    }
-
     const result: any = await hostedDomainAPI.createMailbox(selectedDomain.raw_id, payload)
     if (result.code !== 0) {
       throw new Error(result.message || t('home.customGenerateFailed'))
@@ -877,10 +848,6 @@ const performSystemCustomGenerate = async () => {
 
   if (isSpecifiedMode.value) {
     payload.exact_local_part = String(customGenerateForm.value.exact_local_part || '').trim()
-  }
-
-  if (normalizedDomainPrefix.value) {
-    payload.domain_prefix = normalizedDomainPrefix.value
   }
 
   const result: any = await mailboxAPI.customGenerateSystemMailboxes(payload)

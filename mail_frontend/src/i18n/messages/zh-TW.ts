@@ -194,8 +194,6 @@ const zhTW = {
     customGeneratePrefixPlaceholder: '例如 sale、team、vip',
     customGenerateSpecifiedLocalPartLabel: '指定郵箱名',
     customGenerateSpecifiedLocalPartPlaceholder: '例如 support、service、hello',
-    customGenerateDomainPrefixLabel: '網域後綴（拼到網域前面）',
-    customGenerateDomainPrefixPlaceholder: '例如 xx.sdfds，不用帶 at 符號',
     customGenerateRandomLengthLabel: '隨機長度',
     customGenerateSequencePaddingLabel: '序號位數',
     customGenerateSequenceStartLabel: '起始序號',

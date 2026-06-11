@@ -199,8 +199,6 @@ const en = {
     customGeneratePrefixPlaceholder: 'For example sale, team, vip',
     customGenerateSpecifiedLocalPartLabel: 'Mailbox name',
     customGenerateSpecifiedLocalPartPlaceholder: 'For example support, service, hello',
-    customGenerateDomainPrefixLabel: 'Domain Suffix (before the domain)',
-    customGenerateDomainPrefixPlaceholder: 'For example xx.sdfds, without the at sign',
     customGenerateRandomLengthLabel: 'Random length',
     customGenerateSequencePaddingLabel: 'Sequence digits',
     customGenerateSequenceStartLabel: 'Starting number',

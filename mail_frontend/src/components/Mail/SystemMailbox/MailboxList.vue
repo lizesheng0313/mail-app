@@ -76,7 +76,7 @@
         <div class="mt-1 flex items-center justify-between text-xs text-gray-600">
           <span>{{ t('common.createdAt') }}：{{ formatDate(mailbox.created_at) }}</span>
           <span
-            v-if="getDisplayExpiresAt(mailbox) || isPermanentMailbox(mailbox)"
+            v-if="shouldShowExpiresAt(mailbox)"
             :class="getDisplayExpiresAt(mailbox) && isExpired(mailbox) ? 'text-red-600 font-medium' : ''"
             class="inline-flex items-center gap-1"
           >
@@ -266,6 +266,13 @@ const getDisplayExpiresAt = (mailbox: any) => {
 }
 
 const isPermanentMailbox = (mailbox: any) => !getDisplayExpiresAt(mailbox)
+
+const shouldShowExpiresAt = (mailbox: any) => {
+  if (String(mailbox?.mailbox_type || '') === 'hosted') {
+    return Boolean(getDisplayExpiresAt(mailbox))
+  }
+  return getDisplayExpiresAt(mailbox) || isPermanentMailbox(mailbox)
+}
 
 const isExpired = (mailbox: any) => {
   const expiresAt = Number(getDisplayExpiresAt(mailbox) || 0)

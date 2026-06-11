@@ -116,14 +116,14 @@
         <p class="mt-2 text-xs text-slate-500">送达率 {{ overview.delivery_rate || 0 }}%</p>
       </div>
       <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-        <p class="text-sm text-slate-500">已打开</p>
+        <p class="text-sm text-slate-500">已打开邮件</p>
         <p class="mt-3 text-2xl font-semibold text-slate-900">{{ formatNumber(overview.opened_count) }}</p>
         <p class="mt-2 text-xs text-slate-500">打开率 {{ overview.open_rate || 0 }}%</p>
       </div>
       <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-        <p class="text-sm text-slate-500">已点击</p>
+        <p class="text-sm text-slate-500">已点击链接</p>
         <p class="mt-3 text-2xl font-semibold text-slate-900">{{ formatNumber(overview.clicked_count) }}</p>
-        <p class="mt-2 text-xs text-slate-500">点击率 {{ overview.click_rate || 0 }}%</p>
+        <p class="mt-2 text-xs text-slate-500">正文链接被点击 {{ overview.click_rate || 0 }}%</p>
       </div>
       <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
         <p class="text-sm text-slate-500">已回复</p>
@@ -296,15 +296,15 @@ const countWidth = (value) => `${clampPercent((Number(value || 0) / chartMaxCoun
 const effectFunnelItems = computed(() => [
   { label: '发送', value: overview.value.sent_count, width: countWidth(overview.value.sent_count), color: '#16a34a' },
   { label: '送达', value: overview.value.delivered_count, width: countWidth(overview.value.delivered_count), color: '#0ea5e9' },
-  { label: '打开', value: overview.value.opened_count, width: countWidth(overview.value.opened_count), color: '#6366f1' },
-  { label: '点击', value: overview.value.clicked_count, width: countWidth(overview.value.clicked_count), color: '#f59e0b' },
+  { label: '打开邮件', value: overview.value.opened_count, width: countWidth(overview.value.opened_count), color: '#6366f1' },
+  { label: '点击链接', value: overview.value.clicked_count, width: countWidth(overview.value.clicked_count), color: '#f59e0b' },
   { label: '回复', value: overview.value.replied_count, width: countWidth(overview.value.replied_count), color: '#14b8a6' }
 ])
 
 const rateChartItems = computed(() => [
   { label: '送达率', value: overview.value.delivery_rate || 0, color: '#16a34a' },
   { label: '打开率', value: overview.value.open_rate || 0, color: '#6366f1' },
-  { label: '点击率', value: overview.value.click_rate || 0, color: '#f59e0b' },
+  { label: '链接点击率', value: overview.value.click_rate || 0, color: '#f59e0b' },
   { label: '回复率', value: overview.value.reply_rate || 0, color: '#14b8a6' }
 ])
 
