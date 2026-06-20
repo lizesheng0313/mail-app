@@ -35,6 +35,9 @@ export const emailAPI = {
   // 需要传 type 参数：'system' 或 'external'
   getEmail: (id, type = 'system') => api.get(`/unified-emails/emails/${id}`, { params: { type } }),
 
+  // 翻译邮件正文
+  translateEmail: (data) => api.post('/ai/translate-email', data),
+
   // 标记邮件为已读
   markAsRead: (id, type = 'system') => api.put(`/unified-emails/emails/${id}/read`, null, { params: { type } }),
 

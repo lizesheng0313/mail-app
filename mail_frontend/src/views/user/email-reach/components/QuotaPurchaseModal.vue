@@ -14,28 +14,21 @@
     @close="handleClose"
   >
     <div class="space-y-4">
-      <div class="grid gap-3 sm:grid-cols-3">
+      <div class="grid max-h-80 gap-3 overflow-y-auto pr-1 sm:grid-cols-2">
         <button
-          v-for="item in quotaOptions"
-          :key="item"
+          v-for="item in quotaPackages"
+          :key="item.quota"
           type="button"
           class="rounded-2xl border px-4 py-3 text-left transition"
-          :class="Number(form.quota_count) === item
+          :class="Number(form.quota_count) === item.quota
             ? 'border-primary-500 bg-primary-50 text-primary-700'
             : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'"
-          @click="form.quota_count = item"
+          @click="form.quota_count = item.quota"
         >
-          <div class="text-xs text-slate-500">常用数量</div>
-          <div class="mt-1 text-base font-semibold">{{ item.toLocaleString() }} 封</div>
+          <div class="text-xs text-slate-500">{{ item.name }}</div>
+          <div class="mt-1 text-base font-semibold">{{ item.quota.toLocaleString() }} 封</div>
+          <div class="mt-1 text-xs text-primary-700">{{ item.price }} 奶片</div>
         </button>
-      </div>
-
-      <div>
-        <BaseInput
-          v-model="quotaInput"
-          label="购买邮件量"
-          placeholder="请输入购买数量，例如 10000"
-        />
       </div>
 
       <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
@@ -60,7 +53,6 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import BaseModal from '@/components/BaseModal/index.vue'
-import BaseInput from '@/components/BaseInput/index.vue'
 import emailReachApi from '@/api/emailReach'
 import { showMessage } from '@/utils/message'
 
@@ -75,17 +67,14 @@ const emit = defineEmits(['update:visible', 'purchased'])
 
 const submitting = ref(false)
 const router = useRouter()
-const quotaOptions = [10000, 50000, 100000]
-const quotaInput = ref('10000')
+const quotaPackages = ref([])
 const form = reactive({
   quota_count: 10000
 })
 
 const estimatedCost = computed(() => {
-  const quota = Number(form.quota_count || 0)
-  const price = Number(props.pricePerTenThousand || 0)
-  if (!quota || !price) return '0.00'
-  return ((price * quota) / 10000).toFixed(2)
+  const selected = quotaPackages.value.find((item) => item.quota === Number(form.quota_count || 0))
+  return Number(selected?.price || 0).toFixed(2)
 })
 
 const canSubmit = computed(() => Number(form.quota_count || 0) >= 1000 && !submitting.value)
@@ -93,22 +82,21 @@ const hasEnoughBalance = computed(() => Number(props.milkCoinBalance || 0) >= Nu
 
 watch(() => props.visible, (value) => {
   if (!value) return
-  form.quota_count = Number(props.initialQuotaCount || 10000)
-  quotaInput.value = String(form.quota_count)
+  loadQuotaPackages()
 })
 
-watch(quotaInput, (value) => {
-  const normalized = String(value || '').replace(/[^\d]/g, '')
-  quotaInput.value = normalized
-  form.quota_count = Number(normalized || 0)
-})
-
-watch(() => form.quota_count, (value) => {
-  const normalized = String(Number(value || 0) || '')
-  if (quotaInput.value !== normalized) {
-    quotaInput.value = normalized
-  }
-})
+const loadQuotaPackages = async () => {
+  const res = await emailReachApi.getQuotaPricing()
+  if (res?.code !== 0) return
+  quotaPackages.value = (res.data?.packages || []).map((item) => ({
+    quota: Number(item.quota || 0),
+    price: Number(item.price || 0),
+    name: item.name || `${Number(item.quota || 0).toLocaleString()}封套餐`
+  }))
+  const initialQuota = Number(props.initialQuotaCount || 0)
+  const initialMatched = quotaPackages.value.find((item) => item.quota === initialQuota)
+  form.quota_count = initialMatched?.quota || quotaPackages.value[0]?.quota || 0
+}
 
 const handleVisibleChange = (value) => emit('update:visible', value)
 const handleClose = () => emit('update:visible', false)

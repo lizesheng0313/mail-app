@@ -987,7 +987,13 @@ const zhCN = {
     downloadFailed: '下载失败',
     tempAttachmentUnsupported: '临时邮箱附件不支持下载',
     desktopDownloadOnly: '请在桌面端下载附件',
-    openInBrowserHint: '嵌入页面可能无法直接操作，点此在系统浏览器打开'
+    openInBrowserHint: '嵌入页面可能无法直接操作，点此在系统浏览器打开',
+    translate: '翻译',
+    translating: '翻译中...',
+    viewOriginal: '查看原文',
+    translatedTo: '已翻译为 {language}',
+    translateSuccess: '翻译完成',
+    translateFailed: '翻译失败'
   },
   sendEmail: {
     title: '批量发送邮件',

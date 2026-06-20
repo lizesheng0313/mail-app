@@ -987,7 +987,13 @@ const zhTW = {
     downloadFailed: '下載失敗',
     tempAttachmentUnsupported: '臨時郵箱附件不支援下載',
     desktopDownloadOnly: '請在桌面端下載附件',
-    openInBrowserHint: '嵌入頁面可能無法直接操作，點此在系統瀏覽器打開'
+    openInBrowserHint: '嵌入頁面可能無法直接操作，點此在系統瀏覽器打開',
+    translate: '翻譯',
+    translating: '翻譯中...',
+    viewOriginal: '查看原文',
+    translatedTo: '已翻譯為 {language}',
+    translateSuccess: '翻譯完成',
+    translateFailed: '翻譯失敗'
   },
   sendEmail: {
     title: '批量發送郵件',

@@ -64,7 +64,7 @@
               <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-opacity="0.35" stroke-width="2.5" />
               <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" />
             </svg>
-            {{ importingForVerify ? '准备中...' : verifying ? '验号中...' : '开始验号' }}
+            {{ verifyBusy ? '验号中...' : '开始验号' }}
           </button>
         </div>
       </div>
@@ -165,60 +165,70 @@
           >
             {{ showLivePanel ? '等待验号结果' : '暂无异常账号' }}
           </div>
-          <div v-else class="h-full space-y-1 overflow-y-auto pr-1">
-          <div
-            v-for="item in sidePanelItems"
-            :key="item.id"
-            class="group flex items-center gap-2 rounded-xl px-2 py-1.5 transition"
-            :class="resolvePanelRowClass(item)"
-          >
-            <span
-              class="flex w-4 flex-shrink-0 items-center justify-center text-sm font-semibold"
-              :class="resolvePanelIconClass(item)"
-            >
-              {{ resolvePanelIconText(item) }}
-            </span>
-            <div class="min-w-0 flex-1">
-              <p class="truncate font-mono text-sm text-slate-900">
-                {{ item.email || '未识别邮箱' }}
-              </p>
-            </div>
+          <div v-else ref="sidePanelScrollRef" class="h-full overflow-y-auto pr-1" @scroll="syncSidePanelViewport">
             <div
-              v-if="showLivePanel && item.status === 'success'"
-              class="flex flex-shrink-0 items-center gap-1.5"
+              class="relative w-full"
+              :style="{ height: `${sidePanelTotalHeight}px` }"
             >
-              <span
-                class="inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-medium"
-                :class="resolveProtocolBadgeClass(item)"
-              >
-                {{ resolveProtocolBadge(item) }}
-              </span>
-              <span
-                v-if="resolveSmtpBadge(item)"
-                class="inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-medium"
-                :class="item.smtp_verified ? 'border-primary-200 bg-primary-50 text-primary-700' : 'border-red-200 bg-red-50 text-red-700'"
-              >
-                {{ resolveSmtpBadge(item) }}
-              </span>
-            </div>
-            <div
-              v-if="!(showLivePanel && item.status === 'success')"
-              class="relative max-w-[160px] flex-shrink-0 text-right"
-            >
-              <p
-                class="truncate text-xs"
-                :class="showLivePanel && item.status === 'error' ? 'text-red-600' : 'text-slate-500'"
-              >
-                {{ resolvePanelShortMessage(item) }}
-              </p>
               <div
-                v-if="resolvePanelTooltip(item)"
-                class="invisible absolute right-0 top-full z-10 mt-1 max-w-[220px] rounded-lg bg-slate-800 px-2 py-1 text-left text-xs text-white shadow-lg group-hover:visible"
+                v-for="virtualRow in sidePanelVirtualItems"
+                :key="virtualRow.key"
+                class="absolute left-0 top-0 w-full"
+                :style="{ transform: `translateY(${virtualRow.start}px)` }"
               >
-                {{ resolvePanelTooltip(item) }}
+                <div
+                  class="group flex items-center gap-2 rounded-xl px-2 py-1.5 transition"
+                  :class="resolvePanelRowClass(virtualRow.item)"
+                >
+                  <span
+                    class="flex w-4 flex-shrink-0 items-center justify-center text-sm font-semibold"
+                    :class="resolvePanelIconClass(virtualRow.item)"
+                  >
+                    {{ resolvePanelIconText(virtualRow.item) }}
+                  </span>
+                  <div class="min-w-0 flex-1">
+                    <p class="truncate font-mono text-sm text-slate-900">
+                      {{ virtualRow.item.email || '未识别邮箱' }}
+                    </p>
+                  </div>
+                  <div
+                    v-if="showLivePanel && virtualRow.item.status === 'success'"
+                    class="flex flex-shrink-0 items-center gap-1.5"
+                  >
+                    <span
+                      class="inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-medium"
+                      :class="resolveProtocolBadgeClass(virtualRow.item)"
+                    >
+                      {{ resolveProtocolBadge(virtualRow.item) }}
+                    </span>
+                    <span
+                      v-if="resolveSmtpBadge(virtualRow.item)"
+                      class="inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-medium"
+                      :class="virtualRow.item.smtp_verified ? 'border-primary-200 bg-primary-50 text-primary-700' : 'border-red-200 bg-red-50 text-red-700'"
+                    >
+                      {{ resolveSmtpBadge(virtualRow.item) }}
+                    </span>
+                  </div>
+                  <div
+                    v-if="!(showLivePanel && virtualRow.item.status === 'success')"
+                    class="relative max-w-[160px] flex-shrink-0 text-right"
+                  >
+                    <p
+                      class="truncate text-xs"
+                      :class="showLivePanel && virtualRow.item.status === 'error' ? 'text-red-600' : 'text-slate-500'"
+                    >
+                      {{ resolvePanelShortMessage(virtualRow.item) }}
+                    </p>
+                    <div
+                      v-if="resolvePanelTooltip(virtualRow.item)"
+                      class="invisible absolute right-0 top-full z-10 mt-1 max-w-[220px] rounded-lg bg-slate-800 px-2 py-1 text-left text-xs text-white shadow-lg group-hover:visible"
+                    >
+                      {{ resolvePanelTooltip(virtualRow.item) }}
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
           </div>
         </div>
       </section>
@@ -247,7 +257,7 @@ const rawText = ref('')
 const verifying = ref(false)
 const importingForVerify = ref(false)
 const promoting = ref(false)
-const verifySmtp = ref(true)
+const verifySmtp = ref(false)
 const selectedProxyId = ref<number | ''>('')
 const proxyOptions = ref<any[]>([])
 const exportRows = ref<any[]>([])
@@ -255,6 +265,9 @@ const currentBatchNo = ref('')
 const resultFilter = ref<'all' | 'success' | 'failed'>('all')
 const failureReasonFilter = ref('')
 const liveResults = ref<any[]>([])
+const sidePanelScrollRef = ref<HTMLElement | null>(null)
+const sidePanelScrollTop = ref(0)
+const sidePanelViewportHeight = ref(0)
 const liveProgress = ref({
   total: 0,
   completed: 0,
@@ -449,6 +462,35 @@ const filteredExportRows = computed(() => {
 const sidePanelItems = computed(() => {
   if (showLivePanel.value) return filteredLiveResults.value
   return invalidItems.value.slice(0, 200)
+})
+const SIDE_PANEL_ROW_HEIGHT = 42
+const SIDE_PANEL_OVERSCAN = 12
+const sidePanelTotalHeight = computed(() => sidePanelItems.value.length * SIDE_PANEL_ROW_HEIGHT)
+const syncSidePanelViewport = () => {
+  const element = sidePanelScrollRef.value
+  if (!element) return
+  sidePanelScrollTop.value = element.scrollTop
+  sidePanelViewportHeight.value = element.clientHeight
+}
+const sidePanelVirtualItems = computed(() => {
+  const rows = sidePanelItems.value
+  const total = rows.length
+  if (total === 0) return []
+
+  const viewportHeight = sidePanelViewportHeight.value || sidePanelScrollRef.value?.clientHeight || 600
+  const startIndex = Math.max(0, Math.floor(sidePanelScrollTop.value / SIDE_PANEL_ROW_HEIGHT) - SIDE_PANEL_OVERSCAN)
+  const visibleCount = Math.ceil(viewportHeight / SIDE_PANEL_ROW_HEIGHT) + SIDE_PANEL_OVERSCAN * 2
+  const endIndex = Math.min(total, startIndex + visibleCount)
+
+  return rows.slice(startIndex, endIndex).map((item: any, offset: number) => {
+    const index = startIndex + offset
+    return {
+      item,
+      index,
+      key: item?.id ?? `${index}-${item?.email || ''}`,
+      start: index * SIDE_PANEL_ROW_HEIGHT
+    }
+  })
 })
 const progressPercent = computed(() => {
   if (!liveProgress.value.total) return 0
@@ -968,6 +1010,155 @@ const buildVerifyAccountPayload = (item: any) => ({
 const getUnprocessedValidItems = () =>
   validItems.value.filter((item: any) => !processedCandidateSignatures.value.has(getCandidateSignature(item)))
 
+const runDirectVerification = async (items: any[], selectedRuntimeProxy: any = null) => {
+  const passwordItems = items.filter((item: any) => String(item?.auth_type || 'password') !== 'oauth2')
+  const oauthItems = items.filter((item: any) => String(item?.auth_type || '') === 'oauth2')
+  const liveRows = items.map((item: any) => ({
+    id: item.id,
+    email: item.email,
+    protocol: item.protocol || '',
+    resolved_protocol: null,
+    smtp_verified: false,
+    status: String(item?.auth_type || 'password') === 'oauth2' ? 'error' : 'pending',
+    message: String(item?.auth_type || 'password') === 'oauth2' ? 'OAuth 账号暂不支持直接验号' : '等待验号'
+  }))
+  const liveItemMap = new Map(liveRows.map((item: any) => [item.id, item]))
+
+  resultFilter.value = 'all'
+  failureReasonFilter.value = ''
+  liveResults.value = liveRows
+  exportRows.value = []
+  currentBatchNo.value = ''
+  liveProgress.value = {
+    total: items.length,
+    completed: oauthItems.length,
+    success: 0,
+    failed: oauthItems.length,
+    currentEmail: ''
+  }
+
+  const tauriInvoke = passwordItems.length > 0 ? await getTauriInvoke() : null
+  if (passwordItems.length > 0 && !tauriInvoke) {
+    showMessage('账号密码类批量验号需要在桌面端客户端里操作', 'warning')
+    return
+  }
+
+  verifying.value = true
+  try {
+    const rows: any[] = []
+    await runPasswordMailboxPool(passwordItems, {
+      scene: 'verify',
+      defaultConcurrency: DEFAULT_PASSWORD_VERIFY_CONCURRENCY,
+      getEmail: (item: any) => item.email,
+      worker: async (item: any) => {
+        const currentLiveItem = liveItemMap.get(item.id)
+        const protocol = String(item?.protocol || 'auto').toLowerCase() || 'auto'
+        if (currentLiveItem) {
+          currentLiveItem.status = 'running'
+          currentLiveItem.message = resolveRunningMessage(protocol)
+        }
+
+        try {
+          const result: any = await tauriInvoke('add_external_mailbox', {
+            email: item.email,
+            password: item.password,
+            protocol,
+            host: null,
+            port: null,
+            verifySmtp: verifySmtp.value,
+            proxy: selectedRuntimeProxy || null
+          })
+
+          if (result?.success) {
+            const resolvedProtocol = String(result?.protocol || protocol || 'auto').toLowerCase()
+            if (currentLiveItem) {
+              currentLiveItem.status = 'success'
+              currentLiveItem.protocol = resolvedProtocol
+              currentLiveItem.resolved_protocol = resolvedProtocol
+              currentLiveItem.smtp_verified = Boolean(result?.smtp_verified)
+              currentLiveItem.message = result?.smtp_verified
+                ? '验号通过，SMTP 可发'
+                : verifySmtp.value
+                  ? `验号通过，SMTP 不可发${result?.smtp_error ? `：${result.smtp_error}` : ''}`
+                  : '验号通过'
+            }
+            liveProgress.value.success += 1
+            rows.push({
+              id: item.id,
+              email: item.email,
+              password: item.password,
+              input_protocol: protocol,
+              resolved_protocol: resolvedProtocol,
+              imap_host: resolvedProtocol === 'imap' ? result?.host || null : null,
+              imap_port: resolvedProtocol === 'imap' ? Number(result?.port || 0) || null : null,
+              pop3_host: resolvedProtocol === 'pop3' ? result?.host || null : null,
+              pop3_port: resolvedProtocol === 'pop3' ? Number(result?.port || 0) || null : null,
+              smtp_host: result?.smtp_host || null,
+              smtp_port: Number(result?.smtp_port || 0) || null,
+              smtp_verified: Boolean(result?.smtp_verified),
+              smtp_error: result?.smtp_error || null,
+              verify_status: 'success',
+              verify_message: result?.message || '验号成功',
+              error_message: '',
+              import_status: 'pending'
+            })
+            return
+          }
+
+          if (currentLiveItem) {
+            currentLiveItem.status = 'error'
+            currentLiveItem.protocol = protocol
+            currentLiveItem.resolved_protocol = null
+            currentLiveItem.smtp_verified = false
+            currentLiveItem.message = result?.message || '验号失败'
+          }
+          liveProgress.value.failed += 1
+          rows.push({
+            id: item.id,
+            email: item.email,
+            password: item.password,
+            input_protocol: protocol,
+            resolved_protocol: null,
+            smtp_verified: false,
+            verify_status: 'failed',
+            verify_message: '',
+            error_message: result?.message || '验号失败',
+            import_status: 'pending'
+          })
+        } catch (error: any) {
+          const errorMessage = String(error?.message || error || '验号失败')
+          if (currentLiveItem) {
+            currentLiveItem.status = 'error'
+            currentLiveItem.protocol = protocol
+            currentLiveItem.resolved_protocol = null
+            currentLiveItem.smtp_verified = false
+            currentLiveItem.message = errorMessage
+          }
+          liveProgress.value.failed += 1
+          rows.push({
+            id: item.id,
+            email: item.email,
+            password: item.password,
+            input_protocol: protocol,
+            resolved_protocol: null,
+            smtp_verified: false,
+            verify_status: 'failed',
+            verify_message: '',
+            error_message: errorMessage,
+            import_status: 'pending'
+          })
+        } finally {
+          liveProgress.value.completed += 1
+        }
+      }
+    })
+    exportRows.value = rows
+  } finally {
+    liveProgress.value.currentEmail = ''
+    verifying.value = false
+  }
+}
+
 const loadRuntimeProxyOrWarn = async () => {
   if (!selectedProxyId.value) return null
   const selectedRuntimeProxy = await loadSelectedRuntimeProxy()
@@ -1000,26 +1191,8 @@ const startVerify = async () => {
     return
   }
 
-  importingForVerify.value = true
-  try {
-    const importResponse: any = await externalVerifyPoolAPI.importCandidates({
-      accounts: targetItems.map((item: any) => buildVerifyAccountPayload(item))
-    })
-
-    if (importResponse.code !== 0) return
-
-    const importedItems = Array.isArray(importResponse?.data?.items) ? importResponse.data.items : []
-    if (!importedItems.length) {
-      showMessage('没有可进入验号的账号', 'warning')
-      return
-    }
-
-    const batchNo = String(importResponse?.data?.batch_no || '').trim()
-    await runImportedVerification(importedItems, batchNo, false, selectedRuntimeProxy)
-    markCandidatesProcessed(targetItems)
-  } finally {
-    importingForVerify.value = false
-  }
+  await runDirectVerification(targetItems, selectedRuntimeProxy)
+  markCandidatesProcessed(targetItems)
 }
 
 const retryFailedItems = async () => {
@@ -1068,6 +1241,7 @@ const retryFailedItems = async () => {
 
 onMounted(async () => {
   await loadProxyOptions()
+  window.requestAnimationFrame(syncSidePanelViewport)
   if (!isDesktop) return
   try {
     const { listen } = await import('@tauri-apps/api/event')

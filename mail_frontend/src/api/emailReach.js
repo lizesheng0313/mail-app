@@ -73,6 +73,18 @@ export const emailReachApi = {
     return api.delete(`/email-reach/admin/smtp-accounts/${accountId}`)
   },
 
+  updateAdminSmtpAccountRoute(accountId, data) {
+    return api.put(`/email-reach/admin/smtp-accounts/${accountId}/route`, data)
+  },
+
+  getAdminRouteRules() {
+    return api.get('/email-reach/admin/route-rules')
+  },
+
+  saveAdminRouteRules(data) {
+    return api.put('/email-reach/admin/route-rules', data)
+  },
+
   getAdminFailureStats() {
     return api.get('/email-reach/admin/failure-stats')
   },
@@ -111,6 +123,10 @@ export const emailReachApi = {
 
   updateAdminAccountStatus(userId, data) {
     return api.put(`/email-reach/admin/accounts/${userId}/status`, data)
+  },
+
+  updateAdminAccountSmtpBindings(userId, data) {
+    return api.put(`/email-reach/admin/accounts/${userId}/smtp-bindings`, data)
   },
 
   blockAdminTemplate(templateId, data = {}) {

@@ -68,7 +68,7 @@
             :class="isSelf(item) ? 'justify-end' : 'justify-start'"
           >
             <div
-              class="flex max-w-[88%] items-end gap-3"
+              class="flex w-fit max-w-[88%] items-end gap-3"
               :class="isSelf(item) ? 'flex-row-reverse' : ''"
             >
               <div
@@ -79,7 +79,7 @@
               </div>
 
               <div
-                class="flex min-w-0 flex-col"
+                class="flex min-w-0 w-fit max-w-[calc(100%-3.25rem)] shrink-0 flex-col gap-2"
                 :class="isSelf(item) ? 'items-end' : 'items-start'"
               >
                 <div
@@ -97,6 +97,32 @@
                 </div>
 
                 <div
+                  v-if="item.attachments?.length"
+                  class="flex w-full"
+                  :class="isSelf(item) ? 'justify-end' : 'justify-start'"
+                >
+                  <div
+                    :class="getAttachmentListClass(item.attachments?.length || 0)"
+                  >
+                    <button
+                      v-for="attachment in item.attachments"
+                      :key="attachment.url"
+                      type="button"
+                      class="overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm"
+                      :class="getAttachmentItemClass(item.attachments?.length || 0)"
+                      @click="openImagePreview(attachment.url)"
+                    >
+                      <img
+                        :src="attachment.url"
+                        :alt="attachment.filename || 'chat-image'"
+                        class="h-full w-full object-cover"
+                      />
+                    </button>
+                  </div>
+                </div>
+
+                <div
+                  v-if="item.content"
                   class="max-w-full rounded-[22px] px-4 py-3 text-sm leading-6 shadow-sm"
                   :class="isSelf(item)
                     ? 'rounded-br-md bg-primary-600 text-white'
@@ -117,14 +143,61 @@
         </div>
 
         <div class="border-t border-gray-200 px-4 py-4">
-          <div class="flex items-end gap-3 rounded-2xl border border-primary-100 bg-white px-3 py-3 shadow-sm">
+          <div
+            v-if="pendingAttachments.length"
+            class="mb-3 flex flex-wrap gap-3"
+          >
+            <div
+              v-for="attachment in pendingAttachments"
+              :key="attachment.url"
+              class="relative overflow-hidden rounded-2xl border border-gray-200 bg-gray-50"
+            >
+              <img
+                :src="attachment.url"
+                :alt="attachment.filename || 'pending-image'"
+                class="h-20 w-20 object-cover"
+              />
+              <button
+                type="button"
+                class="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/55 text-white transition-colors hover:bg-black/70"
+                @click="removePendingAttachment(attachment.url)"
+              >
+                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-3 rounded-2xl border border-primary-100 bg-white px-3 py-3 shadow-sm">
+            <input
+              ref="imageInputRef"
+              type="file"
+              accept="image/*"
+              multiple
+              class="hidden"
+              @change="handleImageSelection"
+            />
+            <button
+              v-if="userStore.isAuthenticated"
+              type="button"
+              class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-primary-100 text-primary-600 transition-colors hover:border-primary-200 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-60"
+              :disabled="!canSend || imageUploading"
+              title="添加图片"
+              @click="openImagePicker"
+            >
+              <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2 1.586-1.586a2 2 0 012.828 0L20 14m-6-8h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </button>
             <textarea
               v-model="draft"
               rows="1"
-              class="min-h-[24px] min-w-0 flex-1 resize-none border-0 bg-transparent p-0 text-sm text-gray-800 outline-none focus:ring-0 placeholder:text-gray-400"
+              class="min-h-[24px] min-w-0 flex-1 resize-none border-0 bg-transparent p-0 text-sm leading-10 text-gray-800 outline-none focus:ring-0 placeholder:text-gray-400"
               :disabled="!canSend"
               :placeholder="userStore.isAuthenticated ? 'Enter 发送，Shift+Enter 换行' : '登录后参与聊天'"
               @keydown.enter.exact.prevent="submitMessage"
+              @paste="handleTextareaPaste"
             />
             <button
               v-if="userStore.isAuthenticated"
@@ -133,7 +206,7 @@
               :disabled="!canSubmit"
               @click="submitMessage"
             >
-              发送
+              {{ imageUploading ? '上传中...' : '发送' }}
             </button>
             <button
               v-else
@@ -180,6 +253,7 @@ import { io, type Socket } from 'socket.io-client'
 
 import api, { getApiBaseURL } from '@/services/api'
 import { useUserStore } from '@/stores/user'
+import { uploadImageFile } from '@/utils/imageUpload'
 import { showMessage } from '@/utils/message'
 
 type LiveChatUser = {
@@ -193,12 +267,25 @@ type LiveChatUser = {
 type LiveChatMessage = {
   id: number
   content: string
+  attachments?: Array<{
+    url: string
+    filename?: string
+    size?: number
+  }>
   created_at_ms: number
   user: LiveChatUser
 }
 
+const getAttachmentListClass = (count: number) => {
+  return count > 1 ? 'grid max-w-[240px] grid-cols-2 gap-2' : 'w-24'
+}
+
+const getAttachmentItemClass = (count: number) => {
+  return count > 1 ? 'h-24 w-[116px]' : 'block h-24 w-24'
+}
+
 type SocketPayload =
-  | { type: 'connected'; online_count?: number }
+  | { type: 'connected'; online_count?: number; user?: LiveChatUser | null }
   | { type: 'online_count'; online_count?: number }
   | { type: 'message'; message?: LiveChatMessage; online_count?: number }
   | { type: 'error'; message?: string }
@@ -216,7 +303,11 @@ const onlineCount = ref(0)
 const unreadCount = ref(0)
 const connectionStatus = ref<'idle' | 'connecting' | 'connected' | 'error'>('idle')
 const messageContainerRef = ref<HTMLElement | null>(null)
+const imageInputRef = ref<HTMLInputElement | null>(null)
 const hasMoreHistory = ref(false)
+const imageUploading = ref(false)
+const pendingAttachments = ref<Array<{ url: string; filename: string; size: number }>>([])
+const socketUserId = ref(0)
 
 let socket: Socket | null = null
 let historyLoaded = false
@@ -226,10 +317,20 @@ let historyRequest: Promise<void> | null = null
 let historyCursor = 0
 let summaryRequest: Promise<void> | null = null
 const SOCKET_IO_PATH = '/mail-api/v1/live-chat/socket.io'
+const MAX_CHAT_IMAGES = 4
 
-const selfUserId = computed(() => Number(userStore.user?.id || 0))
+const normalizeUserId = (value: unknown) => {
+  const normalized = Number(value || 0)
+  return Number.isFinite(normalized) ? normalized : 0
+}
+
+const selfUserId = computed(() => normalizeUserId(socketUserId.value || userStore.user?.id))
 const canSend = computed(() => userStore.isAuthenticated && connectionStatus.value === 'connected')
-const canSubmit = computed(() => canSend.value && Boolean(draft.value.trim()))
+const canSubmit = computed(() =>
+  canSend.value &&
+  !imageUploading.value &&
+  (Boolean(draft.value.trim()) || pendingAttachments.value.length > 0)
+)
 
 const statusText = computed(() => {
   if (!userStore.isAuthenticated) return '登录后可加入'
@@ -247,7 +348,7 @@ const statusDotClass = computed(() => {
   return 'bg-primary-200'
 })
 
-const isSelf = (item: LiveChatMessage) => item.user.id === selfUserId.value
+const isSelf = (item: LiveChatMessage) => normalizeUserId(item.user?.id) === selfUserId.value
 
 const OTHER_AVATAR_STYLES = [
   'border border-sky-200 bg-sky-50 text-sky-700',
@@ -303,6 +404,70 @@ const toggleVisible = async () => {
 
 const goToLogin = () => {
   router.push('/login')
+}
+
+const openImagePreview = (url: string) => {
+  window.open(url, '_blank', 'noopener,noreferrer')
+}
+
+const openImagePicker = () => {
+  imageInputRef.value?.click()
+}
+
+const removePendingAttachment = (url: string) => {
+  pendingAttachments.value = pendingAttachments.value.filter((item) => item.url !== url)
+}
+
+const uploadImages = async (files: File[]) => {
+  const availableSlots = MAX_CHAT_IMAGES - pendingAttachments.value.length
+  if (availableSlots <= 0) {
+    showMessage(`最多只能发送 ${MAX_CHAT_IMAGES} 张图片`, 'warning')
+    return
+  }
+
+  const selectedFiles = files.slice(0, availableSlots)
+  if (!selectedFiles.length) return
+
+  imageUploading.value = true
+  try {
+    for (const file of selectedFiles) {
+      const uploaded = await uploadImageFile(file)
+      pendingAttachments.value.push({
+        url: uploaded.url,
+        filename: uploaded.filename || file.name || '',
+        size: Number(uploaded.size || file.size || 0),
+      })
+    }
+  } catch (error: any) {
+    showMessage(error?.message || '图片上传失败', 'error')
+  } finally {
+    imageUploading.value = false
+  }
+}
+
+const extractImageFiles = (fileList: FileList | null | undefined) => {
+  return Array.from(fileList || []).filter((file) => file.type.startsWith('image/'))
+}
+
+const handleImageSelection = async (event: Event) => {
+  const target = event.target as HTMLInputElement | null
+  const imageFiles = extractImageFiles(target?.files)
+  if (target) {
+    target.value = ''
+  }
+  await uploadImages(imageFiles)
+}
+
+const handleTextareaPaste = async (event: ClipboardEvent) => {
+  const items = Array.from(event.clipboardData?.items || [])
+  const files = items
+    .filter((item) => item.kind === 'file' && item.type.startsWith('image/'))
+    .map((item) => item.getAsFile())
+    .filter((file): file is File => Boolean(file))
+
+  if (!files.length) return
+  event.preventDefault()
+  await uploadImages(files)
 }
 
 const upsertMessage = (message: LiveChatMessage) => {
@@ -375,6 +540,7 @@ const cleanupSocket = () => {
     currentSocket.disconnect()
   }
   socketConnecting = false
+  socketUserId.value = 0
   connectionStatus.value = 'idle'
 }
 
@@ -462,6 +628,11 @@ const handleSocketPayload = async (payload: SocketPayload) => {
     onlineCount.value = payload.online_count
   }
 
+  if (payload.type === 'connected') {
+    socketUserId.value = normalizeUserId(payload.user?.id || userStore.user?.id)
+    return
+  }
+
   if (payload.type === 'message' && payload.message) {
     upsertMessage(payload.message)
     if (visible.value) {
@@ -469,7 +640,7 @@ const handleSocketPayload = async (payload: SocketPayload) => {
       if (userStore.isAuthenticated) {
         await markMessagesRead(payload.message.id)
       }
-    } else if (payload.message.user.id !== selfUserId.value) {
+    } else if (!isSelf(payload.message)) {
       unreadCount.value += 1
     }
     return
@@ -534,7 +705,12 @@ const connectSocket = async () => {
 
 const submitMessage = () => {
   const content = draft.value.trim()
-  if (!content) return
+  const attachments = pendingAttachments.value.map((item) => ({
+    url: item.url,
+    filename: item.filename,
+    size: item.size,
+  }))
+  if (!content && !attachments.length) return
 
   if (!userStore.isAuthenticated) {
     showMessage('请先登录后再发言', 'warning')
@@ -547,8 +723,9 @@ const submitMessage = () => {
     return
   }
 
-  socket.emit('chat_event', { type: 'message', content })
+  socket.emit('chat_event', { type: 'message', content, attachments })
   draft.value = ''
+  pendingAttachments.value = []
 }
 
 const formatTime = (timestamp: number) => {

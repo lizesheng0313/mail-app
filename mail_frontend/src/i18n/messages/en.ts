@@ -1039,7 +1039,13 @@ const en = {
     tempAttachmentUnsupported: 'Attachment download is not supported for temporary mailboxes',
     desktopDownloadOnly: 'Please download attachments on desktop',
     openInBrowserHint:
-      'This embedded page may not be interactive. Click here to open it in your system browser'
+      'This embedded page may not be interactive. Click here to open it in your system browser',
+    translate: 'Translate',
+    translating: 'Translating...',
+    viewOriginal: 'View original',
+    translatedTo: 'Translated to {language}',
+    translateSuccess: 'Translation complete',
+    translateFailed: 'Translation failed'
   },
   sendEmail: {
     title: 'Bulk Send Email',

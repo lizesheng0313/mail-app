@@ -39,13 +39,22 @@
         <!-- 邮件头部信息 -->
         <div class="border-b border-gray-200 pb-4 mb-4">
           <div class="mb-3 flex flex-wrap items-center gap-2">
-            <h3 class="text-lg font-semibold text-gray-900">{{ email.subject || t('emailDetail.noSubject') }}</h3>
+            <h3 class="text-lg font-semibold text-gray-900">{{ displaySubject || t('emailDetail.noSubject') }}</h3>
             <span
               v-if="isBounceEmail"
               class="inline-flex items-center rounded-full bg-rose-50 px-2.5 py-1 text-xs font-medium text-rose-700"
             >
               退信
             </span>
+            <button
+              v-if="canTranslate"
+              type="button"
+              class="inline-flex h-7 items-center rounded-full border border-primary-200 px-2.5 text-xs font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-60"
+              :disabled="isTranslatingCurrent"
+              @click="showingTranslation ? showOriginal() : translateEmail()"
+            >
+              {{ showingTranslation ? t('emailDetail.viewOriginal') : (isTranslatingCurrent ? t('emailDetail.translating') : t('emailDetail.translate')) }}
+            </button>
           </div>
           <div class="space-y-2 text-sm">
             <div class="flex">
@@ -102,8 +111,11 @@
 
         <!-- 邮件内容 -->
         <div class="email-content">
+          <div v-if="showingTranslation && translatedContent" class="whitespace-pre-wrap text-gray-700">
+            {{ translatedContent }}
+          </div>
           <EmailHtmlRenderer
-            v-if="hasHtmlContent"
+            v-else-if="hasHtmlContent"
             :html="htmlContent"
           />
           <div v-else-if="hasTextContent" class="whitespace-pre-wrap text-gray-700">
@@ -119,12 +131,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { ArrowsPointingOutIcon } from '@heroicons/vue/24/solid'
 import { useI18n } from 'vue-i18n'
 import { formatTimestamp } from '@/utils/timeUtils'
 import { isTauri } from '@/services/api'
 import { batchLoginAPI } from '@/api/batchLogin'
+import { emailAPI } from '@/api/email'
 import { runDesktopOAuthMailboxAction } from '@/services/desktopOAuthMailbox'
 import { showMessage } from '@/utils/message'
 import HoverTooltip from '@/components/HoverTooltip/index.vue'
@@ -153,6 +166,12 @@ const props = withDefaults(defineProps<Props>(), {
   emptyText: ''
 })
 const { t } = useI18n()
+const translatedSubject = ref('')
+const translatedContent = ref('')
+const showingTranslation = ref(false)
+const translatingKeys = ref(new Set<string>())
+
+const translationCache = new Map<string, { subject: string; content: string }>()
 
 defineEmits<{
   expand: [email: Email]
@@ -201,6 +220,15 @@ const isBounceEmail = computed(() => {
 
 const bounceReason = computed(() => {
   return String(props.email?.bounce_reason || '').trim()
+})
+
+const browserLanguage = computed(() => {
+  if (typeof navigator === 'undefined') return 'zh-CN'
+  return (navigator.languages?.[0] || navigator.language || 'zh-CN').trim()
+})
+
+const displaySubject = computed(() => {
+  return showingTranslation.value && translatedSubject.value ? translatedSubject.value : props.email?.subject || ''
 })
 
 const formatFileSize = (bytes: number) => {
@@ -333,6 +361,139 @@ const textContent = computed(() => {
     ''
   ).trim()
 })
+
+const plainEmailContent = computed(() => {
+  const raw = htmlContent.value || textContent.value
+  if (!raw) return ''
+  if (!/<[^>]+>/.test(raw)) return raw.trim()
+  if (typeof DOMParser === 'undefined') return raw.replace(/<[^>]+>/g, ' ').trim()
+
+  const doc = new DOMParser().parseFromString(raw, 'text/html')
+  return (doc.body?.innerText || doc.body?.textContent || '').trim()
+})
+
+const canTranslate = computed(() => {
+  return Boolean(props.email && plainEmailContent.value && !isCurrentBrowserLanguage.value)
+})
+
+const resetTranslation = () => {
+  translatedSubject.value = ''
+  translatedContent.value = ''
+  showingTranslation.value = false
+}
+
+const showOriginal = () => {
+  showingTranslation.value = false
+}
+
+const normalizeLanguageFamily = (language: string) => {
+  const lang = language.trim().toLowerCase()
+  if (lang.startsWith('zh')) return 'zh'
+  if (lang.startsWith('en')) return 'en'
+  if (lang.startsWith('ja')) return 'ja'
+  if (lang.startsWith('ko')) return 'ko'
+  return lang.split(/[-_]/)[0] || 'unknown'
+}
+
+const detectContentLanguageFamily = (text: string) => {
+  const value = text.trim()
+  if (!value) return 'unknown'
+  const zhCount = (value.match(/[\u3400-\u9fff]/g) || []).length
+  const jaCount = (value.match(/[\u3040-\u30ff]/g) || []).length
+  const koCount = (value.match(/[\uac00-\ud7af]/g) || []).length
+  const latinCount = (value.match(/[a-zA-Z]/g) || []).length
+  const maxCount = Math.max(zhCount, jaCount, koCount, latinCount)
+
+  if (maxCount < 8) return 'unknown'
+  if (zhCount === maxCount) return 'zh'
+  if (jaCount === maxCount) return 'ja'
+  if (koCount === maxCount) return 'ko'
+  return 'en'
+}
+
+const browserLanguageFamily = computed(() => normalizeLanguageFamily(browserLanguage.value))
+
+const emailLanguageFamily = computed(() => {
+  return detectContentLanguageFamily(`${props.email?.subject || ''}\n${plainEmailContent.value}`)
+})
+
+const isCurrentBrowserLanguage = computed(() => {
+  return emailLanguageFamily.value !== 'unknown' && emailLanguageFamily.value === browserLanguageFamily.value
+})
+
+const translationCacheKey = computed(() => {
+  if (!props.email) return ''
+  return `${props.email.id || props.email.message_id || props.email.received_at || ''}:${browserLanguage.value}`
+})
+
+const isTranslatingCurrent = computed(() => {
+  return Boolean(translationCacheKey.value && translatingKeys.value.has(translationCacheKey.value))
+})
+
+const setTranslating = (cacheKey: string, value: boolean) => {
+  const next = new Set(translatingKeys.value)
+  if (value) {
+    next.add(cacheKey)
+  } else {
+    next.delete(cacheKey)
+  }
+  translatingKeys.value = next
+}
+
+const translateEmail = async () => {
+  const currentEmail = props.email
+  const cacheKey = translationCacheKey.value
+  const content = plainEmailContent.value
+  if (!currentEmail || !content || !cacheKey || translatingKeys.value.has(cacheKey)) return
+
+  const cached = translationCache.get(cacheKey)
+  if (cached) {
+    translatedSubject.value = cached.subject
+    translatedContent.value = cached.content
+    showingTranslation.value = true
+    return
+  }
+
+  setTranslating(cacheKey, true)
+  try {
+    const res: any = await emailAPI.translateEmail({
+      subject: currentEmail.subject || '',
+      content,
+      target_language: browserLanguage.value,
+    })
+    if (res?.code !== 0) return
+
+    const nextSubject = String(res?.data?.subject || currentEmail.subject || '').trim()
+    const nextContent = String(res?.data?.content || '').trim()
+    if (!nextContent) {
+      showMessage(t('emailDetail.translateFailed'), 'error')
+      return
+    }
+    translationCache.set(cacheKey, {
+      subject: nextSubject,
+      content: nextContent,
+    })
+
+    if (translationCacheKey.value === cacheKey) {
+      translatedSubject.value = nextSubject
+      translatedContent.value = nextContent
+      showingTranslation.value = true
+      showMessage(t('emailDetail.translateSuccess'), 'success')
+    }
+  } catch (error) {
+    console.error('翻译邮件失败:', error)
+    showMessage(t('emailDetail.translateFailed'), 'error')
+  } finally {
+    setTranslating(cacheKey, false)
+  }
+}
+
+watch(
+  () => props.email?.id,
+  () => {
+    resetTranslation()
+  }
+)
 
 // 检查是否有HTML内容（判断content字段是否包含HTML标签）
 const hasHtmlContent = computed(() => {

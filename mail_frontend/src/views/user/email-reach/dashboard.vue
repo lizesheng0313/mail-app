@@ -169,6 +169,13 @@
       </div>
     </div>
 
+    <AccessAgreementModal
+      v-model:visible="protocolVisible"
+      :accepted="access.agreement_accepted"
+      :loading="agreeSubmitting"
+      @confirm="handleAgreementAccept"
+      @cancel="handleAgreementDecline"
+    />
   </div>
 </template>
 
@@ -177,6 +184,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import * as echarts from 'echarts'
 import emailReachApi from '@/api/emailReach'
 import { showMessage } from '@/utils/message'
+import AccessAgreementModal from './components/AccessAgreementModal.vue'
 import { formatDateTime, formatNumber } from './ui'
 
 const access = ref({
@@ -190,7 +198,10 @@ const access = ref({
   overage_price_per_10000: 0,
   billing_currency: 'milk_coin',
   supports_credit_topup: true,
-  package_configured: false
+  package_configured: false,
+  agreement_accepted: false,
+  agreement_accepted_at: null,
+  agreement_version: ''
 })
 const overview = ref({
   total_count: 0,
@@ -232,6 +243,8 @@ const replyNotice = ref({
 })
 const sendTrendChartRef = ref(null)
 const unsubscribeTrendChartRef = ref(null)
+const protocolVisible = ref(false)
+const agreeSubmitting = ref(false)
 let sendTrendChart = null
 let unsubscribeTrendChart = null
 
@@ -276,6 +289,29 @@ const summaryCards = computed(() => [
 
 const goToPayment = () => {
   window.location.href = '/payment?type=email-package'
+}
+
+const handleAgreementAccept = async () => {
+  agreeSubmitting.value = true
+  try {
+    const res = await emailReachApi.acceptAccessAgreement()
+    if (res.code === 0) {
+      access.value = {
+        ...access.value,
+        agreement_accepted: true,
+        agreement_accepted_at: res.data.agreement_accepted_at,
+        agreement_version: res.data.agreement_version || ''
+      }
+      protocolVisible.value = false
+      showMessage('已同意协议', 'success')
+    }
+  } finally {
+    agreeSubmitting.value = false
+  }
+}
+
+const handleAgreementDecline = () => {
+  protocolVisible.value = false
 }
 
 const chartMaxCount = computed(() =>
@@ -451,6 +487,9 @@ onMounted(async () => {
   const res = await emailReachApi.getAccessSummary()
   if (res.code === 0) {
     access.value = res.data
+    if (access.value.enabled && !access.value.agreement_accepted) {
+      protocolVisible.value = true
+    }
     await Promise.all([loadOverview(), loadQuotaSummary(), loadReplyNotice()])
     window.addEventListener('resize', handleResize)
   } else {

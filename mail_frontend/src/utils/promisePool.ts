@@ -7,7 +7,9 @@ export async function runPromisePool<TItem, TResult>(
     return []
   }
 
-  const limit = Math.max(1, Math.min(concurrency, items.length))
+  const MAX_PROMISE_POOL_WORKERS = 256
+  const normalizedConcurrency = Number.isFinite(concurrency) ? concurrency : MAX_PROMISE_POOL_WORKERS
+  const limit = Math.max(1, Math.min(normalizedConcurrency, items.length, MAX_PROMISE_POOL_WORKERS))
   const results: TResult[] = new Array(items.length)
   let nextIndex = 0
 

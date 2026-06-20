@@ -144,8 +144,9 @@ const filteredTasks = computed(() => {
   return tasks.value.filter((item) => !keyword || String(item.task_name || '').toLowerCase().includes(keyword))
 })
 
-const applyFilters = () => {
+const applyFilters = async () => {
   appliedFilters.keyword = filters.keyword
+  await loadTasks()
 }
 
 const statusLabel = (status) => {

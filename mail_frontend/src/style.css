@@ -184,6 +184,10 @@ body.is-tauri .update-notes-body {
     margin: 0;
   }
 
+  input[type='checkbox'] {
+    accent-color: rgb(var(--color-primary-600));
+  }
+
   /* 全局焦点样式 */
   button:focus-visible,
   a:focus-visible {
