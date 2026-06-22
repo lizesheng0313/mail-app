@@ -283,6 +283,15 @@ const previewFailedItems = computed(() => {
     })
 })
 const resultRows = computed(() => {
+  if (!detectedItems.value.length) {
+    return displayEmails.value.map(item => ({
+      key: item.key,
+      primary: item.email || item.code,
+      secondary: item.code || '',
+      statusType: item.status?.type || 'idle',
+      statusLabel: item.status?.label || '待处理'
+    }))
+  }
   const statusByCode = new Map(
     displayEmails.value
       .filter(item => item.code)
