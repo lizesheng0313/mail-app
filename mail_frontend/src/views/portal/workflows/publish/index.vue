@@ -221,14 +221,6 @@
               />
               <span class="absolute right-3 top-2 text-sm text-gray-500">{{ t('publishWorkflow.coins') }}</span>
             </div>
-            <div v-if="platformFeeRate > 0" class="mt-2 p-2 bg-amber-50 border border-amber-200 rounded">
-              <p class="text-xs text-amber-800">
-                {{ t('publishWorkflow.platformFeeNote', { rate: platformFeeRate }) }}
-              </p>
-              <p v-if="formData.milkCoinPrice > 0" class="text-xs text-amber-700 mt-1">
-                {{ t('publishWorkflow.actualIncome', { amount: (formData.milkCoinPrice * (1 - platformFeeRate / 100)).toFixed(2) }) }}
-              </p>
-            </div>
           </div>
 
           <!-- 订阅周期 -->
@@ -242,11 +234,14 @@
             <div class="flex items-start justify-between">
               <div class="flex-1 pr-3">
                 <span class="text-xs font-medium text-gray-700">{{ t('publishWorkflow.inventoryEnabled') }}</span>
-                <p class="text-xs text-gray-500 mt-0.5">{{ t('publishWorkflow.inventoryEnabledDesc') }}</p>
+                <p class="text-xs text-gray-500 mt-0.5">
+                  {{ formData.category === 'outlook' ? 'Outlook 邮箱必须使用库存管理' : t('publishWorkflow.inventoryEnabledDesc') }}
+                </p>
               </div>
               <!-- Switch Toggle -->
               <div 
-                class="relative flex-shrink-0 inline-block w-11 h-6 cursor-pointer"
+                class="relative flex-shrink-0 inline-block w-11 h-6"
+                :class="formData.category === 'outlook' ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'"
                 @click="toggleInventory"
               >
                 <div
@@ -336,7 +331,6 @@ import { useEditor, EditorContent } from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import { showMessage } from '@/utils/message'
-import { getFeeConfig } from '@/api/milkCoin'
 import { workflowApi } from '@/api/workflow'
 import api from '@/services/api'
 import ConfirmDialog from '@/components/ConfirmDialog/index.vue'
@@ -403,7 +397,7 @@ const workflowId = ref(history.state.workflow_id || '')
 const workflowName = ref(history.state.workflow_name || '')
 const isEditMode = ref(history.state.edit_mode === true)
 
-// 选项（管理员可以看到邮箱套餐分类）
+// 选项（管理员可以发布 Outlook 邮箱商品）
 const baseCategoryOptions = [
   { label: t('publishWorkflow.categoryAutomation'), value: 'automation' },
   { label: t('publishWorkflow.categoryAccount'), value: 'account' },
@@ -412,7 +406,7 @@ const baseCategoryOptions = [
 ]
 
 const adminCategoryOptions = [
-  { label: t('publishWorkflow.categoryMailbox'), value: 'mailbox' }
+  { label: 'Outlook 邮箱', value: 'outlook' }
 ]
 
 const categoryOptions = computed(() => {
@@ -474,13 +468,6 @@ const generating = ref(false)
 const submitting = ref(false)
 const uploadingIcon = ref(false)
 const uploadingScreenshot = ref(false)
-
-// 费率配置
-const feeConfig = ref(null)
-const platformFeeRate = computed(() => {
-  if (!feeConfig.value) return 0
-  return feeConfig.value.platform_fee_rate * 100 // 转换为百分比
-})
 
 // Refs
 const iconInput = ref(null)
@@ -722,8 +709,18 @@ const handleCancel = () => {
 
 // 切换库存开关
 const toggleInventory = () => {
+  if (formData.value.category === 'outlook') {
+    formData.value.inventoryEnabled = true
+    return
+  }
   formData.value.inventoryEnabled = !formData.value.inventoryEnabled
 }
+
+watch(() => formData.value.category, (category) => {
+  if (category === 'outlook') {
+    formData.value.inventoryEnabled = true
+  }
+})
 
 
 // 加载工作流信息
@@ -793,18 +790,6 @@ const loadWorkflowInfo = async () => {
   }
 }
 
-// 加载费率配置
-const loadFeeConfig = async () => {
-  try {
-    const response = await getFeeConfig()
-    if (response.code === 0) {
-      feeConfig.value = response.data
-    }
-  } catch (error) {
-    console.error('获取费率配置失败:', error)
-  }
-}
-
 onMounted(async () => {
   console.log('🔍 发布页面挂载，检查参数:')
   console.log('  - history.state:', history.state)
@@ -820,11 +805,8 @@ onMounted(async () => {
     return
   }
 
-  // 加载工作流数据和费率配置
-  await Promise.all([
-    loadWorkflowInfo(),
-    loadFeeConfig()
-  ])
+  // 加载工作流数据
+  await loadWorkflowInfo()
 })
 
 onBeforeUnmount(() => {

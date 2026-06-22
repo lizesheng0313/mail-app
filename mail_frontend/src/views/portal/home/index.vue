@@ -231,6 +231,7 @@
             @share="handleShareMailboxes"
             @deleted="handleExternalMailboxesDeleted"
             @fetch-all="fetchAllExternalEmails"
+            @online-fetch-all="fetchAllExternalEmailsOnline"
             @refresh="handleRefreshExternalEmails"
             @oauth-reauthorize="handleOAuthMailboxReauthorize"
             @batch-mode-start="handleMailboxBatchStart"
@@ -818,6 +819,8 @@ const externalEmailPageSize = ref(20)
 const externalEmailTotal = ref(0)
 const externalMailboxAuthTypeMap = ref<Record<number, string>>({})
 const externalMailboxFetchingIds = ref<number[]>([])
+const externalEmailListRequestSeq = ref(0)
+const hostedEmailListRequestSeq = ref(0)
 const EXTERNAL_FETCH_ALL_CONCURRENCY = Math.max(
   2,
   Math.min(8, Number(globalThis.navigator?.hardwareConcurrency || 8))
@@ -1353,7 +1356,7 @@ const clearSavedSelectedEmails = (matcher: (email: any) => boolean) => {
     externalSelectedEmail.value = null
   }
   if (matcher(mailStore.selectedEmail)) {
-    mailStore.selectedEmail = null
+    mailStore.clearSelectedEmail()
   }
 }
 
@@ -1652,7 +1655,7 @@ const switchMailboxType = (type: 'system' | 'hosted' | 'external') => {
     if (type === 'system') {
       mailStore.selectedEmail = systemSelectedEmail.value
     } else {
-      mailStore.selectedEmail = null
+      mailStore.clearSelectedEmail()
     }
     syncAutoRefreshStates()
     return
@@ -2348,6 +2351,7 @@ const refreshSystemEmails = async (options?: { minSpinMs?: number }) => {
 }
 
 const loadHostedEmails = async (page = hostedEmailPage.value) => {
+  const requestSeq = ++hostedEmailListRequestSeq.value
   try {
     const params: any = {
       page,
@@ -2365,6 +2369,7 @@ const loadHostedEmails = async (page = hostedEmailPage.value) => {
     }
 
     const response: any = await emailAPI.getUserEmails(params)
+    if (requestSeq !== hostedEmailListRequestSeq.value) return
     if (response.code === 0 && response.data) {
       hostedEmails.value = normalizeHostedEmailRows(response.data.emails || [])
       hostedEmailPage.value = response.data.pagination?.page || page
@@ -2372,6 +2377,7 @@ const loadHostedEmails = async (page = hostedEmailPage.value) => {
       hostedEmailTotal.value = response.data.pagination?.total || 0
     }
   } catch (error) {
+    if (requestSeq !== hostedEmailListRequestSeq.value) return
     console.error('加载域名邮箱邮件失败:', error)
   }
 }
@@ -2421,7 +2427,7 @@ const removeExternalEmailsByIds = (ids: number[] = []) => {
     selectedExternalEmailId.value = null
   }
   if (mailStore.selectedEmail && idSet.has(Number(mailStore.selectedEmail.id))) {
-    mailStore.selectedEmail = null
+    mailStore.clearSelectedEmail()
   }
 
   if (removedCount > 0) {
@@ -2443,7 +2449,7 @@ const removeHostedEmailsByIds = (ids: number[] = []) => {
     selectedHostedEmailId.value = null
   }
   if (mailStore.selectedEmail && idSet.has(Number(mailStore.selectedEmail.id))) {
-    mailStore.selectedEmail = null
+    mailStore.clearSelectedEmail()
   }
 
   if (removedCount > 0) {
@@ -2472,7 +2478,7 @@ const removeExternalEmailsByMailboxIds = (mailboxIds: number[] = []) => {
     String(mailStore.selectedEmail.mailbox_type || '') === 'external' &&
     idSet.has(Number(mailStore.selectedEmail.mailbox_id))
   ) {
-    mailStore.selectedEmail = null
+    mailStore.clearSelectedEmail()
   }
   if (
     selectedExternalEmailId.value &&
@@ -2508,7 +2514,7 @@ const removeHostedEmailsByMailboxIds = (mailboxIds: number[] = []) => {
     String(mailStore.selectedEmail.mailbox_type || '') === 'hosted' &&
     idSet.has(Number(mailStore.selectedEmail.mailbox_id))
   ) {
-    mailStore.selectedEmail = null
+    mailStore.clearSelectedEmail()
   }
   if (
     selectedHostedEmailId.value &&
@@ -2814,7 +2820,7 @@ const handleCustomGenerateSuccess = async () => {
 // 选择系统邮箱
 const handleSelectMailbox = async (mailbox: any) => {
   selectedMailboxId.value = mailbox.id
-  mailStore.selectedEmail = null
+  mailStore.clearEmails()
   mailStore.currentPage = 1
   const params = {
     page: 1,
@@ -2828,7 +2834,9 @@ const handleSelectHostedMailbox = async (mailbox: any) => {
   selectedHostedMailboxId.value = Number(mailbox.id)
   selectedHostedEmailId.value = null
   hostedEmailPage.value = 1
-  mailStore.selectedEmail = null
+  hostedEmails.value = []
+  hostedEmailTotal.value = 0
+  mailStore.clearSelectedEmail()
   await loadHostedEmails(1)
 }
 
@@ -2864,7 +2872,10 @@ const handleSelectExternalMailbox = async (account: any) => {
   externalMailboxAuthTypeMap.value[account.id] = authType
   externalEmailPage.value = 1
   currentView.value = 'emails'
-  mailStore.selectedEmail = null
+  externalEmails.value = []
+  externalEmailTotal.value = 0
+  selectedExternalEmailId.value = null
+  mailStore.clearSelectedEmail()
   await loadExternalMailboxEmails()
   externalEmailListRef.value?.scrollToTop?.()
 }
@@ -2897,10 +2908,11 @@ const handleSelectHostedEmail = async (email: any) => {
   mailStore.selectedEmail = email
 
   const result = await mailStore.fetchEmailDetail(email.id, 'hosted')
+  if (result.error === 'stale') return
   if (!result.success) {
     showMessage(result.error || t('home.emailNotFoundOrNoPermission'), 'error')
     selectedHostedEmailId.value = null
-    mailStore.selectedEmail = null
+    mailStore.clearSelectedEmail()
     return
   }
 
@@ -2949,6 +2961,7 @@ const handleRemoveAccountFromPanel = (id: number) => {
 const loadExternalMailboxEmails = async () => {
   if (!selectedExternalMailboxId.value) return
 
+  const requestSeq = ++externalEmailListRequestSeq.value
   try {
     const mailboxId = Number(selectedExternalMailboxId.value)
     const response = await batchLoginAPI.getExternalEmails(
@@ -2956,6 +2969,7 @@ const loadExternalMailboxEmails = async () => {
       externalEmailPageSize.value,
       mailboxId
     )
+    if (requestSeq !== externalEmailListRequestSeq.value) return
 
     if (response.code === 0 && response.data) {
       externalEmails.value = response.data.emails || []
@@ -2979,6 +2993,7 @@ const loadExternalMailboxEmails = async () => {
       showMessage(msg, 'error')
     }
   } catch (error) {
+    if (requestSeq !== externalEmailListRequestSeq.value) return
     console.error('❌ 获取外部邮箱邮件失败:', error)
     // 请求失败时保留已有邮件列表，不清空
     showMessage(t('home.loadEmailsFailed'), 'error')
@@ -3119,10 +3134,11 @@ const handleSelectExternalEmail = async (email: any) => {
 
   // 获取完整详情（含附件）
   const result = await mailStore.fetchEmailDetail(email.id, 'external')
+  if (result.error === 'stale') return
   if (!result.success) {
     showMessage(result.error || t('home.emailNotFoundOrNoPermission'), 'error')
     selectedExternalEmailId.value = null
-    mailStore.selectedEmail = null
+    mailStore.clearSelectedEmail()
     return
   }
 
@@ -3173,18 +3189,21 @@ const toggleExternalUnread = () => {
 
 // 加载所有外部邮箱的所有邮件
 const loadAllExternalEmails = async () => {
+  const requestSeq = ++externalEmailListRequestSeq.value
   try {
     const response = await batchLoginAPI.getExternalEmails(
       externalEmailPage.value,
       externalEmailPageSize.value,
       null // 不传 mailboxId，获取所有外部邮件
     )
+    if (requestSeq !== externalEmailListRequestSeq.value) return
 
     if (response.code === 0 && response.data) {
       externalEmails.value = response.data.emails || []
       externalEmailTotal.value = response.data.pagination?.total || 0
     }
   } catch (error) {
+    if (requestSeq !== externalEmailListRequestSeq.value) return
     console.error('❌ 加载所有外部邮件失败:', error)
     // 请求失败时保留已有邮件列表，不清空
   }
@@ -3329,6 +3348,34 @@ const fetchAllExternalEmails = async () => {
       }),
       'error'
     )
+  } finally {
+    fetchingExternalEmails.value = false
+    clearExternalMailboxFetchingIds()
+  }
+}
+
+const fetchAllExternalEmailsOnline = async () => {
+  if (fetchingExternalEmails.value) return
+  fetchingExternalEmails.value = true
+  setExternalMailboxFetchingIds(
+    externalMailboxListRef.value?.getOnlineFetchSupportedIds?.() || []
+  )
+  try {
+    const response = await batchLoginAPI.fetchAllExternalMailboxesOnline()
+    if (response.code !== 0) {
+      showMessage(response.message || t('home.fetchFailed'), 'error')
+      return
+    }
+    showMessage(response.message || t('externalMailbox.onlineFetchSuccess'), 'success')
+    if (selectedExternalMailboxId.value) {
+      externalEmailPage.value = 1
+      await loadExternalMailboxEmails()
+    } else {
+      await loadAllExternalEmails()
+    }
+    await externalMailboxListRef.value?.loadAccounts?.()
+  } catch (error: any) {
+    showMessage(error?.message || t('home.fetchFailed'), 'error')
   } finally {
     fetchingExternalEmails.value = false
     clearExternalMailboxFetchingIds()
@@ -3606,7 +3653,13 @@ const handleSelectEmail = async (email: any) => {
   mailStore.selectEmail(email)
 
   // 然后获取完整详情
-  await mailStore.fetchEmailDetail(email.id)
+  const result = await mailStore.fetchEmailDetail(email.id)
+  if (result.error === 'stale') return
+  if (!result.success) {
+    showMessage(result.error || t('home.emailNotFoundOrNoPermission'), 'error')
+    mailStore.clearSelectedEmail()
+    return
+  }
 
   // 标记已读
   if (!email.is_read) {

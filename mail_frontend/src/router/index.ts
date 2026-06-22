@@ -72,6 +72,7 @@ const WorkflowDetail = () => import('@/views/market/detail.vue')
 
 // 邮箱分享页面（无需登录）
 const ShareMailbox = () => import('@/views/portal/share/index.vue')
+const OutlookCodeRedeem = () => import('@/views/portal/outlook-code-redeem/index.vue')
 
 // 下载页面（无需登录）
 const DownloadPage = () => import('@/views/download/index.vue')
@@ -276,12 +277,16 @@ const router = createRouter({
         }
       }
     },
-
     // 邮箱分享页面（无需登录）
     {
       path: '/share/:token',
       name: 'share-mailbox',
       component: ShareMailbox
+    },
+    {
+      path: '/outlook-code/redeem',
+      name: 'outlook-code-redeem',
+      component: OutlookCodeRedeem
     },
 
     // 下载页面（无需登录）
@@ -591,20 +596,23 @@ router.beforeEach(async (to, _from, next) => {
 
   // 如果要访问登录页面且用户已认证，重定向到首页
   if (to.path === '/login' && userStore.isAuthenticated) {
-    next('/')
+    const redirectPath = typeof to.query.redirect === 'string' && to.query.redirect.startsWith('/')
+      ? to.query.redirect
+      : '/'
+    next(redirectPath)
     return
   }
 
   // 检查需要认证的路由
   if (to.meta.requiresAuth && !userStore.isAuthenticated) {
-    next('/login')
+    next({ path: '/login', query: { redirect: to.fullPath } })
     return
   }
 
   // 检查需要管理员权限的路由
   if (to.meta.requiresAdmin) {
     if (!userStore.isAuthenticated) {
-      next('/login')
+      next({ path: '/login', query: { redirect: to.fullPath } })
       return
     }
 

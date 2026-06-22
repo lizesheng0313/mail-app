@@ -460,8 +460,10 @@ const handleSubmit = async () => {
 
   if (result.success) {
     if (isLoginMode.value) {
-      // 登录成功，直接跳转到首页
-      router.push('/')
+      const redirectPath = typeof route.query.redirect === 'string' && route.query.redirect.startsWith('/')
+        ? route.query.redirect
+        : '/'
+      router.push(redirectPath)
     } else if (isResetMode.value) {
       // 密码重置成功，显示提示并跳转到登录
       showMessage(result.message || t('login.resetSuccess'), 'success')

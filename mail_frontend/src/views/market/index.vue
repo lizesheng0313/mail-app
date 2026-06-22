@@ -218,13 +218,13 @@
       </div>
     </div>
   </div>
+
 </template>
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { getMarketWorkflows } from '@/api/workflowMarket'
-import { showMessage } from '@/utils/message'
 import PageHeader from '@/components/PageHeader/index.vue'
 import CustomSelect from '@/components/CustomSelect/index.vue'
 
@@ -236,6 +236,7 @@ const categoryOptions = [
   { label: '数据处理', value: 'data' },
   { label: '文档转换', value: 'document' },
   { label: '图片处理', value: 'image' },
+  { label: 'Outlook 邮箱', value: 'outlook' },
   { label: '数据采集', value: 'scraping' },
   { label: '自动化', value: 'automation' },
   { label: '其他', value: 'other' }

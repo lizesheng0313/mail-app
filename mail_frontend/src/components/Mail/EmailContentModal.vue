@@ -11,16 +11,29 @@
           @click.stop
         >
           <!-- 头部 -->
-          <div class="flex items-center justify-between p-4 border-b border-gray-200">
-            <h2 class="text-lg font-semibold text-gray-900">{{ email?.subject || t('emailDetail.noSubject') }}</h2>
-            <button
-              @click="closeModal"
-              class="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded hover:bg-gray-100"
-            >
-              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
+          <div class="flex items-center justify-between gap-3 p-4 border-b border-gray-200">
+            <h2 class="min-w-0 flex-1 truncate text-lg font-semibold text-gray-900">
+              {{ displaySubject || t('emailDetail.noSubject') }}
+            </h2>
+            <div class="flex flex-shrink-0 items-center gap-2">
+              <button
+                v-if="canTranslate"
+                type="button"
+                class="inline-flex h-8 items-center rounded-full border border-primary-200 px-3 text-xs font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-60"
+                :disabled="isTranslatingCurrent"
+                @click="showingTranslation ? showOriginal() : translateEmail()"
+              >
+                {{ showingTranslation ? t('emailDetail.viewOriginal') : (isTranslatingCurrent ? t('emailDetail.translating') : t('emailDetail.translate')) }}
+              </button>
+              <button
+                @click="closeModal"
+                class="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded hover:bg-gray-100"
+              >
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
           </div>
 
           <!-- 邮件信息 -->
@@ -41,8 +54,11 @@
 
           <!-- 邮件内容 -->
           <div class="flex-1 overflow-y-auto p-6">
+            <div v-if="showingTranslation && translatedContent" class="whitespace-pre-wrap text-gray-900">
+              {{ translatedContent }}
+            </div>
             <EmailHtmlRenderer
-              v-if="hasHtmlContent"
+              v-else-if="hasHtmlContent"
               :html="htmlContent"
               min-height="400px"
             />
@@ -60,6 +76,7 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { formatTimestamp } from '@/utils/timeUtils'
 import EmailHtmlRenderer from '@/components/Mail/EmailHtmlRenderer.vue'
+import { useEmailTranslation } from '@/composables/useEmailTranslation'
 interface Email {
   id: number
   subject?: string
@@ -81,6 +98,18 @@ const emit = defineEmits<{
   'update:visible': [value: boolean]
 }>()
 const { t } = useI18n()
+const emailForTranslation = computed(() => props.email)
+const {
+  canTranslate,
+  displaySubject,
+  htmlContent,
+  isTranslatingCurrent,
+  showOriginal,
+  showingTranslation,
+  textContent,
+  translateEmail,
+  translatedContent,
+} = useEmailTranslation(emailForTranslation, t)
 
 const closeModal = () => {
   emit('update:visible', false)
@@ -93,17 +122,6 @@ const formatDate = (dateValue?: string | number) => {
   const timestamp = typeof dateValue === 'number' ? dateValue : new Date(dateValue).getTime()
   return formatTimestamp(timestamp, 'datetime')
 }
-
-const textContent = computed(() => {
-  if (!props.email) return ''
-  return (
-    props.email.content ||
-    props.email.content_text ||
-    props.email.contentHtml ||
-    props.email.content_html ||
-    ''
-  ).trim()
-})
 
 // 检查是否有HTML内容（判断content字段是否包含HTML标签）
 const hasHtmlContent = computed(() => {
@@ -120,9 +138,6 @@ const hasTextContent = computed(() => {
   return trimmed.length > 0 && !/<[^>]+>/.test(trimmed)
 })
 
-const htmlContent = computed(() => {
-  return props.email?.contentHtml || props.email?.content_html || props.email?.content || props.email?.content_text || ''
-})
 </script>
 
 <style scoped>

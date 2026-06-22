@@ -258,6 +258,13 @@
                 variant="warning"
                 @click="unpublishWorkflow(workflow)"
               />
+              <ActionButton
+                v-if="workflow.review_status === 'approved'"
+                icon="database"
+                tooltip="库存管理"
+                variant="primary"
+                @click="openInventory(workflow)"
+              />
             </td>
           </tr>
         </template>
@@ -553,6 +560,14 @@
         </div>
       </div>
     </BaseModal>
+
+    <InventoryManagementModal
+      v-if="showInventoryModal && inventoryWorkflow"
+      :workflow="inventoryWorkflow"
+      :admin-mode="true"
+      @close="closeInventory"
+      @updated="handleInventoryUpdated"
+    />
   </div>
 </template>
 
@@ -574,6 +589,7 @@ import ActionButton from '@/components/ActionButton/index.vue'
 import BaseIcon from '@/components/BaseIcon/index.vue'
 import BaseModal from '@/components/BaseModal/index.vue'
 import ConfirmDialog from '@/components/ConfirmDialog/index.vue'
+import InventoryManagementModal from '@/views/portal/workflows/components/InventoryManagementModal/index.vue'
 import api from '@/services/api'
 
 // 当前管理员ID
@@ -633,6 +649,28 @@ const workflowToPublish = ref(null)
 // 下架弹窗
 const showUnpublishModal = ref(false)
 const workflowToUnpublish = ref(null)
+
+// 库存管理弹窗
+const showInventoryModal = ref(false)
+const inventoryWorkflow = ref(null)
+
+const openInventory = (workflow) => {
+  inventoryWorkflow.value = workflow
+  showInventoryModal.value = true
+}
+
+const closeInventory = () => {
+  showInventoryModal.value = false
+  inventoryWorkflow.value = null
+}
+
+const handleInventoryUpdated = async () => {
+  const currentId = inventoryWorkflow.value?.id
+  await loadWorkflows()
+  if (currentId) {
+    inventoryWorkflow.value = workflows.value.find(item => item.id === currentId) || inventoryWorkflow.value
+  }
+}
 
 // 切换页码
 const changePage = (newPage) => {
@@ -822,7 +860,8 @@ const getCategoryLabel = (category) => {
     email: '邮件处理',
     scraping: '数据采集',
     automation: '自动化',
-    image: '图片处理'
+    image: '图片处理',
+    outlook: 'Outlook 邮箱'
   }
   return map[category] || category || '其他'
 }

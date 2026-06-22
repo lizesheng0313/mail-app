@@ -951,6 +951,10 @@ const zhTW = {
     noExportableAccounts: '暫無可導出的第三方郵箱',
     fetching: '收取中...',
     fetchMail: '收取郵件',
+    onlineFetch: '線上取件',
+    onlineFetchAll: '線上收取全部',
+    onlineFetching: '線上收取中...',
+    onlineFetchSuccess: '線上收取完成',
     deleteAccount: '刪除帳號',
     batchDeleteTitle: '批量刪除',
     deleteTitle: '刪除帳號',
@@ -1544,8 +1548,6 @@ const zhTW = {
     copyAllData: '複製全部帳號資料',
     copySingleAccount: '複製此帳號',
     accountItem: '帳號 {index}',
-    mailboxCreated: '郵箱已建立',
-    mailboxHint: '請到首頁查看您的郵箱',
     noAccountInfo: '執行成功，但沒有返回帳號資訊',
     close: '知道了',
     copied: '已複製到剪貼簿',
@@ -1720,6 +1722,7 @@ const zhTW = {
     quantityLabel: '數量',
     remainingInventory: '剩餘庫存：{count}',
     totalPrice: '合計：{totalPrice} 奶片',
+    buyerFeeBreakdown: '商品 {itemPrice} 奶片 + 平台手續費 {fee} 奶片，實付 {totalPrice} 奶片',
     executingTitle: '工作流執行中...',
     executingSubtitle: '請稍候，正在處理您的請求',
     seoFallbackTitle: '工作流詳情',
@@ -1737,6 +1740,9 @@ const zhTW = {
     confirmExecutePerUse: '立即執行工作流 "{name}" 將扣除 {price} 奶片。確認執行嗎？',
     confirmExecutePerUseMultiple:
       '立即執行工作流 "{name}" {count} 次，將扣除 {totalPrice} 奶片（{price} 奶片/次）。確認執行嗎？',
+    confirmBuyOutlook: '購買 "{name}" 將扣除 {price} 奶片，購買後會自動添加到你的第三方郵箱。確認購買嗎？',
+    confirmBuyOutlookMultiple:
+      '購買 "{name}" {count} 個，將扣除 {totalPrice} 奶片（{price} 奶片/個），購買後會自動添加到你的第三方郵箱。確認購買嗎？',
     confirmExecuteSubscription:
       '立即執行工作流 "{name}"。如果您已訂閱，則免費執行；否則需要先訂閱。確認執行嗎？',
     confirmExecuteSubscriptionMultiple:
@@ -1744,6 +1750,7 @@ const zhTW = {
     confirmExecuteDefault: '確認立即執行工作流 "{name}"？',
     confirmExecuteDefaultMultiple: '確認立即執行工作流 "{name}" {count} 次？',
     executionSuccess: '工作流執行成功',
+    outlookDelivered: '購買成功，已添加到第三方郵箱',
     executionFailed: '執行失敗',
     executionSubmitted: '工作流已提交執行',
     executionBatchSummary:
@@ -1759,7 +1766,6 @@ const zhTW = {
     replySuccess: '回覆成功',
     replyFailed: '回覆失敗',
     categories: {
-      mailbox: '郵箱套餐',
       plugin: '外掛',
       automation: '自動化',
       data: '資料處理',
@@ -2205,8 +2211,6 @@ const zhTW = {
     pricingMode: '定價模式',
     price: '價格',
     coins: '奶片',
-    platformFeeNote: '平台費率說明：每筆交易平台收取 {rate}% 手續費',
-    actualIncome: '您的實際收益：{amount} 奶片/次',
     subscriptionPeriod: '訂閱週期',
     inventoryEnabled: '啟用庫存管理',
     inventoryEnabledDesc: '開啟後可在工作流列表中批量添加資料資源，購買用戶將自動獲得分配',
@@ -2224,7 +2228,6 @@ const zhTW = {
     categoryAccount: '帳號取得',
     categoryDocument: '文件格式轉換',
     categoryOther: '其它',
-    categoryMailbox: '郵箱套餐',
     pricingFree: '免費',
     pricingFreeDesc: '免費提供給所有用戶使用',
     pricingFreeBadge: '推薦',

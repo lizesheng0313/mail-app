@@ -158,6 +158,40 @@ export const workflowApi = {
     })
   },
 
+  generateOutlookRedeemCodes(workflowId, data) {
+    return api.post(`/workflows/${workflowId}/inventory/outlook-codes`, data)
+  },
+
+  exportOutlookRedeemCodes(workflowId, status = 'active') {
+    return api.get(`/workflows/${workflowId}/inventory/outlook-codes/export`, {
+      params: { status }
+    })
+  },
+
+  redeemOutlookCode(code, config = {}) {
+    return api.post('/workflows/outlook-code/redeem', { code }, config)
+  },
+
+  redeemOutlookCodesBatch(codes, config = {}) {
+    return api.post('/workflows/outlook-code/redeem/batch', { codes }, config)
+  },
+
+  previewOutlookCode(code, config = {}) {
+    return api.post('/workflows/outlook-code/preview', { code }, config)
+  },
+
+  redeemOutlookResourceCode(code, config = {}) {
+    return api.post('/outlook-resources/redeem', { code }, config)
+  },
+
+  redeemOutlookResourceCodesBatch(codes, config = {}) {
+    return api.post('/outlook-resources/redeem/batch', { codes }, config)
+  },
+
+  previewOutlookResourceCode(code, config = {}) {
+    return api.post('/outlook-resources/redeem/preview', { code }, config)
+  },
+
   // ============================================
   // 内置Actions API
   // ============================================

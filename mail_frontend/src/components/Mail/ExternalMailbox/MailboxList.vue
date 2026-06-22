@@ -47,6 +47,20 @@
             {{ props.fetchingAll ? t('home.fetchingAll') : t('home.fetchAll') }}
           </button>
           <button
+            v-if="hasOnlineFetchSupportedAccounts"
+            type="button"
+            class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+            :disabled="fetchingAllDisabled"
+            @click.stop="handleOnlineFetchAllAction"
+          >
+            <BaseIcon
+              name="cloud"
+              size="sm"
+              :class="{ 'animate-spin': props.fetchingAll }"
+            />
+            {{ props.fetchingAll ? t('externalMailbox.fetching') : t('externalMailbox.onlineFetchAll') }}
+          </button>
+          <button
             type="button"
             class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
             :disabled="exporting || totalAccounts === 0"
@@ -229,6 +243,20 @@
                 {{ mergedFetchingIds.includes(toAccountId(account)) ? t('externalMailbox.fetching') : t('externalMailbox.fetchMail') }}
               </button>
               <button
+                v-if="isOnlineFetchSupported(account)"
+                type="button"
+                class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                :disabled="mergedFetchingIds.includes(toAccountId(account))"
+                @click.stop="handleOnlineFetchAction(toAccountId(account))"
+              >
+                <BaseIcon
+                  name="cloud"
+                  size="sm"
+                  :class="{ 'animate-spin': mergedFetchingIds.includes(toAccountId(account)) }"
+                />
+                {{ mergedFetchingIds.includes(toAccountId(account)) ? t('externalMailbox.fetching') : t('externalMailbox.onlineFetch') }}
+              </button>
+              <button
                 type="button"
                 class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 transition-colors hover:bg-red-50"
                 @click.stop="handleDeleteAction(toAccountId(account))"
@@ -357,6 +385,7 @@ const emit = defineEmits<{
   select: [id: number]
   refresh: []
   'fetch-all': []
+  'online-fetch-all': []
   share: [mailboxes: any[]]
   'oauth-reauthorize': [account: any]
   'batch-mode-start': []
@@ -369,6 +398,7 @@ const deleting = ref(false)
 const isDeleting = ref({ batch: false, ids: [] as number[] })
 const selectedId = ref<number | null>(null)
 const fetchingIds = ref<number[]>([])
+const onlineFetchingIds = ref<number[]>([])
 const exporting = ref(false)
 const mailboxListRef = ref()
 const tagsData = ref<Record<number, { sites: any[]; tags: any[] }>>({})
@@ -377,7 +407,7 @@ const openMenuId = ref<number | null>(null)
 const openMenuPlacement = ref<'up' | 'down'>('down')
 let closeMenuTimer: ReturnType<typeof setTimeout> | null = null
 const mergedFetchingIds = computed(() => {
-  const ids = [...(props.fetchingIds || []), ...fetchingIds.value]
+  const ids = [...(props.fetchingIds || []), ...fetchingIds.value, ...onlineFetchingIds.value]
   return Array.from(new Set(ids))
 })
 const isBatchModeActive = computed(() => Boolean(mailboxListRef.value?.isBatchMode?.value))
@@ -408,6 +438,26 @@ const displayAccounts = computed(() => {
     return (second.id || 0) - (first.id || 0)
   })
 })
+
+const isOnlineFetchSupported = (account: any) => {
+  if (account?.online_fetch_supported === true) return true
+
+  const provider = String(account?.oauth_provider || account?.provider || '').toLowerCase()
+  const authType = String(account?.auth_type || '').toLowerCase()
+  const status = String(account?.status || '').toLowerCase()
+  return provider === 'microsoft'
+    && authType === 'oauth2'
+    && status !== 'disabled'
+    && status !== 'deleted'
+}
+const hasOnlineFetchSupportedAccounts = computed(() =>
+  accounts.value.some((account: any) => isOnlineFetchSupported(account))
+)
+const getOnlineFetchSupportedIds = () =>
+  accounts.value
+    .filter((account: any) => isOnlineFetchSupported(account))
+    .map((account: any) => toAccountId(account))
+    .filter((id: number) => id > 0)
 
 const formatDate = (date: string | number) => {
   if (!date) return t('externalMailbox.unknown')
@@ -450,7 +500,7 @@ const resolveMenuPlacement = (event: Event) => {
   const containerBottom = scrollContainer
     ? Math.min(scrollContainer.getBoundingClientRect().bottom, window.innerHeight)
     : window.innerHeight
-  const menuHeight = isDesktop ? 200 : 168
+  const menuHeight = isDesktop ? 240 : 208
   const spaceAbove = triggerRect.top - containerTop
   const spaceBelow = containerBottom - triggerRect.bottom
 
@@ -792,9 +842,35 @@ const handleFetchAllAction = () => {
   emit('fetch-all')
 }
 
+const handleOnlineFetchAllAction = () => {
+  if (fetchingAllDisabled.value || !hasOnlineFetchSupportedAccounts.value) return
+  closeHeaderActionMenu()
+  emit('online-fetch-all')
+}
+
 const handleRefreshAction = (accountId: number) => {
   closeActionMenu()
   fetchSingleMailbox(accountId)
+}
+
+const handleOnlineFetchAction = async (accountId: number) => {
+  closeActionMenu()
+  if (mergedFetchingIds.value.includes(accountId)) return
+  onlineFetchingIds.value.push(accountId)
+  try {
+    const response = await batchLoginAPI.fetchExternalMailboxOnline(accountId)
+    if (response.code !== 0) {
+      showMessage(response.message || t('externalMailbox.fetchFailed'), 'error')
+      return
+    }
+    showMessage(response.message || t('externalMailbox.onlineFetchSuccess'), 'success')
+    await loadAccounts()
+    emit('refresh')
+  } catch (error: any) {
+    showMessage(error?.message || t('externalMailbox.fetchFailed'), 'error')
+  } finally {
+    onlineFetchingIds.value = onlineFetchingIds.value.filter(id => id !== accountId)
+  }
 }
 
 const handleWindowClick = () => {
@@ -951,6 +1027,7 @@ defineExpose({
   replaceAccounts,
   upsertAccounts,
   removeAccounts,
+  getOnlineFetchSupportedIds,
   loadTagsData,
   cancelBatchMode: () => {
     console.log('🔵 外部邮箱组件 - cancelBatchMode 被调用')

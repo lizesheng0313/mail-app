@@ -1002,6 +1002,10 @@ const en = {
     noExportableAccounts: 'No external mailboxes available for export',
     fetching: 'Fetching...',
     fetchMail: 'Fetch emails',
+    onlineFetch: 'Fetch online',
+    onlineFetchAll: 'Fetch all online',
+    onlineFetching: 'Fetching online...',
+    onlineFetchSuccess: 'Online fetch completed',
     deleteAccount: 'Delete account',
     batchDeleteTitle: 'Delete selected',
     deleteTitle: 'Delete account',
@@ -1609,8 +1613,6 @@ const en = {
     copyAllData: 'Copy all account data',
     copySingleAccount: 'Copy this account',
     accountItem: 'Account {index}',
-    mailboxCreated: 'Mailbox Created',
-    mailboxHint: 'Check your mailbox on the home page',
     noAccountInfo: 'The workflow completed successfully, but no account information was returned',
     close: 'Got it',
     copied: 'Copied to clipboard',
@@ -1788,6 +1790,7 @@ const en = {
     quantityLabel: 'Quantity',
     remainingInventory: 'Available inventory: {count}',
     totalPrice: 'Total: {totalPrice} coins',
+    buyerFeeBreakdown: 'Item {itemPrice} coins + platform fee {fee} coins, total {totalPrice} coins',
     executingTitle: 'Running workflow...',
     executingSubtitle: 'Please wait while your request is being processed',
     seoFallbackTitle: 'Workflow Details',
@@ -1805,6 +1808,9 @@ const en = {
     confirmExecutePerUse: 'Run workflow "{name}" now and spend {price} coins?',
     confirmExecutePerUseMultiple:
       'Run workflow "{name}" {count} times now and spend {totalPrice} coins total ({price} coins each)?',
+    confirmBuyOutlook: 'Buy "{name}" for {price} coins? It will be added to your external mailboxes automatically.',
+    confirmBuyOutlookMultiple:
+      'Buy {count} "{name}" items for {totalPrice} coins total ({price} coins each)? They will be added to your external mailboxes automatically.',
     confirmExecuteSubscription:
       'Run workflow "{name}" now? Subscribers can use it for free; otherwise you need a subscription first.',
     confirmExecuteSubscriptionMultiple:
@@ -1812,6 +1818,7 @@ const en = {
     confirmExecuteDefault: 'Run workflow "{name}" now?',
     confirmExecuteDefaultMultiple: 'Run workflow "{name}" {count} times now?',
     executionSuccess: 'Workflow ran successfully',
+    outlookDelivered: 'Purchase successful. Added to external mailboxes.',
     executionFailed: 'Failed to run workflow',
     executionSubmitted: 'Workflow was submitted',
     executionBatchSummary:
@@ -1827,7 +1834,6 @@ const en = {
     replySuccess: 'Reply submitted',
     replyFailed: 'Failed to submit reply',
     categories: {
-      mailbox: 'Mailbox plan',
       plugin: 'Plugin',
       automation: 'Automation',
       data: 'Data processing',
@@ -2273,8 +2279,6 @@ const en = {
     pricingMode: 'Pricing Model',
     price: 'Price',
     coins: 'Coins',
-    platformFeeNote: 'Platform fee: {rate}% is charged on each transaction',
-    actualIncome: 'Your actual income: {amount} coins/use',
     subscriptionPeriod: 'Subscription Period',
     inventoryEnabled: 'Enable inventory management',
     inventoryEnabledDesc:
@@ -2293,7 +2297,6 @@ const en = {
     categoryAccount: 'Account Access',
     categoryDocument: 'Document Conversion',
     categoryOther: 'Other',
-    categoryMailbox: 'Mailbox Plan',
     pricingFree: 'Free',
     pricingFreeDesc: 'Available to all users at no cost',
     pricingFreeBadge: 'Recommended',

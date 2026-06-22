@@ -12,6 +12,8 @@ export const useMailStore = defineStore('mail', () => {
   const pageSize = ref(20)
   const totalPages = ref(0)
   const searchKeyword = ref('')
+  let listRequestSeq = 0
+  let detailRequestSeq = 0
 
   const applyPagination = (pagination?: any, fallbackCount = emails.value.length) => {
     if (pagination) {
@@ -77,9 +79,13 @@ export const useMailStore = defineStore('mail', () => {
 
   // 获取指定邮箱的所有邮件
   const fetchMailboxEmails = async (mailboxId: number, params?: any, silent: boolean = false, signal?: AbortSignal) => {
+    const requestSeq = ++listRequestSeq
     if (!silent) loading.value = true
     try {
       const response: any = await emailAPI.getMailboxEmails(mailboxId, params, signal)
+      if (requestSeq !== listRequestSeq) {
+        return { success: false, error: 'stale' }
+      }
       if (response.code === 0 && response.data) {
         emails.value = response.data.emails || []
         totalEmails.value = response.data.pagination?.total || 0
@@ -99,12 +105,13 @@ export const useMailStore = defineStore('mail', () => {
         error: error.response?.data?.message || '获取邮件列表失败'
       }
     } finally {
-      if (!silent) loading.value = false
+      if (!silent && requestSeq === listRequestSeq) loading.value = false
     }
   }
 
   // 获取当前用户所有邮件（分页）
   const fetchUserEmails = async (page: number = 1, pageSize: number = 20, silent: boolean = false, unread?: boolean, search?: string) => {
+    const requestSeq = ++listRequestSeq
     if (!silent) loading.value = true
     try {
       const params: any = { page, page_size: pageSize }
@@ -116,6 +123,9 @@ export const useMailStore = defineStore('mail', () => {
       }
       
       const response: any = await emailAPI.getUserEmails(params)
+      if (requestSeq !== listRequestSeq) {
+        return { success: false, error: 'stale' }
+      }
       if (response.code === 0 && response.data) {
         emails.value = response.data.emails || []
         totalEmails.value = response.data.pagination?.total || 0
@@ -131,7 +141,7 @@ export const useMailStore = defineStore('mail', () => {
         error: error.response?.data?.message || '获取邮件列表失败'
       }
     } finally {
-      if (!silent) loading.value = false
+      if (!silent && requestSeq === listRequestSeq) loading.value = false
     }
   }
 
@@ -140,9 +150,13 @@ export const useMailStore = defineStore('mail', () => {
 
 
   const fetchEmailDetail = async (id: number, type: string = 'system') => {
+    const requestSeq = ++detailRequestSeq
     loading.value = true
     try {
       const response: any = await emailAPI.getEmail(id, type)
+      if (requestSeq !== detailRequestSeq) {
+        return { success: false, error: 'stale' }
+      }
 
       if (response.code === 0 && response.data) {
         selectedEmail.value = response.data
@@ -155,7 +169,7 @@ export const useMailStore = defineStore('mail', () => {
         error: error.response?.data?.message || '获取邮件详情失败'
       }
     } finally {
-      loading.value = false
+      if (requestSeq === detailRequestSeq) loading.value = false
     }
   }
 
@@ -219,11 +233,20 @@ export const useMailStore = defineStore('mail', () => {
 
   // 清理邮件列表（删除邮箱时使用）
   const clearEmails = () => {
+    listRequestSeq++
+    detailRequestSeq++
     emails.value = []
     selectedEmail.value = null
+    loading.value = false
     totalEmails.value = 0
     totalPages.value = 0
     currentPage.value = 1
+  }
+
+  const clearSelectedEmail = () => {
+    detailRequestSeq++
+    selectedEmail.value = null
+    loading.value = false
   }
 
   // 从邮件列表中移除指定邮箱的所有邮件
@@ -288,6 +311,7 @@ export const useMailStore = defineStore('mail', () => {
     getUnreadCount,
     getEmailsByMailbox,
     clearEmails,
+    clearSelectedEmail,
     removeEmailsByMailbox,
     removeEmailsByMailboxIds
   }

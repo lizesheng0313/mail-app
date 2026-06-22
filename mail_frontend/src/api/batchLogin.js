@@ -77,6 +77,14 @@ export const batchLoginAPI = {
     return api.get('/unified-emails/external-emails', { params })
   },
 
+  // 服务端在线收取全部外部邮箱
+  fetchAllExternalMailboxesOnline: () =>
+    api.post('/unified-emails/external-mailboxes/fetch-all'),
+
+  // 服务端在线收取单个外部邮箱
+  fetchExternalMailboxOnline: (mailboxId) =>
+    api.post(`/unified-emails/external-mailboxes/${mailboxId}/fetch`),
+
   // 获取统计信息
   getStats: () =>
     api.get('/batch-login/stats'),

@@ -12,6 +12,14 @@
   >
     <template #header-actions>
       <button
+        v-if="isAdmin"
+        type="button"
+        @click="router.push('/admin/workflow-review')"
+        class="mr-3 inline-flex items-center rounded-md bg-primary-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-700"
+      >
+        管理后台
+      </button>
+      <button
         type="button"
         @click="handleBack"
         class="mr-[28px] inline-flex items-center rounded-md border border-primary-200 bg-primary-50 px-3 py-2 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-100"
@@ -37,6 +45,7 @@ const { t } = useI18n()
 
 // 用户信息
 const userInfo = computed(() => userStore.user)
+const isAdmin = computed(() => Boolean(userInfo.value?.is_admin))
 const canGoBack = computed(() => Boolean(window.history.state?.back) || window.history.length > 1)
 
 const handleBack = async () => {

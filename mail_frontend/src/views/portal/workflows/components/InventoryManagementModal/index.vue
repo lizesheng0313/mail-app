@@ -24,6 +24,28 @@
 
       <!-- 操作栏 -->
       <div class="px-6 py-3 border-b bg-white flex-shrink-0">
+        <div v-if="inventoryType === 'outlook'" class="mb-3 rounded-md bg-primary-50 p-3 text-sm text-primary-800">
+          Outlook 邮箱库存：售出或取件后自动进入用户第三方邮箱，后续不再由库存任务刷新。
+          <div class="mt-3 flex flex-wrap items-center gap-2">
+            <label class="text-xs text-primary-900">
+              导出数量
+              <input
+                v-model.number="redeemCodeForm.exportCount"
+                type="number"
+                min="1"
+                max="500"
+                class="ml-1 w-20 rounded-md border border-primary-200 px-2 py-1 text-xs text-gray-800 focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+            </label>
+            <button
+              @click="exportTaobaoRedeemCodes"
+              :disabled="generatingCodes"
+              class="rounded-md bg-primary-600 px-3 py-1.5 text-xs text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {{ generatingCodes ? '导出中...' : '导出淘宝取件码' }}
+            </button>
+          </div>
+        </div>
         <div class="flex items-center justify-between mb-3">
           <div class="flex gap-2">
             <button
@@ -58,6 +80,18 @@
               ]"
             >
               {{ t('inventoryModal.consumed') }} ({{ stats.consumed }})
+            </button>
+            <button
+              v-if="inventoryType === 'outlook'"
+              @click="statusFilter = 'reserved'"
+              :class="[
+                'px-3 py-1.5 text-sm rounded-md transition-colors',
+                statusFilter === 'reserved'
+                  ? 'bg-primary-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              ]"
+            >
+              已锁定 ({{ stats.reserved }})
             </button>
             <!-- 批量删除模式切换 -->
             <div class="ml-2 border-l pl-2">
@@ -206,10 +240,18 @@
                     'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium',
                     item.status === 'available'
                       ? 'bg-primary-100 text-primary-800'
+                      : item.status === 'reserved'
+                        ? 'bg-amber-100 text-amber-800'
                       : 'bg-gray-100 text-gray-800'
                   ]"
                 >
-                  {{ item.status === 'available' ? `✓ ${t('inventoryModal.statusAvailable')}` : `× ${t('inventoryModal.statusConsumed')}` }}
+                  {{
+                    item.status === 'available'
+                      ? `✓ ${t('inventoryModal.statusAvailable')}`
+                      : item.status === 'reserved'
+                        ? '已锁定'
+                        : `× ${t('inventoryModal.statusConsumed')}`
+                  }}
                 </span>
               </td>
               <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -271,7 +313,7 @@
         </div>
         <div class="flex-1 p-6 overflow-auto">
           <!-- 模式选择 -->
-          <div class="mb-4">
+          <div v-if="inventoryType !== 'outlook'" class="mb-4">
             <div class="flex gap-3">
               <button
                 @click="inputMode = 'single'"
@@ -310,6 +352,10 @@
                 <div class="text-xs mt-0.5 opacity-75">{{ t('inventoryModal.inputModeSeparatorDesc') }}</div>
               </button>
             </div>
+          </div>
+
+          <div v-else class="mb-4 rounded-md border border-primary-200 bg-primary-50 p-3 text-sm text-primary-800">
+            一行一个：邮箱----密码----Client_ID----Refresh_Token。导入时会验证并更新 token。
           </div>
 
           <!-- 多行模式配置 -->
@@ -353,6 +399,11 @@
             ]"
             style="tab-size: 4; overflow-x: auto; white-space: pre;"
           ></textarea>
+          <div v-if="failedImports.length" class="mt-3 max-h-36 overflow-y-auto rounded-md border border-red-200 bg-red-50 p-3">
+            <div v-for="item in failedImports" :key="`${item.line}-${item.email}`" class="text-xs text-red-700">
+              第 {{ item.line }} 行 {{ item.email || '未识别账号' }}：{{ item.error }}
+            </div>
+          </div>
         </div>
         <div class="flex gap-2 px-6 py-4 border-t bg-gray-50">
           <button
@@ -401,6 +452,10 @@ const props = defineProps({
   workflow: {
     type: Object,
     required: true
+  },
+  adminMode: {
+    type: Boolean,
+    default: false
   }
 })
 
@@ -410,6 +465,7 @@ const { t } = useI18n()
 // 响应式数据
 const loading = ref(false)
 const adding = ref(false)
+const generatingCodes = ref(false)
 const showAddModal = ref(false)
 const showDeleteConfirm = ref(false)
 const showBatchDeleteConfirm = ref(false)
@@ -422,6 +478,16 @@ const pageSize = ref(50)
 const selectedIds = ref([])
 const batchDeleteMode = ref(false)  // 批量删除模式
 const inputMode = ref('single')  // 输入模式：single | multiline | separator
+const inventoryType = computed(() => {
+  if (props.workflow.inventory_type) return props.workflow.inventory_type
+  if (props.workflow.category === 'outlook') return 'outlook'
+  return 'normal'
+})
+const importResults = ref([])
+const failedImports = computed(() => importResults.value.filter(item => !item.success))
+const redeemCodeForm = ref({
+  exportCount: 1
+})
 
 // 多行模式配置
 const multilineConfig = ref({
@@ -492,6 +558,45 @@ const handleReset = () => {
   searchQuery.value = ''
   statusFilter.value = 'all'
   page.value = 1
+}
+
+const downloadTextFile = (content, filename) => {
+  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' })
+  const url = window.URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  window.URL.revokeObjectURL(url)
+}
+
+const exportTaobaoRedeemCodes = async () => {
+  if (inventoryType.value !== 'outlook') return
+  generatingCodes.value = true
+  try {
+    const payload = {
+      code_count: Math.max(1, Number(redeemCodeForm.value.exportCount) || 1),
+      quantity: 1
+    }
+    const res = await workflowApi.generateOutlookRedeemCodes(props.workflow.workflow_id, payload)
+    if (res.code === 0) {
+      if (res.data.content) {
+        downloadTextFile(res.data.content, `taobao-outlook-codes-${props.workflow.workflow_id}.txt`)
+      }
+      showMessage(`已导出 ${res.data.created_count || 0} 个取件码`, 'success')
+      await fetchInventoryList()
+      emit('updated')
+    } else {
+      showMessage(res.message || '导出取件码失败', 'error')
+    }
+  } catch (error) {
+    console.error('导出取件码失败:', error)
+    showMessage('导出取件码失败', 'error')
+  } finally {
+    generatingCodes.value = false
+  }
 }
 
 const formatDate = (timestamp) => {
@@ -606,11 +711,12 @@ const handleAddInventory = async () => {
   }
 
   adding.value = true
+  importResults.value = []
   try {
     // 构建请求参数,包含模式和配置
     const requestData = {
       accounts: inventoryInput.value,
-      mode: inputMode.value
+      mode: inventoryType.value === 'outlook' ? 'outlook' : inputMode.value
     }
 
     // 根据不同模式添加配置参数
@@ -623,11 +729,12 @@ const handleAddInventory = async () => {
     const res = await workflowApi.addInventory(props.workflow.workflow_id, requestData)
 
     if (res.code === 0) {
+      importResults.value = res.data.results || []
       showMessage(t('inventoryModal.addSuccess', { count: res.data.added_count }), 'success')
       if (res.data.duplicate_count > 0) {
         showMessage(t('inventoryModal.duplicateSkipped', { count: res.data.duplicate_count }), 'warning')
       }
-      closeAddModal()
+      if (!failedImports.value.length) closeAddModal()
       // 刷新库存列表
       await fetchInventoryList()
       // 通知父组件更新库存数量
@@ -645,6 +752,9 @@ const handleAddInventory = async () => {
 
 // 根据选择的模式返回对应的placeholder
 const getPlaceholder = () => {
+  if (inventoryType.value === 'outlook') {
+    return 'user@outlook.com----邮箱密码----Client_ID----Refresh_Token'
+  }
   if (inputMode.value === 'single') {
     return t('inventoryModal.placeholderSingle')
   } else if (inputMode.value === 'multiline') {

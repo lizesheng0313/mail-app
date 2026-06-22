@@ -951,6 +951,10 @@ const zhCN = {
     noExportableAccounts: '暂无可导出的第三方邮箱',
     fetching: '收取中...',
     fetchMail: '收取邮件',
+    onlineFetch: '在线取件',
+    onlineFetchAll: '在线收取全部',
+    onlineFetching: '在线收取中...',
+    onlineFetchSuccess: '在线收取完成',
     deleteAccount: '删除账号',
     batchDeleteTitle: '批量删除',
     deleteTitle: '删除账号',
@@ -1544,8 +1548,6 @@ const zhCN = {
     copyAllData: '复制全部账号数据',
     copySingleAccount: '复制此账号',
     accountItem: '账号 {index}',
-    mailboxCreated: '邮箱已创建',
-    mailboxHint: '请到首页查看您的邮箱',
     noAccountInfo: '执行成功，但没有返回账号信息',
     close: '知道了',
     copied: '已复制到剪贴板',
@@ -1720,6 +1722,7 @@ const zhCN = {
     quantityLabel: '数量',
     remainingInventory: '剩余库存：{count}',
     totalPrice: '合计：{totalPrice} 奶片',
+    buyerFeeBreakdown: '商品 {itemPrice} 奶片 + 平台手续费 {fee} 奶片，实付 {totalPrice} 奶片',
     executingTitle: '工作流执行中...',
     executingSubtitle: '请稍候，正在处理您的请求',
     seoFallbackTitle: '工作流详情',
@@ -1737,6 +1740,9 @@ const zhCN = {
     confirmExecutePerUse: '立即执行工作流 "{name}" 将扣除 {price} 奶片。确认执行吗？',
     confirmExecutePerUseMultiple:
       '立即执行工作流 "{name}" {count} 次，将扣除 {totalPrice} 奶片（{price} 奶片/次）。确认执行吗？',
+    confirmBuyOutlook: '购买 "{name}" 将扣除 {price} 奶片，购买后会自动添加到你的第三方邮箱。确认购买吗？',
+    confirmBuyOutlookMultiple:
+      '购买 "{name}" {count} 个，将扣除 {totalPrice} 奶片（{price} 奶片/个），购买后会自动添加到你的第三方邮箱。确认购买吗？',
     confirmExecuteSubscription:
       '立即执行工作流 "{name}"。如果您已订阅，则免费执行；否则需要先订阅。确认执行吗？',
     confirmExecuteSubscriptionMultiple:
@@ -1744,6 +1750,7 @@ const zhCN = {
     confirmExecuteDefault: '确认立即执行工作流 "{name}"？',
     confirmExecuteDefaultMultiple: '确认立即执行工作流 "{name}" {count} 次？',
     executionSuccess: '工作流执行成功',
+    outlookDelivered: '购买成功，已添加到第三方邮箱',
     executionFailed: '执行失败',
     executionSubmitted: '工作流已提交执行',
     executionBatchSummary:
@@ -1759,7 +1766,6 @@ const zhCN = {
     replySuccess: '回复成功',
     replyFailed: '回复失败',
     categories: {
-      mailbox: '邮箱套餐',
       plugin: '插件',
       automation: '自动化',
       data: '数据处理',
@@ -2205,8 +2211,6 @@ const zhCN = {
     pricingMode: '定价模式',
     price: '价格',
     coins: '奶片',
-    platformFeeNote: '平台费率说明：每笔交易平台收取 {rate}% 手续费',
-    actualIncome: '您的实际收益：{amount} 奶片/次',
     subscriptionPeriod: '订阅周期',
     inventoryEnabled: '启用库存管理',
     inventoryEnabledDesc: '开启后可在工作流列表中批量添加数据资源，购买用户将自动获得分配',
@@ -2224,7 +2228,6 @@ const zhCN = {
     categoryAccount: '账号获取',
     categoryDocument: '文档格式转换',
     categoryOther: '其它',
-    categoryMailbox: '邮箱套餐',
     pricingFree: '免费',
     pricingFreeDesc: '免费提供给所有用户使用',
     pricingFreeBadge: '推荐',

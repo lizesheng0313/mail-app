@@ -87,36 +87,6 @@
           </div>
         </div>
 
-        <!-- 邮箱套餐结果 -->
-        <div v-else-if="mailboxEmail" class="text-center py-6">
-          <div
-            class="w-16 h-16 bg-gradient-to-br from-blue-100 to-blue-200 rounded-full flex items-center justify-center mx-auto mb-4"
-          >
-            <svg
-              class="w-8 h-8 text-blue-600"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-              />
-            </svg>
-          </div>
-          <p class="text-base font-medium text-gray-900 mb-2">
-            {{ t('executionResult.mailboxCreated') }}
-          </p>
-          <p
-            class="text-sm text-primary-600 font-mono bg-primary-50 px-4 py-2 rounded-lg inline-block mb-3"
-          >
-            {{ mailboxEmail }}
-          </p>
-          <p class="text-sm text-gray-500">{{ t('executionResult.mailboxHint') }}</p>
-        </div>
-
         <!-- 无账号信息 -->
         <div v-else class="text-center py-8">
           <svg
@@ -172,25 +142,6 @@ const props = defineProps({
 })
 
 defineEmits(['close'])
-
-// 获取邮箱套餐结果
-const mailboxEmail = computed(() => {
-  const result = props.executionData.result
-  if (!result) return null
-
-  try {
-    const parsed = typeof result === 'string' ? JSON.parse(result) : result
-
-    // 检查是否是邮箱类型
-    if (parsed?.type === 'mailbox' && parsed?.email) {
-      return parsed.email
-    }
-    return null
-  } catch (e) {
-    console.error('📧 Parse error:', e)
-    return null
-  }
-})
 
 // 获取账号数据
 const accountData = computed(() => {

@@ -338,7 +338,21 @@
                 class="text-xs text-gray-500"
               >
                 {{ t('marketDetail.totalPrice', { totalPrice: totalExecutionPrice }) }}
+                <span v-if="platformFeeAmount > 0">
+                  （商品 {{ itemExecutionPrice }} + 手续费 {{ platformFeeAmount }}）
+                </span>
               </div>
+            </div>
+
+            <div
+              v-if="!workflow.inventory_enabled && workflow.pricing_model === 'per_use' && workflow.milk_coin_price > 0 && platformFeeAmount > 0"
+              class="rounded-md bg-gray-50 px-3 py-2 text-xs text-gray-600"
+            >
+              {{ t('marketDetail.buyerFeeBreakdown', {
+                itemPrice: itemExecutionPrice,
+                fee: platformFeeAmount,
+                totalPrice: totalExecutionPrice
+              }) }}
             </div>
 
             <!-- 立即执行按钮 -->
@@ -462,7 +476,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { getWorkflowDetail } from '@/api/workflowMarket'
 import { createReview, deleteReview } from '@/api/workflowMarket'
 import { workflowApi } from '@/api/workflow'
-import { getBalance } from '@/api/milkCoin'
+import { getBalance, getFeeConfig } from '@/api/milkCoin'
 import { showMessage } from '@/utils/message'
 import PageHeader from '@/components/PageHeader/index.vue'
 import ConfirmDialog from '@/components/ConfirmDialog/index.vue'
@@ -471,12 +485,14 @@ import ExecutionHistoryModal from '@/views/portal/workflows/components/Execution
 import ActionButton from '@/components/ActionButton/index.vue'
 import ImagePreview from '@/components/ImagePreview/index.vue'
 import { useUserStore } from '@/stores/user'
+import { useMailboxStore } from '@/stores/auth'
 import { setPageSeo } from '@/seo'
 import { getCurrentLocale } from '@/i18n'
 
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
+const mailboxStore = useMailboxStore()
 const { t, te } = useI18n()
 
 const workflowId = computed(() => parseInt(route.params.id))
@@ -493,6 +509,7 @@ const executionResultData = ref({
   status: '',
   result: null
 })
+const platformFeeRate = ref(0)
 
 // 评论相关
 const newComment = ref('')
@@ -560,10 +577,26 @@ const maxExecutionCount = computed(() => {
   return Math.max(1, Number(workflow.value.inventory_count || 0))
 })
 
-const totalExecutionPrice = computed(() => {
+const calculatePlatformFee = (amount) =>
+  Math.floor(Number(amount || 0) * platformFeeRate.value * 100 + 1e-9) / 100
+
+const itemExecutionPrice = computed(() =>
+  Number((Number(workflow.value?.milk_coin_price || 0) * selectedExecutionCount.value).toFixed(2))
+)
+
+const platformFeeAmount = computed(() => calculatePlatformFee(itemExecutionPrice.value))
+
+const totalExecutionPrice = computed(() =>
+  Number((itemExecutionPrice.value + platformFeeAmount.value).toFixed(2))
+)
+
+const buyerUnitPrice = computed(() => {
   const price = Number(workflow.value?.milk_coin_price || 0)
-  return price * selectedExecutionCount.value
+  const fee = calculatePlatformFee(price)
+  return Number((price + fee).toFixed(2))
 })
+
+const isOutlookWorkflow = computed(() => workflow.value?.category === 'outlook')
 
 const syncExecutionCountState = (nextCount) => {
   const normalizedCount = Math.min(Math.max(Number(nextCount) || 1, 1), maxExecutionCount.value)
@@ -619,15 +652,26 @@ const buildExecuteConfirmMessage = (count) => {
   const name = workflow.value.name
 
   if (model === 'per_use') {
+    if (isOutlookWorkflow.value) {
+      if (count > 1) {
+        return t('marketDetail.confirmBuyOutlookMultiple', {
+          name,
+          price: buyerUnitPrice.value,
+          count,
+          totalPrice: totalExecutionPrice.value
+        })
+      }
+      return t('marketDetail.confirmBuyOutlook', { name, price: buyerUnitPrice.value })
+    }
     if (count > 1) {
       return t('marketDetail.confirmExecutePerUseMultiple', {
         name,
-        price,
+        price: buyerUnitPrice.value,
         count,
-        totalPrice: price * count
+        totalPrice: totalExecutionPrice.value
       })
     }
-    return t('marketDetail.confirmExecutePerUse', { name, price })
+    return t('marketDetail.confirmExecutePerUse', { name, price: buyerUnitPrice.value })
   }
 
   if (model === 'subscription') {
@@ -704,7 +748,7 @@ const executeNow = async () => {
       const balanceRes = await getBalance()
       if (balanceRes.code === 0) {
         const userBalance = balanceRes.data.balance || 0
-        const totalPrice = price * executionCount
+        const totalPrice = totalExecutionPrice.value
 
         // 余额不足,引导充值
         if (userBalance < totalPrice) {
@@ -761,6 +805,12 @@ const executeNow = async () => {
 
         if (response.code !== 0) {
           showMessage(response.message || t('marketDetail.executionFailed'), 'error')
+          return
+        }
+
+        if (response.data?.inventory_type === 'outlook' || isOutlookWorkflow.value) {
+          await mailboxStore.fetchMailboxes()
+          showMessage(response.message || t('marketDetail.outlookDelivered'), 'success')
           return
         }
 
@@ -951,8 +1001,16 @@ const deleteReviewById = async (reviewId) => {
   }
 }
 
-onMounted(() => {
-  loadWorkflowDetail()
+onMounted(async () => {
+  try {
+    const feeRes = await getFeeConfig()
+    if (feeRes.code === 0) {
+      platformFeeRate.value = Number(feeRes.data?.platform_fee_rate || 0)
+    }
+  } catch (error) {
+    console.error('加载手续费配置失败:', error)
+  }
+  await loadWorkflowDetail()
 })
 
 watch(
