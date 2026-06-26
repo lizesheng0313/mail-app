@@ -30,6 +30,7 @@ const AdminUserManagement = () => import('@/views/admin/user-management/index.vu
 const WorkflowReview = () => import('@/views/admin/workflow-review/index.vue')
 const FinanceSettlement = () => import('@/views/admin/finance-settlement/index.vue')
 const AnnouncementManagement = () => import('@/views/admin/announcement-management/index.vue')
+const HelpCenterManagement = () => import('@/views/admin/help-center/index.vue')
 const TransactionManagement = () => import('@/views/admin/transaction-management/index.vue')
 const MiniappManagement = () => import('@/views/admin/miniapp-management/index.vue')
 const MiniappConfig = () => import('@/views/admin/miniapp-config/index.vue')
@@ -523,6 +524,11 @@ const router = createRouter({
           path: 'announcements',
           name: 'admin-announcements',
           component: AnnouncementManagement
+        },
+        {
+          path: 'help-center',
+          name: 'admin-help-center',
+          component: HelpCenterManagement
         },
         {
           path: 'miniapp-management',

@@ -239,6 +239,20 @@
           <!-- 一级菜单：系统监控 -->
           <div class="mb-2">
             <router-link
+              to="/admin/help-center"
+              class="flex items-center px-3 py-2 text-sm font-medium rounded-md hover:bg-gray-50 transition-colors"
+              :class="$route.path === '/admin/help-center' ? 'bg-primary-50 text-primary-700' : 'text-gray-700 hover:text-gray-900'"
+            >
+              <svg class="mr-3 h-5 w-5" :class="$route.path === '/admin/help-center' ? 'text-primary-500' : 'text-gray-400'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h8M8 14h5m-7 7h12a2 2 0 002-2V7a2 2 0 00-2-2h-4l-2-2H6a2 2 0 00-2 2v14a2 2 0 002 2z" />
+              </svg>
+              帮助中心
+            </router-link>
+          </div>
+
+          <!-- 一级菜单：系统监控 -->
+          <div class="mb-2">
+            <router-link
               to="/admin/monitoring"
               class="flex items-center px-3 py-2 text-sm font-medium rounded-md hover:bg-gray-50 transition-colors"
               :class="$route.path === '/admin/monitoring' ? 'bg-primary-50 text-primary-700' : 'text-gray-700 hover:text-gray-900'"
