@@ -52,37 +52,77 @@
         :emptyText="t('sharePage.noMailbox')"
         @select="handleSelectMailbox"
       >
-        <template #content="{ mailboxes, selectedId, onSelect }">
-          <div
+        <template #content="{ mailboxes, selectedId, batchMode, selectedIds, toggleSelection, onSelect }">
+          <MailboxCard
             v-for="mailbox in mailboxes"
             :key="mailbox.id"
-            @click="onSelect(mailbox)"
-            :class="['group p-3 rounded-lg hover:bg-primary-100 cursor-pointer transition-colors', 
-              selectedId === mailbox.id ? 'bg-primary-100' : 'bg-gray-50']"
+            :batch-mode="batchMode"
+            :checked="selectedIds.includes(mailbox.id)"
+            :card-class="[
+              'cursor-pointer transition-colors',
+              selectedId === mailbox.id ? 'bg-primary-100 border-primary-200' : 'bg-gray-50 hover:bg-primary-50'
+            ]"
+            @click="batchMode ? toggleSelection(mailbox.id) : onSelect(mailbox)"
+            @toggle-check="toggleSelection(mailbox.id)"
           >
-            <div class="flex items-start justify-between gap-2">
-              <div class="flex-1 min-w-0">
-                <div class="flex items-center gap-2">
-                  <div class="w-2 h-2 rounded-full bg-green-500 flex-shrink-0"></div>
-                  <code class="text-sm text-gray-900 truncate">{{ mailbox.email || mailbox.email_address }}</code>
-                </div>
-                <div class="text-xs text-gray-600 mt-1 flex items-center justify-between">
-                  <span>{{ t('common.createdAt') }}：{{ formatDate(mailbox.created_at || mailbox.created_at_ms) }}</span>
-                  <span v-if="mailboxType === 'system' && mailbox.expires_at_ms" class="text-orange-600">
-                    {{ t('common.expiresAtLabel') }}：{{ formatDate(mailbox.expires_at_ms) }}
-                  </span>
-                </div>
-              </div>
-              <div class="opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex-shrink-0">
-                <ActionButton
-                  icon="copy"
-                  variant="copy"
-                  :tooltip="t('sharePage.copyMailbox')"
-                  @click.stop="copyMailboxAddress(mailbox.email || mailbox.email_address)"
-                />
-              </div>
+            <div class="flex items-center gap-2 min-w-0">
+              <div class="w-2 h-2 rounded-full bg-green-500 flex-shrink-0"></div>
+              <code class="block text-sm text-gray-900 truncate">{{ mailbox.email || mailbox.email_address }}</code>
             </div>
-          </div>
+            <div class="text-xs text-gray-600 mt-1 flex items-center justify-between">
+              <span>{{ t('common.createdAt') }}：{{ formatDate(mailbox.created_at || mailbox.created_at_ms) }}</span>
+              <span v-if="mailboxType === 'system' && mailbox.expires_at_ms" class="text-orange-600">
+                {{ t('common.expiresAtLabel') }}：{{ formatDate(mailbox.expires_at_ms) }}
+              </span>
+            </div>
+            <template #actions>
+              <div
+                class="relative"
+                @mouseenter="handleActionMenuEnter(mailbox.id, $event)"
+                @mouseleave="handleActionMenuLeave(mailbox.id)"
+              >
+                <button
+                  type="button"
+                  class="flex h-8 w-8 items-center justify-center rounded-full text-gray-500 transition-colors hover:bg-white hover:text-gray-700"
+                  :title="t('externalMailbox.moreActions')"
+                  @click.stop="openActionMenu(mailbox.id, $event)"
+                >
+                  <BaseIcon name="more" size="sm" />
+                </button>
+                <div
+                  v-if="openMenuId === mailbox.id"
+                  :class="[
+                    'absolute right-0 z-20 min-w-[128px] overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg',
+                    openMenuPlacement === 'up' ? 'bottom-full' : 'top-full'
+                  ]"
+                  @click.stop
+                >
+                  <button
+                    type="button"
+                    class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-50"
+                    @click.stop="copyMailboxAddress(mailbox.email || mailbox.email_address)"
+                  >
+                    <BaseIcon name="copy" size="sm" />
+                    {{ t('externalMailbox.copyMailbox') }}
+                  </button>
+                  <button
+                    v-if="mailboxType === 'external'"
+                    type="button"
+                    class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    :disabled="fetchingShareEmailIds.includes(mailbox.id)"
+                    @click.stop="handleFetchShareEmails(mailbox)"
+                  >
+                    <BaseIcon
+                      name="cloud"
+                      size="sm"
+                      :class="{ 'animate-spin': fetchingShareEmailIds.includes(mailbox.id) }"
+                    />
+                    {{ fetchingShareEmailIds.includes(mailbox.id) ? t('externalMailbox.fetching') : t('externalMailbox.onlineFetch') }}
+                  </button>
+                </div>
+              </div>
+            </template>
+          </MailboxCard>
         </template>
       </MailboxList>
     </template>
@@ -155,12 +195,13 @@ import { useI18n } from 'vue-i18n'
 import PageHeader from '@/components/PageHeader/index.vue'
 import ThreeColumnLayout from '@/components/Mail/Layout/ThreeColumnLayout.vue'
 import MailboxList from '@/components/Mail/MailboxList/MailboxList.vue'
+import MailboxCard from '@/components/Mail/MailboxList/MailboxCard.vue'
 import EmailList from '@/components/Mail/EmailList/EmailList.vue'
 import EmailItem from '@/components/Mail/EmailItem.vue'
 import EmailDetail from '@/components/Mail/EmailDetail/EmailDetail.vue'
 import EmailContentModal from '@/components/Mail/EmailContentModal.vue'
 import Pagination from '@/components/Pagination/index.vue'
-import ActionButton from '@/components/ActionButton/index.vue'
+import BaseIcon from '@/components/BaseIcon/index.vue'
 import { mailboxShareAPI } from '@/api/mailboxShare'
 import { showMessage } from '@/utils/message'
 import { getCurrentLocale } from '@/i18n'
@@ -177,6 +218,7 @@ const expireAt = ref(null)
 const selectedMailbox = ref(null)
 
 const loadingEmails = ref(false)
+const fetchingShareEmailIds = ref([])
 const emails = ref([])
 const currentPage = ref(1)
 const pageSize = ref(20)
@@ -189,6 +231,9 @@ const readEmailIds = ref(new Set()) // 本地记录已读的邮件ID
 // 邮件弹窗相关
 const showEmailModal = ref(false)
 const modalEmail = ref(null)
+const openMenuId = ref(null)
+const openMenuPlacement = ref('down')
+let closeMenuTimer = null
 
 // 打开邮件弹窗
 const openEmailModal = (email) => {
@@ -327,6 +372,72 @@ const handleSelectEmail = async (email) => {
   }
 }
 
+const closeActionMenu = () => {
+  if (closeMenuTimer) {
+    clearTimeout(closeMenuTimer)
+    closeMenuTimer = null
+  }
+  openMenuId.value = null
+}
+
+const openActionMenu = (mailboxId, event) => {
+  if (closeMenuTimer) {
+    clearTimeout(closeMenuTimer)
+    closeMenuTimer = null
+  }
+  const rect = event?.currentTarget?.getBoundingClientRect?.()
+  if (rect) {
+    const spaceBelow = window.innerHeight - rect.bottom
+    openMenuPlacement.value = spaceBelow < 120 && rect.top > spaceBelow ? 'up' : 'down'
+  }
+  openMenuId.value = openMenuId.value === mailboxId ? null : mailboxId
+}
+
+const handleActionMenuEnter = (mailboxId, event) => {
+  if (closeMenuTimer) {
+    clearTimeout(closeMenuTimer)
+    closeMenuTimer = null
+  }
+  if (openMenuId.value === mailboxId) return
+  openActionMenu(mailboxId, event)
+}
+
+const handleActionMenuLeave = (mailboxId) => {
+  if (openMenuId.value !== mailboxId) return
+  closeMenuTimer = setTimeout(() => {
+    if (openMenuId.value === mailboxId) {
+      openMenuId.value = null
+    }
+  }, 180)
+}
+
+const handleFetchShareEmails = async (mailbox) => {
+  const targetMailboxId = mailbox?.id
+  if (mailboxType.value !== 'external' || !targetMailboxId || fetchingShareEmailIds.value.includes(targetMailboxId)) return
+  const shareToken = route.params.token
+  fetchingShareEmailIds.value = [...fetchingShareEmailIds.value, targetMailboxId]
+  closeActionMenu()
+  try {
+    const res = await mailboxShareAPI.fetchShareEmails(shareToken, {
+      mailbox_id: targetMailboxId
+    })
+    if (res.code === 0) {
+      const messageType = res.data?.success_count === 0 && res.data?.fail_count > 0 ? 'error' : 'success'
+      showMessage(res.message || t('sharePage.fetchAllSuccess', { count: res.data?.new_email_count || 0 }), messageType)
+      currentPage.value = 1
+      selectedEmail.value = null
+      await loadEmails()
+    } else {
+      showMessage(res.message || t('sharePage.loadEmailsFailed'), 'error')
+    }
+  } catch (err) {
+    console.error('分享收取邮件失败:', err)
+    showMessage(err.response?.data?.detail || t('sharePage.loadEmailsFailed'), 'error')
+  } finally {
+    fetchingShareEmailIds.value = fetchingShareEmailIds.value.filter(id => id !== targetMailboxId)
+  }
+}
+
 const handlePageChange = (page) => {
   if (page < 1 || page > totalPages.value) return
   currentPage.value = page
@@ -336,6 +447,7 @@ const handlePageChange = (page) => {
 
 const copyMailboxAddress = (email) => {
   navigator.clipboard.writeText(email)
+  closeActionMenu()
   showMessage(t('sharePage.copied'), 'success')
 }
 

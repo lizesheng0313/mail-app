@@ -47,9 +47,10 @@ export const mailboxShareAPI = {
   /**
    * 收取分享的外部邮箱邮件（无需登录）
    * @param {string} shareToken - 分享token
+   * @param {Object} params - { mailbox_id?: number }
    */
-  fetchShareEmails(shareToken) {
-    return request.post(`/mailbox-share/${shareToken}/fetch-emails`)
+  fetchShareEmails(shareToken, params = {}) {
+    return request.post(`/mailbox-share/${shareToken}/fetch-emails`, null, { params })
   },
 
   /**
