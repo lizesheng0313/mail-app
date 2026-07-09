@@ -273,6 +273,7 @@ import batchLoginAPI from '@/api/batchLogin'
 import mailboxProxyApi from '@/api/mailboxProxy'
 import CustomSelect from '@/components/CustomSelect/index.vue'
 import { isTauri } from '@/services/api'
+import { showMessage } from '@/utils/message'
 const { t } = useI18n()
 
 // ===== Props & Emits =====
@@ -285,7 +286,7 @@ const loginMode = ref<'auto' | 'custom'>('auto')
 const enableSmtp = ref(true)
 const customHost = ref('')
 const customPort = ref(995)
-const results = ref<Array<{ email: string, status: 'pending' | 'success' | 'error' | 'skipped', message?: string }>>([])
+const results = ref<Array<{ row_id?: string, email: string, status: 'pending' | 'success' | 'error' | 'skipped', message?: string }>>([])
 const selectedProxyId = ref<number | ''>('')
 const proxyOptions = ref<any[]>([])
 
@@ -321,36 +322,7 @@ const oauthCurrentEmail = computed(() => {
 
 const oauthSuccessCount = computed(() => oauthAccounts.value.filter(a => a.status === 'success').length)
 const oauthFailCount = computed(() => oauthAccounts.value.filter(a => a.status === 'error').length)
-const previewInvalidRows = computed(() => {
-  const lines = String(accountsText.value || '')
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean)
-
-  return lines
-    .map((line) => {
-      const parts = line.split(/[\s]+|[-]{2,}|[—–]+|[,，]/).filter((part) => part.trim())
-      const email = String(parts[0] || '').trim()
-      const domain = (email.split('@')[1] || '').toLowerCase()
-      const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
-      const isOAuthToken = parts.length >= 4 && isOAuthTokenDomain(domain)
-      const password = String(parts.length >= 3 && !isOAuthToken ? parts[2] : parts[1] || '').trim()
-      const oauthClientId = String(parts[2] || '').trim()
-      const oauthRefreshToken = String(parts[3] || '').trim()
-
-      if (!validEmail) {
-        return { email: email || line, status: 'error' as const, message: '邮箱格式不对' }
-      }
-      if (!password) {
-        return { email, status: 'error' as const, message: '缺少密码或授权码' }
-      }
-      if (isOAuthToken && (!oauthClientId || !oauthRefreshToken)) {
-        return { email, status: 'error' as const, message: 'OAuth Token 缺少 client_id 或 refresh_token' }
-      }
-      return null
-    })
-    .filter(Boolean)
-})
+const previewInvalidRows = computed(() => parseAccountInput().invalidRows)
 const totalCount = computed(() => results.value.length)
 const successCount = computed(() => results.value.filter((item) => item.status === 'success').length)
 const errorCount = computed(() => results.value.filter((item) => item.status === 'error').length)
@@ -495,90 +467,124 @@ const isOAuthTokenDomain = (domain: string) => {
   )
 }
 
-const parseAccounts = () => {
+const EMAIL_INPUT_PATTERN = /^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+$/
+
+const normalizeAccountInputLine = (line: string) =>
+  String(line || '').trim().replace(/^(?:卡号|账号|邮箱)[：:]\s*/i, '')
+
+const splitAccountInputLine = (line: string) =>
+  normalizeAccountInputLine(line).split(/[\s]+|[-]{2,}|[—–]+|[,，]/).filter(p => p.trim())
+
+const isValidMailboxEmail = (email: string) => EMAIL_INPUT_PATTERN.test(String(email || '').trim())
+
+const parseAccountInput = () => {
   const mode = loginMode.value
-  const lines = accountsText.value.trim().split('\n')
+  const lines = String(accountsText.value || '').split('\n')
   const accounts: any[] = []
+  const invalidRows: Array<{ row_id: string, email: string, status: 'error', message: string }> = []
 
   lines.forEach((line, index) => {
     if (!line.trim()) return
 
-    let processedLine = line.trim()
-    processedLine = processedLine.replace(/^卡号[：:]\s*/i, '')
+    const parts = splitAccountInputLine(line)
+    const rawEmail = String(parts[0] || '').trim()
+    const email = rawEmail.toLowerCase()
+    const rowId = `${index}-${email || 'unknown'}`
 
-    const parts = processedLine.split(/[\s]+|[-]{2,}|[—–]+|[,，]/).filter(p => p.trim())
-
-    if (parts.length >= 2) {
-      const email = parts[0].trim()
-      const domain = (email.split('@')[1] || '').toLowerCase()
-      const rowId = `${index}-${email || 'unknown'}`
-
-      // 4段格式：邮箱----密码----Client_ID----Refresh_Token（OAuth Token 批量导入）
-      if (parts.length >= 4 && isOAuthTokenDomain(domain)) {
-        const password = parts[1].trim()
-        const oauthClientId = parts[2].trim()
-        const oauthRefreshToken = parts[3].trim()
-
-        accounts.push({
-          row_id: rowId,
-          email,
-          password,
-          verify_smtp: enableSmtp.value,
-          oauth_client_id: oauthClientId,
-          oauth_refresh_token: oauthRefreshToken,
-        })
-        return
-      }
-
-      const password = parts.length >= 3 ? parts[2].trim() : parts[1].trim()
-
-      let proto: 'auto' | 'imap' | 'pop3' = 'auto'
-      if (mode === 'auto') {
-        proto = 'auto'
-      } else {
-        const port = customPort.value || 0
-        if (port === 110 || port === 995) {
-          proto = 'pop3'
-        } else {
-          proto = 'imap'
-        }
-      }
-
-      const account: any = { email, password, protocol: proto, verify_smtp: enableSmtp.value }
-      account.row_id = rowId
-      if (selectedProxyId.value) {
-        account.proxy_id = Number(selectedProxyId.value)
-      }
-
-      if (mode === 'custom' && customHost.value) {
-        if (proto === 'imap') {
-          account.imap_host = customHost.value
-          account.imap_port = customPort.value || 993
-        } else {
-          account.pop3_host = customHost.value
-          account.pop3_port = customPort.value || 995
-        }
-      }
-
-      accounts.push(account)
+    if (!isValidMailboxEmail(email)) {
+      invalidRows.push({
+        row_id: rowId,
+        email: rawEmail || line.trim(),
+        status: 'error',
+        message: `第 ${index + 1} 行：邮箱格式不对`
+      })
+      return
     }
+
+    const domain = (email.split('@')[1] || '').toLowerCase()
+    const isOAuthToken = parts.length >= 4 && isOAuthTokenDomain(domain)
+    const password = String(parts.length >= 3 && !isOAuthToken ? parts[2] : parts[1] || '').trim()
+    const oauthClientId = String(parts[2] || '').trim()
+    const oauthRefreshToken = String(parts[3] || '').trim()
+
+    if (!password) {
+      invalidRows.push({
+        row_id: rowId,
+        email,
+        status: 'error',
+        message: `第 ${index + 1} 行：缺少密码或授权码`
+      })
+      return
+    }
+
+    if (isOAuthToken && (!oauthClientId || !oauthRefreshToken)) {
+      invalidRows.push({
+        row_id: rowId,
+        email,
+        status: 'error',
+        message: `第 ${index + 1} 行：OAuth Token 缺少 client_id 或 refresh_token`
+      })
+      return
+    }
+
+    if (isOAuthToken) {
+      accounts.push({
+        row_id: rowId,
+        email,
+        password,
+        verify_smtp: enableSmtp.value,
+        oauth_client_id: oauthClientId,
+        oauth_refresh_token: oauthRefreshToken,
+      })
+      return
+    }
+
+    let proto: 'auto' | 'imap' | 'pop3' = 'auto'
+    if (mode === 'auto') {
+      proto = 'auto'
+    } else {
+      const port = customPort.value || 0
+      proto = port === 110 || port === 995 ? 'pop3' : 'imap'
+    }
+
+    const account: any = { row_id: rowId, email, password, protocol: proto, verify_smtp: enableSmtp.value }
+    if (selectedProxyId.value) {
+      account.proxy_id = Number(selectedProxyId.value)
+    }
+
+    if (mode === 'custom' && customHost.value) {
+      if (proto === 'imap') {
+        account.imap_host = customHost.value
+        account.imap_port = customPort.value || 993
+      } else {
+        account.pop3_host = customHost.value
+        account.pop3_port = customPort.value || 995
+      }
+    }
+
+    accounts.push(account)
   })
 
-  return accounts
+  return { accounts, invalidRows }
 }
 
 const handleSubmit = () => {
-  const accounts = parseAccounts()
+  const { accounts, invalidRows } = parseAccountInput()
+  if (invalidRows.length > 0) {
+    results.value = []
+    showMessage(`有 ${invalidRows.length} 行格式不对，已在右侧标出来`, 'warning')
+    return
+  }
   if (accounts.length > 0) {
     emit('submit', accounts)
+    return
   }
+  showMessage('请输入正确的邮箱账号', 'warning')
 }
 
 const extractEmailFromInputLine = (line: string) => {
-  const processedLine = String(line || '').trim().replace(/^卡号[：:]\s*/i, '')
-  const parts = processedLine.split(/[\s]+|[-]{2,}|[—–]+|[,，]/).filter(p => p.trim())
-  const email = String(parts[0] || '').trim()
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? normalizeEmail(email) : ''
+  const email = String(splitAccountInputLine(line)[0] || '').trim().toLowerCase()
+  return isValidMailboxEmail(email) ? normalizeEmail(email) : ''
 }
 
 const removeInputLineByEmail = (email: string) => {

@@ -257,6 +257,7 @@ import PageHeader from '@/components/PageHeader/index.vue'
 import ConfirmDialog from '@/components/ConfirmDialog/index.vue'
 import { isTauri } from '@/services/api'
 import { getCurrentLocale } from '@/i18n'
+import { openExternalAuthUrl } from '@/utils/openExternalAuthUrl'
 
 const router = useRouter()
 const route = useRoute()
@@ -360,8 +361,7 @@ const bindGoogle = async () => {
     })
     
     if (result.code === 0) {
-      // 跳转到 Google 授权页面
-      window.location.href = result.data.auth_url
+      await openExternalAuthUrl(result.data.auth_url)
     } else {
       showMessage(result.message || t('login.getAuthLinkFailed'), 'error')
     }

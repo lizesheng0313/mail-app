@@ -299,6 +299,7 @@ import BaseInput from '@/components/BaseInput/index.vue'
 import LanguageSwitcher from '@/components/LanguageSwitcher/index.vue'
 import { showMessage } from '@/utils/message'
 import { isTauri } from '@/services/api'
+import { openExternalAuthUrl } from '@/utils/openExternalAuthUrl'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -499,8 +500,7 @@ const loginWithGoogle = async () => {
     const result = await authAPI.getGoogleLoginUrl({ is_desktop: isTauri() })
     
     if (result.code === 0) {
-      // 跳转到 Google 授权页面
-      window.location.href = result.data.auth_url
+      await openExternalAuthUrl(result.data.auth_url)
     } else {
       error.value = result.message || t('login.getAuthLinkFailed')
     }

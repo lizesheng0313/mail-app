@@ -161,7 +161,8 @@ import { useI18n } from 'vue-i18n'
 import { useUserStore } from '@/stores/user'
 import { showMessage } from '@/utils/message'
 import { showConfirm } from '@/utils/dialog'
-import api from '@/services/api'
+import api, { isTauri } from '@/services/api'
+import { openExternalAuthUrl } from '@/utils/openExternalAuthUrl'
 
 const userStore = useUserStore()
 const { t } = useI18n()
@@ -252,9 +253,14 @@ const loadUserProfile = async () => {
 const bindGoogle = async () => {
   bindLoading.value = true
   try {
-    const res = await api.get('/auth/google/bind-url')
+    const res = await api.get('/auth/google/login-url', {
+      params: {
+        is_bind: true,
+        is_desktop: isTauri()
+      }
+    })
     if (res.code === 0 && res.data?.auth_url) {
-      window.location.href = res.data.auth_url
+      await openExternalAuthUrl(res.data.auth_url)
     } else {
       showMessage(t('settingsPage.bindUrlFailed'), 'error')
       bindLoading.value = false
