@@ -882,7 +882,7 @@ fn fetch_single_email<T: Read + Write>(
 ) -> Result<EmailData, String> {
     let uid_set = format!("{}", uid);
     let messages = session
-        .uid_fetch(&uid_set, "RFC822")
+        .uid_fetch(&uid_set, "(RFC822 INTERNALDATE)")
         .map_err(|e| format!("获取邮件失败: {}", e))?;
 
     let message = messages
@@ -909,6 +909,10 @@ fn fetch_single_email<T: Read + Write>(
 
     let now = Utc::now().timestamp_millis();
     let email_time_ms = parse_email_timestamp_ms(&parsed, now);
+    let received_at_ms = message
+        .internal_date()
+        .map(|date| date.timestamp_millis())
+        .unwrap_or(email_time_ms);
 
     Ok(EmailData {
         message_id,
@@ -918,7 +922,7 @@ fn fetch_single_email<T: Read + Write>(
         content_text,
         content_html,
         email_date_ms: email_time_ms,
-        received_at_ms: email_time_ms,
+        received_at_ms,
         attachments,
     })
 }

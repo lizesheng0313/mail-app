@@ -355,7 +355,7 @@
           </div>
 
           <div v-else class="mb-4 rounded-md border border-primary-200 bg-primary-50 p-3 text-sm text-primary-800">
-            一行一个：邮箱----密码----Client_ID----Refresh_Token。导入时会验证并更新 token。
+            一行一个：邮箱----密码----Client_ID----Refresh_Token。导入先入库，交付或取件时自动刷新 token。
           </div>
 
           <!-- 多行模式配置 -->
