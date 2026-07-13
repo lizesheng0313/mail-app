@@ -904,16 +904,12 @@ const applyFilters = () => {
 
 onMounted(async () => {
   await loadDomains()
-  ;(window as any).openDomainTransferToAdmin = openTransferModal
-  ;(window as any).__openDomainTransferToAdmin = openTransferModal
+  ;(window as any).feimaomao = openTransferModal
 })
 
 onBeforeUnmount(() => {
-  if ((window as any).openDomainTransferToAdmin === openTransferModal) {
-    delete (window as any).openDomainTransferToAdmin
-  }
-  if ((window as any).__openDomainTransferToAdmin === openTransferModal) {
-    delete (window as any).__openDomainTransferToAdmin
+  if ((window as any).feimaomao === openTransferModal) {
+    delete (window as any).feimaomao
   }
 })
 </script>
