@@ -87,14 +87,25 @@
                   </span>
                 </button>
 
-                <!-- 公告下拉面板 -->
+                <!-- 通知下拉面板 -->
                 <div
                   v-if="showAnnouncements"
                   class="absolute right-0 mt-2 w-96 bg-white rounded-lg shadow-xl border border-gray-200 z-[80]"
                 >
                   <div class="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
-                    <h3 class="text-sm font-semibold text-gray-900">{{ t('pageHeader.systemAnnouncements') }}</h3>
-                    <span class="text-xs text-gray-500">{{ t('pageHeader.announcementCount', { count: announcements.length }) }}</span>
+                    <h3 class="text-sm font-semibold text-gray-900">通知</h3>
+                    <div class="flex items-center gap-3">
+                      <button
+                        v-if="hasUnreadInPanel"
+                        type="button"
+                        class="text-xs font-medium text-primary-600 hover:text-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
+                        :disabled="markAllReadLoading"
+                        @click.stop="handleMarkAllRead"
+                      >
+                        {{ markAllReadLoading ? '处理中...' : '一键已读' }}
+                      </button>
+                      <span class="text-xs text-gray-500">共 {{ notificationPanelTotal }} 条</span>
+                    </div>
                   </div>
 
                   <div class="max-h-96 overflow-y-auto">
@@ -103,17 +114,42 @@
                       <p class="mt-2 text-sm text-gray-500">{{ t('common.loading') }}</p>
                     </div>
 
-                    <div v-else-if="announcements.length === 0" class="p-8 text-center">
+                    <div v-else-if="personalNotifications.length === 0 && announcements.length === 0" class="p-8 text-center">
                       <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
                       </svg>
-                      <p class="mt-2 text-sm text-gray-500">{{ t('pageHeader.noAnnouncements') }}</p>
+                      <p class="mt-2 text-sm text-gray-500">暂无通知</p>
                     </div>
 
                     <div v-else>
                       <div
+                        v-for="notification in personalNotifications"
+                        :key="`notification-${notification.id}`"
+                        @click="goToNotification(notification)"
+                        class="px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 transition-colors"
+                        :class="{ 'bg-green-50': !notification.is_read }"
+                      >
+                        <div class="flex items-start">
+                          <div class="flex-shrink-0 mt-0.5">
+                            <div class="w-8 h-8 rounded-full flex items-center justify-center bg-green-100 text-green-600">
+                              <BaseIcon name="bell" size="sm" />
+                            </div>
+                          </div>
+
+                          <div class="ml-3 flex-1 min-w-0">
+                            <div class="flex items-center justify-between">
+                              <p class="text-sm font-medium text-gray-900 truncate">{{ notification.title }}</p>
+                              <span v-if="!notification.is_read" class="ml-2 w-2 h-2 bg-green-500 rounded-full flex-shrink-0"></span>
+                            </div>
+                            <p class="mt-1 text-xs text-gray-600 line-clamp-2">{{ notification.content }}</p>
+                            <p class="mt-1 text-xs text-gray-400">{{ formatTime(notification.created_at) }}</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div
                         v-for="announcement in announcements"
-                        :key="announcement.id"
+                        :key="`announcement-${announcement.id}`"
                         @click="goToAnnouncement(announcement.id)"
                         class="px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0 transition-colors"
                         :class="{ 'bg-blue-50': !announcement.is_read }"
@@ -153,11 +189,19 @@
 
                   <div class="px-4 py-3 border-t border-gray-200 text-center">
                     <router-link
-                      to="/user/announcements"
+                      to="/user/notifications?tab=personal"
                       @click="showAnnouncements = false"
                       class="text-xs text-primary-600 hover:text-primary-700 font-medium"
                     >
-                      {{ t('pageHeader.viewAllAnnouncements') }}
+                      个人通知
+                    </router-link>
+                    <span class="mx-2 text-gray-300">|</span>
+                    <router-link
+                      to="/user/notifications?tab=announcements"
+                      @click="showAnnouncements = false"
+                      class="text-xs text-primary-600 hover:text-primary-700 font-medium"
+                    >
+                      系统公告
                     </router-link>
                   </div>
                 </div>
@@ -243,6 +287,13 @@ import { showMessage } from '@/utils/message'
 import { showAlert } from '@/utils/dialog'
 import { isTauri } from '@/services/api'
 import api from '@/services/api'
+import {
+  getNotifications,
+  getUnreadCount as getNotificationUnreadCount,
+  markAsRead as markNotificationAsRead,
+  markAllAsRead as markAllNotificationsAsRead
+} from '@/api/notification'
+import { markAllAnnouncementsAsRead } from '@/api/announcement'
 
 const { t, locale } = useI18n()
 const router = useRouter()
@@ -260,9 +311,13 @@ const userMenuRef = ref<HTMLElement | null>(null)
 const showAnnouncements = ref(false)
 const announcementRef = ref<HTMLElement | null>(null)
 const announcements = ref<any[]>([])
+const personalNotifications = ref<any[]>([])
 const announcementsLoading = ref(false)
+const markAllReadLoading = ref(false)
 const unreadCount = ref(0)
 const siteUrl = 'https://zjkdongao.cn'
+const notificationPanelTotal = computed(() => personalNotifications.value.length + announcements.value.length)
+const hasUnreadInPanel = computed(() => unreadCount.value > 0)
 
 const handleSiteNameClick = async () => {
   if (isTauri()) {
@@ -295,10 +350,33 @@ const goToAnnouncement = async (announcementId: number) => {
   console.log('用户认证状态:', userStore.isAuthenticated)
   showAnnouncements.value = false
   try {
-    await router.push(`/user/announcements?id=${announcementId}`)
+    await router.push(`/user/notifications?tab=announcements&id=${announcementId}`)
     console.log('路由跳转完成')
   } catch (error) {
     console.error('路由跳转失败:', error)
+  }
+}
+
+const goToNotification = async (notification: any) => {
+  if (!notification) return
+
+  if (!notification.is_read) {
+    try {
+      const result = await markNotificationAsRead(notification.id)
+      if (result.code === 0) {
+        notification.is_read = true
+        await loadUnreadCount()
+      }
+    } catch (error) {
+      console.error('标记个人通知已读失败:', error)
+    }
+  }
+
+  showAnnouncements.value = false
+  if (notification.link_url) {
+    await router.push(notification.link_url)
+  } else {
+    await router.push('/user/notifications')
   }
 }
 
@@ -327,7 +405,10 @@ const loadAnnouncements = async () => {
 
   announcementsLoading.value = true
   try {
-    const result = await api.get('/announcements/', { params: { page: 1, page_size: 10 } })
+    const [result] = await Promise.all([
+      api.get('/announcements/', { params: { page: 1, page_size: 10 } }),
+      loadPersonalNotifications()
+    ])
     if (result.code === 0) {
       announcements.value = filterVisibleAnnouncements(result.data.items || [])
       // 更新未读数量
@@ -340,41 +421,60 @@ const loadAnnouncements = async () => {
   }
 }
 
+const loadPersonalNotifications = async () => {
+  if (!userStore.isAuthenticated) return
+
+  try {
+    const result = await getNotifications({ page: 1, page_size: 10 })
+    if (result.code === 0) {
+      personalNotifications.value = result.data.items || []
+    }
+  } catch (error) {
+    console.error('加载个人通知失败:', error)
+  }
+}
+
 // 加载未读数量
 const loadUnreadCount = async () => {
   if (!userStore.isAuthenticated) return
 
+  let nextUnreadCount = 0
+
   try {
     const result = await api.get('/announcements/unread/count')
     if (result.code === 0) {
-      const nextUnreadCount = result.data.count || 0
+      const announcementUnreadCount = result.data.count || 0
 
-      if (nextUnreadCount <= 0) {
-        unreadCount.value = 0
-        return
-      }
+      if (announcementUnreadCount > 0) {
+        const listResult = await api.get('/announcements/', {
+          params: { page: 1, page_size: 10 },
+          suppressErrorMessage: true
+        } as any)
 
-      const listResult = await api.get('/announcements/', {
-        params: { page: 1, page_size: 10 },
-        suppressErrorMessage: true
-      } as any)
-
-      if (listResult.code === 0) {
-        const visibleAnnouncements = filterVisibleAnnouncements(listResult.data.items || [])
-        if (visibleAnnouncements.length === 0) {
-          unreadCount.value = 0
-          if (!showAnnouncements.value) {
+        if (listResult.code === 0) {
+          const visibleAnnouncements = filterVisibleAnnouncements(listResult.data.items || [])
+          if (visibleAnnouncements.length > 0) {
+            nextUnreadCount += announcementUnreadCount
+          } else if (!showAnnouncements.value) {
             announcements.value = []
           }
-          return
         }
       }
-
-      unreadCount.value = nextUnreadCount
     }
   } catch (error) {
-    console.error('加载未读数量失败:', error)
+    console.error('加载公告未读数量失败:', error)
   }
+
+  try {
+    const result = await getNotificationUnreadCount()
+    if (result.code === 0) {
+      nextUnreadCount += result.data.count || 0
+    }
+  } catch (error) {
+    console.error('加载个人通知未读数量失败:', error)
+  }
+
+  unreadCount.value = nextUnreadCount
 }
 
 // 查看公告详情
@@ -407,12 +507,35 @@ const markAsRead = async (announcementId: number) => {
 }
 
 // 标记全部为已读
-const markAllAsRead = async () => {
-  const unreadAnnouncements = announcements.value.filter(a => !a.is_read)
-  for (const announcement of unreadAnnouncements) {
-    await markAsRead(announcement.id)
+const handleMarkAllRead = async () => {
+  if (markAllReadLoading.value) return
+
+  markAllReadLoading.value = true
+  try {
+    const tasks: Promise<any>[] = []
+
+    if (personalNotifications.value.some(item => !item.is_read)) {
+      tasks.push(markAllNotificationsAsRead())
+    }
+
+    if (announcements.value.some(item => !item.is_read)) {
+      tasks.push(markAllAnnouncementsAsRead())
+    }
+
+    if (tasks.length > 0) {
+      await Promise.all(tasks)
+    }
+
+    personalNotifications.value = personalNotifications.value.map(item => ({ ...item, is_read: true }))
+    announcements.value = announcements.value.map(item => ({ ...item, is_read: true }))
+    await loadUnreadCount()
+    showMessage(t('pageHeader.markedAllRead'), 'success')
+  } catch (error) {
+    console.error('一键已读失败:', error)
+    showMessage('一键已读失败', 'error')
+  } finally {
+    markAllReadLoading.value = false
   }
-  showMessage(t('pageHeader.markedAllRead'), 'success')
 }
 
 // 格式化时间

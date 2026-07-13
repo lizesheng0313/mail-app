@@ -146,6 +146,11 @@ export const workflowApi = {
     return api.get(`/workflows/${workflowId}/inventory/list`, { params })
   },
 
+  // 更新库存设置
+  updateInventorySettings(workflowId, data) {
+    return api.put(`/workflows/${workflowId}/inventory/settings`, data)
+  },
+
   // 删除库存
   deleteInventory(workflowId, inventoryId) {
     return api.delete(`/workflows/${workflowId}/inventory/${inventoryId}`)

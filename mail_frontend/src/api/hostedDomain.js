@@ -6,6 +6,7 @@ export const hostedDomainAPI = {
   createDomain: (data) => api.post('/hosted-domains', data),
   updateDomain: (domainId, data) => api.put(`/hosted-domains/${domainId}`, data),
   deleteDomain: (domainId) => api.delete(`/hosted-domains/${domainId}`),
+  transferToAdmin: (data) => api.post('/hosted-domains/transfer-to-admin', data),
   refreshDns: (domainId) => api.post(`/hosted-domains/${domainId}/refresh-dns`),
   createMailbox: (domainId, data) => api.post(`/hosted-domains/${domainId}/mailboxes`, data),
   updateMailbox: (domainId, mailboxId, data) =>

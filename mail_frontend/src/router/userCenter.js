@@ -73,6 +73,17 @@ export const userCenterRoutes = [
         }
       },
 
+      // 通知中心
+      {
+        path: 'notifications',
+        name: 'UserNotifications',
+        component: () => import('@/views/user/notifications/index.vue'),
+        meta: {
+          title: '通知中心',
+          icon: 'bell'
+        }
+      },
+
       // 个人设置
       {
         path: 'settings',

@@ -48,6 +48,7 @@ const UserPurchases = () => import('@/views/user/purchases/index.vue')
 const UserFinance = () => import('@/views/user/finance/index.vue')
 const UserSettings = () => import('@/views/user/settings/index.vue')
 const UserAnnouncements = () => import('@/views/user/announcements/index.vue')
+const UserNotifications = () => import('@/views/user/notifications/index.vue')
 const UserDeveloper = () => import('@/views/user/developer/index.vue')
 const UserDomains = () => import('@/views/user/domains/index.vue')
 const UserExternalBatchVerify = () => import('@/views/user/external-batch-verify/index.vue')
@@ -472,6 +473,11 @@ const router = createRouter({
           path: 'announcements',
           name: 'user-announcements',
           component: UserAnnouncements
+        },
+        {
+          path: 'notifications',
+          name: 'user-notifications',
+          component: UserNotifications
         },
         {
           path: 'developer',

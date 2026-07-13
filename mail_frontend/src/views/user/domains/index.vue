@@ -439,11 +439,74 @@
       @confirm="confirmDeleteDomain"
       @cancel="showDeleteConfirm = false"
     />
+
+    <BaseModal
+      v-model="showTransferModal"
+      title="转让域名给管理员"
+      :show-close="true"
+      :show-footer="true"
+      :show-confirm="true"
+      :show-cancel="true"
+      :confirm-text="transferringDomains ? '转让中...' : '确认转让'"
+      :confirm-loading="transferringDomains"
+      :confirm-disabled="transferringDomains || !selectedTransferDomainIds.length || !transferAdminPassword.trim()"
+      size="lg"
+      @confirm="confirmTransferDomains"
+      @close="closeTransferModal"
+      @cancel="closeTransferModal"
+    >
+      <div class="space-y-4">
+        <div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-800">
+          只能转让已验证通过的域名；转让后，这些域名会进入管理员后台域名池，并从当前账号的我的域名中清空。
+        </div>
+        <label class="flex items-center gap-3 rounded-lg border border-gray-200 px-4 py-3">
+          <input
+            type="checkbox"
+            class="h-4 w-4 accent-primary-600"
+            :checked="isAllTransferDomainsSelected"
+            @change="toggleAllTransferDomains"
+          />
+          <span class="text-sm font-medium text-gray-900">全选当前域名</span>
+          <span class="ml-auto text-sm text-gray-500">
+            已选 {{ selectedTransferDomainIds.length }} / {{ transferableDomains.length }}
+          </span>
+        </label>
+        <div class="max-h-72 overflow-y-auto rounded-lg border border-gray-200">
+          <label
+            v-for="domain in transferableDomains"
+            :key="domain.id"
+            class="flex cursor-pointer items-center gap-3 border-b border-gray-100 px-4 py-3 last:border-b-0 hover:bg-gray-50"
+          >
+            <input
+              v-model="selectedTransferDomainIds"
+              type="checkbox"
+              class="h-4 w-4 accent-primary-600"
+              :value="Number(domain.id)"
+            />
+            <span class="min-w-0 flex-1">
+              <span class="block truncate text-sm font-medium text-gray-900">{{ domain.domain_name }}</span>
+              <span class="mt-1 block text-xs text-gray-500">
+                过期时间：{{ domain.expires_at ? formatDateOnly(domain.expires_at) : '-' }}
+              </span>
+            </span>
+          </label>
+          <div v-if="!transferableDomains.length" class="px-4 py-8 text-center text-sm text-gray-500">
+            暂无已验证通过的可转让域名
+          </div>
+        </div>
+        <BaseInput
+          v-model="transferAdminPassword"
+          label="管理员密码"
+          type="password"
+          placeholder="输入管理员密码后才允许转让"
+        />
+      </div>
+    </BaseModal>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AdminDataTable from '@/components/AdminDataTable/index.vue'
 import ActionButton from '@/components/ActionButton/index.vue'
@@ -462,14 +525,18 @@ const deleting = ref(false)
 const creatingDomain = ref(false)
 const savingEdit = ref(false)
 const refreshingDomainId = ref<number | null>(null)
+const transferringDomains = ref(false)
 
 const searchQuery = ref('')
 const domains = ref<any[]>([])
 const showDomainModal = ref(false)
 const showEditModal = ref(false)
 const showDeleteConfirm = ref(false)
+const showTransferModal = ref(false)
 const domainToDelete = ref<any | null>(null)
 const domainModalDetail = ref<any | null>(null)
+const selectedTransferDomainIds = ref<number[]>([])
+const transferAdminPassword = ref('')
 
 const getNextYearTodayDateInput = () => {
   const nextYearToday = new Date()
@@ -513,6 +580,23 @@ const filteredDomains = computed(() => {
 
 const domainModalTitle = computed(() =>
   domainModalDetail.value ? 'DNS 验证' : t('domainsPage.addTitle')
+)
+const isDomainTransferable = (domain: any) =>
+  !isDomainDeleted(domain) &&
+  String(domain?.status || '').toLowerCase() === 'verified' &&
+  String(domain?.verification_status || domain?.status || '').toLowerCase() === 'verified'
+
+const transferableDomains = computed(() => domains.value.filter(isDomainTransferable))
+
+const selectedTransferableDomainIds = computed(() => {
+  const transferableIdSet = new Set(transferableDomains.value.map((item) => Number(item.id)))
+  return selectedTransferDomainIds.value.filter((id) => transferableIdSet.has(Number(id)))
+})
+
+const isAllTransferDomainsSelected = computed(
+  () =>
+    transferableDomains.value.length > 0 &&
+    selectedTransferableDomainIds.value.length === transferableDomains.value.length
 )
 
 const getVerificationLabel = (status: string) => {
@@ -774,11 +858,62 @@ const confirmDeleteDomain = async () => {
   }
 }
 
+const openTransferModal = () => {
+  selectedTransferDomainIds.value = transferableDomains.value.map((item) => Number(item.id))
+  transferAdminPassword.value = ''
+  showTransferModal.value = true
+}
+
+const closeTransferModal = () => {
+  showTransferModal.value = false
+  transferAdminPassword.value = ''
+  selectedTransferDomainIds.value = []
+}
+
+const toggleAllTransferDomains = () => {
+  if (isAllTransferDomainsSelected.value) {
+    selectedTransferDomainIds.value = []
+    return
+  }
+  selectedTransferDomainIds.value = transferableDomains.value.map((item) => Number(item.id))
+}
+
+const confirmTransferDomains = async () => {
+  const domainIds = selectedTransferableDomainIds.value
+  selectedTransferDomainIds.value = domainIds
+  if (!domainIds.length || !transferAdminPassword.value.trim()) return
+  transferringDomains.value = true
+  try {
+    const response: any = await hostedDomainAPI.transferToAdmin({
+      domain_ids: domainIds,
+      admin_password: transferAdminPassword.value
+    })
+    if (response.code === 0) {
+      showMessage(`已转让 ${response.data?.transferred_count || 0} 个域名`, 'success')
+      closeTransferModal()
+      await loadDomains()
+    }
+  } finally {
+    transferringDomains.value = false
+  }
+}
+
 const applyFilters = () => {
   // 当前仅前端筛选，保留这个方法让交互和其它列表一致
 }
 
 onMounted(async () => {
   await loadDomains()
+  ;(window as any).openDomainTransferToAdmin = openTransferModal
+  ;(window as any).__openDomainTransferToAdmin = openTransferModal
+})
+
+onBeforeUnmount(() => {
+  if ((window as any).openDomainTransferToAdmin === openTransferModal) {
+    delete (window as any).openDomainTransferToAdmin
+  }
+  if ((window as any).__openDomainTransferToAdmin === openTransferModal) {
+    delete (window as any).__openDomainTransferToAdmin
+  }
 })
 </script>

@@ -23,3 +23,10 @@ export function getAnnouncementDetail(id) {
 export function markAnnouncementAsRead(id) {
   return api.put(`/announcements/${id}/read`)
 }
+
+/**
+ * 标记所有公告为已读
+ */
+export function markAllAnnouncementsAsRead() {
+  return api.post('/announcements/read-all')
+}

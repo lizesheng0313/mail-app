@@ -8,7 +8,7 @@ import api from '@/services/api'
  * 获取通知列表
  */
 export function getNotifications(params) {
-  return api.get('/notifications', { params })
+  return api.get('/notifications/', { params })
 }
 
 /**

@@ -24,6 +24,34 @@
 
       <!-- 操作栏 -->
       <div class="px-6 py-3 border-b bg-white flex-shrink-0">
+        <div class="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+          <div class="text-sm text-gray-600">
+            可售库存
+            <span class="ml-1 font-semibold text-gray-900">{{ stats.available }}</span>
+            <span class="mx-2 text-gray-300">|</span>
+            库存小于等于警戒线时通知
+          </div>
+          <div class="flex items-center gap-2">
+            <label class="text-sm text-gray-700">
+              警戒线
+              <input
+                v-model.number="inventoryWarningThreshold"
+                type="number"
+                min="0"
+                max="1000000"
+                class="ml-2 w-24 rounded-md border border-gray-300 px-2 py-1 text-sm text-gray-900 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
+              />
+            </label>
+            <button
+              type="button"
+              class="rounded-md bg-primary-600 px-3 py-1.5 text-sm text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
+              :disabled="savingSettings"
+              @click="saveInventorySettings"
+            >
+              {{ savingSettings ? '保存中...' : '保存设置' }}
+            </button>
+          </div>
+        </div>
         <div v-if="inventoryType === 'outlook'" class="mb-3 rounded-md bg-primary-50 p-3 text-sm text-primary-800">
           Outlook 邮箱库存：售出或取件后自动进入用户第三方邮箱，后续不再由库存任务刷新。
           <div class="mt-3 flex flex-wrap items-center gap-2">
@@ -466,6 +494,7 @@ const { t } = useI18n()
 const loading = ref(false)
 const adding = ref(false)
 const generatingCodes = ref(false)
+const savingSettings = ref(false)
 const showAddModal = ref(false)
 const showDeleteConfirm = ref(false)
 const showBatchDeleteConfirm = ref(false)
@@ -507,6 +536,7 @@ const stats = ref({
   consumed: 0,
   reserved: 0
 })
+const inventoryWarningThreshold = ref(1)
 
 // 计算属性
 const totalPages = computed(() => {
@@ -599,6 +629,28 @@ const exportTaobaoRedeemCodes = async () => {
   }
 }
 
+const saveInventorySettings = async () => {
+  const warningThreshold = Math.max(0, Number(inventoryWarningThreshold.value) || 0)
+  savingSettings.value = true
+  try {
+    const res = await workflowApi.updateInventorySettings(props.workflow.workflow_id, {
+      warning_threshold: warningThreshold
+    })
+    if (res.code === 0) {
+      inventoryWarningThreshold.value = res.data.inventory_warning_threshold ?? warningThreshold
+      showMessage('库存设置已保存', 'success')
+      emit('updated')
+    } else {
+      showMessage(res.message || '保存库存设置失败', 'error')
+    }
+  } catch (error) {
+    console.error('保存库存设置失败:', error)
+    showMessage('保存库存设置失败', 'error')
+  } finally {
+    savingSettings.value = false
+  }
+}
+
 const formatDate = (timestamp) => {
   if (!timestamp) return '-'
   return formatTimestamp(timestamp)
@@ -634,6 +686,7 @@ const fetchInventoryList = async () => {
       stats.value.available = res.data.available || 0
       stats.value.consumed = res.data.consumed || 0
       stats.value.reserved = res.data.reserved || 0
+      inventoryWarningThreshold.value = res.data.inventory_warning_threshold ?? 1
 
       // 清空选择状态（当列表刷新时）
       selectedIds.value = []
