@@ -15,7 +15,7 @@ export const mailboxAPI = {
   allocateMailbox: (data = {}) => api.post('/mailboxes/', data),
 
   // 获取系统域名列表（指定生成使用）
-  getSystemDomains: () => api.get('/mailboxes/system-domains'),
+  getSystemDomains: (params = {}) => api.get('/mailboxes/system-domains', { params }),
 
   // 指定规则批量生成系统邮箱
   customGenerateSystemMailboxes: (data = {}) => api.post('/mailboxes/system/custom-generate', data),

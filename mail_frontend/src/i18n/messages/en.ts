@@ -177,6 +177,7 @@ const en = {
       'Select one or more verified domains you can use for domain mailbox generation.',
     searchDomainsPlaceholder: 'Search domains',
     selectedDomainsCount: '{count} selected',
+    totalDomainsCount: '{count} total',
     noMatchingDomains: 'No matching domains',
     selectAllDomains: 'Select all',
     clearSelectedDomains: 'Clear',

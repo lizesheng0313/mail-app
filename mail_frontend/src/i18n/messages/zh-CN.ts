@@ -172,6 +172,7 @@ const zhCN = {
     customGenerateHostedDomainHint: '支持多选，只展示你已验证且可用的域名。',
     searchDomainsPlaceholder: '搜索域名',
     selectedDomainsCount: '已选 {count} 个域名',
+    totalDomainsCount: '共 {count} 个',
     noMatchingDomains: '没有匹配的域名',
     selectAllDomains: '全选',
     clearSelectedDomains: '清空',

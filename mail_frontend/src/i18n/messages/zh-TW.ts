@@ -172,6 +172,7 @@ const zhTW = {
     customGenerateHostedDomainHint: '支援多選，只顯示你已驗證且可用的網域。',
     searchDomainsPlaceholder: '搜尋網域',
     selectedDomainsCount: '已選 {count} 個網域',
+    totalDomainsCount: '共 {count} 個',
     noMatchingDomains: '沒有符合的網域',
     selectAllDomains: '全選',
     clearSelectedDomains: '清空',

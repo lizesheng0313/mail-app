@@ -3,13 +3,15 @@
     v-model="localVisible"
     :title="modalTitle"
     size="xl"
+    content-class="h-[calc(100vh-2rem)] sm:h-[calc(100vh-3rem)]"
+    body-class="min-h-0 overflow-hidden"
     :confirm-text="customGenerateLoading ? t('home.customGenerating') : t('home.customGenerateConfirm')"
     :confirm-loading="customGenerateLoading"
     :confirm-disabled="!canSubmitCustomGenerate"
     @confirm="handleCustomGenerate"
   >
-    <div class="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.15fr)_420px]">
-      <section class="min-w-0 rounded-2xl border border-gray-200 bg-white">
+    <div class="grid h-full min-h-0 grid-cols-1 gap-5 overflow-y-auto xl:grid-cols-[minmax(0,1.15fr)_420px] xl:overflow-hidden">
+      <section class="flex min-h-[520px] min-w-0 flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white xl:min-h-0">
         <div class="border-b border-gray-100 px-5 py-4">
           <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div class="min-w-0">
@@ -18,7 +20,10 @@
             </div>
             <div class="flex items-center gap-3 text-sm">
               <span class="rounded-full bg-primary-50 px-3 py-1 font-medium text-primary-700">
-                {{ t('home.selectedDomainsCount', { count: customGenerateForm.domain_ids.length }) }}
+                {{ t('home.selectedDomainsCount', { count: selectedDomainCount }) }}
+              </span>
+              <span class="whitespace-nowrap text-gray-500">
+                {{ t('home.totalDomainsCount', { count: domainTotal }) }}
               </span>
               <button
                 type="button"
@@ -47,7 +52,7 @@
           </div>
         </div>
 
-        <div class="px-4 py-4">
+        <div class="flex min-h-0 flex-1 flex-col px-4 py-4">
           <div
             v-if="domainLoading"
             class="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-8 text-sm text-gray-500"
@@ -62,7 +67,8 @@
           </div>
           <div
             v-else
-            class="max-h-[560px] space-y-2 overflow-y-auto pr-1"
+            class="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1"
+            @scroll.passive="handleDomainListScroll"
           >
             <button
               v-for="domain in filteredDomainOptions"
@@ -114,11 +120,14 @@
                 ✓
               </span>
             </button>
+            <div v-if="domainLoadingMore" class="py-3 text-center text-sm text-gray-500">
+              {{ t('common.loading') }}
+            </div>
           </div>
         </div>
       </section>
 
-      <section class="space-y-4">
+      <section class="min-h-0 space-y-4 xl:overflow-y-auto xl:pr-1">
         <div class="rounded-2xl border border-gray-200 bg-white p-4">
           <div class="grid grid-cols-1 gap-4">
             <label class="block">
@@ -392,7 +401,12 @@ const customRuleButtonActiveClass =
 
 const customGenerateLoading = ref(false)
 const domainLoading = ref(false)
+const domainLoadingMore = ref(false)
 const domainOptions = ref<any[]>([])
+const domainPage = ref(1)
+const domainTotal = ref(0)
+const domainHasMore = ref(false)
+const domainPageSize = 20
 const customGenerateBalance = ref(0)
 const domainSearchKeyword = ref('')
 const customGenerateForm = ref({
@@ -457,19 +471,12 @@ const resolvedSequenceStart = computed(() => {
   return Math.max(1, Math.floor(value))
 })
 
-const getDomainSuffix = (domainName: string) => {
-  const normalizedName = String(domainName || '').trim().toLowerCase()
-  if (!normalizedName) return ''
-  const parts = normalizedName.split('.').filter(Boolean)
-  return parts.length ? parts[parts.length - 1] : normalizedName
-}
-
-const sortDomainsBySuffix = (domains: any[]) =>
+const sortDomainsByCreatedAt = (domains: any[]) =>
   [...domains].sort((left, right) => {
+    const createdCompare = Number(right?.created_at || 0) - Number(left?.created_at || 0)
+    if (createdCompare !== 0) return createdCompare
     const leftName = String(left?.domain_name || '').toLowerCase()
     const rightName = String(right?.domain_name || '').toLowerCase()
-    const suffixCompare = getDomainSuffix(leftName).localeCompare(getDomainSuffix(rightName))
-    if (suffixCompare !== 0) return suffixCompare
     return leftName.localeCompare(rightName)
   })
 
@@ -487,6 +494,7 @@ const domainStrategyOptions = computed(() => [
 const selectedSystemDomains = computed(() =>
   domainOptions.value.filter((item) => customGenerateForm.value.domain_ids.includes(String(item.id)))
 )
+const selectedDomainCount = computed(() => customGenerateForm.value.domain_ids.length)
 
 const resolveDomainUnitPrice = (domain: any) => (Number(domain?.expires_at || 0) > 0 ? 0.1 : 0.2)
 
@@ -673,30 +681,40 @@ const normalizeHostedDomainRows = (items: any[] = []) =>
       is_public_domain: Boolean(item.is_public)
     }))
 
+const loadSystemDomainPage = async (page = 1, append = false) => {
+  if (append) domainLoadingMore.value = true
+  const domainsRes: any = await mailboxAPI.getSystemDomains({ page, page_size: domainPageSize })
+  if (domainsRes.code === 0 && domainsRes.data) {
+    const incoming = domainsRes.data.items || []
+    domainOptions.value = append ? [...domainOptions.value, ...incoming] : incoming
+    domainPage.value = Number(domainsRes.data.page || page)
+    domainTotal.value = Number(domainsRes.data.total || 0)
+    domainHasMore.value = Boolean(domainsRes.data.has_more)
+  }
+  domainLoadingMore.value = false
+}
+
 const loadCustomGenerateResources = async () => {
   domainLoading.value = true
   try {
     if (isHostedMailbox.value) {
       const domainsRes: any = await hostedDomainAPI.listDomains()
       if (domainsRes.code === 0 && domainsRes.data) {
-        domainOptions.value = sortDomainsBySuffix(
+        domainOptions.value = sortDomainsByCreatedAt(
           normalizeHostedDomainRows(domainsRes.data.items || [])
         )
+        domainTotal.value = domainOptions.value.length
+        domainHasMore.value = false
         syncCustomGenerateDomainSelection()
       }
       customGenerateBalance.value = 0
       return
     }
 
-    const [domainsRes, balanceRes] = await Promise.all([
-      mailboxAPI.getSystemDomains(),
+    const [, balanceRes] = await Promise.all([
+      loadSystemDomainPage(1),
       getBalance()
     ])
-
-    if (domainsRes.code === 0 && domainsRes.data) {
-      domainOptions.value = sortDomainsBySuffix(domainsRes.data.items || [])
-      syncCustomGenerateDomainSelection()
-    }
 
     if (balanceRes.code === 0 && balanceRes.data) {
       customGenerateBalance.value = Number(balanceRes.data.balance || 0)
@@ -732,7 +750,34 @@ const selectAllCustomDomains = () => {
       : []
     return
   }
-  customGenerateForm.value.domain_ids = filteredDomainOptions.value.map((item) => String(item.id))
+  selectAllSystemDomains()
+}
+
+const selectAllSystemDomains = async () => {
+  if (isHostedMailbox.value) {
+    customGenerateForm.value.domain_ids = filteredDomainOptions.value.map((item) => String(item.id))
+    return
+  }
+  domainLoadingMore.value = true
+  try {
+    const result: any = await mailboxAPI.getSystemDomains({ page: 1, page_size: 10000 })
+    if (result.code === 0 && result.data) {
+      const allItems = result.data.items || []
+      domainOptions.value = allItems
+      customGenerateForm.value.domain_ids = allItems.map((item: any) => String(item.id))
+      domainTotal.value = Number(result.data.total || allItems.length)
+      domainHasMore.value = false
+    }
+  } finally {
+    domainLoadingMore.value = false
+  }
+}
+
+const handleDomainListScroll = async (event: Event) => {
+  if (isHostedMailbox.value || domainLoadingMore.value || !domainHasMore.value) return
+  const element = event.currentTarget as HTMLElement
+  if (element.scrollTop + element.clientHeight < element.scrollHeight - 80) return
+  await loadSystemDomainPage(domainPage.value + 1, true)
 }
 
 const clearCustomDomains = () => {
@@ -898,6 +943,10 @@ const closeConfirmDialog = () => {
 const resetCustomGenerateState = () => {
   domainSearchKeyword.value = ''
   customGenerateForm.value = createDefaultCustomGenerateForm()
+  domainOptions.value = []
+  domainPage.value = 1
+  domainTotal.value = 0
+  domainHasMore.value = false
   closeConfirmDialog()
 }
 

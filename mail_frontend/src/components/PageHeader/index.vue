@@ -2,7 +2,7 @@
   <div>
     <!-- 顶部导航 -->
     <nav class="fixed inset-x-0 top-0 z-[70] bg-white shadow-sm border-b border-gray-200 mobile-nav">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="w-full px-[clamp(1rem,3vw,4rem)]">
         <div class="flex justify-between items-center h-16">
           <div class="flex items-center">
             <router-link

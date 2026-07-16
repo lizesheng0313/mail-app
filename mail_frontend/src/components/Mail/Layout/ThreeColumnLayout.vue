@@ -8,7 +8,7 @@
     <!-- 主要内容区域 -->
     <div
       :class="[
-        'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex-1 flex flex-col',
+        'w-full px-[clamp(1rem,3vw,4rem)] py-4 flex-1 flex flex-col',
         compactPanels ? 'overflow-hidden' : (pageScrollable ? 'overflow-y-visible' : 'overflow-y-auto md:overflow-hidden')
       ]"
     >
@@ -18,7 +18,7 @@
       </div>
 
       <!-- 三栏布局 -->
-      <div :class="['grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1', (pageScrollable || compactPanels) ? '' : 'md:overflow-hidden']">
+      <div :class="['mail-three-column-grid grid grid-cols-1 gap-6 flex-1', (pageScrollable || compactPanels) ? '' : 'md:overflow-hidden']">
         <!-- 左栏 -->
         <div class="lg:col-span-1 relative z-0">
           <div :class="['panel-container', { 'panel-container--scroll': pageScrollable, 'panel-container--compact': compactPanels }]">
@@ -52,7 +52,7 @@
     </div>
 
     <div v-if="$slots.footer" class="border-t border-gray-100 bg-white">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      <div class="w-full px-[clamp(1rem,3vw,4rem)] py-4">
         <slot name="footer"></slot>
       </div>
     </div>
@@ -123,16 +123,18 @@ withDefaults(
   background: #94a3b8;
 }
 
-/* 强制确保大屏幕下的三列布局 */
+/* 普通桌面保持三栏等宽，延续原有紧凑布局。 */
 @media (min-width: 1024px) {
-  .grid.grid-cols-1.lg\\:grid-cols-3 {
-    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  .mail-three-column-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
-/* 强制确保容器宽度一致性 */
-:deep(.max-w-7xl) {
-  max-width: 80rem !important;
-  width: 100% !important;
+/* 宽屏按信息密度分栏：列表紧凑，正文区获得更多空间。 */
+@media (min-width: 1920px) {
+  .mail-three-column-grid {
+    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1fr) minmax(0, 1.25fr);
+  }
 }
+
 </style>
