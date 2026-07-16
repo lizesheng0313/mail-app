@@ -53,24 +53,31 @@
           </div>
         </div>
         <div v-if="inventoryType === 'outlook'" class="mb-3 rounded-md bg-primary-50 p-3 text-sm text-primary-800">
-          Outlook 邮箱库存：售出或取件后自动进入用户第三方邮箱，后续不再由库存任务刷新。
+          Outlook 邮箱库存：导出后会从可售库存扣除，淘宝发货内容为账号原文。
           <div class="mt-3 flex flex-wrap items-center gap-2">
             <label class="text-xs text-primary-900">
               导出数量
               <input
-                v-model.number="redeemCodeForm.exportCount"
+                v-model.number="outlookExportForm.exportCount"
                 type="number"
                 min="1"
-                max="500"
+                max="5000"
                 class="ml-1 w-20 rounded-md border border-primary-200 px-2 py-1 text-xs text-gray-800 focus:outline-none focus:ring-2 focus:ring-primary-500"
               />
             </label>
             <button
-              @click="exportTaobaoRedeemCodes"
-              :disabled="generatingCodes"
+              @click="exportTaobaoOutlookAccounts"
+              :disabled="exportingOutlookAccounts"
               class="rounded-md bg-primary-600 px-3 py-1.5 text-xs text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {{ generatingCodes ? '导出中...' : '导出淘宝取件码' }}
+              {{ exportingOutlookAccounts ? '导出中...' : '导出淘宝账号' }}
+            </button>
+            <button
+              type="button"
+              @click="openOutlookRefreshModal"
+              class="rounded-md border border-primary-300 bg-white px-3 py-1.5 text-xs text-primary-700 hover:bg-primary-50"
+            >
+              更新淘宝卡密
             </button>
           </div>
         </div>
@@ -108,18 +115,6 @@
               ]"
             >
               {{ t('inventoryModal.consumed') }} ({{ stats.consumed }})
-            </button>
-            <button
-              v-if="inventoryType === 'outlook'"
-              @click="statusFilter = 'reserved'"
-              :class="[
-                'px-3 py-1.5 text-sm rounded-md transition-colors',
-                statusFilter === 'reserved'
-                  ? 'bg-primary-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              ]"
-            >
-              已锁定 ({{ stats.reserved }})
             </button>
             <!-- 批量删除模式切换 -->
             <div class="ml-2 border-l pl-2">
@@ -383,7 +378,7 @@
           </div>
 
           <div v-else class="mb-4 rounded-md border border-primary-200 bg-primary-50 p-3 text-sm text-primary-800">
-            一行一个：邮箱----密码----Client_ID----Refresh_Token。导入先入库，交付或取件时自动刷新 token。
+            一行一个：邮箱----密码----Client_ID----Refresh_Token。导入后可在库存里导出给淘宝自动发货。
           </div>
 
           <!-- 多行模式配置 -->
@@ -452,6 +447,88 @@
       </div>
     </Teleport>
 
+    <!-- Outlook 淘宝卡密更新弹窗 -->
+    <Teleport to="body">
+      <div
+        v-if="showOutlookRefreshModal"
+        class="fixed inset-0 z-[75] flex items-center justify-center bg-black bg-opacity-50"
+        @click.self="closeOutlookRefreshModal"
+      >
+        <div class="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-lg bg-white shadow-xl">
+          <div class="flex items-center justify-between border-b px-6 py-4">
+            <div>
+              <h3 class="text-lg font-semibold text-gray-900">更新 Outlook 淘宝卡密</h3>
+              <p class="mt-1 text-xs text-gray-500">输入旧卡密或长时间未售出的卡密，输出新的 账号----密码----Client_ID----Refresh_Token。</p>
+            </div>
+            <button @click="closeOutlookRefreshModal" class="text-gray-400 hover:text-gray-600">
+              <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          <div class="grid flex-1 gap-4 overflow-auto p-6 md:grid-cols-2">
+            <div class="flex min-h-[420px] flex-col">
+              <div class="mb-2 text-sm font-medium text-gray-700">输入</div>
+              <textarea
+                v-model="outlookRefreshInput"
+                class="min-h-0 flex-1 resize-none rounded-lg border-2 border-gray-200 px-4 py-3 font-mono text-sm text-gray-700 placeholder-gray-400 focus:border-primary-500 focus:outline-none"
+                :placeholder="`每行一个，例如：
+demo@outlook.com----密码----Client_ID----Refresh_Token
+demo@outlook.com----密码----Refresh_Token----Client_ID`"
+                style="tab-size: 4; white-space: pre; overflow: auto;"
+              ></textarea>
+            </div>
+            <div class="flex min-h-[420px] flex-col">
+              <div class="mb-2 flex items-center justify-between">
+                <span class="text-sm font-medium text-gray-700">输出</span>
+                <button
+                  type="button"
+                  class="text-xs text-primary-600 hover:text-primary-700 disabled:text-gray-400"
+                  :disabled="!outlookRefreshOutput"
+                  @click="copyOutlookRefreshOutput"
+                >
+                  复制输出
+                </button>
+              </div>
+              <textarea
+                v-model="outlookRefreshOutput"
+                readonly
+                class="min-h-0 flex-1 resize-none rounded-lg border-2 border-gray-200 bg-gray-50 px-4 py-3 font-mono text-sm text-gray-700 focus:outline-none"
+                placeholder="更新后的卡密会显示在这里，行数和输入保持一致"
+                style="tab-size: 4; white-space: pre; overflow: auto;"
+              ></textarea>
+            </div>
+            <div v-if="outlookRefreshFailedResults.length" class="md:col-span-2 max-h-32 overflow-y-auto rounded-md border border-red-200 bg-red-50 p-3">
+              <div v-for="item in outlookRefreshFailedResults" :key="`refresh-${item.line}`" class="text-xs text-red-700">
+                第 {{ item.line }} 行：{{ item.error || '更新失败' }}
+              </div>
+            </div>
+          </div>
+          <div class="flex items-center justify-between border-t bg-gray-50 px-6 py-4">
+            <div class="text-xs text-gray-500">
+              <span v-if="refreshingOutlookTokens">正在更新 {{ outlookRefreshProgress.done }} / {{ outlookRefreshProgress.total }}</span>
+              <span v-else-if="outlookRefreshOutput">成功 {{ outlookRefreshStats.success }} 行，失败 {{ outlookRefreshStats.failed }} 行</span>
+            </div>
+            <div class="flex gap-2">
+              <button
+                @click="refreshOutlookTaobaoAccounts"
+                :disabled="refreshingOutlookTokens || !outlookRefreshInput.trim()"
+                class="rounded-md bg-primary-600 px-4 py-2 text-sm text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {{ refreshingOutlookTokens ? '更新中...' : '开始更新' }}
+              </button>
+              <button
+                @click="closeOutlookRefreshModal"
+                class="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+              >
+                关闭
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
     <!-- 批量删除确认对话框 -->
   <ConfirmDialog
     :visible="showBatchDeleteConfirm"
@@ -493,9 +570,11 @@ const { t } = useI18n()
 // 响应式数据
 const loading = ref(false)
 const adding = ref(false)
-const generatingCodes = ref(false)
+const exportingOutlookAccounts = ref(false)
+const refreshingOutlookTokens = ref(false)
 const savingSettings = ref(false)
 const showAddModal = ref(false)
+const showOutlookRefreshModal = ref(false)
 const showDeleteConfirm = ref(false)
 const showBatchDeleteConfirm = ref(false)
 const deleteTargetId = ref(null)
@@ -514,9 +593,21 @@ const inventoryType = computed(() => {
 })
 const importResults = ref([])
 const failedImports = computed(() => importResults.value.filter(item => !item.success))
-const redeemCodeForm = ref({
+const outlookExportForm = ref({
   exportCount: 1
 })
+const outlookRefreshInput = ref('')
+const outlookRefreshOutput = ref('')
+const outlookRefreshResults = ref([])
+const outlookRefreshProgress = ref({
+  done: 0,
+  total: 0
+})
+const outlookRefreshStats = ref({
+  success: 0,
+  failed: 0
+})
+const outlookRefreshFailedResults = computed(() => outlookRefreshResults.value.filter(item => !item.success && !item.skipped))
 
 // 多行模式配置
 const multilineConfig = ref({
@@ -555,6 +646,15 @@ const openAddModal = () => {
 const closeAddModal = () => {
   showAddModal.value = false
   inventoryInput.value = ''
+}
+
+const openOutlookRefreshModal = () => {
+  showOutlookRefreshModal.value = true
+}
+
+const closeOutlookRefreshModal = () => {
+  if (refreshingOutlookTokens.value) return
+  showOutlookRefreshModal.value = false
 }
 
 // 进入批量删除模式
@@ -602,30 +702,92 @@ const downloadTextFile = (content, filename) => {
   window.URL.revokeObjectURL(url)
 }
 
-const exportTaobaoRedeemCodes = async () => {
+const exportTaobaoOutlookAccounts = async () => {
   if (inventoryType.value !== 'outlook') return
-  generatingCodes.value = true
+  exportingOutlookAccounts.value = true
   try {
-    const payload = {
-      code_count: Math.max(1, Number(redeemCodeForm.value.exportCount) || 1),
-      quantity: 1
-    }
-    const res = await workflowApi.generateOutlookRedeemCodes(props.workflow.workflow_id, payload)
+    const count = Math.max(1, Number(outlookExportForm.value.exportCount) || 1)
+    const res = await workflowApi.exportOutlookInventoryAccounts(props.workflow.workflow_id, count)
     if (res.code === 0) {
       if (res.data.content) {
-        downloadTextFile(res.data.content, `taobao-outlook-codes-${props.workflow.workflow_id}.txt`)
+        downloadTextFile(res.data.content, `taobao-outlook-accounts-${props.workflow.workflow_id}.txt`)
       }
-      showMessage(`已导出 ${res.data.created_count || 0} 个取件码`, 'success')
+      showMessage(`已导出 ${res.data.count || 0} 个 Outlook 账号`, 'success')
       await fetchInventoryList()
       emit('updated')
     } else {
-      showMessage(res.message || '导出取件码失败', 'error')
+      showMessage(res.message || '导出 Outlook 账号失败', 'error')
     }
   } catch (error) {
-    console.error('导出取件码失败:', error)
-    showMessage('导出取件码失败', 'error')
+    console.error('导出 Outlook 账号失败:', error)
+    showMessage('导出 Outlook 账号失败', 'error')
   } finally {
-    generatingCodes.value = false
+    exportingOutlookAccounts.value = false
+  }
+}
+
+const refreshOutlookTaobaoAccounts = async () => {
+  if (inventoryType.value !== 'outlook') return
+  const lines = outlookRefreshInput.value.split(/\r?\n/)
+  if (!lines.some(line => line.trim())) {
+    showMessage('请先粘贴需要更新的卡密', 'warning')
+    return
+  }
+
+  refreshingOutlookTokens.value = true
+  outlookRefreshOutput.value = ''
+  outlookRefreshResults.value = []
+  outlookRefreshStats.value = { success: 0, failed: 0 }
+  outlookRefreshProgress.value = { done: 0, total: lines.length }
+
+  const chunkSize = 10
+  const outputChunks = []
+
+  try {
+    for (let start = 0; start < lines.length; start += chunkSize) {
+      const chunk = lines.slice(start, start + chunkSize)
+      const res = await workflowApi.refreshOutlookInventoryAccountLines(
+        props.workflow.workflow_id,
+        chunk.join('\n')
+      )
+
+      if (res.code !== 0) {
+        throw new Error(res.message || '更新 Outlook 卡密失败')
+      }
+
+      outputChunks.push(res.data.content || '')
+      const batchResults = (res.data.results || []).map(item => ({
+        ...item,
+        line: start + Number(item.line || 0)
+      }))
+      outlookRefreshResults.value.push(...batchResults)
+      outlookRefreshStats.value.success += Number(res.data.success_count || 0)
+      outlookRefreshStats.value.failed += Number(res.data.failed_count || 0)
+      outlookRefreshOutput.value = outputChunks.join('\n')
+      outlookRefreshProgress.value.done = Math.min(start + chunk.length, lines.length)
+    }
+
+    if (outlookRefreshStats.value.failed > 0) {
+      showMessage(`更新完成，失败 ${outlookRefreshStats.value.failed} 行`, 'warning')
+    } else {
+      showMessage('Outlook 卡密更新完成', 'success')
+    }
+  } catch (error) {
+    console.error('更新 Outlook 卡密失败:', error)
+    showMessage(error.message || '更新 Outlook 卡密失败', 'error')
+  } finally {
+    refreshingOutlookTokens.value = false
+  }
+}
+
+const copyOutlookRefreshOutput = async () => {
+  if (!outlookRefreshOutput.value) return
+  try {
+    await navigator.clipboard.writeText(outlookRefreshOutput.value)
+    showMessage('已复制输出内容', 'success')
+  } catch (error) {
+    console.error('复制 Outlook 卡密输出失败:', error)
+    showMessage('复制失败', 'error')
   }
 }
 

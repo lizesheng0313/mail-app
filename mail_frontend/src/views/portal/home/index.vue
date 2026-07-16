@@ -226,12 +226,13 @@
             :selected-send-ids="selectedExternalMailboxIds"
             :smtp-accounts="smtpAccounts"
             :fetching-all="fetchingExternalEmails"
+            :history-fetch-progress="externalHistoryFetchProgress"
             :fetching-ids="externalMailboxFetchingIds"
             @select="handleSelectExternalMailbox"
             @share="handleShareMailboxes"
             @deleted="handleExternalMailboxesDeleted"
             @fetch-all="fetchAllExternalEmails"
-            @online-fetch-all="fetchAllExternalEmailsOnline"
+            @cancel-fetch-all="cancelExternalHistoryFetch"
             @refresh="handleRefreshExternalEmails"
             @oauth-reauthorize="handleOAuthMailboxReauthorize"
             @batch-mode-start="handleMailboxBatchStart"
@@ -585,6 +586,7 @@
     :message="downloadDialogMessage"
     :confirm-text="t('home.downloadDesktop')"
     :cancel-text="t('common.cancel')"
+    :show-warning="false"
     @confirm="openDownloadDesktop"
     @cancel="showDownloadDialog = false"
   />
@@ -813,6 +815,7 @@ const selectedOutboxMailboxId = ref<number | null>(null)
 const selectedOutboxRecord = ref<any>(null)
 const externalEmails = ref<any[]>([])
 const fetchingExternalEmails = ref(false)
+const externalHistoryFetchProgress = ref<any>(null)
 const showOnlyUnreadExternal = ref(false)
 const externalEmailPage = ref(1)
 const externalEmailPageSize = ref(20)
@@ -828,6 +831,18 @@ const EXTERNAL_FETCH_ALL_CONCURRENCY = Math.max(
 const TITLE_ALERT_POLL_INTERVAL = 5
 const TITLE_ALERT_PREFIX_RE = /^[【\[].*?[】\]]/
 const browserBaseTitle = ref(t('home.defaultBrowserTitle'))
+const titleAlertHiddenAt = ref(0)
+let browserTitleScrollTimer: number | null = null
+let browserTitleScrollIndex = 0
+let browserTitleScrollSource = ''
+let externalHistoryFetchPollTimer: ReturnType<typeof window.setTimeout> | null = null
+let externalHistoryRefreshTimer: ReturnType<typeof window.setTimeout> | null = null
+let externalHistoryRefreshInFlight: Promise<void> | null = null
+let externalHistoryRefreshPending = false
+let completedExternalHistoryFetchJobId: number | null = null
+let lastExternalHistoryFetchJobId: number | null = null
+let lastExternalHistoryFetchNewEmailCount = 0
+const EXTERNAL_HISTORY_FETCH_FALLBACK_POLL_INTERVAL_MS = 10000
 const titleAlertSeenEmailIds: Record<'system' | 'hosted' | 'external', Set<number>> = {
   system: new Set<number>(),
   hosted: new Set<number>(),
@@ -908,17 +923,47 @@ const getEmailTimestamp = (email: any) => {
     if (!Number.isNaN(timestamp) && timestamp > 0) {
       return timestamp
     }
-    const numericValue = Number(value)
-    if (Number.isFinite(numericValue) && numericValue > 0) {
-      return numericValue
-    }
+	    const numericValue = Number(value)
+	    if (Number.isFinite(numericValue) && numericValue > 0) {
+	      return numericValue < 1000000000000 ? numericValue * 1000 : numericValue
+	    }
   }
   return 0
+}
+
+const stopBrowserTitleScroll = (baseTitle?: string) => {
+  if (browserTitleScrollTimer !== null) {
+    window.clearInterval(browserTitleScrollTimer)
+    browserTitleScrollTimer = null
+  }
+  browserTitleScrollIndex = 0
+  browserTitleScrollSource = ''
+  if (baseTitle) {
+    document.title = baseTitle
+  }
+}
+
+const startBrowserTitleScroll = (titleText: string) => {
+  const text = `${titleText}     `
+  if (browserTitleScrollTimer !== null && browserTitleScrollSource === text) {
+    return
+  }
+  if (browserTitleScrollTimer !== null) {
+    window.clearInterval(browserTitleScrollTimer)
+  }
+  browserTitleScrollSource = text
+  browserTitleScrollIndex = 0
+  document.title = text
+  browserTitleScrollTimer = window.setInterval(() => {
+    browserTitleScrollIndex = (browserTitleScrollIndex + 1) % text.length
+    document.title = `${text.slice(browserTitleScrollIndex)}${text.slice(0, browserTitleScrollIndex)}`
+  }, 700)
 }
 
 const applyBrowserTitleAlert = () => {
   const baseTitle = normalizeBrowserBaseTitle(browserBaseTitle.value || document.title)
   if (!document.hidden || pendingTitleAlertEmails.size === 0) {
+    stopBrowserTitleScroll(baseTitle)
     if (document.title !== baseTitle) {
       document.title = baseTitle
     }
@@ -933,12 +978,12 @@ const applyBrowserTitleAlert = () => {
       ''
   ).trim()
   const alertPrefix = latestCode
-    ? t('home.titleAlertCode', { code: latestCode })
+    ? `来新消息了 ${t('home.titleAlertCode', { code: latestCode })}`
     : pendingTitleAlertEmails.size > 1
-      ? t('home.titleAlertNewMailCount', { count: pendingTitleAlertEmails.size })
-      : t('home.titleAlertNewMail')
+      ? `来新消息了 ${t('home.titleAlertNewMailCount', { count: pendingTitleAlertEmails.size })}`
+      : `来新消息了 ${t('home.titleAlertNewMail')}`
 
-  document.title = `${alertPrefix}${baseTitle}`
+  startBrowserTitleScroll(`${alertPrefix} ${baseTitle}`)
 }
 
 const clearBrowserTitleAlerts = () => {
@@ -970,8 +1015,11 @@ const registerTitleAlertEmails = (
 
     const alertKey = getTitleAlertEmailKey(mailType, email)
     const isUnread = !email?.is_read
+    const emailTimestamp = getEmailTimestamp(email)
+    const isNewAfterHidden =
+      titleAlertHiddenAt.value > 0 && (emailTimestamp <= 0 || emailTimestamp > titleAlertHiddenAt.value)
 
-    if (document.hidden && isUnread && !seenIds.has(emailId) && alertKey) {
+    if (document.hidden && isUnread && isNewAfterHidden && !seenIds.has(emailId) && alertKey) {
       pendingTitleAlertEmails.set(alertKey, email)
     }
     if (!isUnread && alertKey) {
@@ -1021,7 +1069,9 @@ const pollBrowserTitleAlerts = async () => {
     return
   }
 
-  rememberBrowserBaseTitle()
+  if (browserTitleScrollTimer === null && pendingTitleAlertEmails.size === 0) {
+    rememberBrowserBaseTitle()
+  }
 
   try {
     const systemEmails = await loadTitleAlertEmailsByType('system')
@@ -1055,11 +1105,13 @@ const pollBrowserTitleAlerts = async () => {
 
 const handleBrowserVisibilityChange = () => {
   if (document.hidden) {
+    titleAlertHiddenAt.value = Date.now()
     rememberBrowserBaseTitle()
     void pollBrowserTitleAlerts()
     return
   }
 
+  titleAlertHiddenAt.value = 0
   clearBrowserTitleAlerts()
   rememberBrowserBaseTitle()
 }
@@ -1688,11 +1740,6 @@ const switchMailboxType = (type: 'system' | 'hosted' | 'external') => {
 
 // 批量登录 - 打开添加账号弹窗
 const handleBatchLogin = async () => {
-  const tauriInvoke = await getTauriInvoke()
-  if (!tauriInvoke) {
-    openDesktopDownloadDialog()
-    return
-  }
   showBatchAddModal.value = true
 }
 
@@ -1841,7 +1888,6 @@ const handleBatchAddAccounts = async (accounts: any[]) => {
     let successCount = 0
     let failCount = 0
     let skippedCount = 0
-    let needDesktopDownload = false
     const pendingOAuthSet = new Set<string>()
 
     const normalizeEmail = (email: string) => (email || '').trim().toLowerCase()
@@ -1968,22 +2014,20 @@ const handleBatchAddAccounts = async (accounts: any[]) => {
           let refreshedToken: any = null
 
           if (provider === 'microsoft') {
-            if (!isTauri()) {
-              throw new Error('Outlook Token 导入需要桌面端本地刷新')
-            }
+            if (isTauri()) {
+              const tauriInvoke = await getTauriInvoke()
+              if (!tauriInvoke) {
+                throw new Error(t('home.desktopApiNotReady'))
+              }
 
-            const tauriInvoke = await getTauriInvoke()
-            if (!tauriInvoke) {
-              throw new Error(t('home.desktopApiNotReady'))
+              updatePendingForAccount(account, index, '正在本地刷新 Token')
+              refreshedToken = await tauriInvoke('refresh_oauth2_token_locally', {
+                provider,
+                email: account.email,
+                refreshToken: account.oauth_refresh_token,
+                clientId: account.oauth_client_id
+              })
             }
-
-            updatePendingForAccount(account, index, '正在本地刷新 Token')
-            refreshedToken = await tauriInvoke('refresh_oauth2_token_locally', {
-              provider,
-              email: account.email,
-              refreshToken: account.oauth_refresh_token,
-              clientId: account.oauth_client_id
-            })
           }
 
           updatePendingForAccount(account, index, '正在写入账号')
@@ -2173,9 +2217,34 @@ const handleBatchAddAccounts = async (accounts: any[]) => {
           enqueueOAuthPending(account.email, oauthProvider)
           updateResultForAccount(account, index, 'error', t('home.oauthAuthorizationRequired'))
         } else {
-          failCount++
-          needDesktopDownload = true
-          updateResultForAccount(account, index, 'error', t('home.desktopRequiredForAddMailbox'))
+          updatePendingForAccount(account, index, '正在网页登录验证')
+          const response = await batchLoginAPI.addAccount({
+            ...accountData,
+            skip_verify: false,
+            proxy_id: Number(account.proxy_id || 0) || null
+          }, {
+            suppressErrorMessage: true
+          })
+          if (response.code === 0) {
+            successCount++
+            updateResultForAccount(
+              account,
+              index,
+              'success',
+              t('home.localVerifySuccess', {
+                smtpStatus: t('home.smtpReceiveOnly'),
+                status: t('home.manualFetchReadySuffix')
+              })
+            )
+          } else {
+            const responseMessage = response.message || ''
+            if (isAlreadyAddedMessage(responseMessage)) {
+              markNoNeedOAuth(account, index)
+            } else {
+              failCount++
+              updateResultForAccount(account, index, 'error', responseMessage || t('home.mailboxVerifyFailed'))
+            }
+          }
         }
       } catch (error: any) {
         if (oauthProvider) {
@@ -2210,11 +2279,6 @@ const handleBatchAddAccounts = async (accounts: any[]) => {
     // 显示结果
     if (!isBatchAddCancelled() && successCount > 0) {
       showMessage(t('home.batchAddSuccess', { count: successCount }), 'success')
-    }
-
-    // 如果有普通邮箱需要桌面端，提示下载
-    if (!isBatchAddCancelled() && needDesktopDownload) {
-      openDesktopDownloadDialog(t('home.desktopRequiredMessage'))
     }
 
     // 刷新列表
@@ -2742,6 +2806,10 @@ onMounted(async () => {
     handleRecoveredMailboxEvent as EventListener
   )
   window.addEventListener(AI_UI_SYNC_EVENT, handleAIUiSyncEvent as EventListener)
+  window.addEventListener(
+    'external-mail-fetch-progress',
+    handleExternalHistoryFetchSocketProgress as EventListener
+  )
   document.addEventListener('visibilitychange', handleBrowserVisibilityChange)
   rememberBrowserBaseTitle()
   if (!titleAlertRefresh.isRunning.value) {
@@ -2779,6 +2847,8 @@ onMounted(async () => {
     await loadExternalMailboxAuthTypes()
   }
   syncAutoRefreshStates()
+  await nextTick()
+  await resumeExternalHistoryFetchPolling()
 })
 
 onBeforeUnmount(() => {
@@ -2787,8 +2857,20 @@ onBeforeUnmount(() => {
     handleRecoveredMailboxEvent as EventListener
   )
   window.removeEventListener(AI_UI_SYNC_EVENT, handleAIUiSyncEvent as EventListener)
+  window.removeEventListener(
+    'external-mail-fetch-progress',
+    handleExternalHistoryFetchSocketProgress as EventListener
+  )
   document.removeEventListener('visibilitychange', handleBrowserVisibilityChange)
   titleAlertRefresh.stop()
+  if (externalHistoryFetchPollTimer !== null) {
+    window.clearTimeout(externalHistoryFetchPollTimer)
+    externalHistoryFetchPollTimer = null
+  }
+  if (externalHistoryRefreshTimer !== null) {
+    window.clearTimeout(externalHistoryRefreshTimer)
+    externalHistoryRefreshTimer = null
+  }
   clearBrowserTitleAlerts()
 })
 
@@ -3019,7 +3101,16 @@ const fetchExternalMailboxEmails = async () => {
   fetchingExternalEmails.value = true
   try {
     if (!isTauri()) {
-      showMessage(t('home.desktopOnlyFetch'), 'warning')
+      setExternalMailboxFetchingIds([selectedExternalMailboxId.value])
+      const response = await batchLoginAPI.fetchExternalMailboxOnline(selectedExternalMailboxId.value)
+      if (response.code !== 0) {
+        showMessage(response.message || t('home.fetchFailed'), 'error')
+        return
+      }
+      showMessage(response.message || t('externalMailbox.fetchSuccess'), 'success')
+      externalEmailPage.value = 1
+      await loadExternalMailboxEmails()
+      await externalMailboxListRef.value?.loadAccounts?.()
       return
     }
 
@@ -3211,8 +3302,10 @@ const loadAllExternalEmails = async () => {
 
 // 收取所有外部邮箱的邮件
 const fetchAllExternalEmails = async () => {
-  // Web 端不支持“收取全部”
-  if (!isTauri()) return
+  if (!isTauri()) {
+    await fetchAllExternalEmailsOnline()
+    return
+  }
 
   // 防止重复点击
   if (fetchingExternalEmails.value) {
@@ -3354,6 +3447,234 @@ const fetchAllExternalEmails = async () => {
   }
 }
 
+const stopExternalHistoryFetchPolling = () => {
+  if (externalHistoryFetchPollTimer !== null) {
+    window.clearTimeout(externalHistoryFetchPollTimer)
+    externalHistoryFetchPollTimer = null
+  }
+}
+
+const refreshExternalEmailsAfterHistoryFetch = async () => {
+  if (selectedExternalMailboxId.value) {
+    externalEmailPage.value = 1
+    await loadExternalMailboxEmails()
+  } else {
+    await loadAllExternalEmails()
+  }
+  await externalMailboxListRef.value?.loadAccounts?.()
+}
+
+const runScheduledExternalHistoryRefresh = async () => {
+  if (externalHistoryRefreshInFlight) return
+
+  externalHistoryRefreshPending = false
+  externalHistoryRefreshInFlight = refreshExternalEmailsAfterHistoryFetch()
+  try {
+    await externalHistoryRefreshInFlight
+  } finally {
+    externalHistoryRefreshInFlight = null
+    if (externalHistoryRefreshPending && externalHistoryRefreshTimer === null) {
+      externalHistoryRefreshTimer = window.setTimeout(() => {
+        externalHistoryRefreshTimer = null
+        void runScheduledExternalHistoryRefresh()
+      }, 300)
+    }
+  }
+}
+
+const scheduleExternalHistoryRefresh = () => {
+  externalHistoryRefreshPending = true
+  if (externalHistoryRefreshTimer !== null || externalHistoryRefreshInFlight) return
+
+  externalHistoryRefreshTimer = window.setTimeout(() => {
+    externalHistoryRefreshTimer = null
+    void runScheduledExternalHistoryRefresh()
+  }, 300)
+}
+
+const refreshExternalEmailsWhenHistoryProgresses = async (progress: any) => {
+  const jobId = Number(progress?.id || 0) || null
+  if (jobId !== lastExternalHistoryFetchJobId) {
+    lastExternalHistoryFetchJobId = jobId
+    lastExternalHistoryFetchNewEmailCount = 0
+  }
+
+  const newEmailCount = Number(progress?.new_email_count || 0)
+  if (newEmailCount <= lastExternalHistoryFetchNewEmailCount) return
+
+  // 后端逐封提交后才增加该数；这里立即重载列表，不等待整箱历史收取完成。
+  lastExternalHistoryFetchNewEmailCount = newEmailCount
+  scheduleExternalHistoryRefresh()
+}
+
+const handleExternalHistoryFetchSocketProgress = (event: Event) => {
+  const payload = (event as CustomEvent)?.detail
+  if (payload?.type !== 'history_progress') return
+
+  const jobId = Number(payload.job_id || 0) || null
+  const newEmailCount = Number(payload.new_email_count || 0)
+  externalHistoryFetchProgress.value = {
+    ...(externalHistoryFetchProgress.value || {}),
+    id: jobId,
+    status: payload.job_status || externalHistoryFetchProgress.value?.status || 'running',
+    new_email_count: Math.max(
+      Number(externalHistoryFetchProgress.value?.new_email_count || 0),
+      newEmailCount
+    )
+  }
+
+  void refreshExternalEmailsWhenHistoryProgresses({
+    id: jobId,
+    new_email_count: newEmailCount
+  })
+
+  // 邮箱完成或失败时立即拉一次最终状态；单封入库事件不再触发状态轮询。
+  if (
+    payload.status === 'mailbox_completed' ||
+    payload.status === 'mailbox_failed' ||
+    payload.status === 'history_cancelled' ||
+    payload.job_status === 'cancelled'
+  ) {
+    void pollExternalHistoryFetchStatus()
+  }
+}
+
+const finishExternalHistoryFetch = async (progress: any) => {
+  stopExternalHistoryFetchPolling()
+  fetchingExternalEmails.value = false
+  clearExternalMailboxFetchingIds()
+
+  const jobId = Number(progress?.id || 0)
+  if (jobId && completedExternalHistoryFetchJobId === jobId) return
+  completedExternalHistoryFetchJobId = jobId || null
+
+  if (externalHistoryRefreshInFlight) {
+    await externalHistoryRefreshInFlight
+  }
+  if (externalHistoryRefreshTimer !== null) {
+    window.clearTimeout(externalHistoryRefreshTimer)
+    externalHistoryRefreshTimer = null
+  }
+  externalHistoryRefreshPending = false
+  await refreshExternalEmailsAfterHistoryFetch()
+  lastExternalHistoryFetchJobId = null
+  lastExternalHistoryFetchNewEmailCount = 0
+  const failedCount = Number(progress?.failed_mailbox_count || 0)
+  const completedCount = Number(progress?.completed_mailbox_count || 0)
+  const newEmailCount = Number(progress?.new_email_count || 0)
+  if (progress?.status === 'cancelled') {
+    showMessage(
+      t('externalMailbox.historyFetchCancelled', {
+        count: newEmailCount
+      }),
+      'success'
+    )
+    return
+  }
+  if (progress?.status === 'completed' && failedCount === 0) {
+    showMessage(
+      t('externalMailbox.historyFetchCompleted', {
+        success: completedCount,
+        count: newEmailCount
+      }),
+      'success'
+    )
+    return
+  }
+
+  showMessage(
+    progress?.error_message ||
+      t('externalMailbox.historyFetchCompletedWithFailures', {
+        success: completedCount,
+        failed: failedCount,
+        count: newEmailCount
+      }),
+    'error'
+  )
+}
+
+const pollExternalHistoryFetchStatus = async () => {
+  try {
+    const response = await batchLoginAPI.getExternalMailFetchAllStatus()
+    if (response.code !== 0) {
+      throw new Error(response.message || t('home.fetchFailed'))
+    }
+
+    const progress = response.data
+    externalHistoryFetchProgress.value = progress || null
+    if (!progress || !['queued', 'running'].includes(String(progress.status || ''))) {
+      if (progress) {
+        await finishExternalHistoryFetch(progress)
+      } else {
+        stopExternalHistoryFetchPolling()
+        fetchingExternalEmails.value = false
+        clearExternalMailboxFetchingIds()
+      }
+      return
+    }
+
+    await refreshExternalEmailsWhenHistoryProgresses(progress)
+    fetchingExternalEmails.value = true
+    setExternalMailboxFetchingIds(
+      externalMailboxListRef.value?.getOnlineFetchSupportedIds?.() || []
+    )
+    externalHistoryFetchPollTimer = window.setTimeout(
+      pollExternalHistoryFetchStatus,
+      EXTERNAL_HISTORY_FETCH_FALLBACK_POLL_INTERVAL_MS
+    )
+  } catch (error: any) {
+    stopExternalHistoryFetchPolling()
+    fetchingExternalEmails.value = false
+    clearExternalMailboxFetchingIds()
+    showMessage(error?.message || t('home.fetchFailed'), 'error')
+  }
+}
+
+const cancelExternalHistoryFetch = async () => {
+  try {
+    const response = await batchLoginAPI.cancelExternalMailFetchAll()
+    if (response.code !== 0) {
+      throw new Error(response.message || t('externalMailbox.historyFetchCancelFailed'))
+    }
+
+    const progress = response.data
+    externalHistoryFetchProgress.value = progress || externalHistoryFetchProgress.value
+    if (progress) {
+      await finishExternalHistoryFetch(progress)
+    } else {
+      stopExternalHistoryFetchPolling()
+      fetchingExternalEmails.value = false
+      clearExternalMailboxFetchingIds()
+      showMessage(response.message || t('externalMailbox.historyFetchCancelled', { count: 0 }), 'success')
+    }
+  } catch (error: any) {
+    showMessage(error?.message || t('externalMailbox.historyFetchCancelFailed'), 'error')
+  }
+}
+
+// 页面刷新不会中断后端的历史收取任务；重新进入时恢复进度展示和轮询。
+const resumeExternalHistoryFetchPolling = async () => {
+  if (isTauri()) return
+  try {
+    const response = await batchLoginAPI.getExternalMailFetchAllStatus()
+    if (response.code !== 0) return
+
+    const progress = response.data
+    if (!progress || !['queued', 'running'].includes(String(progress.status || ''))) return
+
+    externalHistoryFetchProgress.value = progress
+    lastExternalHistoryFetchJobId = Number(progress?.id || 0) || null
+    lastExternalHistoryFetchNewEmailCount = 0
+    fetchingExternalEmails.value = true
+    setExternalMailboxFetchingIds(
+      externalMailboxListRef.value?.getOnlineFetchSupportedIds?.() || []
+    )
+    await pollExternalHistoryFetchStatus()
+  } catch (error) {
+    console.warn('恢复第三方邮箱历史收取状态失败', error)
+  }
+}
+
 const fetchAllExternalEmailsOnline = async () => {
   if (fetchingExternalEmails.value) return
   fetchingExternalEmails.value = true
@@ -3363,22 +3684,28 @@ const fetchAllExternalEmailsOnline = async () => {
   try {
     const response = await batchLoginAPI.fetchAllExternalMailboxesOnline()
     if (response.code !== 0) {
-      showMessage(response.message || t('home.fetchFailed'), 'error')
+      throw new Error(response.message || t('home.fetchFailed'))
+    }
+
+    const progress = response.data
+    externalHistoryFetchProgress.value = progress || null
+    if (progress?.no_accounts) {
+      fetchingExternalEmails.value = false
+      clearExternalMailboxFetchingIds()
+      showMessage(response.message || t('externalMailbox.fetchSuccess'), 'success')
       return
     }
-    showMessage(response.message || t('externalMailbox.onlineFetchSuccess'), 'success')
-    if (selectedExternalMailboxId.value) {
-      externalEmailPage.value = 1
-      await loadExternalMailboxEmails()
-    } else {
-      await loadAllExternalEmails()
-    }
-    await externalMailboxListRef.value?.loadAccounts?.()
+
+    completedExternalHistoryFetchJobId = null
+    lastExternalHistoryFetchJobId = Number(progress?.id || 0) || null
+    lastExternalHistoryFetchNewEmailCount = 0
+    showMessage(response.message || t('externalMailbox.historyFetchStarted'), 'success')
+    await pollExternalHistoryFetchStatus()
   } catch (error: any) {
-    showMessage(error?.message || t('home.fetchFailed'), 'error')
-  } finally {
+    stopExternalHistoryFetchPolling()
     fetchingExternalEmails.value = false
     clearExternalMailboxFetchingIds()
+    showMessage(error?.message || t('home.fetchFailed'), 'error')
   }
 }
 
@@ -3399,13 +3726,31 @@ const backToAllHostedEmails = async () => {
 }
 
 // 处理外部邮件刷新（单个邮箱收取成功后调用）
-const handleRefreshExternalEmails = async () => {
-  // 如果选中了特定邮箱，刷新该邮箱的邮件列表
+const handleRefreshExternalEmails = async (payload?: { mailboxId?: number } | number) => {
+  const mailboxId = Number(
+    typeof payload === 'number' ? payload : payload?.mailboxId || 0
+  )
+
+  if (mailboxId > 0) {
+    selectedExternalMailboxId.value = mailboxId
+    selectedExternalMailboxIds.value = []
+    selectedExternalAuthType.value =
+      externalMailboxAuthTypeMap.value[mailboxId] || 'password'
+    externalEmailPage.value = 1
+    currentView.value = 'emails'
+    externalEmails.value = []
+    externalEmailTotal.value = 0
+    selectedExternalEmailId.value = null
+    mailStore.clearSelectedEmail()
+    await loadExternalMailboxEmails()
+    externalEmailListRef.value?.scrollToTop?.()
+    return
+  }
+
   if (selectedExternalMailboxId.value) {
     externalEmailPage.value = 1
     await loadExternalMailboxEmails()
   } else {
-    // 否则刷新所有外部邮件
     await loadAllExternalEmails()
   }
 }

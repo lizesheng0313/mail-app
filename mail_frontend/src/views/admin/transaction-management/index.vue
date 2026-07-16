@@ -61,14 +61,14 @@
 
     <!-- 筛选栏 -->
     <div v-if="activeTab !== 'refunds'" class="bg-white rounded-lg shadow p-4 mb-4">
-      <div class="flex items-center gap-4">
+      <div class="flex flex-wrap items-center gap-4">
         <!-- 搜索框 -->
-        <div class="flex-1">
+        <div class="w-full max-w-[420px]">
           <input
             v-model="searchKeyword"
             type="text"
             placeholder="搜索用户邮箱或描述..."
-            class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            class="h-10 w-full px-3 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             @keyup.enter="handleSearch"
           />
         </div>
@@ -321,6 +321,7 @@ import { showAlert, showPrompt } from '@/utils/dialog'
 import AdminDataTable from '@/components/AdminDataTable/index.vue'
 import ActionButton from '@/components/ActionButton/index.vue'
 import { adminGetWorkflowRefunds, adminForceWorkflowRefund } from '@/api/workflowMarket'
+import { extractFetchErrorMessage } from '@/services/api'
 
 const loading = ref(false)
 const searchKeyword = ref('')
@@ -370,6 +371,10 @@ const loadData = async () => {
       }
     })
 
+    if (!response.ok) {
+      throw new Error(await extractFetchErrorMessage(response, '加载失败'))
+    }
+
     const result = await response.json()
     if (result.code === 0) {
       transactions.value = result.data.items || []
@@ -379,7 +384,7 @@ const loadData = async () => {
     }
   } catch (error) {
     console.error('加载失败:', error)
-    showMessage('加载失败', 'error')
+    showMessage(error?.message || '加载失败', 'error')
   } finally {
     loading.value = false
   }

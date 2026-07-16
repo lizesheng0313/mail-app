@@ -2,14 +2,14 @@
   <div class="p-6">
     <!-- 操作栏 -->
     <div class="bg-white rounded-lg shadow p-4 mb-4">
-      <div class="flex items-center gap-4">
+      <div class="flex flex-wrap items-center gap-4">
         <!-- 搜索框 -->
-        <div class="flex-1">
+        <div class="w-full max-w-[420px]">
           <input
             v-model="searchKeyword"
             type="text"
             placeholder="搜索公告标题或内容..."
-            class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            class="h-10 w-full px-3 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             @keyup.enter="handleSearch"
           />
         </div>

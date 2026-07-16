@@ -684,6 +684,12 @@ const connectSocket = async () => {
     void handleSocketPayload(payload)
   })
 
+  // 复用全局 Socket.IO 连接，把后台历史收件进度转给邮箱首页。
+  nextSocket.on('external_mail_fetch_event', (payload: any) => {
+    if (payload?.type !== 'history_progress') return
+    window.dispatchEvent(new CustomEvent('external-mail-fetch-progress', { detail: payload }))
+  })
+
   nextSocket.on('connect_error', (error: any) => {
     socketConnecting = false
     connectionStatus.value = 'error'

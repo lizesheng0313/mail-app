@@ -81,6 +81,14 @@ export const batchLoginAPI = {
   fetchAllExternalMailboxesOnline: () =>
     api.post('/unified-emails/external-mailboxes/fetch-all'),
 
+  // 停止服务端全历史收取任务
+  cancelExternalMailFetchAll: () =>
+    api.post('/unified-emails/external-mailboxes/fetch-all/cancel'),
+
+  // 获取服务端全历史收取任务状态
+  getExternalMailFetchAllStatus: () =>
+    api.get('/unified-emails/external-mailboxes/fetch-all/status'),
+
   // 服务端在线收取单个外部邮箱
   fetchExternalMailboxOnline: (mailboxId) =>
     api.post(`/unified-emails/external-mailboxes/${mailboxId}/fetch`),

@@ -296,6 +296,10 @@ export function useWorkflowListPage() {
     importInputRef.value?.click()
   }
 
+  const openResourceSources = () => {
+    router.push('/admin/resource-sources')
+  }
+
   const handleExportWorkflow = async (workflow: WorkflowItem) => {
     try {
       const response = await workflowApi.exportWorkflow(workflow.workflow_id)
@@ -479,6 +483,7 @@ export function useWorkflowListPage() {
     isWorkspaceView,
     loading,
     openImportDialog,
+    openResourceSources,
     ownershipOptions,
     refundWorkflow,
     refunding,

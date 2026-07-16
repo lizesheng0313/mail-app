@@ -3,7 +3,7 @@
     <!-- 顶部导航 -->
     <PageHeader />
 
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div class="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
       <!-- 加载状态 -->
       <div v-if="loading" class="text-center py-12">
         <div
@@ -13,76 +13,51 @@
       </div>
 
       <!-- 工作流详情 -->
-      <div v-else-if="workflow" class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div v-else-if="workflow" class="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <!-- 左侧：主要内容 -->
-        <div class="lg:col-span-2 space-y-6">
+        <div class="space-y-5 lg:col-span-2">
           <!-- 基本信息卡片 -->
-          <div class="bg-white rounded-lg shadow p-6">
-            <!-- 图标 + 标题 + 作者 -->
-            <div class="flex gap-4 mb-6">
-              <!-- 工作流图标 - 默认图标使用主题色 -->
-              <div
-                class="w-20 h-20 rounded-lg flex-shrink-0 flex items-center justify-center"
-                :class="workflow.icon_url ? '' : 'bg-gradient-workflow'"
-              >
+          <div class="overflow-hidden rounded-xl border border-slate-200 bg-white">
+            <div class="grid gap-5 p-5 md:grid-cols-[220px_1fr]">
+              <div class="relative h-56 overflow-hidden rounded-xl bg-slate-100">
                 <img
-                  v-if="workflow.icon_url"
-                  :src="workflow.icon_url"
-                  class="w-full h-full rounded-lg object-cover"
+                  v-if="resourceCover"
+                  :src="resourceCover"
+                  class="h-full w-full object-cover"
                   :alt="workflow.name"
                   @error="$event.target.style.display = 'none'"
                 />
-                <svg
-                  v-if="!workflow.icon_url"
-                  class="w-10 h-10 text-white opacity-90"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+                <div
+                  v-else
+                  class="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary-50 via-white to-primary-100"
                 >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="1.5"
-                    d="M13 10V3L4 14h7v7l9-11h-7z"
-                  />
-                </svg>
-              </div>
-              <div class="flex-1">
-                <h1 class="text-2xl font-bold text-gray-900 mb-2">{{ workflow.name }}</h1>
-                <div class="flex items-center gap-4 text-sm text-gray-600">
-                  <span>{{
-                    t('marketDetail.author', {
-                      name: workflow.author_name || t('marketDetail.defaultAuthor')
-                    })
-                  }}</span>
-                  <span>·</span>
-                  <span>{{
-                    t('marketDetail.category', { name: getCategoryText(workflow.category) })
-                  }}</span>
+                  <div class="rounded-lg border border-primary-200 bg-white/80 px-4 py-3 text-center shadow-sm">
+                    <div class="text-sm font-medium text-primary-700">{{ resourceProfile.primaryCategory }}</div>
+                    <div class="mt-1 text-xl font-bold text-slate-950">{{ String(workflow.name || '资源').slice(0, 6) }}</div>
+                  </div>
+                </div>
+                <div v-if="isResourceSoldOut" class="absolute right-3 top-3">
+                  <span
+                    class="rounded-full bg-slate-900/80 px-2.5 py-1 text-xs font-semibold text-white shadow"
+                  >
+                    暂时无货
+                  </span>
                 </div>
               </div>
-            </div>
 
-            <!-- 简短描述 -->
-            <p class="text-gray-700 mb-4">{{ workflow.description }}</p>
-
-            <!-- 标签 -->
-            <div
-              v-if="workflow.keywords && workflow.keywords.length > 0"
-              class="flex flex-wrap gap-2"
-            >
-              <span
-                v-for="keyword in workflow.keywords"
-                :key="keyword"
-                class="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded-full"
-              >
-                {{ keyword }}
-              </span>
+              <div class="min-w-0">
+                <div class="mb-2 text-sm text-slate-500">
+                  {{ resourceProfile.primaryCategory }} / {{ resourceProfile.secondaryCategory }}
+                </div>
+                <h1 class="text-2xl font-bold tracking-normal text-slate-950">{{ workflow.name }}</h1>
+                <p class="mt-3 text-base leading-7 text-slate-600">{{ workflow.description || '暂无说明' }}</p>
+                <div class="mt-5 text-2xl font-black text-primary-600">{{ selectedSkuPriceText }}</div>
+              </div>
             </div>
           </div>
 
           <!-- 截图预览 - 只在有截图时显示 -->
-          <div v-if="hasValidScreenshots" class="bg-white rounded-lg shadow p-6">
+          <div v-if="hasValidScreenshots" class="rounded-xl border border-slate-200 bg-white p-5">
             <h3 class="text-lg font-semibold mb-4">{{ t('marketDetail.screenshots') }}</h3>
             <div class="grid grid-cols-2 gap-4">
               <img
@@ -98,13 +73,13 @@
           </div>
 
           <!-- 详细说明 -->
-          <div v-if="workflow.long_description" class="bg-white rounded-lg shadow p-6">
+          <div v-if="workflow.long_description" class="rounded-xl border border-slate-200 bg-white p-5">
             <h3 class="text-lg font-semibold mb-4">{{ t('marketDetail.details') }}</h3>
             <div class="prose max-w-none" v-html="workflow.long_description"></div>
           </div>
 
           <!-- 用户评价 -->
-          <div class="bg-white rounded-lg shadow p-6">
+          <div v-if="reviews && reviews.length > 0" class="rounded-xl border border-slate-200 bg-white p-5">
             <h3 class="text-lg font-semibold mb-6">
               {{ t('marketDetail.reviewsTitle', { count: workflow.review_count || 0 }) }}
             </h3>
@@ -286,9 +261,79 @@
 
         <!-- 右侧：购买面板 -->
         <div class="lg:col-span-1">
-          <div class="bg-white rounded-lg shadow p-6 sticky top-24 space-y-3">
+          <div class="sticky top-24 space-y-4 rounded-xl border border-slate-200 bg-white p-5">
+            <div v-if="showSkuSelector">
+              <div class="mb-3 flex items-center justify-between">
+                <span class="text-sm font-semibold text-slate-900">资源规格</span>
+              </div>
+              <div class="space-y-2">
+                <button
+                  v-for="sku in displaySkus"
+                  :key="sku.id"
+                  type="button"
+                  class="w-full rounded-lg border p-3 text-left transition"
+                  :class="selectedSkuId === sku.id ? 'border-primary-500 bg-primary-50 ring-2 ring-primary-100' : 'border-slate-200 hover:border-primary-200'"
+                  @click="selectSku(sku.id)"
+                >
+                  <div class="flex items-center justify-between gap-3">
+                    <div class="flex min-w-0 items-center gap-3">
+                      <img v-if="sku.image_url" :src="sku.image_url" class="h-10 w-10 shrink-0 rounded-lg object-cover" />
+                      <div class="line-clamp-2 text-sm font-semibold text-slate-950">{{ sku.name }}</div>
+                    </div>
+                    <div class="shrink-0 text-right">
+                      <div class="text-sm font-black text-primary-600">{{ formatPrice(sku.price) }}</div>
+                    </div>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            <div v-if="selectedSku.order_fields.length > 0" class="rounded-lg border border-slate-200 p-4">
+              <div class="mb-3">
+                <div class="text-sm font-semibold text-slate-900">下单信息</div>
+              </div>
+              <div class="space-y-3">
+                <label
+                  v-for="field in selectedSku.order_fields"
+                  :key="field.key"
+                  class="block"
+                >
+                  <span class="mb-1 block text-xs font-medium text-slate-600">
+                    {{ field.label }}
+                    <span v-if="field.required" class="text-red-500">*</span>
+                  </span>
+                  <select
+                    v-if="field.type === 'select'"
+                    v-model="orderFieldValues[field.key]"
+                    class="h-10 w-full rounded-md border border-slate-300 px-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
+                  >
+                    <option value="">请选择</option>
+                    <option v-for="option in field.options || []" :key="option.value || option" :value="option.value || option">
+                      {{ option.label || option }}
+                    </option>
+                  </select>
+                  <textarea
+                    v-else-if="field.type === 'textarea'"
+                    v-model="orderFieldValues[field.key]"
+                    rows="3"
+                    :placeholder="field.placeholder"
+                    class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
+                  ></textarea>
+                  <input
+                    v-else
+                    v-model="orderFieldValues[field.key]"
+                    :type="field.type === 'number' ? 'number' : 'text'"
+                    :inputmode="field.type === 'phone' ? 'tel' : field.type === 'number' ? 'numeric' : 'text'"
+                    :placeholder="field.placeholder"
+                    class="h-10 w-full rounded-md border border-slate-300 px-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
+                  />
+                  <span v-if="field.help_text" class="mt-1 block text-xs text-slate-400">{{ field.help_text }}</span>
+                </label>
+              </div>
+            </div>
+
             <div
-              v-if="workflow.inventory_enabled"
+              v-if="showQuantitySelector"
               class="rounded-lg border border-gray-200 p-4 space-y-3"
             >
               <div class="flex items-center justify-between">
@@ -344,31 +389,18 @@
               </div>
             </div>
 
-            <div
-              v-if="!workflow.inventory_enabled && workflow.pricing_model === 'per_use' && workflow.milk_coin_price > 0 && platformFeeAmount > 0"
-              class="rounded-md bg-gray-50 px-3 py-2 text-xs text-gray-600"
-            >
-              {{ t('marketDetail.buyerFeeBreakdown', {
-                itemPrice: itemExecutionPrice,
-                fee: platformFeeAmount,
-                totalPrice: totalExecutionPrice
-              }) }}
-            </div>
-
             <!-- 立即执行按钮 -->
             <button
               @click="executeNow"
-              :disabled="workflow.inventory_enabled && workflow.inventory_count <= 0"
+              :disabled="isResourceSoldOut"
               class="w-full px-6 py-3 bg-primary-600 text-white text-base font-medium rounded-lg hover:bg-primary-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
-              <span v-if="workflow.inventory_enabled && workflow.inventory_count <= 0">
-                {{ t('marketDetail.soldOut') }}
-              </span>
+              <span v-if="isResourceSoldOut">暂时无货</span>
               <span v-else-if="workflow.pricing_model === 'free'">
-                {{ t('marketDetail.executeFree') }}
+                免费获取
               </span>
               <span v-else-if="workflow.pricing_model === 'per_use'">
-                {{ t('marketDetail.executePerUse', { price: workflow.milk_coin_price }) }}
+                立即购买（{{ selectedSkuPriceText }}）
               </span>
               <span v-else-if="workflow.pricing_model === 'subscription'">
                 {{ t('marketDetail.executeSubscription') }}
@@ -377,35 +409,6 @@
                 {{ t('marketDetail.executeOneTime', { price: workflow.milk_coin_price }) }}
               </span>
             </button>
-
-            <!-- 执行历史按钮 - 所有登录用户都能看到 -->
-            <button
-              @click="showExecutionHistory = true"
-              class="w-full px-6 py-3 bg-white text-primary-600 text-base font-medium rounded-lg border-2 border-primary-600 hover:bg-primary-50 transition-colors"
-            >
-              <svg
-                class="w-5 h-5 inline mr-2 -mt-0.5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-              {{ t('marketDetail.executionHistory') }}
-            </button>
-
-            <!-- 库存信息 -->
-            <div
-              v-if="workflow.inventory_enabled && workflow.inventory_count !== undefined"
-              class="pt-3 text-center text-sm text-gray-600"
-            >
-              {{ t('marketDetail.remainingInventory', { count: workflow.inventory_count }) }}
-            </div>
           </div>
         </div>
       </div>
@@ -510,6 +513,8 @@ const executionResultData = ref({
   result: null
 })
 const platformFeeRate = ref(0)
+const selectedSkuId = ref('')
+const orderFieldValues = ref({})
 
 // 评论相关
 const newComment = ref('')
@@ -518,6 +523,329 @@ const newRating = ref(5)
 // 截图验证
 const validScreenshots = ref([])
 const hasValidScreenshots = computed(() => validScreenshots.value.length > 0)
+
+const fulfillmentProfiles = {
+  link: {
+    label: '链接交付',
+    resultPreview: '下单后返回链接，可打开或复制'
+  },
+  code: {
+    label: '卡密交付',
+    resultPreview: '下单后返回兑换码或卡密'
+  },
+  account: {
+    label: '账号交付',
+    resultPreview: '下单后返回账号信息'
+  },
+  recharge: {
+    label: '直充交付',
+    resultPreview: '提交手机号或账号后充值'
+  },
+  api: {
+    label: '接口调用',
+    resultPreview: '下单后通过供货接口自动处理'
+  },
+  manual: {
+    label: '人工处理',
+    resultPreview: '下单后等待处理'
+  },
+  workflow: {
+    label: '工作流执行',
+    resultPreview: '购买或执行后进入自动化流程'
+  }
+}
+
+const resourceTypeLabels = {
+  rights: '权益商品',
+  proxy_order: '代下单',
+  account: '账号库存',
+  workflow: '工作流',
+  service: '虚拟服务'
+}
+
+const primaryCategoryLabels = {
+  food_drink: '餐饮饮品',
+  video_member: '视频会员',
+  travel: '出行打车',
+  entertainment_game: '娱乐游戏',
+  office_member: '办公会员',
+  life_rights: '生活权益',
+  mail_resource: '邮箱资源',
+  automation_tool: '自动化工具'
+}
+
+const secondaryCategoryLabels = {
+  coffee: '咖啡饮品',
+  milk_tea: '奶茶甜品',
+  fast_food: '快餐小吃',
+  delivery: '外卖代下',
+  meal_coupon: '商超餐券',
+  long_video: '长视频会员',
+  short_video: '短视频权益',
+  music: '音乐会员',
+  cloud_drive: '网盘会员',
+  bundle: '联合会员',
+  taxi_coupon: '打车券',
+  car_service: '加油洗车',
+  parking: '停车权益',
+  bike: '骑行权益',
+  travel_monthly_card: '出行月卡',
+  game_card: '游戏点卡',
+  game_member: '游戏会员',
+  live_member: '直播会员',
+  movie_ticket: '电影票券',
+  show_entertainment: '演出娱乐',
+  document: '文档办公',
+  storage: '网盘存储',
+  ai_tools: 'AI 工具',
+  design: '设计工具',
+  dev_tools: '开发工具',
+  shopping: '商超购物',
+  phone_data: '话费流量',
+  local_life: '本地生活',
+  recharge_payment: '充值缴费',
+  life_service: '生活服务',
+  outlook_mail: 'Outlook 邮箱',
+  gmail: 'Gmail 邮箱',
+  enterprise_mail: '企业邮箱',
+  external_mail: '三方邮箱',
+  mail_service: '邮箱辅助服务',
+  workflow: '工作流',
+  plugin: '插件',
+  script: '脚本工具',
+  mail_automation: '邮箱自动化',
+  data_processing: '数据处理'
+}
+
+const normalizeJsonList = (value) => {
+  if (Array.isArray(value)) {
+    return value
+  }
+  if (typeof value !== 'string' || !value.trim()) {
+    return []
+  }
+  try {
+    const parsed = JSON.parse(value)
+    return Array.isArray(parsed) ? parsed : []
+  } catch (error) {
+    return []
+  }
+}
+
+const getCategoryProfile = (item = {}) => {
+  if (item.primary_category_name || item.secondary_category_name || item.primary_category || item.secondary_category) {
+    return {
+      primaryCategory: item.primary_category_name || primaryCategoryLabels[item.primary_category] || item.primary_category || '资源市场',
+      secondaryCategory: item.secondary_category_name || secondaryCategoryLabels[item.secondary_category] || item.secondary_category || '精选资源'
+    }
+  }
+
+  if (item.category === 'outlook') {
+    return { primaryCategory: '邮箱资源', secondaryCategory: 'Outlook 邮箱' }
+  }
+
+  if (item.category === 'mailbox') {
+    return { primaryCategory: '邮箱资源', secondaryCategory: '三方邮箱' }
+  }
+
+  return { primaryCategory: '自动化工具', secondaryCategory: '工作流' }
+}
+
+const getResourceType = (item = {}) => {
+  if (item.resource_type) {
+    return item.resource_type
+  }
+  if (item.category === 'outlook') {
+    return 'account'
+  }
+  return 'workflow'
+}
+
+const getFulfillmentType = (item = {}) => {
+  if (item.fulfillment_type) {
+    return item.fulfillment_type
+  }
+  if (item.category === 'outlook') {
+    return 'account'
+  }
+  return 'workflow'
+}
+
+const resourceProfile = computed(() => {
+  const item = workflow.value || {}
+  const category = getCategoryProfile(item)
+  const resourceType = getResourceType(item)
+  const fulfillmentType = getFulfillmentType(item)
+  const fulfillment = fulfillmentProfiles[fulfillmentType] || fulfillmentProfiles.workflow
+
+  return {
+    ...category,
+    resourceType,
+    resourceTypeLabel: resourceTypeLabels[resourceType] || '资源',
+    fulfillmentType,
+    fulfillmentLabel: fulfillment.label,
+    resultPreview: fulfillment.resultPreview
+  }
+})
+
+const resourceCover = computed(() => {
+  if (!workflow.value) {
+    return ''
+  }
+  if (workflow.value.cover_url || workflow.value.icon_url) {
+    return workflow.value.cover_url || workflow.value.icon_url
+  }
+  const screenshots = normalizeJsonList(workflow.value.screenshots)
+  return screenshots[0] || ''
+})
+
+const detailTags = computed(() => {
+  const keywords = normalizeJsonList(workflow.value?.keywords)
+  const tags = normalizeJsonList(workflow.value?.tags)
+  return [
+    resourceProfile.value.resourceTypeLabel,
+    resourceProfile.value.fulfillmentLabel,
+    ...keywords,
+    ...tags
+  ].filter(Boolean).slice(0, 8)
+})
+
+const normalizeOrderFields = (value) =>
+  normalizeJsonList(value).map((field) => ({
+    key: field.key || field.name,
+    label: field.label || field.title || field.key || field.name,
+    type: field.type || 'text',
+    required: Boolean(field.required),
+    placeholder: field.placeholder || '',
+    options: Array.isArray(field.options) ? field.options : [],
+    validation: field.validation || '',
+    help_text: field.help_text || field.helpText || ''
+  })).filter((field) => field.key)
+
+const displaySkus = computed(() => {
+  const item = workflow.value
+  if (!item) {
+    return []
+  }
+
+  const apiSkus = normalizeJsonList(item.skus || item.specs || item.product_skus)
+  if (apiSkus.length > 0) {
+    return apiSkus.map((sku, index) => {
+      const fulfillmentType = sku.fulfillment_type || resourceProfile.value.fulfillmentType
+      const fulfillment = fulfillmentProfiles[fulfillmentType] || fulfillmentProfiles.workflow
+      return {
+        id: String(sku.id || sku.sku_id || index + 1),
+        name: sku.name || sku.spec_name || sku.title || item.name,
+        image_url: sku.image_url || sku.imageUrl || '',
+        price: Number(sku.sell_price ?? sku.price ?? sku.milk_coin_price ?? item.milk_coin_price ?? 0),
+        allow_batch_purchase: sku.allow_batch_purchase !== undefined
+          ? Boolean(sku.allow_batch_purchase)
+          : Boolean(item.inventory_enabled),
+        order_fields: normalizeOrderFields(sku.order_fields),
+        fulfillment_type: fulfillmentType,
+        fulfillment_label: fulfillment.label,
+        result_hint: sku.result_hint || fulfillment.resultPreview
+      }
+    })
+  }
+
+  const fulfillment = fulfillmentProfiles[resourceProfile.value.fulfillmentType] || fulfillmentProfiles.workflow
+  return [
+    {
+      id: `workflow-${item.id}`,
+      name: item.name,
+      price: Number(item.milk_coin_price || 0),
+      allow_batch_purchase: Boolean(item.inventory_enabled),
+      order_fields: normalizeOrderFields(item.order_fields),
+      fulfillment_type: resourceProfile.value.fulfillmentType,
+      fulfillment_label: fulfillment.label,
+      result_hint: fulfillment.resultPreview
+    }
+  ]
+})
+
+const selectedSku = computed(() => {
+  if (displaySkus.value.length === 0) {
+    return {
+      id: '',
+      name: '',
+      price: 0,
+      allow_batch_purchase: false,
+      order_fields: [],
+      fulfillment_label: '资源交付',
+      result_hint: ''
+    }
+  }
+  return displaySkus.value.find((sku) => sku.id === selectedSkuId.value) || displaySkus.value[0]
+})
+
+const showSkuSelector = computed(() => displaySkus.value.length > 1)
+
+const formatPrice = (price) => {
+  const normalizedPrice = Number(price || 0)
+  return normalizedPrice > 0 ? `${normalizedPrice} 奶片` : '免费'
+}
+
+const selectedSkuPriceText = computed(() => formatPrice(selectedSku.value.price))
+
+const showQuantitySelector = computed(
+  () => Boolean(workflow.value?.inventory_enabled && selectedSku.value.allow_batch_purchase)
+)
+
+const isResourceSoldOut = computed(() => {
+  if (!workflow.value?.inventory_enabled) {
+    return false
+  }
+  return Number(workflow.value.inventory_count || 0) <= 0
+})
+
+const selectSku = (skuId) => {
+  selectedSkuId.value = skuId
+}
+
+const resetOrderFieldValues = () => {
+  const nextValues = {}
+  selectedSku.value.order_fields.forEach((field) => {
+    nextValues[field.key] = orderFieldValues.value[field.key] || ''
+  })
+  orderFieldValues.value = nextValues
+}
+
+const validateOrderFields = () => {
+  const missingField = selectedSku.value.order_fields.find(
+    (field) => field.required && !String(orderFieldValues.value[field.key] || '').trim()
+  )
+  if (missingField) {
+    showMessage(`请填写${missingField.label}`, 'warning')
+    return false
+  }
+  const invalidField = selectedSku.value.order_fields.find((field) => {
+    const value = String(orderFieldValues.value[field.key] || '').trim()
+    if (!value) return false
+    if (field.validation === 'phone') return !/^1[3-9]\d{9}$/.test(value)
+    if (field.validation === 'email') return !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+    if (field.validation === 'qq') return !/^\d{5,12}$/.test(value)
+    return false
+  })
+  if (invalidField) {
+    showMessage(`请填写正确的${invalidField.label}`, 'warning')
+    return false
+  }
+  return true
+}
+
+const buildExecutionVariables = () => {
+  const variables = {
+    selected_sku_id: selectedSku.value.id,
+    selected_sku_name: selectedSku.value.name
+  }
+
+  if (selectedSku.value.order_fields.length > 0) {
+    variables.order_fields = { ...orderFieldValues.value }
+  }
+
+  return variables
+}
 
 const stripHtml = (value = '') =>
   value
@@ -570,18 +898,21 @@ const confirmDialog = ref({
 })
 
 const maxExecutionCount = computed(() => {
-  if (!workflow.value?.inventory_enabled) {
+  if (!showQuantitySelector.value) {
     return 1
   }
 
   return Math.max(1, Number(workflow.value.inventory_count || 0))
 })
 
-const calculatePlatformFee = (amount) =>
-  Math.floor(Number(amount || 0) * platformFeeRate.value * 100 + 1e-9) / 100
+const calculatePlatformFee = (amount) => {
+  const normalizedAmount = Number(amount || 0)
+  const fee = Math.floor(normalizedAmount * platformFeeRate.value * 100 + 1e-9) / 100
+  return normalizedAmount > 0 && platformFeeRate.value > 0 && fee <= 0 ? 0.01 : fee
+}
 
 const itemExecutionPrice = computed(() =>
-  Number((Number(workflow.value?.milk_coin_price || 0) * selectedExecutionCount.value).toFixed(2))
+  Number((Number(selectedSku.value.price || 0) * selectedExecutionCount.value).toFixed(2))
 )
 
 const platformFeeAmount = computed(() => calculatePlatformFee(itemExecutionPrice.value))
@@ -591,7 +922,7 @@ const totalExecutionPrice = computed(() =>
 )
 
 const buyerUnitPrice = computed(() => {
-  const price = Number(workflow.value?.milk_coin_price || 0)
+  const price = Number(selectedSku.value.price || 0)
   const fee = calculatePlatformFee(price)
   return Number((price + fee).toFixed(2))
 })
@@ -699,6 +1030,8 @@ const loadWorkflowDetail = async (showLoading = true) => {
 
     if (res.code === 0) {
       workflow.value = res.data
+      selectedSkuId.value = displaySkus.value[0]?.id || ''
+      resetOrderFieldValues()
       syncExecutionCountState(selectedExecutionCount.value)
       updateWorkflowSeo()
 
@@ -732,13 +1065,17 @@ const executeNow = async () => {
   }
 
   const model = workflow.value.pricing_model
-  const price = workflow.value.milk_coin_price
+  const price = selectedSku.value.price
   const currentWorkflowId = workflow.value.workflow_id
-  const executionCount = workflow.value.inventory_enabled
+  const executionCount = showQuantitySelector.value
     ? syncExecutionCountState(executionCountInput.value)
     : 1
 
   if (!executionCount) {
+    return
+  }
+
+  if (!validateOrderFields()) {
     return
   }
 
@@ -796,7 +1133,7 @@ const executeNow = async () => {
       try {
         const response = await workflowApi.executeWorkflow(
           currentWorkflowId,
-          {},
+          buildExecutionVariables(),
           { count: executionCount }
         )
 
@@ -1019,6 +1356,14 @@ watch(
     if (newId !== oldId) {
       loadWorkflowDetail()
     }
+  }
+)
+
+watch(
+  () => selectedSku.value.id,
+  () => {
+    resetOrderFieldValues()
+    syncExecutionCountState(1)
   }
 )
 </script>

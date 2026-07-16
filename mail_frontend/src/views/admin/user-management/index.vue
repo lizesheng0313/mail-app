@@ -23,6 +23,8 @@
               v-model="proxyFilter"
               :options="proxyFilterOptions"
               placeholder="代理权限筛选"
+              size="sm"
+              class="w-48"
             />
             <button
               @click="loadUsers"

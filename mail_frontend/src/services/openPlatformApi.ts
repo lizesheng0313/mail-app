@@ -1,10 +1,11 @@
 import axios from 'axios'
 
 import { getCurrentLocale, i18n } from '@/i18n'
-import { getServerUrl } from '@/services/api'
+import { extractApiErrorMessage, getServerUrl } from '@/services/api'
 import { showMessage } from '@/utils/message'
 
-const shouldSuppressErrorMessage = (config: any) => Boolean(config?.suppressErrorMessage)
+const shouldSuppressErrorMessage = (config: any) =>
+  config?.silentErrorMessage === true || config?.suppressErrorMessage === 'silent'
 const t = (key: string) => String(i18n.global.t(key))
 
 const getOpenPlatformBaseURL = () => {
@@ -45,12 +46,12 @@ openPlatformApi.interceptors.response.use(
   (response) => {
     const data = response.data
     if (data.code !== 0 && !shouldSuppressErrorMessage(response.config)) {
-      showMessage(data.message || t('common.operationFailed'), 'error')
+      showMessage(extractApiErrorMessage(data, t('common.operationFailed')), 'error')
     }
     return data
   },
   (error) => {
-    const errorMessage = error.response?.data?.message || error.response?.data?.detail || t('common.networkErrorRetry')
+    const errorMessage = extractApiErrorMessage(error.response?.data, t('common.networkErrorRetry'))
     if (!shouldSuppressErrorMessage(error.config)) {
       showMessage(errorMessage, 'error')
     }

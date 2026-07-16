@@ -52,7 +52,7 @@
       title="模板列表"
       :loading="loading"
       :pagination="pagination"
-      :column-count="6"
+      :column-count="7"
       @page-change="loadRows"
     >
       <template #thead>
@@ -70,12 +70,13 @@
           <th class="px-6 py-3 text-left text-xs font-medium text-gray-500">模板</th>
           <th class="px-6 py-3 text-left text-xs font-medium text-gray-500">审核</th>
           <th class="px-6 py-3 text-left text-xs font-medium text-gray-500">风险</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500">创建时间</th>
           <th class="px-6 py-3 text-right text-xs font-medium text-gray-500">操作</th>
         </tr>
       </template>
       <template #tbody>
         <tr v-if="!rows.length">
-          <td colspan="6" class="px-6 py-12 text-center text-sm text-gray-500">暂无模板数据</td>
+          <td colspan="7" class="px-6 py-12 text-center text-sm text-gray-500">暂无模板数据</td>
         </tr>
         <tr v-for="item in rows" :key="`${activeTab}-${item.id}`" class="hover:bg-gray-50">
           <td class="px-6 py-4 text-sm text-gray-700">
@@ -107,6 +108,9 @@
             <div v-if="riskReason(item)" class="mt-1 max-w-[260px] whitespace-normal text-xs leading-5 text-gray-500">
               {{ riskReason(item) }}
             </div>
+          </td>
+          <td class="px-6 py-4 text-sm whitespace-nowrap text-gray-500">
+            {{ formatTime(item.created_at) }}
           </td>
           <td class="px-6 py-4 text-right text-sm">
             <div class="flex items-center justify-end gap-1">
@@ -258,6 +262,14 @@ const riskReason = (item) => {
   const issues = Array.isArray(item.review_result?.issues) ? item.review_result.issues.filter(Boolean) : []
   const suggestions = Array.isArray(item.review_result?.suggestions) ? item.review_result.suggestions.filter(Boolean) : []
   return issues[0] || suggestions[0] || item.review_summary || ''
+}
+
+const formatTime = (value) => {
+  if (!value) return '-'
+  const date = new Date(Number(value))
+  if (Number.isNaN(date.getTime())) return '-'
+  const pad = (num) => String(num).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
 
 const allCurrentPageSelected = computed(() => {

@@ -7,9 +7,11 @@
           <h3 class="text-sm font-medium text-black">用户详情</h3>
           <button
             @click="$emit('close')"
-            class="text-gray-400 hover:text-black"
+            type="button"
+            aria-label="关闭"
+            class="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-black"
           >
-            <BaseIcon name="close" size="sm" />
+            <BaseIcon name="x" size="md" />
           </button>
         </div>
       </div>
@@ -110,7 +112,6 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
 import BaseIcon from '@/components/BaseIcon/index.vue'
 import { formatTimestamp } from '@/utils/timeUtils'
 

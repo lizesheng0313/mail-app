@@ -111,14 +111,6 @@
                 @click="openEditModal(item)"
               />
               <ActionButton
-                v-if="!item.deliverySelected"
-                icon="send"
-                tooltip="设为发信"
-                variant="enable"
-                :disabled="savingKey === String(item.id)"
-                @click="handleAssign(item, 'delivery')"
-              />
-              <ActionButton
                 v-if="!item.authSelected"
                 icon="check"
                 tooltip="设为验证码"
@@ -284,7 +276,7 @@
 
     <BaseModal
       v-model="addModalVisible"
-      :title="editingAccount ? `编辑发信账号：${editingAccount.email || ''}` : '添加发信账号'"
+      :title="editingAccount ? `编辑账号：${editingAccount.email || ''}` : '添加发信账号'"
       size="md"
       :confirm-text="adding ? '保存中...' : '确定'"
       :confirm-loading="adding"
@@ -295,6 +287,10 @@
         <div>
           <label class="mb-2 block text-sm font-medium text-gray-700">类别</label>
           <CustomSelect v-model="addForm.category" :options="categoryOptions" placeholder="请选择类别" :disabled="Boolean(editingAccount)" />
+        </div>
+        <div v-if="editingAccount" class="flex items-center gap-2">
+          <input id="edit-set-delivery" v-model="editSetDelivery" type="checkbox" class="h-4 w-4" />
+          <label for="edit-set-delivery" class="text-sm text-gray-700">保存时设为发信账号</label>
         </div>
         <div>
           <label class="mb-2 block text-sm font-medium text-gray-700">发件邮箱</label>
@@ -348,16 +344,16 @@
           </div>
         </div>
 
-        <div v-if="addForm.category === 'delivery'" class="border-t border-gray-200 pt-4">
+        <div v-if="showDeliveryFields" class="border-t border-gray-200 pt-4">
           <label class="mb-2 block text-sm font-medium text-gray-700">通道分组</label>
           <CustomSelect v-model="routeForm.channel_group" :options="groupOptions" placeholder="请选择通道分组" />
         </div>
-        <div v-if="addForm.category === 'delivery'">
+        <div v-if="showDeliveryFields">
           <label class="mb-2 block text-sm font-medium text-gray-700">邮件类型</label>
           <CustomSelect v-model="routeForm.allowed_task_type" :options="taskTypeOptions" />
           <p class="mt-1 text-xs text-gray-500">事务=验证码/订单等必达邮件；营销=群发推广。分开用不同的号，营销被举报不会连累事务邮件。</p>
         </div>
-        <div v-if="addForm.category === 'delivery'" class="grid grid-cols-2 gap-3">
+        <div v-if="showDeliveryFields" class="grid grid-cols-2 gap-3">
           <div>
             <label class="mb-2 block text-sm font-medium text-gray-700">每日发送上限</label>
             <input
@@ -379,11 +375,11 @@
             <p class="mt-1 text-xs text-gray-500">按自然月重置，0 表示不限</p>
           </div>
         </div>
-        <div v-if="addForm.category === 'delivery'" class="flex items-center gap-2">
+        <div v-if="showDeliveryFields" class="flex items-center gap-2">
           <input id="route-enabled" v-model="routeForm.route_enabled" type="checkbox" class="h-4 w-4" />
           <label for="route-enabled" class="text-sm text-gray-700">参与自动路由</label>
         </div>
-        <div v-if="addForm.category === 'delivery'">
+        <div v-if="showDeliveryFields">
           <label class="mb-2 block text-sm font-medium text-gray-700">绑定客户（独占，不选为公共池）</label>
           <div v-if="routeForm.bound_user_id" class="mb-2 flex items-center gap-2">
             <span class="inline-flex items-center gap-1 rounded-full bg-orange-100 px-3 py-1 text-xs font-medium text-orange-700">
@@ -458,6 +454,7 @@ const savingKey = ref('')
 const addModalVisible = ref(false)
 const adding = ref(false)
 const editingAccount = ref(null)
+const editSetDelivery = ref(false)
 const showDeleteConfirm = ref(false)
 const deleting = ref(false)
 const deletingItem = ref(null)
@@ -512,6 +509,7 @@ const canSubmitAccount = computed(() => {
   if (editingAccount.value) return Boolean(editingAccount.value.id)
   return Boolean(addForm.value.category && addForm.value.email && addForm.value.password)
 })
+const showDeliveryFields = computed(() => addForm.value.category === 'delivery' || editSetDelivery.value)
 const deleteConfirmMessage = computed(() => `确认删除发件账号 ${deletingItem.value?.email || ''} 吗？`)
 
 const filteredRows = computed(() => {
@@ -621,6 +619,7 @@ const resetRouteForm = (item = {}) => {
 
 const openEditModal = (item) => {
   editingAccount.value = item
+  editSetDelivery.value = Boolean(item?.deliverySelected)
   addForm.value = {
     category: isAuthOnly(item) ? 'auth' : 'delivery',
     email: item.email || '',
@@ -800,6 +799,7 @@ const handleSaveQuotaPricing = async () => {
 
 const openAddModal = () => {
   editingAccount.value = null
+  editSetDelivery.value = false
   addForm.value = {
     category: 'delivery',
     email: '',
@@ -887,11 +887,18 @@ const handleSaveAccount = async () => {
   adding.value = true
   try {
     if (editingAccount.value?.id) {
-      const res = await saveAccountRoute(editingAccount.value.id)
-      if (res?.code !== 0) return
+      if (showDeliveryFields.value) {
+        const res = await saveAccountRoute(editingAccount.value.id)
+        if (res?.code !== 0) return
+      }
+      if (editSetDelivery.value) {
+        const assignRes = await assignCategory(editingAccount.value.id, 'delivery')
+        if (assignRes?.code !== 0) return
+      }
       showMessage('保存成功', 'success')
       addModalVisible.value = false
       editingAccount.value = null
+      editSetDelivery.value = false
       await loadPageData()
       return
     }
@@ -913,6 +920,7 @@ const handleSaveAccount = async () => {
     showMessage('添加成功', 'success')
     addModalVisible.value = false
     editingAccount.value = null
+    editSetDelivery.value = false
     await loadPageData()
   } finally {
     adding.value = false

@@ -55,6 +55,8 @@ import {
   ServerIcon,
   CloudIcon,
   PauseCircleIcon,
+  StopCircleIcon,
+  StopIcon,
   PlayCircleIcon,
   ShareIcon,
   PaperAirplaneIcon,
@@ -93,6 +95,8 @@ const iconMap = {
   // 启用/禁用
   'enable': PlayCircleIcon,
   'disable': PauseCircleIcon,
+  'stop-circle': StopCircleIcon,
+  'stop': StopIcon,
   
   // 时间和设置
   'clock': ClockIcon,

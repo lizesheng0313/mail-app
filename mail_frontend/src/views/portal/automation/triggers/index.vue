@@ -319,6 +319,7 @@ import ConfirmDialog from '@/components/ConfirmDialog/index.vue'
 import TriggerModal from '../../workflows/components/TriggerModal/index.vue'
 import TriggerDetailModal from '../../workflows/components/TriggerDetailModal/index.vue'
 import { getCurrentLocale } from '@/i18n'
+import { extractFetchErrorMessage } from '@/services/api'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -406,7 +407,7 @@ const loadTriggers = async () => {
       console.error('获取触发器列表失败:', response.message)
       triggers.value = []
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('加载触发器失败:', error)
     triggers.value = []
   } finally {
@@ -500,22 +501,21 @@ const viewExecutionLogs = async (trigger: any) => {
       }
     })
     
-    if (response.ok) {
-      const data = await response.json()
-      if (data.code === 0 && data.data) {
-        executionLogs.value = data.data.logs || []
-      } else {
-        executionLogs.value = []
-        console.warn('获取日志失败:', data.message)
-      }
+    if (!response.ok) {
+      throw new Error(await extractFetchErrorMessage(response, t('triggerManagement.loadLogsFailed')))
+    }
+
+    const data = await response.json()
+    if (data.code === 0 && data.data) {
+      executionLogs.value = data.data.logs || []
     } else {
       executionLogs.value = []
-      showMessage(t('triggerManagement.loadLogsFailed'), 'error')
+      showMessage(data.message || t('triggerManagement.loadLogsFailed'), 'error')
     }
   } catch (error) {
     console.error('加载执行日志失败:', error)
     executionLogs.value = []
-    showMessage(t('triggerManagement.loadLogsFailed'), 'error')
+    showMessage(error?.message || t('triggerManagement.loadLogsFailed'), 'error')
   } finally {
     loadingLogs.value = false
   }

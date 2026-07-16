@@ -687,6 +687,8 @@ const applyDomainDetailToModal = (detail: any, _created = false) => {
   showDomainModal.value = true
 }
 
+const getModalDomainId = () => Number(domainModalDetail.value?.domain?.id || 0)
+
 const openVerifyModal = async (domain: any) => {
   const domainId = Number(domain?.id || 0)
   if (!domainId) return
@@ -748,7 +750,9 @@ const refreshDns = async (domainId: number | string) => {
   try {
     const response: any = await hostedDomainAPI.refreshDns(numericId)
     if (response.code === 0 && response.data) {
-      applyDomainDetailToModal(response.data)
+      if (getModalDomainId() === numericId) {
+        applyDomainDetailToModal(response.data)
+      }
       await loadDomains()
     }
   } finally {

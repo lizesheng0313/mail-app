@@ -114,6 +114,13 @@
               >
                 工作流审核
               </router-link>
+              <router-link
+                to="/admin/resource-sources"
+                class="block px-3 py-2 text-sm rounded-md hover:bg-gray-50 transition-colors"
+                :class="$route.path === '/admin/resource-sources' ? 'bg-primary-50 text-primary-700 font-medium' : 'text-gray-600 hover:text-gray-900'"
+              >
+                资源货源
+              </router-link>
             </div>
           </div>
 
@@ -360,7 +367,7 @@ const autoExpandMenu = () => {
     expandedMenus.system = true
   } else if (['/admin/users'].includes(path)) {
     expandedMenus.user = true
-  } else if (['/admin/workflow-review'].includes(path)) {
+  } else if (['/admin/workflow-review', '/admin/resource-sources'].includes(path)) {
     expandedMenus.workflow = true
   } else if (['/admin/finance-settlement', '/admin/transactions'].includes(path)) {
     expandedMenus.finance = true
@@ -397,6 +404,7 @@ const pageTitle = computed(() => {
     '/admin/proxy': '代理管理',
     '/admin/users': '用户列表',
     '/admin/workflow-review': '工作流审核',
+    '/admin/resource-sources': '资源货源',
     '/admin/finance-settlement': '财务结算',
     '/admin/announcements': '公告管理',
     '/admin/transactions': '奶片交易',
@@ -420,6 +428,7 @@ const pageDescription = computed(() => {
     '/admin/proxy': '管理付费代理配置和使用监控',
     '/admin/users': '查看和管理用户账户及代理权限',
     '/admin/workflow-review': '审核和管理工作流市场的所有工作流',
+    '/admin/resource-sources': '管理资源市场供货商、货源池和 SKU 货源绑定',
     '/admin/finance-settlement': '查看和管理工作流销售收入结算',
     '/admin/announcements': '发布和管理系统公告通知',
     '/admin/transactions': '查看和管理所有用户的奶片交易记录',

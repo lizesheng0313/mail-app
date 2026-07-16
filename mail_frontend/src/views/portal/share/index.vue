@@ -113,11 +113,11 @@
                     @click.stop="handleFetchShareEmails(mailbox)"
                   >
                     <BaseIcon
-                      name="cloud"
+                      name="refresh"
                       size="sm"
                       :class="{ 'animate-spin': fetchingShareEmailIds.includes(mailbox.id) }"
                     />
-                    {{ fetchingShareEmailIds.includes(mailbox.id) ? t('externalMailbox.fetching') : t('externalMailbox.onlineFetch') }}
+                    {{ fetchingShareEmailIds.includes(mailbox.id) ? t('externalMailbox.fetching') : t('externalMailbox.fetchMail') }}
                   </button>
                 </div>
               </div>

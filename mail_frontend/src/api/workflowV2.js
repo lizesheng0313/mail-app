@@ -1,4 +1,4 @@
-import api from '@/services/api'
+import api, { extractFetchErrorMessage } from '@/services/api'
 
 export const workflowV2Api = {
   generatePlanFromUrl(data) {
@@ -21,9 +21,7 @@ export const workflowV2Api = {
       body: JSON.stringify(data),
     }).then(async (response) => {
       if (!response.ok) {
-        const text = await response.text().catch(() => '')
-        let msg = `HTTP ${response.status}`
-        try { msg = JSON.parse(text).message || msg } catch (e) { if (text) msg = text }
+        const msg = await extractFetchErrorMessage(response, `HTTP ${response.status}`)
         throw new Error(msg)
       }
       const reader = response.body.getReader()
@@ -86,7 +84,7 @@ export const workflowV2Api = {
       body: JSON.stringify(data),
     }).then(async (resp) => {
       if (!resp.ok) {
-        onError?.(`HTTP ${resp.status}`)
+        onError?.(await extractFetchErrorMessage(resp, `HTTP ${resp.status}`))
         return
       }
       const reader = resp.body.getReader()

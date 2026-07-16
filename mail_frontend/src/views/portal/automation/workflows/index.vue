@@ -44,6 +44,13 @@
 
           <div class="flex items-center gap-3">
             <button
+              @click="openResourceSources"
+              class="px-4 py-2 border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 rounded-md text-sm"
+            >
+              {{ t('workflowList.resourceSources') }}
+            </button>
+
+            <button
               @click="openImportDialog"
               class="px-4 py-2 border border-primary-200 bg-primary-50 hover:bg-primary-100 text-primary-700 rounded-md text-sm"
             >
@@ -220,6 +227,7 @@ const {
   isWorkspaceView,
   loading,
   openImportDialog,
+  openResourceSources,
   ownershipOptions,
   searchQuery,
   selectedInventoryWorkflow,

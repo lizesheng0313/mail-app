@@ -9,13 +9,23 @@ let messageTimeout: number | null = null
  * 显示消息提示
  * @param msg 消息内容
  * @param type 消息类型
- * @param duration 显示时长（毫秒），默认success为5秒，error为3秒
+ * @param duration 显示时长（毫秒），默认success为5秒，error为6秒
  */
 export const showMessage = (
-  msg: string,
+  msg: unknown,
   type: 'success' | 'error' | 'info' | 'warning' | 'primary' = 'success',
   duration?: number
 ) => {
+  const displayText = (() => {
+    if (typeof msg === 'string') return msg
+    if (msg === undefined || msg === null) return ''
+    try {
+      return JSON.stringify(msg)
+    } catch {
+      return String(msg)
+    }
+  })()
+
   // 清除之前的消息
   if (messageContainer) {
     document.body.removeChild(messageContainer)
@@ -80,7 +90,7 @@ export const showMessage = (
             ? 'text-primary-700'
             : 'text-blue-800'
   text.className = `text-sm text-center ${textColor}`
-  text.textContent = msg
+  text.textContent = displayText
 
   // 组装消息
   messageContent.appendChild(icon)
@@ -95,8 +105,8 @@ export const showMessage = (
     return
   }
 
-  // 设置自动消失（默认success为5秒，error为3秒）
-  const defaultDuration = type === 'success' ? 5000 : 3000
+  // 设置自动消失（默认success为5秒，error为6秒）
+  const defaultDuration = type === 'success' ? 5000 : type === 'error' ? 6000 : 3000
   messageTimeout = setTimeout(() => {
     if (messageContainer) {
       document.body.removeChild(messageContainer)

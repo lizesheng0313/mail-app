@@ -33,32 +33,22 @@
           @click.stop
         >
           <button
-            v-if="isDesktop"
             type="button"
             class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-            :disabled="fetchingAllDisabled"
+            :disabled="!props.fetchingAll && fetchingAllDisabled"
+            :title="props.fetchingAll ? historyFetchLabel : t('home.fetchAll')"
             @click.stop="handleFetchAllAction"
           >
             <BaseIcon
-              name="refresh"
+              :name="props.fetchingAll ? 'stop' : 'refresh'"
               size="sm"
-              :class="{ 'animate-spin': props.fetchingAll }"
+              :class="props.fetchingAll ? 'shrink-0 text-red-500' : 'shrink-0'"
             />
-            {{ props.fetchingAll ? t('home.fetchingAll') : t('home.fetchAll') }}
-          </button>
-          <button
-            v-if="hasOnlineFetchSupportedAccounts"
-            type="button"
-            class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-            :disabled="fetchingAllDisabled"
-            @click.stop="handleOnlineFetchAllAction"
-          >
-            <BaseIcon
-              name="cloud"
-              size="sm"
-              :class="{ 'animate-spin': props.fetchingAll }"
-            />
-            {{ props.fetchingAll ? t('externalMailbox.fetching') : t('externalMailbox.onlineFetchAll') }}
+            <span v-if="props.fetchingAll" class="flex min-w-0 flex-col leading-tight">
+              <span class="font-medium text-gray-800">{{ t('externalMailbox.stopHistoryFetch') }}</span>
+              <span class="mt-0.5 whitespace-nowrap text-xs text-gray-500">{{ historyFetchProgressText }}</span>
+            </span>
+            <span v-else>{{ t('home.fetchAll') }}</span>
           </button>
           <button
             type="button"
@@ -229,7 +219,6 @@
                 {{ t('externalMailbox.shareMailbox') }}
               </button>
               <button
-                v-if="isDesktop"
                 type="button"
                 class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
                 :disabled="mergedFetchingIds.includes(toAccountId(account))"
@@ -241,20 +230,6 @@
                   :class="{ 'animate-spin': mergedFetchingIds.includes(toAccountId(account)) }"
                 />
                 {{ mergedFetchingIds.includes(toAccountId(account)) ? t('externalMailbox.fetching') : t('externalMailbox.fetchMail') }}
-              </button>
-              <button
-                v-if="isOnlineFetchSupported(account)"
-                type="button"
-                class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-                :disabled="mergedFetchingIds.includes(toAccountId(account))"
-                @click.stop="handleOnlineFetchAction(toAccountId(account))"
-              >
-                <BaseIcon
-                  name="cloud"
-                  size="sm"
-                  :class="{ 'animate-spin': mergedFetchingIds.includes(toAccountId(account)) }"
-                />
-                {{ mergedFetchingIds.includes(toAccountId(account)) ? t('externalMailbox.fetching') : t('externalMailbox.onlineFetch') }}
               </button>
               <button
                 type="button"
@@ -307,11 +282,34 @@ const props = defineProps<{
   selectedSendIds?: number[]
   smtpAccounts?: any[]
   fetchingAll?: boolean
+  historyFetchProgress?: any | null
   fetchingIds?: number[]
 }>()
 const { t } = useI18n()
 
 const isDesktop = isTauri()
+
+const historyFetchLabel = computed(() => {
+  const progress = props.historyFetchProgress
+  const processed = Number(progress?.completed_mailbox_count ?? progress?.processed_mailbox_count ?? 0)
+  const total = Number(progress?.total_mailbox_count || 0)
+  const newEmailCount = Number(progress?.new_email_count || 0)
+  if (total > 0) {
+    return t('externalMailbox.historyFetching', { processed, total, count: newEmailCount })
+  }
+  return t('home.fetchingAll')
+})
+
+const historyFetchProgressText = computed(() => {
+  const progress = props.historyFetchProgress
+  const processed = Number(progress?.completed_mailbox_count ?? progress?.processed_mailbox_count ?? 0)
+  const total = Number(progress?.total_mailbox_count || 0)
+  const newEmailCount = Number(progress?.new_email_count || 0)
+  if (total > 0) {
+    return t('externalMailbox.historyFetchProgress', { processed, total, count: newEmailCount })
+  }
+  return t('externalMailbox.historyFetchingSimple')
+})
 
 // SMTP 状态查询
 const smtpEmailSet = computed(() => {
@@ -383,9 +381,9 @@ const handleItemClick = (
 
 const emit = defineEmits<{
   select: [id: number]
-  refresh: []
+  refresh: [payload?: { mailboxId?: number }]
   'fetch-all': []
-  'online-fetch-all': []
+  'cancel-fetch-all': []
   share: [mailboxes: any[]]
   'oauth-reauthorize': [account: any]
   'batch-mode-start': []
@@ -450,9 +448,6 @@ const isOnlineFetchSupported = (account: any) => {
     && status !== 'disabled'
     && status !== 'deleted'
 }
-const hasOnlineFetchSupportedAccounts = computed(() =>
-  accounts.value.some((account: any) => isOnlineFetchSupported(account))
-)
 const getOnlineFetchSupportedIds = () =>
   accounts.value
     .filter((account: any) => isOnlineFetchSupported(account))
@@ -500,7 +495,7 @@ const resolveMenuPlacement = (event: Event) => {
   const containerBottom = scrollContainer
     ? Math.min(scrollContainer.getBoundingClientRect().bottom, window.innerHeight)
     : window.innerHeight
-  const menuHeight = isDesktop ? 240 : 208
+  const menuHeight = 208
   const spaceAbove = triggerRect.top - containerTop
   const spaceBelow = containerBottom - triggerRect.bottom
 
@@ -837,15 +832,14 @@ const handleExportAccounts = async () => {
 }
 
 const handleFetchAllAction = () => {
+  if (props.fetchingAll) {
+    closeHeaderActionMenu()
+    emit('cancel-fetch-all')
+    return
+  }
   if (fetchingAllDisabled.value) return
   closeHeaderActionMenu()
   emit('fetch-all')
-}
-
-const handleOnlineFetchAllAction = () => {
-  if (fetchingAllDisabled.value || !hasOnlineFetchSupportedAccounts.value) return
-  closeHeaderActionMenu()
-  emit('online-fetch-all')
 }
 
 const handleRefreshAction = (accountId: number) => {
@@ -863,9 +857,10 @@ const handleOnlineFetchAction = async (accountId: number) => {
       showMessage(response.message || t('externalMailbox.fetchFailed'), 'error')
       return
     }
-    showMessage(response.message || t('externalMailbox.onlineFetchSuccess'), 'success')
+    showMessage(response.message || t('externalMailbox.fetchSuccess'), 'success')
     await loadAccounts()
-    emit('refresh')
+    selectedId.value = accountId
+    emit('refresh', { mailboxId: accountId })
   } catch (error: any) {
     showMessage(error?.message || t('externalMailbox.fetchFailed'), 'error')
   } finally {
@@ -905,12 +900,9 @@ const confirmDelete = async () => {
 // 收取单个邮箱的邮件
 const fetchSingleMailbox = async (accountId: number) => {
   // 防止重复点击
-  if (fetchingIds.value.includes(accountId)) {
+  if (mergedFetchingIds.value.includes(accountId)) {
     return
   }
-
-  // 立即显示收取中状态
-  fetchingIds.value.push(accountId)
 
   try {
     const account = accounts.value.find((a: any) => a.id === accountId)
@@ -920,9 +912,16 @@ const fetchSingleMailbox = async (accountId: number) => {
     }
 
     if (!isDesktop) {
-      showMessage(t('externalMailbox.desktopOnlyFetch'), 'warning')
+      if (!isOnlineFetchSupported(account)) {
+        showMessage(t('externalMailbox.desktopOnlyFetch'), 'warning')
+        return
+      }
+      await handleOnlineFetchAction(accountId)
       return
     }
+
+    // 桌面端本地收取状态
+    fetchingIds.value.push(accountId)
 
     showMessage(t('externalMailbox.fetchingMailNow'), 'primary', 0)
 
@@ -1011,7 +1010,8 @@ const fetchSingleMailbox = async (accountId: number) => {
       }
     }
     await loadAccounts()
-    emit('refresh')
+    selectedId.value = accountId
+    emit('refresh', { mailboxId: accountId })
   } catch (e: any) {
     showMessage(typeof e === 'string' ? e : e.message || t('externalMailbox.fetchFailed'), 'error')
     await loadAccounts()

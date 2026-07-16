@@ -2,7 +2,55 @@ import axios from 'axios'
 import { showMessage } from '@/utils/message'
 import { getCurrentLocale, i18n } from '@/i18n'
 
-const shouldSuppressErrorMessage = (config: any) => Boolean(config?.suppressErrorMessage)
+const normalizeMessageValue = (value: any): string => {
+  if (value === undefined || value === null) return ''
+  if (typeof value === 'string') return value.trim()
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => normalizeMessageValue(item))
+      .filter(Boolean)
+      .join('；')
+  }
+  if (typeof value === 'object') {
+    const direct = value.message || value.msg || value.detail || value.error
+    if (direct && direct !== value) {
+      return normalizeMessageValue(direct)
+    }
+    if (value.loc && value.msg) {
+      const loc = Array.isArray(value.loc) ? value.loc.join('.') : String(value.loc)
+      return `${loc}: ${value.msg}`
+    }
+    try {
+      return JSON.stringify(value)
+    } catch {
+      return String(value)
+    }
+  }
+  return String(value)
+}
+
+export const extractApiErrorMessage = (payload: any, fallback: string) => {
+  const message =
+    normalizeMessageValue(payload?.message) ||
+    normalizeMessageValue(payload?.detail) ||
+    normalizeMessageValue(payload?.error) ||
+    normalizeMessageValue(payload)
+  return message || fallback
+}
+
+export const extractFetchErrorMessage = async (response: Response, fallback: string) => {
+  const text = await response.text().catch(() => '')
+  if (!text) return fallback
+  try {
+    return extractApiErrorMessage(JSON.parse(text), fallback)
+  } catch {
+    return text || fallback
+  }
+}
+
+const shouldSuppressErrorMessage = (config: any) =>
+  config?.silentErrorMessage === true || config?.suppressErrorMessage === 'silent'
 const t = (key: string) => String(i18n.global.t(key))
 
 // 检测是否在 Tauri 环境
@@ -142,7 +190,7 @@ api.interceptors.response.use(
 
     // 统一处理业务错误：只要 code !== 0 就显示错误消息
     if (data.code !== 0 && !shouldSuppressErrorMessage(response.config)) {
-      showMessage(data.message || t('common.operationFailed'), 'error')
+      showMessage(extractApiErrorMessage(data, t('common.operationFailed')), 'error')
     }
 
     // 直接返回后端数据，保持 {code: 0, message: "", data: []} 格式
@@ -151,7 +199,7 @@ api.interceptors.response.use(
   (error) => {
     // 401错误不计入维护检测
     if (error.response?.status === 401) {
-      const backendDetail = String(error.response?.data?.detail || error.response?.data?.message || '').trim().toLowerCase()
+      const backendDetail = extractApiErrorMessage(error.response?.data, '').trim().toLowerCase()
       const isAccountDisabled =
         backendDetail === '账户已被禁用' ||
         backendDetail === 'this account has been disabled'
@@ -198,7 +246,7 @@ api.interceptors.response.use(
     }
 
     // 处理HTTP错误状态码，返回统一格式
-    const errorMessage = error.response?.data?.message || error.response?.data?.detail || t('common.networkErrorRetry')
+    const errorMessage = extractApiErrorMessage(error.response?.data, t('common.networkErrorRetry'))
 
     // 显示网络错误
     if (!shouldSuppressErrorMessage(error.config)) {

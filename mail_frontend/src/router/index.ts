@@ -28,6 +28,7 @@ const MonitoringDashboard = () => import('@/views/admin/monitoring/index.vue')
 const AdminProxyManagement = () => import('@/views/admin/proxy-management/index.vue')
 const AdminUserManagement = () => import('@/views/admin/user-management/index.vue')
 const WorkflowReview = () => import('@/views/admin/workflow-review/index.vue')
+const ResourceSources = () => import('@/views/admin/resource-sources/index.vue')
 const FinanceSettlement = () => import('@/views/admin/finance-settlement/index.vue')
 const AnnouncementManagement = () => import('@/views/admin/announcement-management/index.vue')
 const HelpCenterManagement = () => import('@/views/admin/help-center/index.vue')
@@ -74,7 +75,6 @@ const WorkflowDetail = () => import('@/views/market/detail.vue')
 
 // 邮箱分享页面（无需登录）
 const ShareMailbox = () => import('@/views/portal/share/index.vue')
-const OutlookCodeRedeem = () => import('@/views/portal/outlook-code-redeem/index.vue')
 
 // 下载页面（无需登录）
 const DownloadPage = () => import('@/views/download/index.vue')
@@ -251,17 +251,17 @@ const router = createRouter({
         }
       }
     },
-    // 工作流市场（无需登录即可浏览，购买时才需要登录）
+    // 资源市场（无需登录即可浏览，购买时才需要登录）
     {
       path: '/market',
       name: 'workflow-market',
       component: WorkflowMarket,
       meta: {
         seo: {
-          title: '工作流市场 - 邮箱管理与邮件自动化模板',
+          title: '资源市场 - 权益商品与自动化资源',
           description:
-            '在肥猫猫工作流市场浏览邮箱管理、邮件自动化模板、插件与数字资源，快速找到适合第三方邮箱接入、收发处理和数据流转的工作流。',
-          keywords: '工作流市场, 邮箱管理模板, 邮件自动化模板, 数字资源, 插件市场, workflow marketplace',
+            '在肥猫猫资源市场浏览餐饮饮品、视频会员、打车券、办公会员、邮箱资源和自动化工具。',
+          keywords: '资源市场, 权益商品, 视频会员, 打车券, 办公会员, 邮箱资源, 工作流',
           canonicalPath: '/market'
         }
       }
@@ -272,10 +272,10 @@ const router = createRouter({
       component: WorkflowDetail,
       meta: {
         seo: {
-          title: '工作流详情 - 邮件自动化模板',
+          title: '资源详情 - 权益商品与自动化资源',
           description:
-            '查看工作流模板的功能说明、价格、作者信息和用户评价，判断它是否适合你的邮件自动化场景。',
-          keywords: '工作流详情, 邮件自动化模板, 工作流市场, 肥猫猫'
+            '查看资源的规格、价格、履约方式、作者信息和用户评价。',
+          keywords: '资源详情, 权益商品, 自动化资源, 资源市场, 肥猫猫'
         }
       }
     },
@@ -285,12 +285,6 @@ const router = createRouter({
       name: 'share-mailbox',
       component: ShareMailbox
     },
-    {
-      path: '/outlook-code/redeem',
-      name: 'outlook-code-redeem',
-      component: OutlookCodeRedeem
-    },
-
     // 下载页面（无需登录）
     {
       path: '/download',
@@ -520,6 +514,11 @@ const router = createRouter({
           path: 'workflow-review',
           name: 'admin-workflow-review',
           component: WorkflowReview
+        },
+        {
+          path: 'resource-sources',
+          name: 'admin-resource-sources',
+          component: ResourceSources
         },
         {
           path: 'finance-settlement',

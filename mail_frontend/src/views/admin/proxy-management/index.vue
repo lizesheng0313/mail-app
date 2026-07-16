@@ -25,6 +25,7 @@
               v-model="statusFilter"
               :options="statusOptions"
               placeholder="状态筛选"
+              size="sm"
               class="w-48"
             />
             

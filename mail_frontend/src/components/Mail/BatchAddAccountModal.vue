@@ -185,17 +185,7 @@
 
               <label class="inline-flex items-center text-sm text-slate-700">
                 <input v-model="enableSmtp" type="checkbox" class="mailbox-checkbox h-4 w-4" />
-                <span class="ml-2 inline-flex items-center">
-                  <span>{{ t('batchAdd.enableSmtp') }}</span>
-                  <span class="group relative ml-1 inline-flex items-center">
-                    <span class="inline-flex h-4 w-4 items-center justify-center rounded-full bg-amber-50 text-[11px] font-bold text-amber-700">
-                      !
-                    </span>
-                    <span class="pointer-events-none invisible absolute bottom-full left-1/2 z-10 mb-2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-slate-800 px-2 py-1 text-xs text-white shadow-lg group-hover:visible">
-                      发邮件用
-                    </span>
-                  </span>
-                </span>
+                <span class="ml-2">{{ t('batchAdd.enableSmtp') }}</span>
               </label>
 
               <div class="flex items-center gap-3">

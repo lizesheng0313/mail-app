@@ -255,7 +255,7 @@ import authAPI from '@/api/auth'
 import userAPI from '@/api/user'
 import PageHeader from '@/components/PageHeader/index.vue'
 import ConfirmDialog from '@/components/ConfirmDialog/index.vue'
-import { isTauri } from '@/services/api'
+import { extractFetchErrorMessage, isTauri } from '@/services/api'
 import { getCurrentLocale } from '@/i18n'
 import { openExternalAuthUrl } from '@/utils/openExternalAuthUrl'
 
@@ -344,7 +344,7 @@ const loadUserInfo = async () => {
     } else {
       console.error('获取 Google 状态失败:', googleData.message)
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('加载用户信息失败:', error)
   } finally {
     loading.value = false
@@ -439,6 +439,10 @@ const handleRecharge = async () => {
       })
     })
     
+    if (!response.ok) {
+      throw new Error(await extractFetchErrorMessage(response, t('profile.createOrderFailed')))
+    }
+
     const result = await response.json()
     
     if (result.code === 0 && result.data) {
@@ -452,7 +456,7 @@ const handleRecharge = async () => {
       showMessage(result.message || t('profile.createOrderFailed'), 'error')
     }
   } catch (error) {
-    showMessage(t('common.networkErrorRetry'), 'error')
+    showMessage(error?.message || t('common.networkErrorRetry'), 'error')
     console.error(error)
   } finally {
     recharging.value = false
