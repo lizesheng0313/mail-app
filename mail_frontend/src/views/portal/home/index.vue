@@ -2076,7 +2076,7 @@ const handleBatchAddAccounts = async (accounts: any[]) => {
         const accountData: any = {
           email: account.email,
           password: account.password,
-          protocol: account.protocol || 'imap'
+          protocol: account.protocol || 'auto'
         }
 
         if (account.pop3_host && account.pop3_port) {
@@ -2111,8 +2111,16 @@ const handleBatchAddAccounts = async (accounts: any[]) => {
                 email: accountData.email,
                 password: accountData.password,
                 protocol: accountData.protocol,
-                host: accountData.protocol === 'imap' ? accountData.imap_host : accountData.pop3_host,
-                port: accountData.protocol === 'imap' ? accountData.imap_port : accountData.pop3_port,
+                host: accountData.protocol === 'imap'
+                  ? accountData.imap_host
+                  : accountData.protocol === 'pop3'
+                    ? accountData.pop3_host
+                    : null,
+                port: accountData.protocol === 'imap'
+                  ? accountData.imap_port
+                  : accountData.protocol === 'pop3'
+                    ? accountData.pop3_port
+                    : null,
                 verifySmtp: accountData.verify_smtp !== false,
                 proxy: previewRuntimeProxy
               })
@@ -2124,9 +2132,11 @@ const handleBatchAddAccounts = async (accounts: any[]) => {
               throw new Error(result.message || t('home.mailboxVerifyFailed'))
             }
 
-            if (result.protocol) {
-              accountData.protocol = result.protocol
+            const resolvedProtocol = String(result.protocol || '').toLowerCase()
+            if (!['imap', 'pop3'].includes(resolvedProtocol)) {
+              throw new Error('邮箱验证成功但未返回实际收件协议，请重试')
             }
+            accountData.protocol = resolvedProtocol
             if (result.host && result.port) {
               if (accountData.protocol === 'imap') {
                 accountData.imap_host = result.host

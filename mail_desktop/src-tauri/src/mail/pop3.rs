@@ -243,6 +243,7 @@ fn pop3_login_sync(
 ) -> Result<LoginResult, String> {
     match connect_and_login(host, port, email, password, proxy_config) {
         Ok((mut tls, actual_port)) => {
+            verify_pop3_can_read_mailbox(&mut tls)?;
             let _ = tls.write_all(b"QUIT\r\n");
             Ok(LoginResult {
                 success: true,
@@ -268,6 +269,19 @@ fn pop3_login_sync(
             smtp_error: None,
         }),
     }
+}
+
+fn verify_pop3_can_read_mailbox(tls: &mut TlsStream<TcpStream>) -> Result<(), String> {
+    tls.write_all(b"STAT\r\n")
+        .map_err(|e| format!("POP3 发送 STAT 失败: {}", e))?;
+    let response = read_line(tls)
+        .map_err(|e| format!("POP3 读取 STAT 响应失败: {}", e))?;
+
+    if response.starts_with("+OK") {
+        return Ok(());
+    }
+
+    Err(format!("POP3 登录成功但无法读取邮箱状态: {}", response.trim()))
 }
 
 /// POP3 收取邮件

@@ -956,29 +956,67 @@ async fn fetch_mailbox_via_relogin_config(
         mailbox_id, config.email, protocol, host, port
     );
 
-    if protocol == "imap" {
-        mail::imap::fetch_emails(
-            &config.email,
-            &config.password,
-            &host,
+    let mut candidates = Vec::new();
+    push_fetch_candidate(
+        &mut candidates,
+        FetchCandidate {
+            protocol,
+            host,
             port,
-            limit,
-            fetch_oldest,
-            None,
-        )
-        .await
-    } else {
-        mail::pop3::fetch_emails(
-            &config.email,
-            &config.password,
-            &host,
-            port,
-            limit,
-            fetch_oldest,
-            None,
-        )
-        .await
+        },
+    );
+    if let (Some(imap_host), Some(imap_port)) = (config.imap_host.clone(), config.imap_port) {
+        push_fetch_candidate(
+            &mut candidates,
+            FetchCandidate {
+                protocol: "imap".to_string(),
+                host: imap_host,
+                port: imap_port,
+            },
+        );
     }
+    if let (Some(pop3_host), Some(pop3_port)) = (config.pop3_host.clone(), config.pop3_port) {
+        push_fetch_candidate(
+            &mut candidates,
+            FetchCandidate {
+                protocol: "pop3".to_string(),
+                host: pop3_host,
+                port: pop3_port,
+            },
+        );
+    }
+
+    let mut success_results = Vec::new();
+    let mut error_messages = Vec::new();
+    for candidate in candidates {
+        match fetch_with_candidate(
+            &candidate,
+            &config.email,
+            &config.password,
+            limit,
+            fetch_oldest,
+            None,
+        )
+        .await
+        {
+            Ok(result) => success_results.push(result),
+            Err(err) => {
+                warn!(
+                    "自动重登收取协议失败: mailbox_id={} email={} protocol={} host={}:{} error={}",
+                    mailbox_id, config.email, candidate.protocol, candidate.host, candidate.port, err
+                );
+                error_messages.push(format!("{}: {}", candidate.protocol, err));
+            }
+        }
+    }
+
+    if success_results.is_empty() {
+        return Err(error_messages.join("；"));
+    }
+    if success_results.len() == 1 {
+        return Ok(success_results.remove(0));
+    }
+    Ok(merge_fetched_emails(success_results, limit, fetch_oldest))
 }
 
 #[tauri::command]

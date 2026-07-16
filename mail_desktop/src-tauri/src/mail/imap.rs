@@ -325,6 +325,7 @@ fn imap_login_sync(
 ) -> Result<LoginResult, String> {
     match connect_and_login(host, port, email, password, proxy_config) {
         Ok((mut session, actual_port)) => {
+            verify_imap_can_read_mailbox(&mut session)?;
             let _ = session.logout();
             Ok(LoginResult {
                 success: true,
@@ -350,6 +351,30 @@ fn imap_login_sync(
             smtp_error: None,
         }),
     }
+}
+
+fn verify_imap_can_read_mailbox<T: Read + Write>(session: &mut imap::Session<T>) -> Result<(), String> {
+    let mailboxes = list_sync_candidate_mailboxes(session);
+    let mut errors = Vec::new();
+
+    for mailbox in mailboxes {
+        match session.select(&mailbox) {
+            Ok(_) => {
+                let _ = session.close();
+                return Ok(());
+            }
+            Err(e) => errors.push(format!("{}: {}", mailbox, e)),
+        }
+    }
+
+    Err(format!(
+        "IMAP 登录成功但无法读取邮箱文件夹：{}",
+        if errors.is_empty() {
+            "没有可读取文件夹".to_string()
+        } else {
+            errors.join("；")
+        }
+    ))
 }
 
 /// IMAP 收取邮件
