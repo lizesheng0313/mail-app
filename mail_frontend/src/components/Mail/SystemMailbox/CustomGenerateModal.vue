@@ -55,10 +55,13 @@
         <div class="flex min-h-0 flex-1 flex-col px-4 py-4">
           <div
             v-if="domainLoading"
-            class="flex items-center gap-2 rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-500"
+            class="flex items-center justify-center gap-2 py-8 text-sm text-gray-500"
           >
-            <span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-gray-200 border-t-primary-500"></span>
-            <span>加载中</span>
+            <svg class="h-4 w-4 animate-spin text-primary-500" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <circle class="opacity-25" cx="12" cy="12" r="9" stroke="currentColor" stroke-width="3" />
+              <path class="opacity-90" fill="currentColor" d="M21 12a9 9 0 0 1-9 9v-3a6 6 0 0 0 6-6h3Z" />
+            </svg>
+            <span>加载中...</span>
           </div>
           <div
             v-else-if="!filteredDomainOptions.length"
@@ -678,12 +681,11 @@ const normalizeHostedDomainRows = (items: any[] = []) =>
       raw_id: Number(item.id),
       domain_name: item.domain_name,
       expires_at: item.expires_at,
-      mailbox_count: Number(item.mailbox_count || 0),
       is_public_domain: Boolean(item.is_public)
     }))
 
 const loadSystemDomains = async () => {
-  const domainsRes: any = await mailboxAPI.getSystemDomains({ page: 1, page_size: 5000 })
+  const domainsRes: any = await mailboxAPI.getSystemDomains({ page: 1, page_size: 10000 })
   if (domainsRes.code === 0 && domainsRes.data) {
     domainOptions.value = domainsRes.data.items || []
     domainTotal.value = Number(domainsRes.data.total || 0)
@@ -707,10 +709,12 @@ const loadCustomGenerateResources = async () => {
       return
     }
 
-    const [, balanceRes] = await Promise.all([
-      loadSystemDomains(),
-      getBalance()
-    ])
+    const domainsPromise = loadSystemDomains()
+    const balancePromise = getBalance()
+    await domainsPromise
+    // 域名列表先展示，余额查询不再阻塞列表和全选按钮。
+    domainLoading.value = false
+    const balanceRes = await balancePromise
 
     if (balanceRes.code === 0 && balanceRes.data) {
       customGenerateBalance.value = Number(balanceRes.data.balance || 0)
