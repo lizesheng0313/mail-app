@@ -592,7 +592,7 @@ onUnmounted(() => {
 
 <style scoped>
 .page-header-shell {
-  max-width: 80rem;
+  max-width: none;
   margin: 0 auto;
   padding-left: 1rem;
   padding-right: 1rem;
@@ -613,11 +613,17 @@ onUnmounted(() => {
   }
 }
 
+@media (min-width: 1440px) {
+  .page-header-shell {
+    padding-left: 2.5rem;
+    padding-right: 2.5rem;
+  }
+}
+
 @media (min-width: 1920px) {
   .page-header-shell {
-    max-width: none;
-    padding-left: clamp(1.5rem, 3vw, 4rem);
-    padding-right: clamp(1.5rem, 3vw, 4rem);
+    padding-left: clamp(2rem, 2.5vw, 3.25rem);
+    padding-right: clamp(2rem, 2.5vw, 3.25rem);
   }
 }
 

@@ -1197,7 +1197,9 @@ const zhCN = {
     authOpenFailed: '无法打开授权页面，请手动复制链接到浏览器',
     authStopped: '已终止授权',
     authStopping: '正在终止授权...',
-    authTimeout: '授权超时或未完成，请重试'
+    authTimeout: '授权超时或未完成，请重试',
+    capabilityReceive: '收',
+    capabilitySend: '发'
   },
   batchWorkbench: {
     title: '批量工作台',

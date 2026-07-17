@@ -100,11 +100,27 @@
                           <p class="truncate font-mono text-sm text-slate-900">{{ result.email }}</p>
                         </div>
                         <div class="relative max-w-[180px] flex-shrink-0 text-right">
-                          <p class="truncate text-xs" :class="result.status === 'error' ? 'text-red-600' : result.status === 'skipped' ? 'text-amber-700' : 'text-slate-500'">
+                          <template v-if="getResultCapabilityTags(result).length">
+                            <div class="flex flex-wrap justify-end gap-1">
+                              <span
+                                v-for="tag in getResultCapabilityTags(result)"
+                                :key="tag.label"
+                                class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium"
+                                :class="tag.className"
+                              >
+                                {{ tag.label }}
+                              </span>
+                            </div>
+                          </template>
+                          <p
+                            v-else
+                            class="truncate text-xs"
+                            :class="result.status === 'error' ? 'text-red-600' : result.status === 'skipped' ? 'text-amber-700' : 'text-slate-500'"
+                          >
                             {{ result.message || resolveResultStatusText(result.status) }}
                           </p>
                           <div
-                            v-if="result.message && showLivePanel"
+                            v-if="shouldShowResultTooltip(result)"
                             class="invisible absolute right-0 top-full z-10 mt-1 max-w-[220px] rounded-lg bg-slate-800 px-2 py-1 text-left text-xs text-white shadow-lg group-hover:visible"
                           >
                             {{ result.message }}
@@ -600,6 +616,38 @@ const resolveResultStatusText = (status: 'pending' | 'success' | 'error' | 'skip
   if (status === 'error') return '添加失败'
   if (status === 'skipped') return '已跳过'
   return '等待处理'
+}
+
+const getResultCapabilityTags = (result: { status: 'pending' | 'success' | 'error' | 'skipped', message?: string }) => {
+  if (result.status !== 'success') return []
+
+  const message = String(result.message || '')
+  if (message.includes(t('home.smtpReceiveAndSend'))) {
+    return [
+      {
+        label: t('batchAdd.capabilityReceive'),
+        className: 'bg-sky-50 text-sky-700 ring-1 ring-sky-100'
+      },
+      {
+        label: t('batchAdd.capabilitySend'),
+        className: 'bg-primary-50 text-primary-700 ring-1 ring-primary-100'
+      }
+    ]
+  }
+
+  if (message.includes(t('home.smtpReceiveOnly')) || message.includes(t('home.smtpNotEnabled'))) {
+    return [{
+      label: t('batchAdd.capabilityReceive'),
+      className: 'bg-sky-50 text-sky-700 ring-1 ring-sky-100'
+    }]
+  }
+
+  return []
+}
+
+const shouldShowResultTooltip = (result: { status: 'pending' | 'success' | 'error' | 'skipped', message?: string }) => {
+  if (!result.message || !showLivePanel.value) return false
+  return getResultCapabilityTags(result).length === 0
 }
 
 const resolveExportStatus = (

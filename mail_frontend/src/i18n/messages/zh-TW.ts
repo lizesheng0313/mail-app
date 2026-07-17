@@ -1197,7 +1197,9 @@ const zhTW = {
     authOpenFailed: '無法打開授權頁面，請手動複製連結到瀏覽器',
     authStopped: '已終止授權',
     authStopping: '正在終止授權...',
-    authTimeout: '授權逾時或未完成，請重試'
+    authTimeout: '授權逾時或未完成，請重試',
+    capabilityReceive: '收',
+    capabilitySend: '發'
   },
   batchWorkbench: {
     title: '批量工作台',
