@@ -15,29 +15,24 @@
         <div class="border-b border-gray-100 px-5 py-4">
           <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div class="min-w-0">
-              <p class="text-lg font-semibold text-gray-900">{{ t('home.customGenerateDomainLabel') }}</p>
+              <div class="flex items-center gap-2">
+                <p class="text-lg font-semibold text-gray-900">{{ t('home.customGenerateDomainLabel') }}</p>
+                <span class="text-sm font-normal text-gray-500">
+                  {{ t('home.totalDomainsCount', { count: domainTotal }) }}
+                </span>
+              </div>
               <p class="mt-1 text-sm text-gray-500">{{ domainHintText }}</p>
             </div>
             <div class="flex items-center gap-3 text-sm">
               <span class="rounded-full bg-primary-50 px-3 py-1 font-medium text-primary-700">
                 {{ t('home.selectedDomainsCount', { count: selectedDomainCount }) }}
               </span>
-              <span class="whitespace-nowrap text-gray-500">
-                {{ t('home.totalDomainsCount', { count: domainTotal }) }}
-              </span>
               <button
                 type="button"
                 class="font-medium text-primary-600 hover:text-primary-700"
                 @click="selectAllCustomDomains"
               >
-                {{ t('home.selectAllDomains') }}
-              </button>
-              <button
-                type="button"
-                class="font-medium text-gray-500 hover:text-gray-700"
-                @click="clearCustomDomains"
-              >
-                {{ t('home.clearSelectedDomains') }}
+                {{ allCustomDomainsSelected ? t('mailToolbar.deselectAll') : t('home.selectAllDomains') }}
               </button>
             </div>
           </div>
@@ -72,7 +67,6 @@
           <div
             v-else
             class="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1"
-            @scroll.passive="handleDomainListScroll"
           >
             <button
               v-for="domain in filteredDomainOptions"
@@ -121,13 +115,6 @@
                 ✓
               </span>
             </button>
-            <div v-if="domainLoadingMore" class="flex items-center justify-center gap-2 py-3 text-sm text-gray-500">
-              <svg class="h-4 w-4 animate-spin text-primary-500" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <circle class="opacity-25" cx="12" cy="12" r="9" stroke="currentColor" stroke-width="3" />
-                <path class="opacity-90" fill="currentColor" d="M21 12a9 9 0 0 1-9 9v-3a6 6 0 0 0 6-6h3Z" />
-              </svg>
-              <span>加载中...</span>
-            </div>
           </div>
         </div>
       </section>
@@ -406,13 +393,9 @@ const customRuleButtonActiveClass =
 
 const customGenerateLoading = ref(false)
 const domainLoading = ref(false)
-const domainLoadingMore = ref(false)
 const domainOptions = ref<any[]>([])
-const domainPage = ref(1)
-const domainHasMore = ref(false)
 const domainTotal = ref(0)
 const allSystemDomainsSelected = ref(false)
-const domainPageSize = 20
 const customGenerateBalance = ref(0)
 const domainSearchKeyword = ref('')
 const customGenerateForm = ref({
@@ -507,6 +490,12 @@ const selectedDomainCount = computed(() =>
     ? domainTotal.value
     : customGenerateForm.value.domain_ids.length
 )
+const allCustomDomainsSelected = computed(() => {
+  if (isSpecifiedMode.value || !filteredDomainOptions.value.length) return false
+  if (isSystemMailbox.value) return allSystemDomainsSelected.value
+  const selectedIds = new Set(customGenerateForm.value.domain_ids)
+  return filteredDomainOptions.value.every((item) => selectedIds.has(String(item.id)))
+})
 
 const resolveDomainUnitPrice = (domain: any) => (Number(domain?.expires_at || 0) > 0 ? 0.1 : 0.2)
 
@@ -696,23 +685,12 @@ const normalizeHostedDomainRows = (items: any[] = []) =>
       is_public_domain: Boolean(item.is_public)
     }))
 
-const loadSystemDomainPage = async (page = 1, append = false) => {
-  if (append) domainLoadingMore.value = true
-  try {
-    const domainsRes: any = await mailboxAPI.getSystemDomains({
-      page,
-      page_size: domainPageSize
-    })
-    if (domainsRes.code === 0 && domainsRes.data) {
-      const incoming = domainsRes.data.items || []
-      domainOptions.value = append ? [...domainOptions.value, ...incoming] : incoming
-      domainPage.value = Number(domainsRes.data.page || page)
-      domainTotal.value = Number(domainsRes.data.total || 0)
-      domainHasMore.value = Boolean(domainsRes.data.has_more)
-      syncCustomGenerateDomainSelection()
-    }
-  } finally {
-    domainLoadingMore.value = false
+const loadSystemDomains = async () => {
+  const domainsRes: any = await mailboxAPI.getSystemDomains()
+  if (domainsRes.code === 0 && domainsRes.data) {
+    domainOptions.value = domainsRes.data.items || []
+    domainTotal.value = domainOptions.value.length
+    syncCustomGenerateDomainSelection()
   }
 }
 
@@ -732,7 +710,7 @@ const loadCustomGenerateResources = async () => {
       return
     }
 
-    const domainsPromise = loadSystemDomainPage(1)
+    const domainsPromise = loadSystemDomains()
     const balancePromise = getBalance()
     await domainsPromise
     // 域名列表先展示，余额查询不再阻塞列表和全选按钮。
@@ -784,23 +762,13 @@ const selectAllCustomDomains = () => {
     return
   }
   if (isHostedMailbox.value) {
-    customGenerateForm.value.domain_ids = filteredDomainOptions.value.map((item) => String(item.id))
+    customGenerateForm.value.domain_ids = allCustomDomainsSelected.value
+      ? []
+      : filteredDomainOptions.value.map((item) => String(item.id))
     return
   }
   // 全选只记录状态，生成时由后端自行读取全部可用域名。
-  allSystemDomainsSelected.value = true
-  customGenerateForm.value.domain_ids = []
-}
-
-const handleDomainListScroll = async (event: Event) => {
-  if (isHostedMailbox.value || domainLoadingMore.value || !domainHasMore.value) return
-  const element = event.currentTarget as HTMLElement
-  if (element.scrollTop + element.clientHeight < element.scrollHeight - 80) return
-  await loadSystemDomainPage(domainPage.value + 1, true)
-}
-
-const clearCustomDomains = () => {
-  allSystemDomainsSelected.value = false
+  allSystemDomainsSelected.value = !allSystemDomainsSelected.value
   customGenerateForm.value.domain_ids = []
 }
 
@@ -978,9 +946,6 @@ const resetCustomGenerateState = () => {
   customGenerateForm.value = createDefaultCustomGenerateForm()
   allSystemDomainsSelected.value = false
   domainOptions.value = []
-  domainPage.value = 1
-  domainHasMore.value = false
-  domainLoadingMore.value = false
   domainTotal.value = 0
   closeConfirmDialog()
 }
