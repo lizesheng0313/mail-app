@@ -740,32 +740,22 @@ const refreshOutlookTaobaoAccounts = async () => {
   outlookRefreshStats.value = { success: 0, failed: 0 }
   outlookRefreshProgress.value = { done: 0, total: lines.length }
 
-  const chunkSize = 10
-  const outputChunks = []
-
   try {
-    for (let start = 0; start < lines.length; start += chunkSize) {
-      const chunk = lines.slice(start, start + chunkSize)
-      const res = await workflowApi.refreshOutlookInventoryAccountLines(
-        props.workflow.workflow_id,
-        chunk.join('\n')
-      )
+    const res = await workflowApi.refreshOutlookInventoryAccountLines(
+      props.workflow.workflow_id,
+      lines.join('\n')
+    )
 
-      if (res.code !== 0) {
-        throw new Error(res.message || '更新 Outlook 卡密失败')
-      }
-
-      outputChunks.push(res.data.content || '')
-      const batchResults = (res.data.results || []).map(item => ({
-        ...item,
-        line: start + Number(item.line || 0)
-      }))
-      outlookRefreshResults.value.push(...batchResults)
-      outlookRefreshStats.value.success += Number(res.data.success_count || 0)
-      outlookRefreshStats.value.failed += Number(res.data.failed_count || 0)
-      outlookRefreshOutput.value = outputChunks.join('\n')
-      outlookRefreshProgress.value.done = Math.min(start + chunk.length, lines.length)
+    if (res.code !== 0) {
+      throw new Error(res.message || '更新 Outlook 卡密失败')
     }
+
+    outlookRefreshOutput.value = res.data.content || ''
+    outlookRefreshResults.value = res.data.results || []
+    outlookRefreshStats.value.success = Number(res.data.success_count || 0)
+    outlookRefreshStats.value.failed = Number(res.data.failed_count || 0)
+    outlookRefreshProgress.value.done = lines.length
+    outlookRefreshProgress.value.total = lines.length
 
     if (outlookRefreshStats.value.failed > 0) {
       showMessage(`更新完成，失败 ${outlookRefreshStats.value.failed} 行`, 'warning')

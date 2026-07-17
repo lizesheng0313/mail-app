@@ -3,6 +3,8 @@
     :compact-panels="!userStore.isAuthenticated"
     :use-main="currentView === 'send-email'"
     :page-scrollable="currentView === 'send-email'"
+    workspace-mode
+    resizable-panels
   >
     <!-- 顶部工具栏 -->
     <template #toolbar>
