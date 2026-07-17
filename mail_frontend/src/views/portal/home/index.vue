@@ -6,7 +6,7 @@
   >
     <!-- 顶部工具栏 -->
     <template #toolbar>
-      <div class="flex flex-col gap-3">
+      <div class="flex flex-col gap-3 pb-4">
         <!-- Tab切换 -->
         <div class="flex border-b border-gray-200">
           <button

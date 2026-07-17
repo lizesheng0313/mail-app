@@ -2,7 +2,7 @@
   <div>
     <!-- 顶部导航 -->
     <nav class="fixed inset-x-0 top-0 z-[70] bg-white shadow-sm border-b border-gray-200 mobile-nav">
-      <div class="w-full px-[clamp(1rem,3vw,4rem)]">
+      <div class="page-header-shell">
         <div class="flex justify-between items-center h-16">
           <div class="flex items-center">
             <router-link
@@ -591,6 +591,36 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+.page-header-shell {
+  max-width: 80rem;
+  margin: 0 auto;
+  padding-left: 1rem;
+  padding-right: 1rem;
+  width: 100%;
+}
+
+@media (min-width: 640px) {
+  .page-header-shell {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .page-header-shell {
+    padding-left: 2rem;
+    padding-right: 2rem;
+  }
+}
+
+@media (min-width: 1920px) {
+  .page-header-shell {
+    max-width: none;
+    padding-left: clamp(1.5rem, 3vw, 4rem);
+    padding-right: clamp(1.5rem, 3vw, 4rem);
+  }
+}
+
 .line-clamp-2 {
   display: -webkit-box;
   -webkit-line-clamp: 2;
