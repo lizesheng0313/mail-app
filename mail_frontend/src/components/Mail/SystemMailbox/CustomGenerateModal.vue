@@ -72,6 +72,7 @@
           <div
             v-else
             class="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1"
+            @scroll.passive="handleDomainListScroll"
           >
             <button
               v-for="domain in filteredDomainOptions"
@@ -120,6 +121,13 @@
                 ✓
               </span>
             </button>
+            <div v-if="domainLoadingMore" class="flex items-center justify-center gap-2 py-3 text-sm text-gray-500">
+              <svg class="h-4 w-4 animate-spin text-primary-500" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <circle class="opacity-25" cx="12" cy="12" r="9" stroke="currentColor" stroke-width="3" />
+                <path class="opacity-90" fill="currentColor" d="M21 12a9 9 0 0 1-9 9v-3a6 6 0 0 0 6-6h3Z" />
+              </svg>
+              <span>加载中...</span>
+            </div>
           </div>
         </div>
       </section>
@@ -398,9 +406,13 @@ const customRuleButtonActiveClass =
 
 const customGenerateLoading = ref(false)
 const domainLoading = ref(false)
+const domainLoadingMore = ref(false)
 const domainOptions = ref<any[]>([])
+const domainPage = ref(1)
+const domainHasMore = ref(false)
 const domainTotal = ref(0)
 const allSystemDomainsSelected = ref(false)
+const domainPageSize = 20
 const customGenerateBalance = ref(0)
 const domainSearchKeyword = ref('')
 const customGenerateForm = ref({
@@ -684,12 +696,23 @@ const normalizeHostedDomainRows = (items: any[] = []) =>
       is_public_domain: Boolean(item.is_public)
     }))
 
-const loadSystemDomains = async () => {
-  const domainsRes: any = await mailboxAPI.getSystemDomains({ page: 1, page_size: 10000 })
-  if (domainsRes.code === 0 && domainsRes.data) {
-    domainOptions.value = domainsRes.data.items || []
-    domainTotal.value = Number(domainsRes.data.total || 0)
-    syncCustomGenerateDomainSelection()
+const loadSystemDomainPage = async (page = 1, append = false) => {
+  if (append) domainLoadingMore.value = true
+  try {
+    const domainsRes: any = await mailboxAPI.getSystemDomains({
+      page,
+      page_size: domainPageSize
+    })
+    if (domainsRes.code === 0 && domainsRes.data) {
+      const incoming = domainsRes.data.items || []
+      domainOptions.value = append ? [...domainOptions.value, ...incoming] : incoming
+      domainPage.value = Number(domainsRes.data.page || page)
+      domainTotal.value = Number(domainsRes.data.total || 0)
+      domainHasMore.value = Boolean(domainsRes.data.has_more)
+      syncCustomGenerateDomainSelection()
+    }
+  } finally {
+    domainLoadingMore.value = false
   }
 }
 
@@ -709,7 +732,7 @@ const loadCustomGenerateResources = async () => {
       return
     }
 
-    const domainsPromise = loadSystemDomains()
+    const domainsPromise = loadSystemDomainPage(1)
     const balancePromise = getBalance()
     await domainsPromise
     // 域名列表先展示，余额查询不再阻塞列表和全选按钮。
@@ -764,8 +787,16 @@ const selectAllCustomDomains = () => {
     customGenerateForm.value.domain_ids = filteredDomainOptions.value.map((item) => String(item.id))
     return
   }
+  // 全选只记录状态，生成时由后端自行读取全部可用域名。
   allSystemDomainsSelected.value = true
   customGenerateForm.value.domain_ids = []
+}
+
+const handleDomainListScroll = async (event: Event) => {
+  if (isHostedMailbox.value || domainLoadingMore.value || !domainHasMore.value) return
+  const element = event.currentTarget as HTMLElement
+  if (element.scrollTop + element.clientHeight < element.scrollHeight - 80) return
+  await loadSystemDomainPage(domainPage.value + 1, true)
 }
 
 const clearCustomDomains = () => {
@@ -861,9 +892,8 @@ const performHostedCustomGenerate = async () => {
 }
 
 const performSystemCustomGenerate = async () => {
+  const useAllSystemDomains = allSystemDomainsSelected.value
   const payload: Record<string, any> = {
-    domain_ids: allSystemDomainsSelected.value ? [] : customGenerateForm.value.domain_ids,
-    select_all: allSystemDomainsSelected.value,
     quantity: normalizedCustomGenerateQuantity.value,
     generation_mode:
       customGenerateForm.value.generation_mode === 'specified'
@@ -877,6 +907,13 @@ const performSystemCustomGenerate = async () => {
     sequence_padding: resolvedSequencePadding.value,
     sequence_start: resolvedSequenceStart.value,
     domain_strategy: customGenerateForm.value.domain_strategy
+  }
+
+  if (useAllSystemDomains) {
+    // 全选只传一个开关，域名 ID 由后端生成时自行读取。
+    payload.select_all = true
+  } else {
+    payload.domain_ids = customGenerateForm.value.domain_ids
   }
 
   if (
@@ -941,6 +978,9 @@ const resetCustomGenerateState = () => {
   customGenerateForm.value = createDefaultCustomGenerateForm()
   allSystemDomainsSelected.value = false
   domainOptions.value = []
+  domainPage.value = 1
+  domainHasMore.value = false
+  domainLoadingMore.value = false
   domainTotal.value = 0
   closeConfirmDialog()
 }
