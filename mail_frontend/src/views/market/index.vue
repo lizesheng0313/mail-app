@@ -58,12 +58,12 @@
           class="group cursor-pointer overflow-hidden rounded-xl border border-slate-200 bg-white transition hover:-translate-y-0.5 hover:border-primary-200 hover:shadow-md"
           @click="viewResource(product)"
         >
-          <div class="relative h-48 overflow-hidden bg-slate-100">
+          <div class="relative h-48 overflow-hidden bg-white">
             <img
               v-if="product.cover_url"
               :src="product.cover_url"
               :alt="product.name"
-              class="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+              class="h-full w-full object-contain transition duration-300"
               @error="handleCardImageError"
             />
             <div v-else class="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary-50 via-white to-primary-100">

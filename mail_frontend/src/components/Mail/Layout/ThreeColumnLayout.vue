@@ -507,6 +507,9 @@ onBeforeUnmount(() => {
     cursor: col-resize;
     touch-action: none;
     overflow: visible;
+    appearance: none;
+    -webkit-appearance: none;
+    outline: none;
   }
 
   .mail-resize-handle__line {
@@ -523,21 +526,35 @@ onBeforeUnmount(() => {
     top: 50%;
     left: 50%;
     z-index: 1;
-    width: 8px;
-    height: 44px;
+    width: 16px;
+    height: 48px;
     transform: translate(-50%, -50%);
-    border-radius: 999px;
-    border: 1px solid #e2e8f0;
-    background: rgba(255, 255, 255, 0.96);
-    box-shadow: 0 1px 2px rgb(15 23 42 / 0.06);
+    border-radius: 6px;
+    border: 1px solid #cbd5e1;
+    background: #ffffff;
+    box-shadow: 0 1px 3px rgb(15 23 42 / 0.12);
     transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
   }
 
+  .mail-resize-handle::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    z-index: 2;
+    width: 4px;
+    height: 24px;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    background: radial-gradient(circle, #64748b 1.5px, transparent 1.7px) center / 4px 8px repeat-y;
+  }
+
   .mail-resize-handle:hover::after,
-  .mail-resize-handle:focus-visible::after {
-    border-color: #cbd5e1;
+  .mail-resize-handle:focus-visible::after,
+  .mail-resize-handle:active::after {
+    border-color: #16a34a;
     background: #ffffff;
-    box-shadow: 0 2px 8px rgb(15 23 42 / 0.08);
+    box-shadow: 0 2px 8px rgb(22 163 74 / 0.2);
   }
 
   .mail-layout-grid-shell--workspace .mail-resizable-grid,
