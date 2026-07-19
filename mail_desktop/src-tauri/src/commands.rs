@@ -585,12 +585,37 @@ async fn add_external_mailbox_inner(
         })
     } else if proto == "imap" {
         emit_external_verify_progress(app, &email, "imap", "IMAP 验证中");
-        let mut result = mail::imap::verify_login(&email, &password, &config.imap_host, config.imap_port, proxy.clone()).await?;
-        if result.success && should_verify_smtp {
-            emit_external_verify_progress(app, &email, "smtp", "SMTP 验证中");
-            try_smtp_verify(&mut result, &email, &password, domain, proxy.as_ref()).await;
+        let mut imap_result = mail::imap::verify_login(&email, &password, &config.imap_host, config.imap_port, proxy.clone()).await?;
+        if imap_result.success {
+            if should_verify_smtp {
+                emit_external_verify_progress(app, &email, "smtp", "SMTP 验证中");
+                try_smtp_verify(&mut imap_result, &email, &password, domain, proxy.as_ref()).await;
+            }
+            return Ok(imap_result);
         }
-        Ok(result)
+
+        info!("IMAP 登录失败({}), 尝试 POP3 {}:{}", imap_result.message, config.pop3_host, config.pop3_port);
+        emit_external_verify_progress(app, &email, "pop3", "POP3 验证中");
+        let mut pop3_result = mail::pop3::verify_login(&email, &password, &config.pop3_host, config.pop3_port, proxy.clone()).await?;
+        if pop3_result.success {
+            if should_verify_smtp {
+                emit_external_verify_progress(app, &email, "smtp", "SMTP 验证中");
+                try_smtp_verify(&mut pop3_result, &email, &password, domain, proxy.as_ref()).await;
+            }
+            return Ok(pop3_result);
+        }
+
+        Ok(LoginResult {
+            success: false,
+            message: format!("IMAP 和 POP3 均登录失败。IMAP: {}; POP3: {}", imap_result.message, pop3_result.message),
+            protocol: None,
+            host: None,
+            port: None,
+            smtp_host: None,
+            smtp_port: None,
+            smtp_verified: false,
+            smtp_error: None,
+        })
     } else {
         emit_external_verify_progress(app, &email, "pop3", "POP3 验证中");
         let mut result = mail::pop3::verify_login(&email, &password, &config.pop3_host, config.pop3_port, proxy.clone()).await?;

@@ -325,19 +325,32 @@ fn imap_login_sync(
 ) -> Result<LoginResult, String> {
     match connect_and_login(host, port, email, password, proxy_config) {
         Ok((mut session, actual_port)) => {
-            verify_imap_can_read_mailbox(&mut session)?;
+            let readable_result = verify_imap_can_read_mailbox(&mut session);
             let _ = session.logout();
-            Ok(LoginResult {
-                success: true,
-                message: "登录验证成功".to_string(),
-                protocol: Some("imap".to_string()),
-                host: Some(host.to_string()),
-                port: Some(actual_port),
-                smtp_host: None,
-                smtp_port: None,
-                smtp_verified: false,
-                smtp_error: None,
-            })
+            match readable_result {
+                Ok(()) => Ok(LoginResult {
+                    success: true,
+                    message: "登录验证成功".to_string(),
+                    protocol: Some("imap".to_string()),
+                    host: Some(host.to_string()),
+                    port: Some(actual_port),
+                    smtp_host: None,
+                    smtp_port: None,
+                    smtp_verified: false,
+                    smtp_error: None,
+                }),
+                Err(message) => Ok(LoginResult {
+                    success: false,
+                    message,
+                    protocol: Some("imap".to_string()),
+                    host: Some(host.to_string()),
+                    port: Some(actual_port),
+                    smtp_host: None,
+                    smtp_port: None,
+                    smtp_verified: false,
+                    smtp_error: None,
+                }),
+            }
         }
         Err(msg) => Ok(LoginResult {
             success: false,
