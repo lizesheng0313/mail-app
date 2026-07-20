@@ -8,8 +8,8 @@
     </div>
     
     <!-- 表格容器 -->
-    <div class="min-w-0 flex-1 overflow-hidden">
-      <div class="h-full overflow-auto">
+    <div class="min-w-0" :class="scrollable ? 'flex-1 overflow-hidden' : 'overflow-visible'">
+      <div :class="scrollable ? 'h-full overflow-auto' : 'overflow-x-auto overflow-y-visible'">
         <table :class="['divide-y divide-gray-200', tableClass]">
           <thead class="bg-gray-50 sticky top-0">
             <slot name="thead" />
@@ -58,13 +58,15 @@ interface Props {
   showPageSizeSelector?: boolean
   columnCount?: number
   tableClass?: string
+  scrollable?: boolean
 }
 
 withDefaults(defineProps<Props>(), {
   loading: false,
   showPageSizeSelector: false,
   columnCount: 1,
-  tableClass: 'min-w-full'
+  tableClass: 'min-w-full',
+  scrollable: true
 })
 
 const { t } = useI18n()

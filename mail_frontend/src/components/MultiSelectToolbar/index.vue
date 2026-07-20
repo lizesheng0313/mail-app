@@ -55,6 +55,19 @@
             <span>{{ t('mailToolbar.share') }}</span>
           </button>
           <button
+            v-if="type === 'mailbox'"
+            @click="handleCopyClick"
+            :disabled="loading || selectedCount === 0"
+            class="toolbar-action-button text-gray-600 hover:bg-primary-50 hover:text-primary-700 disabled:cursor-not-allowed disabled:opacity-40"
+            :title="t('mailToolbar.batchCopy')"
+          >
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <rect x="9" y="9" width="11" height="11" rx="2" stroke-width="2" />
+              <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" stroke-width="2" />
+            </svg>
+            <span>{{ t('mailToolbar.batchCopy') }}</span>
+          </button>
+          <button
             @click="handleDeleteClick"
             :disabled="loading || selectedCount === 0"
             class="toolbar-action-button text-red-600 hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-40"
@@ -102,6 +115,7 @@ const emit = defineEmits<{
   'toggle-all': []
   'delete-selected': []
   'share-selected': []
+  'copy-selected': []
   'clear-selection': []
 }>()
 
@@ -132,6 +146,10 @@ const handleShareClick = () => {
   console.log('🟣 准备触发 share-selected 事件')
   emit('share-selected')
   console.log('🟣 share-selected 事件已触发')
+}
+
+const handleCopyClick = () => {
+  emit('copy-selected')
 }
 
 // 根据 position 计算定位类名 - 统一居中显示

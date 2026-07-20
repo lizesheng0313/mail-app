@@ -86,6 +86,7 @@
       @toggle-all="batchSelection.toggleSelectAll"
       @delete-selected="handleBatchDelete"
       @share-selected="handleBatchShare"
+      @copy-selected="handleBatchCopy"
       @clear-selection="batchSelection.cancelBatchMode()"
     />
   </div>
@@ -96,6 +97,7 @@ import { computed, ref, toRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useBatchSelection } from '@/composables/useBatchSelection'
 import MultiSelectToolbar from '@/components/MultiSelectToolbar/index.vue'
+import { showMessage } from '@/utils/message'
 
 interface Mailbox {
   id: number
@@ -219,6 +221,26 @@ const handleBatchShare = () => {
   }
   console.log('🔴 准备触发 batch-share 事件，ids:', ids)
   emit('batch-share', ids)
+}
+
+const handleBatchCopy = async () => {
+  const selectedIds = batchSelection.getSelectedIds()
+  const selectedEmails = props.mailboxes
+    .filter((mailbox) => selectedIds.includes(Number(mailbox.id)))
+    .map((mailbox) => String(mailbox.email || '').trim())
+    .filter(Boolean)
+
+  if (selectedEmails.length === 0) {
+    return
+  }
+
+  try {
+    await navigator.clipboard.writeText(selectedEmails.join('\n'))
+    showMessage(t('mailToolbar.batchCopied', { count: selectedEmails.length }), 'success')
+  } catch (error) {
+    console.error('批量复制邮箱失败:', error)
+    showMessage(t('mail.copyFailed'), 'error')
+  }
 }
 
 // 暴露取消批量模式方法给父组件

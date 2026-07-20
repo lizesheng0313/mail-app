@@ -70,8 +70,6 @@
       <WorkflowTable
         :workflows="filteredWorkflows"
         :loading="loading"
-        @view="viewWorkflow"
-        @edit="editWorkflow"
         @export="handleExportWorkflow"
         @delete="deleteWorkflow"
         @publish="handlePublish"
@@ -205,7 +203,6 @@ const {
   confirmUnpublish,
   deleteWorkflow,
   deleting,
-  editWorkflow,
   executeConfirmMessage,
   executing,
   executionResultData,
@@ -243,7 +240,6 @@ const {
   statusFilter,
   statusOptions,
   unpublishing,
-  viewWorkflow,
   workflowToDelete,
   workflowToUnpublish
 } = useWorkflowListPage()

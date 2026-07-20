@@ -46,6 +46,7 @@ const AdminEmailReachSettings = () => import('@/views/admin/email-reach-settings
 // 用户中心组件
 const UserLayout = () => import('@/layouts/UserLayout.vue')
 const UserPurchases = () => import('@/views/user/purchases/index.vue')
+const UserResourceOrders = () => import('@/views/user/resource-orders/index.vue')
 const UserFinance = () => import('@/views/user/finance/index.vue')
 const UserSettings = () => import('@/views/user/settings/index.vue')
 const UserAnnouncements = () => import('@/views/user/announcements/index.vue')
@@ -346,6 +347,11 @@ const router = createRouter({
           path: 'purchases',
           name: 'user-purchases',
           component: UserPurchases
+        },
+        {
+          path: 'resource-orders',
+          name: 'user-resource-orders',
+          component: UserResourceOrders
         },
         {
           path: 'finance',

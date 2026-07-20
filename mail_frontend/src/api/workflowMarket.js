@@ -17,6 +17,10 @@ export function getWorkflowDetail(workflowId) {
   return api.get(`/workflow-market/workflows/${workflowId}`)
 }
 
+export function getWorkflowAdminPriceTable(workflowId) {
+  return api.get(`/workflow-market/workflows/${workflowId}/admin-price-table`)
+}
+
 /**
  * 获取工作流评价列表
  */

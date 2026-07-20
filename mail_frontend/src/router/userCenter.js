@@ -50,6 +50,15 @@ export const userCenterRoutes = [
           icon: 'shopping'
         }
       },
+      {
+        path: 'resource-orders',
+        name: 'ResourceOrders',
+        component: () => import('@/views/user/resource-orders/index.vue'),
+        meta: {
+          title: '我的订单',
+          icon: 'orders'
+        }
+      },
 
       // 财务中心
       {

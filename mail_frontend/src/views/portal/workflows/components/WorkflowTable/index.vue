@@ -1,5 +1,5 @@
 <template>
-  <AdminDataTable :title="t('workflowList.title')" :loading="loading" :column-count="5">
+  <AdminDataTable :title="t('workflowList.title')" :loading="loading" :column-count="5" :scrollable="false">
     <template #thead>
           <tr>
             <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
@@ -122,7 +122,7 @@
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
               <!-- 我购买的工作流 - 简化按钮 -->
-              <div v-if="!workflow.is_owner" class="flex items-center justify-end gap-2">
+              <div v-if="!workflow.is_owner" class="flex items-center justify-start gap-2">
                 <!-- 执行按钮 -->
                 <ActionButton
                   v-if="canExecutePurchasedWorkflow(workflow)"
@@ -138,23 +138,23 @@
                   variant="default"
                   @click="viewWorkflowHistory(workflow)"
                 />
+                <!-- 从我的资源移除 -->
+                <ActionButton
+                  icon="delete"
+                  :tooltip="t('workflowList.delete')"
+                  variant="delete"
+                  @click="$emit('delete', workflow)"
+                />
               </div>
               
               <!-- 我创建的工作流 - 完整按钮 -->
-              <div v-else class="relative flex items-center justify-end gap-2">
-                <!-- 查看详情 -->
-                <ActionButton
-                  icon="eye"
-                  :tooltip="t('workflowList.viewDetails')"
-                  variant="view"
-                  @click="$emit('view', workflow)"
-                />
-                <!-- 编辑工作流 -->
+              <div v-else class="flex items-center justify-start gap-2">
+                <!-- 统一编辑入口：工作流和商品都从发布编辑页维护。 -->
                 <ActionButton
                   icon="edit"
-                  :tooltip="t('workflowList.edit')"
+                  :tooltip="t('workflowList.editMarketInfo')"
                   variant="edit"
-                  @click="$emit('edit', workflow)"
+                  @click="$emit('edit-publish', workflow)"
                 />
                 <!-- 发布到市场 -->
                 <ActionButton
@@ -172,65 +172,41 @@
                   variant="success"
                   @click="$emit('republish', workflow)"
                 />
-                <!-- 编辑市场信息 -->
+                <!-- 常用操作直接放在操作列，避免弹出菜单撑出列表滚动条。 -->
                 <ActionButton
-                  v-if="workflow.market_status === 'published' || workflow.market_status === 'approved' || workflow.market_status === 'offline'"
-                  icon="settings"
-                  :tooltip="t('workflowList.editMarketInfo')"
-                  variant="warning"
-                  @click="$emit('edit-publish', workflow)"
+                  v-if="!isProductResource(workflow)"
+                  icon="clock"
+                  :tooltip="t('workflowList.viewHistory')"
+                  variant="default"
+                  @click="viewWorkflowHistory(workflow)"
                 />
-
-                <button
-                  class="inline-flex items-center rounded p-1.5 text-black hover:text-black"
-                  :title="t('common.more')"
-                  @click.stop="toggleMoreMenu(workflow.workflow_id)"
-                >
-                  <BaseIcon name="more" size="sm" />
-                </button>
-
-                <div
-                  v-if="openMenuId === workflow.workflow_id"
-                  class="absolute right-0 top-9 z-30 w-52 overflow-hidden rounded-xl border border-gray-200 bg-white py-2 shadow-lg"
-                  @click.stop
-                >
-                  <div class="menu-group-title">{{ t('workflowList.actionGroupRecord') }}</div>
-                  <button class="menu-action text-gray-700" @click="runMenuAction(workflow, 'history')">
-                    <BaseIcon name="clock" size="xs" />
-                    {{ t('workflowList.viewHistory') }}
-                  </button>
-
-                  <template v-if="workflow.market_status === 'published' || workflow.market_status === 'approved'">
-                    <div class="menu-divider" />
-                    <div class="menu-group-title">{{ t('workflowList.actionGroupMarket') }}</div>
-                  </template>
-                  <button
-                    v-if="workflow.market_status === 'published' || workflow.market_status === 'approved'"
-                    class="menu-action text-orange-600"
-                    @click="runMenuAction(workflow, 'unpublish')"
-                  >
-                    <BaseIcon name="download" size="xs" />
-                    {{ t('workflowList.unpublish') }}
-                  </button>
-
-                  <div class="menu-divider" />
-                  <div class="menu-group-title">{{ t('workflowList.actionGroupResource') }}</div>
-                  <button v-if="!workflow.inventory_enabled" class="menu-action text-gray-700" @click="runMenuAction(workflow, 'export')">
-                    <BaseIcon name="download" size="xs" />
-                    {{ t('workflowList.export') }}
-                  </button>
-                  <button v-if="workflow.inventory_enabled" class="menu-action text-gray-700" @click="runMenuAction(workflow, 'inventory')">
-                    <BaseIcon name="database" size="xs" />
-                    {{ getInventoryTooltip(workflow) }}
-                  </button>
-
-                  <div class="menu-divider" />
-                  <div class="menu-group-title">{{ t('workflowList.actionGroupDanger') }}</div>
-                  <button class="menu-action text-red-600" @click="runMenuAction(workflow, 'delete')">
-                    <BaseIcon name="delete" size="xs" />
-                    {{ t('workflowList.delete') }}
-                  </button>
-                </div>
+                <ActionButton
+                  v-if="workflow.market_status === 'published' || workflow.market_status === 'approved'"
+                  icon="download"
+                  :tooltip="t('workflowList.unpublish')"
+                  variant="warning"
+                  @click="$emit('unpublish', workflow)"
+                />
+                <ActionButton
+                  v-if="!isProductResource(workflow) && !workflow.inventory_enabled"
+                  icon="download"
+                  :tooltip="t('workflowList.export')"
+                  variant="default"
+                  @click="$emit('export', workflow)"
+                />
+                <ActionButton
+                  v-else-if="!isProductResource(workflow)"
+                  icon="database"
+                  :tooltip="getInventoryTooltip(workflow)"
+                  variant="default"
+                  @click="$emit('manage-inventory', workflow)"
+                />
+                <ActionButton
+                  icon="delete"
+                  :tooltip="t('workflowList.delete')"
+                  variant="delete"
+                  @click="$emit('delete', workflow)"
+                />
               </div>
             </td>
           </tr>
@@ -245,17 +221,14 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import ActionButton from '@/components/ActionButton/index.vue'
 import AdminDataTable from '@/components/AdminDataTable/index.vue'
-import BaseIcon from '@/components/BaseIcon/index.vue'
 
 const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
-const openMenuId = ref('')
 
 const props = defineProps({
   workflows: {
@@ -272,33 +245,10 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['view', 'edit', 'delete', 'publish', 'unpublish', 'republish', 'manage-inventory', 'execute', 'edit-publish', 'export'])
+const emit = defineEmits(['delete', 'publish', 'unpublish', 'republish', 'manage-inventory', 'execute', 'edit-publish', 'export'])
 
-const toggleMoreMenu = (workflowId) => {
-  openMenuId.value = openMenuId.value === workflowId ? '' : workflowId
-}
-
-const runMenuAction = (workflow, action) => {
-  openMenuId.value = ''
-  if (action === 'history') {
-    viewWorkflowHistory(workflow)
-    return
-  }
-  if (action === 'export') {
-    emit('export', workflow)
-    return
-  }
-  if (action === 'inventory') {
-    emit('manage-inventory', workflow)
-    return
-  }
-  if (action === 'unpublish') {
-    emit('unpublish', workflow)
-    return
-  }
-  if (action === 'delete') {
-    emit('delete', workflow)
-  }
+const isProductResource = (workflow) => {
+  return workflow.resource_kind === 'product' || workflow.category === 'resource'
 }
 
 const isPurchasedWorkflow = (workflow) => {
@@ -416,33 +366,3 @@ const getTriggerTypeClass = (type) => {
   return classMap[type] || 'bg-gray-100 text-black'
 }
 </script>
-
-<style scoped>
-.menu-action {
-  display: flex;
-  width: 100%;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 0.75rem;
-  text-align: left;
-  font-size: 0.875rem;
-  transition: background-color 0.15s ease, color 0.15s ease;
-}
-
-.menu-action:hover {
-  background: #f9fafb;
-}
-
-.menu-group-title {
-  padding: 0.375rem 0.75rem 0.25rem;
-  font-size: 0.6875rem;
-  font-weight: 700;
-  color: #9ca3af;
-}
-
-.menu-divider {
-  margin: 0.375rem 0;
-  height: 1px;
-  background: #f3f4f6;
-}
-</style>

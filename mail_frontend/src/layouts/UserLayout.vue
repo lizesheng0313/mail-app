@@ -114,6 +114,21 @@ const menuSections = computed(() => [
         }
       },
       {
+        path: '/user/resource-orders',
+        label: t('userLayout.resourceOrders'),
+        icon: {
+          render: () =>
+            h('svg', { fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' }, [
+              h('path', {
+                'stroke-linecap': 'round',
+                'stroke-linejoin': 'round',
+                'stroke-width': '2',
+                d: 'M9 12h6m-6 4h6M7 4h10a2 2 0 012 2v14l-4-2-4 2-4-2-4 2V6a2 2 0 012-2z'
+              })
+            ])
+        }
+      },
+      {
         path: '/user/automation/plugins',
         label: t('userLayout.myPlugins'),
         icon: {
@@ -463,6 +478,7 @@ const currentPageTitle = computed(() => {
     '/user/external-batch-repair': t('userLayout.batchRepair'),
     '/user/external-proxy-management': t('userLayout.proxyManagement'),
     '/user/purchases': t('userLayout.transactions'),
+    '/user/resource-orders': t('userLayout.resourceOrders'),
     '/user/finance': t('userLayout.financeCenter'),
     '/user/settings': t('userLayout.personalSettings'),
     '/user/announcements': t('userLayout.announcements')
@@ -500,6 +516,7 @@ const pageDescription = computed(() => {
     '/user/external-batch-repair': t('userLayout.batchRepairDescription'),
     '/user/external-proxy-management': t('userLayout.proxyManagementDescription'),
     '/user/purchases': t('userLayout.transactionsDescription'),
+    '/user/resource-orders': t('userLayout.resourceOrdersDescription'),
     '/user/finance': t('userLayout.financeCenterDescription'),
     '/user/settings': t('userLayout.personalSettingsDescription'),
     '/user/announcements': t('userLayout.announcementsDescription')

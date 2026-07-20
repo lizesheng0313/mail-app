@@ -15,6 +15,12 @@ const userRoutes = [
         component: () => import('@/views/user/purchases/index.vue'),
         meta: { title: '交易记录' }
       },
+      {
+        path: 'resource-orders',
+        name: 'ResourceOrders',
+        component: () => import('@/views/user/resource-orders/index.vue'),
+        meta: { title: '我的订单' }
+      },
       // 财务中心
       {
         path: 'finance',

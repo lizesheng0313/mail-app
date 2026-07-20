@@ -16,13 +16,6 @@
         </div>
         <div class="flex gap-2">
           <button
-            @click="generateWithAI"
-            :disabled="generating"
-            class="px-3 py-1.5 text-sm bg-primary-600 text-white rounded hover:bg-primary-700 disabled:opacity-50"
-          >
-            {{ generating ? t('publishWorkflow.generating') : t('publishWorkflow.generateWithAI') }}
-          </button>
-          <button
             @click="handleSubmit"
             :disabled="submitting"
             class="px-4 py-1.5 text-sm bg-primary-600 text-white rounded hover:bg-primary-700 disabled:opacity-50"
@@ -54,6 +47,29 @@
           </div>
 
           <div class="space-y-5">
+            <div>
+              <label class="mb-2 block text-sm font-semibold text-gray-900">发布类型 <span class="text-red-500">*</span></label>
+              <div class="grid gap-2 md:grid-cols-2">
+                <label
+                  v-for="option in resourceTypeOptions"
+                  :key="option.value"
+                  class="flex cursor-pointer items-start rounded-lg border p-3 transition hover:bg-gray-50"
+                  :class="formData.resourceType === option.value ? 'border-primary-500 bg-primary-50' : 'border-gray-200'"
+                >
+                  <input
+                    type="radio"
+                    v-model="formData.resourceType"
+                    :value="option.value"
+                    class="mt-1 text-primary-600 focus:ring-primary-500"
+                  />
+                  <div class="ml-3">
+                    <div class="text-sm font-medium text-gray-900">{{ option.label }}</div>
+                    <p class="mt-0.5 text-xs text-gray-500">{{ option.desc }}</p>
+                  </div>
+                </label>
+              </div>
+            </div>
+
             <div>
               <label class="mb-2 block text-sm font-semibold text-gray-900">标题 <span class="text-red-500">*</span></label>
               <input
@@ -139,7 +155,7 @@
                 <CustomSelect v-model="formData.subscriptionPeriod" :options="periodOptions" :placeholder="t('publishWorkflow.select')" />
               </div>
 
-              <div>
+              <div v-if="formData.resourceType === 'product'">
                 <label class="mb-2 block text-sm font-semibold text-gray-900">交付方式</label>
                 <div class="grid gap-2">
                   <label
@@ -171,66 +187,91 @@
                   </p>
                 </div>
               </div>
+              <div v-else class="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                <div class="text-sm font-semibold text-gray-900">工作流执行</div>
+                <p class="mt-1 text-xs text-gray-500">该资源发布后只作为自动化工作流执行，不绑定商品货源。</p>
+              </div>
             </div>
           </div>
 
           <div class="space-y-3">
             <div class="flex items-center justify-between">
-              <label class="text-sm font-semibold text-gray-900">规格</label>
+              <div class="flex items-center gap-3">
+                <label class="text-sm font-semibold text-gray-900">规格</label>
+                <div v-if="showCupTabs" class="flex items-center gap-1 rounded-lg bg-gray-100 p-1">
+                  <button
+                    v-for="option in cupSpecOptions"
+                    :key="option.id"
+                    type="button"
+                    class="rounded-md px-3 py-1 text-xs font-medium transition"
+                    :class="selectedPrimarySpecId === option.id ? 'bg-white text-primary-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'"
+                    @click="selectPrimarySpec(option.id)"
+                  >
+                    {{ option.name }}
+                  </button>
+                </div>
+              </div>
               <button type="button" class="text-sm font-medium text-primary-700 hover:text-primary-800" @click="addSku">
                 添加规格
               </button>
             </div>
 
             <div class="space-y-3">
-              <div
-                v-for="(sku, index) in formData.skus"
-                :key="sku.localId"
-                class="rounded-xl border border-gray-200 bg-white p-3 shadow-sm"
-              >
-                <div class="grid items-center gap-3 md:grid-cols-[56px_72px_1fr_132px_156px_44px]">
-                  <div class="flex h-10 items-center text-sm font-semibold text-gray-500">#{{ index + 1 }}</div>
-                  <label class="group relative flex h-14 w-14 cursor-pointer items-center justify-center overflow-hidden rounded-lg border border-dashed border-gray-300 bg-gray-50 text-xs text-gray-500 transition hover:border-primary-500 hover:bg-primary-50 hover:text-primary-700">
-                    <img v-if="getSkuPreviewImage(sku)" :src="getSkuPreviewImage(sku)" class="h-full w-full object-cover" />
+              <div v-for="group in visibleSkuGroups" :key="group.id" class="space-y-2">
+                <div class="flex items-center gap-2 border-b border-gray-100 pb-1 text-sm font-semibold text-gray-700">
+                  <span class="h-2 w-2 rounded-full bg-primary-500"></span>
+                  {{ group.name }}
+                  <span class="text-xs font-normal text-gray-400">{{ group.items.length }} 个规格</span>
+                </div>
+                <div
+                  v-for="item in group.items"
+                  :key="item.sku.localId"
+                  class="rounded-lg border border-gray-200 bg-white p-2"
+                  :class="formData.deliveryMode === 'third_party_api' && !isSkuBound(item.sku) ? 'bg-gray-50 opacity-60' : ''"
+                >
+                <div class="grid items-center gap-2 md:grid-cols-[36px_48px_minmax(0,1fr)_112px_136px_32px]">
+                  <div class="flex h-9 items-center text-sm font-semibold text-gray-500">#{{ item.index + 1 }}</div>
+                  <label class="group relative flex h-10 w-10 cursor-pointer items-center justify-center overflow-hidden rounded-md border border-dashed border-gray-300 bg-gray-50 text-xs text-gray-500 transition hover:border-primary-500 hover:bg-primary-50 hover:text-primary-700">
+                    <img v-if="getSkuPreviewImage(item.sku)" :src="getSkuPreviewImage(item.sku)" class="h-full w-full object-cover" />
                     <span v-else class="flex flex-col items-center justify-center gap-0.5">
-                      <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v14m-7-7h14" />
                       </svg>
                     </span>
                     <span
-                      v-if="!sku.imageUrl && formData.iconUrl"
+                      v-if="!item.sku.imageUrl && formData.iconUrl"
                       class="absolute bottom-0 left-0 right-0 bg-black/45 py-0.5 text-center text-[10px] text-white"
                     >
                       主图
                     </span>
-                    <input type="file" accept="image/*" class="hidden" @change="handleSkuImageUpload($event, sku)" />
+                    <input type="file" accept="image/*" class="hidden" @change="handleSkuImageUpload($event, item.sku)" />
                   </label>
                   <input
-                    v-model="sku.name"
+                    v-model="item.sku.name"
                     type="text"
                     placeholder="白色"
-                    class="h-10 w-full rounded-lg border border-gray-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    class="h-9 w-full rounded-md border border-gray-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                   />
                   <div v-if="formData.pricingModel !== 'free'" class="relative">
                     <input
-                      v-model.number="sku.price"
+                      v-model.number="item.sku.price"
                       type="number"
                       min="0"
                       placeholder="价格"
-                      class="h-10 w-full rounded-lg border border-gray-200 px-3 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      class="h-9 w-full rounded-md border border-gray-200 px-3 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                     />
                     <span class="absolute right-3 top-2.5 text-xs text-gray-500">{{ t('publishWorkflow.coins') }}</span>
                   </div>
-                  <div v-else class="flex h-10 items-center rounded-lg bg-primary-50 px-3 text-sm font-semibold text-primary-700">免费</div>
+                  <div v-else class="flex h-9 items-center rounded-md bg-primary-50 px-3 text-sm font-semibold text-primary-700">免费</div>
                   <div
-                    v-if="formData.deliveryMode === 'third_party_api' && getSkuSourceCount(sku)"
-                    class="flex h-10 items-center justify-between rounded-lg bg-gray-50 px-3 text-sm"
+                    v-if="formData.deliveryMode === 'third_party_api' && getSkuSourceCount(item.sku)"
+                    class="flex h-9 items-center justify-between rounded-md bg-gray-50 px-3 text-sm"
                   >
-                    <span class="truncate text-gray-700">{{ getSkuSourceCount(sku) }} 个货源</span>
+                    <span class="truncate text-gray-700">{{ getSkuSourceCount(item.sku) }} 个货源</span>
                     <button
                       type="button"
                       class="ml-2 shrink-0 font-medium text-primary-700 hover:text-primary-800"
-                      @click="openSkuSourceModal(index)"
+                      @click="openSkuSourceModal(item.index)"
                     >
                       绑定
                     </button>
@@ -238,47 +279,48 @@
                   <button
                     v-else-if="formData.deliveryMode === 'third_party_api'"
                     type="button"
-                    class="flex h-10 items-center justify-center rounded-lg bg-gray-50 px-4 text-sm font-medium text-primary-700 hover:bg-primary-50 hover:text-primary-800"
-                    @click="openSkuSourceModal(index)"
+                    class="flex h-9 items-center justify-center rounded-md bg-gray-50 px-3 text-sm font-medium text-primary-700 hover:bg-primary-50 hover:text-primary-800"
+                    @click="openSkuSourceModal(item.index)"
                   >
                     绑定
                   </button>
                   <button
                     type="button"
-                    class="flex h-10 w-10 items-center justify-center rounded-lg text-red-500 hover:bg-red-50 hover:text-red-600"
-                    @click="removeSku(index)"
+                    class="flex h-9 w-8 items-center justify-center rounded-md text-red-500 hover:bg-red-50 hover:text-red-600"
+                    @click="removeSku(item.index)"
                     title="删除规格"
                   >
                     ×
                   </button>
                 </div>
                 <div
-                  v-if="formData.deliveryMode === 'third_party_api' && getSkuSources(sku).length"
-                  class="mt-3 flex flex-wrap gap-2"
+                  v-if="formData.deliveryMode === 'third_party_api' && getSkuSources(item.sku).length"
+                  class="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-3"
                 >
                   <div
-                    v-for="source in getSkuSources(sku)"
+                    v-for="(source, sourceIndex) in getSkuSources(item.sku)"
                     :key="source.key"
-                    class="flex min-w-[220px] max-w-full items-center gap-2 rounded-lg border border-gray-100 bg-gray-50 px-2 py-2"
+                    class="flex min-w-0 items-center gap-2 rounded-md border border-gray-100 bg-gray-50 px-2 py-2"
                   >
                     <img
                       v-if="source.image"
                       :src="source.image"
-                      class="h-9 w-9 shrink-0 rounded-md border border-gray-100 object-cover"
+                      class="h-8 w-8 shrink-0 rounded-md border border-gray-100 bg-white object-cover"
                     />
-                    <span v-else class="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-white text-[10px] text-gray-400">无图</span>
-                    <span class="min-w-0 flex-1">
-                      <span class="block truncate text-xs font-medium text-gray-900">{{ source.title }}</span>
-                      <span class="block truncate text-[11px] text-gray-500">编号 {{ source.no || '-' }}</span>
-                    </span>
-                    <span class="shrink-0 text-xs font-semibold text-orange-600">进货 {{ money(source.cost) }}</span>
+                    <span v-else class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-white text-[10px] text-gray-400">无图</span>
+                    <div class="min-w-0 flex-1">
+                      <div class="truncate text-xs font-medium text-gray-900" :title="source.title">{{ source.title }}</div>
+                      <div class="mt-0.5 truncate text-[11px] text-gray-500">货源{{ sourceIndex + 1 }} · 编号 {{ source.no || '-' }}</div>
+                    </div>
+                    <span class="shrink-0 text-xs font-semibold text-orange-600">{{ money(source.cost) }}</span>
                   </div>
                 </div>
                 <div
-                  v-if="formData.deliveryMode === 'third_party_api' && getSkuOrderFieldSummary(sku)"
+                  v-if="formData.deliveryMode === 'third_party_api' && getSkuOrderFieldSummary(item.sku)"
                   class="mt-1 truncate text-xs text-gray-500"
                 >
-                  参数：{{ getSkuOrderFieldSummary(sku) }}
+                  参数：{{ getSkuOrderFieldSummary(item.sku) }}
+                </div>
                 </div>
               </div>
               <div v-if="formData.skus.length === 0" class="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-5 text-center text-sm text-gray-500">
@@ -633,6 +675,19 @@ const pricingOptions = [
   }
 ]
 
+const resourceTypeOptions = [
+  {
+    label: '工作流',
+    value: 'workflow',
+    desc: '自动化执行类资源，可在我的资源里运行'
+  },
+  {
+    label: '商品',
+    value: 'product',
+    desc: '账号、卡密、瑞幸这类售卖商品，购买后进入订单'
+  }
+]
+
 const periodOptions = [
   { label: t('publishWorkflow.periodMonthly'), value: 'monthly' },
   { label: t('publishWorkflow.periodYearly'), value: 'yearly' },
@@ -657,7 +712,8 @@ const deliveryOptions = computed(() => {
       desc: '适合原来的自动化工具或脚本执行'
     }
   ]
-  return isAdmin.value ? options : options.filter((option) => option.value !== 'third_party_api')
+  const productOptions = options.filter((option) => option.value !== 'workflow')
+  return isAdmin.value ? productOptions : productOptions.filter((option) => option.value !== 'third_party_api')
 })
 
 const orderFieldPresetMap = {
@@ -732,14 +788,32 @@ const createSku = (overrides = {}) => ({
   name: overrides.name || '白色',
   imageUrl: overrides.imageUrl || '',
   price: Number(overrides.price || 0),
+  primarySpecId: overrides.primarySpecId || '',
+  primarySpecName: overrides.primarySpecName || '',
+  primarySpecSort: Number(overrides.primarySpecSort || 0),
   allowBatchPurchase: Boolean(overrides.allowBatchPurchase),
   orderFields: normalizeProviderOrderFields(overrides.orderFields || overrides.order_fields),
   sourceBindings: Array.isArray(overrides.sourceBindings) ? overrides.sourceBindings : [],
   pendingProviderProducts: Array.isArray(overrides.pendingProviderProducts) ? overrides.pendingProviderProducts : []
 })
 
+const inferSkuPrimarySpec = (sku) => {
+  if (sku.primarySpecId || sku.primarySpecName) {
+    return {
+      id: sku.primarySpecId || 'primary-default',
+      name: sku.primarySpecName || '规格',
+      sort: sku.primarySpecSort || 999
+    }
+  }
+  const id = String(sku.id || '').toLowerCase()
+  if (id.startsWith('super-')) return { id: 'cup-super', name: '超大杯', sort: 2 }
+  if (id.startsWith('large-')) return { id: 'cup-large', name: '大杯', sort: 1 }
+  return { id: 'primary-default', name: '规格', sort: 999 }
+}
+
 // 表单数据
 const formData = ref({
+  resourceType: 'workflow',
   name: workflowName.value || '',
   description: '',
   category: '',
@@ -749,7 +823,7 @@ const formData = ref({
   pricingModel: 'free',
   milkCoinPrice: 0,
   subscriptionPeriod: 'monthly', // monthly 或 yearly
-  deliveryMode: isAdmin.value ? 'third_party_api' : 'inventory',
+  deliveryMode: 'workflow',
   orderFieldPreset: 'none',
   requiresRechargeAccount: false,
   inventoryEnabled: false, // 是否启用库存管理
@@ -758,6 +832,46 @@ const formData = ref({
   skus: [createSku()],
   longDescription: ''
 })
+
+const groupedSkus = computed(() => {
+  const groups = new Map()
+  formData.value.skus.forEach((sku, index) => {
+    const primary = inferSkuPrimarySpec(sku)
+    if (!groups.has(primary.id)) {
+      groups.set(primary.id, { ...primary, items: [] })
+    }
+    groups.get(primary.id).items.push({ sku, index })
+  })
+  return Array.from(groups.values()).sort((a, b) => a.sort - b.sort)
+})
+
+const selectedPrimarySpecId = ref('cup-large')
+const cupSpecOptions = [
+  { id: 'cup-large', name: '大杯', sort: 1 },
+  { id: 'cup-super', name: '超大杯', sort: 2 }
+]
+const showCupTabs = computed(() => (
+  formData.value.resourceType === 'product'
+  && (formData.value.primaryCategory === 'food_drink' || groupedSkus.value.some((group) => ['cup-large', 'cup-super'].includes(group.id)))
+))
+const visibleSkuGroups = computed(() => {
+  if (!showCupTabs.value) return groupedSkus.value
+  const activeId = selectedPrimarySpecId.value || 'cup-large'
+  const activeGroup = groupedSkus.value.find((group) => group.id === activeId)
+  return activeGroup ? [activeGroup] : [{ ...cupSpecOptions.find((item) => item.id === activeId), items: [] }]
+})
+
+watch(groupedSkus, (groups) => {
+  if (groups.length && !groups.some((group) => group.id === selectedPrimarySpecId.value)) {
+    selectedPrimarySpecId.value = groups[0].id
+  }
+}, { immediate: true })
+
+const selectPrimarySpec = (primarySpecId) => {
+  selectedPrimarySpecId.value = primarySpecId
+}
+
+const isSkuBound = (sku) => Boolean(sku.sourceBindings?.length || sku.pendingProviderProducts?.length)
 
 // 文件大小限制
 const MAX_ICON_SIZE = 2 * 1024 * 1024 // 2MB
@@ -768,7 +882,6 @@ const MAX_SCREENSHOTS = 20
 const tagInput = ref('')
 
 // 状态
-const generating = ref(false)
 const submitting = ref(false)
 const uploadingIcon = ref(false)
 const uploadingScreenshot = ref(false)
@@ -1029,9 +1142,13 @@ const saveSkuSourceBindings = async (normalizedSkus) => {
 }
 
 const addSku = () => {
+  const activePrimary = cupSpecOptions.find((option) => option.id === selectedPrimarySpecId.value)
   formData.value.skus.push(createSku({
     name: formData.value.skus.length === 0 ? '白色' : '黑色',
-    allowBatchPurchase: true
+    allowBatchPurchase: true,
+    primarySpecId: activePrimary?.id || '',
+    primarySpecName: activePrimary?.name || '',
+    primarySpecSort: activePrimary?.sort || 0
   }))
 }
 
@@ -1065,7 +1182,10 @@ const normalizeSkuPayload = () =>
       order_field_preset: orderFields.length ? 'provider_attach' : 'none',
       requires_recharge_account: orderFields.length > 0,
       order_fields: orderFields,
-      allow_batch_purchase: skuAllowsBatchPurchase(sku)
+      allow_batch_purchase: skuAllowsBatchPurchase(sku),
+      primary_spec_id: sku.primarySpecId || undefined,
+      primary_spec_name: sku.primarySpecName || undefined,
+      primary_spec_sort: sku.primarySpecSort || undefined
     }
   })
 
@@ -1096,6 +1216,9 @@ const normalizeWorkflowSkus = (wf) => {
       name: sku.name || sku.spec_name || sku.title || wf.name || '',
       imageUrl: sku.image_url || sku.imageUrl || '',
       price: Number(sku.sell_price ?? sku.price ?? sku.milk_coin_price ?? wf.milk_coin_price ?? 0),
+      primarySpecId: sku.primary_spec_id || '',
+      primarySpecName: sku.primary_spec_name || '',
+      primarySpecSort: sku.primary_spec_sort || 0,
       allowBatchPurchase: Boolean(sku.allow_batch_purchase),
       orderFields: normalizeProviderOrderFields(sku.order_fields)
     }))
@@ -1116,6 +1239,14 @@ const inferDeliveryMode = (wf) => {
   if (skuMode === 'inventory' || skuMode === 'account' || wf.inventory_enabled) return 'inventory'
   if (skuMode === 'workflow' || wf.category === 'automation') return 'workflow'
   return isAdmin.value ? 'third_party_api' : 'inventory'
+}
+
+const inferResourceType = (wf) => {
+  const skus = Array.isArray(wf.skus) ? wf.skus : []
+  const deliveryModes = skus.map((sku) => String(sku?.delivery_mode || sku?.fulfillment_type || '').toLowerCase())
+  if (deliveryModes.some((mode) => ['third_party_api', 'api', 'inventory', 'account'].includes(mode))) return 'product'
+  if (wf.category === 'resource') return 'product'
+  return 'workflow'
 }
 
 const inferOrderFieldPreset = (wf) => {
@@ -1256,34 +1387,6 @@ const handleUploadImage = async (file) => {
   }
 }
 
-// AI生成
-const generateWithAI = async () => {
-  if (!workflowId.value) {
-    showMessage(t('publishWorkflow.workflowIdMissing'), 'error')
-    return
-  }
-
-  generating.value = true
-  try {
-    const res = await workflowApi.generateWorkflowDescription(workflowId.value)
-    if (res.code === 0 && res.data?.long_description) {
-      formData.value.longDescription = res.data.long_description
-      // 设置 Tiptap 编辑器内容
-      if (editor.value) {
-        editor.value.commands.setContent(res.data.long_description)
-      }
-      showMessage(t('publishWorkflow.aiSuccess'), 'success')
-    } else {
-      showMessage(res.message || t('publishWorkflow.aiFailed'), 'error')
-    }
-  } catch (error) {
-    console.error('AI生成失败:', error)
-    showMessage(t('publishWorkflow.aiFailed'), 'error')
-  } finally {
-    generating.value = false
-  }
-}
-
 // 提交表单
 const handleSubmit = async () => {
   // 验证
@@ -1297,6 +1400,21 @@ const handleSubmit = async () => {
   }
   if (!formData.value.secondaryCategory) {
     showMessage('请选择二级分类', 'warning')
+    return
+  }
+  if (formData.value.resourceType === 'workflow' && formData.value.primaryCategory !== 'automation_tool') {
+    showMessage('工作流只能发布到自动化工具分类', 'warning')
+    return
+  }
+  if (formData.value.resourceType === 'product' && formData.value.primaryCategory === 'automation_tool') {
+    showMessage('商品不能发布到自动化工具分类，请选择对应商品类目', 'warning')
+    return
+  }
+  if (formData.value.resourceType === 'workflow') {
+    formData.value.deliveryMode = 'workflow'
+  }
+  if (formData.value.resourceType === 'product' && formData.value.deliveryMode === 'workflow') {
+    showMessage('商品不能选择工作流执行，请选择库存发货或三方接口商品', 'warning')
     return
   }
   if (formData.value.deliveryMode === 'third_party_api' && !isAdmin.value) {
@@ -1314,6 +1432,7 @@ const handleSubmit = async () => {
   }
   if (
     formData.value.deliveryMode === 'third_party_api'
+    && !isEditMode.value
     && formData.value.skus.some((sku) => !(sku.sourceBindings?.length || sku.pendingProviderProducts?.length))
   ) {
     showMessage('三方接口商品的每个规格都需要绑定至少一个货源', 'warning')
@@ -1336,6 +1455,7 @@ const handleSubmit = async () => {
   submitting.value = true
   try {
     const data = {
+      resource_type: formData.value.resourceType,
       name: formData.value.name.trim(),
       description: formData.value.description.trim(),
       category: legacyCategory.value,
@@ -1371,7 +1491,7 @@ const handleSubmit = async () => {
       const message = isEditMode.value ? t('publishWorkflow.updateSuccess') : t('publishWorkflow.publishSuccess')
       showMessage(message, 'success')
       setTimeout(() => {
-        router.push('/automation/workflows')
+        router.push('/user/automation/workflows')
       }, 1500)
     }
   } catch (error) {
@@ -1383,7 +1503,7 @@ const handleSubmit = async () => {
 
 // 取消
 const handleCancel = () => {
-  router.push('/automation/workflows')
+  router.push('/user/automation/workflows')
 }
 
 watch(() => formData.value.primaryCategory, (newValue, oldValue) => {
@@ -1395,9 +1515,33 @@ watch(() => formData.value.primaryCategory, (newValue, oldValue) => {
 watch(legacyCategory, (category) => {
   formData.value.category = category
   if (category === 'outlook') {
+    formData.value.resourceType = 'product'
     formData.value.deliveryMode = 'inventory'
     formData.value.inventoryEnabled = true
   }
+})
+
+watch(() => formData.value.resourceType, (type) => {
+  if (type === 'workflow') {
+    if (formData.value.primaryCategory !== 'automation_tool') {
+      formData.value.primaryCategory = 'automation_tool'
+      formData.value.secondaryCategory = 'workflow'
+    }
+    formData.value.deliveryMode = 'workflow'
+    formData.value.inventoryEnabled = false
+    formData.value.orderFieldPreset = 'none'
+    formData.value.requiresRechargeAccount = false
+    closeSourceModal()
+    return
+  }
+  if (formData.value.deliveryMode === 'workflow') {
+    formData.value.deliveryMode = isAdmin.value ? 'third_party_api' : 'inventory'
+  }
+  if (formData.value.primaryCategory === 'automation_tool') {
+    formData.value.primaryCategory = 'food_drink'
+    formData.value.secondaryCategory = 'coffee'
+  }
+  formData.value.inventoryEnabled = formData.value.deliveryMode === 'inventory'
 })
 
 watch(isAdmin, (value) => {
@@ -1407,6 +1551,14 @@ watch(isAdmin, (value) => {
 })
 
 watch(() => formData.value.deliveryMode, (mode) => {
+  if (formData.value.resourceType === 'workflow' && mode !== 'workflow') {
+    formData.value.deliveryMode = 'workflow'
+    return
+  }
+  if (formData.value.resourceType === 'product' && mode === 'workflow') {
+    formData.value.deliveryMode = isAdmin.value ? 'third_party_api' : 'inventory'
+    return
+  }
   if (!isAdmin.value && mode === 'third_party_api') {
     formData.value.deliveryMode = 'inventory'
     return
@@ -1444,6 +1596,7 @@ const loadWorkflowInfo = async () => {
       
       // 回显表单数据
       formData.value = {
+        resourceType: inferResourceType(wf),
         name: wf.name || workflowName.value || '',
         description: wf.description || '',
         category: wf.category || '',
@@ -1511,7 +1664,7 @@ onMounted(async () => {
   if (!workflowId.value) {
     showMessage(t('publishWorkflow.workflowIdMissing'), 'error')
     setTimeout(() => {
-      router.push('/automation/workflows')
+      router.push('/user/automation/workflows')
     }, 2000)
     return
   }

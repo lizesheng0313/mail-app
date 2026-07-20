@@ -182,8 +182,7 @@ fn merge_fetched_emails(results: Vec<FetchResult>, limit: usize, fetch_oldest: b
 
     for result in results {
         for email in result.emails {
-            let key = build_email_dedupe_key(&email);
-            if seen.insert(key) {
+            if seen.insert(build_email_dedupe_key(&email)) {
                 merged.push(email);
             }
         }
@@ -194,10 +193,7 @@ fn merge_fetched_emails(results: Vec<FetchResult>, limit: usize, fetch_oldest: b
     } else {
         merged.sort_by(|a, b| b.email_date_ms.cmp(&a.email_date_ms));
     }
-
-    if merged.len() > limit {
-        merged.truncate(limit);
-    }
+    merged.truncate(limit);
 
     FetchResult {
         success: true,
@@ -291,7 +287,7 @@ async fn fetch_password_mailbox_with_merge(
         match fetch_with_candidate(&candidate, email, password, limit, fetch_oldest, proxy_config).await {
             Ok(result) => {
                 info!(
-                    "协议补抓成功: email={} protocol={} fetched={}",
+                    "协议收取成功，继续检查其他协议并合并去重: email={} protocol={} fetched={}",
                     email, candidate.protocol, result.count
                 );
                 success_results.push(result);
@@ -306,20 +302,11 @@ async fn fetch_password_mailbox_with_merge(
         }
     }
 
-    if success_results.is_empty() {
-        return Err(error_messages.join("；"));
+    if !success_results.is_empty() {
+        return Ok(merge_fetched_emails(success_results, limit, fetch_oldest));
     }
 
-    if success_results.len() == 1 {
-        return Ok(success_results.remove(0));
-    }
-
-    let merged = merge_fetched_emails(success_results, limit, fetch_oldest);
-    info!(
-        "协议补抓合并完成: email={} merged_count={}",
-        email, merged.count
-    );
-    Ok(merged)
+    Err(error_messages.join("；"))
 }
 
 /// 同步邮件请求（发送到远程服务器）
@@ -1024,7 +1011,13 @@ async fn fetch_mailbox_via_relogin_config(
         )
         .await
         {
-            Ok(result) => success_results.push(result),
+            Ok(result) => {
+                info!(
+                    "自动重登协议收取成功，继续检查其他协议并合并去重: mailbox_id={} email={} protocol={} fetched={}",
+                    mailbox_id, config.email, candidate.protocol, result.count
+                );
+                success_results.push(result);
+            }
             Err(err) => {
                 warn!(
                     "自动重登收取协议失败: mailbox_id={} email={} protocol={} host={}:{} error={}",
@@ -1035,13 +1028,11 @@ async fn fetch_mailbox_via_relogin_config(
         }
     }
 
-    if success_results.is_empty() {
-        return Err(error_messages.join("；"));
+    if !success_results.is_empty() {
+        return Ok(merge_fetched_emails(success_results, limit, fetch_oldest));
     }
-    if success_results.len() == 1 {
-        return Ok(success_results.remove(0));
-    }
-    Ok(merge_fetched_emails(success_results, limit, fetch_oldest))
+
+    Err(error_messages.join("；"))
 }
 
 #[tauri::command]

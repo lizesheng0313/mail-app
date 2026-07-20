@@ -443,6 +443,18 @@ body.is-tauri .update-notes-body {
     background: #d1d5db;
   }
 
+  /* 详情页保留滚动能力，但沿用淘宝式无滚动条视觉。 */
+  .market-scrollbar-hidden {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .market-scrollbar-hidden::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+
   /* 手机端隐藏广告和导航 */
   @media (max-width: 768px) {
     /* 隐藏网站导航链接 */

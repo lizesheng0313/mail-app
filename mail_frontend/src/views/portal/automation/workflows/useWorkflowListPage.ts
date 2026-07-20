@@ -2,7 +2,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { workflowApi } from '@/api/workflow'
-import { getMyPurchases, republishWorkflow, requestWorkflowRefund, unpublishWorkflow } from '@/api/workflowMarket'
+import { republishWorkflow, unpublishWorkflow } from '@/api/workflowMarket'
 import { showMessage } from '@/utils/message'
 
 type WorkflowItem = Record<string, any>
@@ -22,18 +22,15 @@ export function useWorkflowListPage() {
   const showUnpublishConfirm = ref(false)
   const showInventoryModal = ref(false)
   const showExecuteConfirm = ref(false)
-  const showRefundConfirm = ref(false)
   const showExecutionResult = ref(false)
 
   const unpublishing = ref(false)
   const executing = ref(false)
-  const refunding = ref(false)
   const importing = ref(false)
   const deleting = ref(false)
 
   const workflowToUnpublish = ref<WorkflowItem | null>(null)
   const executingWorkflow = ref<WorkflowItem | null>(null)
-  const refundWorkflow = ref<WorkflowItem | null>(null)
   const selectedWorkflow = ref<WorkflowItem | null>(null)
   const selectedInventoryWorkflow = ref<WorkflowItem | null>(null)
   const workflowToDelete = ref<WorkflowItem | null>(null)
@@ -59,8 +56,7 @@ export function useWorkflowListPage() {
 
   const ownershipOptions = computed(() => [
     { label: t('automationWorkflows.tabAll'), value: 'all' },
-    { label: t('automationWorkflows.tabOwner'), value: 'owner' },
-    { label: t('automationWorkflows.tabPurchased'), value: 'purchased' }
+    { label: t('automationWorkflows.tabOwner'), value: 'owner' }
   ])
 
   const executeConfirmMessage = computed(() => {
@@ -90,8 +86,6 @@ export function useWorkflowListPage() {
 
     if (activeTab.value === 'owner') {
       filtered = filtered.filter((workflow) => workflow.is_owner === true || workflow.is_owner === 1)
-    } else if (activeTab.value === 'purchased') {
-      filtered = filtered.filter((workflow) => workflow.is_owner === false || workflow.is_owner === 0)
     }
 
     if (searchQuery.value) {
@@ -148,26 +142,6 @@ export function useWorkflowListPage() {
       return res.data
     }
     throw new Error(res.message || t('automationWorkflows.loadDetailFailed'))
-  }
-
-  const viewWorkflow = async (workflow: WorkflowItem) => {
-    try {
-      selectedWorkflow.value = await loadWorkflowDetail(workflow)
-      showDetailDialog.value = true
-    } catch (error) {
-      console.error('获取工作流详情失败:', error)
-      showMessage(t('automationWorkflows.loadDetailFailed'), 'error')
-    }
-  }
-
-  const editWorkflow = async (workflow: WorkflowItem) => {
-    try {
-      selectedWorkflow.value = await loadWorkflowDetail(workflow)
-      showCreateDialog.value = true
-    } catch (error) {
-      console.error('获取工作流详情失败:', error)
-      showMessage(t('automationWorkflows.loadDetailFailed'), 'error')
-    }
   }
 
   const deleteWorkflow = (workflow: WorkflowItem) => {
@@ -397,52 +371,6 @@ export function useWorkflowListPage() {
     }
   }
 
-  const handleRefundWorkflow = (workflow: WorkflowItem) => {
-    refundWorkflow.value = workflow
-    showRefundConfirm.value = true
-  }
-
-  const resolveRefundPurchaseId = async (workflow: WorkflowItem) => {
-    if (workflow?.purchase_id) return workflow.purchase_id
-
-    const response = await getMyPurchases({ page: 1, page_size: 100 })
-    const purchases = Array.isArray(response?.data?.items) ? response.data.items : []
-    const matched = purchases.find((item: WorkflowItem) => Number(item.workflow_id) === Number(workflow?.id))
-
-    if (matched?.id) {
-      workflow.purchase_id = matched.id
-      return matched.id
-    }
-
-    return null
-  }
-
-  const confirmRefundWorkflow = async () => {
-    if (!refundWorkflow.value) return
-
-    refunding.value = true
-    try {
-      const purchaseId = await resolveRefundPurchaseId(refundWorkflow.value)
-      if (!purchaseId) {
-        showMessage('没有找到这笔购买记录，暂时不能申请退款', 'error')
-        return
-      }
-
-      const response = await requestWorkflowRefund(purchaseId)
-      if (response.code === 0) {
-        showMessage(t('automationWorkflows.refundRequested'), 'success')
-        showRefundConfirm.value = false
-        await fetchWorkflows()
-      } else {
-        showMessage(response.message, 'error')
-      }
-    } catch (error) {
-      console.error('退款申请失败:', error)
-    } finally {
-      refunding.value = false
-    }
-  }
-
   onMounted(() => {
     fetchWorkflows()
     if (route.query.template) {
@@ -455,11 +383,9 @@ export function useWorkflowListPage() {
     cancelDelete,
     confirmDeleteWorkflow,
     confirmExecuteWorkflow,
-    confirmRefundWorkflow,
     confirmUnpublish,
     deleteWorkflow,
     deleting,
-    editWorkflow,
     executeConfirmMessage,
     executing,
     executionResultData,
@@ -473,7 +399,6 @@ export function useWorkflowListPage() {
     handleInventoryUpdated,
     handleManageInventory,
     handlePublish,
-    handleRefundWorkflow,
     handleRepublish,
     handleUnpublish,
     handleWorkflowCreated,
@@ -485,8 +410,6 @@ export function useWorkflowListPage() {
     openImportDialog,
     openResourceSources,
     ownershipOptions,
-    refundWorkflow,
-    refunding,
     searchQuery,
     selectedInventoryWorkflow,
     selectedWorkflow,
@@ -497,12 +420,10 @@ export function useWorkflowListPage() {
     showExecutionResult,
     showHistoryDialog,
     showInventoryModal,
-    showRefundConfirm,
     showUnpublishConfirm,
     statusFilter,
     statusOptions,
     unpublishing,
-    viewWorkflow,
     workflowToDelete,
     workflowToUnpublish,
     workflows
