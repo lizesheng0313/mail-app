@@ -219,6 +219,14 @@ const loadNotifications = async () => {
     if (result.code === 0) {
       notifications.value = result.data.items || []
       total.value = result.data.total || 0
+
+      const notificationId = route.query.id
+      if (notificationId) {
+        const notification = notifications.value.find((item) => item.id === parseInt(notificationId))
+        if (notification) {
+          await openNotification(notification)
+        }
+      }
     } else {
       showMessage(result.message || '加载通知失败', 'error')
     }

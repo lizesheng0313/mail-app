@@ -91,7 +91,7 @@
           <div class="market-scrollbar-hidden xl:h-full xl:overflow-y-auto">
             <div class="space-y-4 rounded-xl border border-slate-200 bg-white p-5">
               <div v-if="showSkuSelector">
-                <div class="-mx-5 border-b border-slate-100 bg-white px-5 pb-4 pt-1">
+                <div class="sticky top-0 z-20 -mx-5 border-b border-slate-100 bg-white px-5 pb-4 pt-1 shadow-[0_4px_10px_-8px_rgba(15,23,42,0.35)]">
                   <div class="text-sm text-slate-500">当前价格</div>
                   <div class="mt-1 text-4xl font-semibold leading-none tracking-tight text-primary-600">
                     {{ selectedSkuPriceText }}
@@ -262,7 +262,7 @@
           </div>
 
             <div
-              v-if="workflow.is_admin_viewer"
+              v-if="isAdminPriceTableVisible"
               class="rounded-lg border border-slate-200 bg-slate-50 p-3 xl:col-span-2"
               :class="isAdminPriceTableFullscreen ? 'fixed inset-4 z-50 flex flex-col shadow-2xl' : ''"
             >
@@ -290,20 +290,20 @@
                   <table class="min-w-[1900px] w-full table-fixed text-left text-sm">
                     <thead class="bg-slate-50 text-slate-500">
                       <tr>
-                        <th class="w-28 whitespace-nowrap px-3 py-2 font-medium">商品类别</th>
-                        <th class="w-24 whitespace-nowrap px-3 py-2 font-medium">一级规格</th>
-                        <th class="w-[420px] px-3 py-2 font-medium">二级规格</th>
-                        <th class="w-20 whitespace-nowrap px-3 py-2 font-medium">售出价</th>
-                        <th class="w-20 whitespace-nowrap px-2 py-2 font-medium">编号1</th>
-                        <th class="w-44 whitespace-nowrap px-2 py-2 font-medium">编号1成本</th>
-                        <th class="w-20 whitespace-nowrap px-2 py-2 font-medium">编号1利润</th>
-                        <th class="w-20 whitespace-nowrap px-2 py-2 font-medium">编号2</th>
-                        <th class="w-44 whitespace-nowrap px-2 py-2 font-medium">编号2成本</th>
-                        <th class="w-20 whitespace-nowrap px-2 py-2 font-medium">编号2利润</th>
-                        <th class="w-20 whitespace-nowrap px-2 py-2 font-medium">编号3</th>
-                        <th class="w-44 whitespace-nowrap px-2 py-2 font-medium">编号3成本</th>
-                        <th class="w-20 whitespace-nowrap px-2 py-2 font-medium">编号3利润</th>
-                        <th class="w-[520px] px-3 py-2 font-medium">提示</th>
+                        <th class="sticky top-0 z-10 w-28 whitespace-nowrap bg-slate-50 px-3 py-2 font-medium">商品类别</th>
+                        <th class="sticky top-0 z-10 w-24 whitespace-nowrap bg-slate-50 px-3 py-2 font-medium">一级规格</th>
+                        <th class="sticky top-0 z-10 w-[420px] bg-slate-50 px-3 py-2 font-medium">二级规格</th>
+                        <th class="sticky top-0 z-10 w-20 whitespace-nowrap bg-slate-50 px-3 py-2 font-medium">售出价</th>
+                        <th class="sticky top-0 z-10 w-20 whitespace-nowrap bg-slate-50 px-2 py-2 font-medium">编号1</th>
+                        <th class="sticky top-0 z-10 w-44 whitespace-nowrap bg-slate-50 px-2 py-2 font-medium">编号1成本</th>
+                        <th class="sticky top-0 z-10 w-20 whitespace-nowrap bg-slate-50 px-2 py-2 font-medium">编号1利润</th>
+                        <th class="sticky top-0 z-10 w-20 whitespace-nowrap bg-slate-50 px-2 py-2 font-medium">编号2</th>
+                        <th class="sticky top-0 z-10 w-44 whitespace-nowrap bg-slate-50 px-2 py-2 font-medium">编号2成本</th>
+                        <th class="sticky top-0 z-10 w-20 whitespace-nowrap bg-slate-50 px-2 py-2 font-medium">编号2利润</th>
+                        <th class="sticky top-0 z-10 w-20 whitespace-nowrap bg-slate-50 px-2 py-2 font-medium">编号3</th>
+                        <th class="sticky top-0 z-10 w-44 whitespace-nowrap bg-slate-50 px-2 py-2 font-medium">编号3成本</th>
+                        <th class="sticky top-0 z-10 w-20 whitespace-nowrap bg-slate-50 px-2 py-2 font-medium">编号3利润</th>
+                        <th class="sticky top-0 z-10 w-[520px] bg-slate-50 px-3 py-2 font-medium">提示</th>
                       </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100 text-slate-700">
@@ -351,6 +351,15 @@
                           </div>
                           <div v-if="!row.candidates?.length && row.recommended_title" class="mt-1 text-xs font-semibold text-blue-700">
                             建议标题：{{ row.recommended_title }}
+                          </div>
+                          <div v-if="!row.candidates?.length && row.recommended_candidates?.length" class="mt-1 text-xs font-semibold text-blue-700">
+                            建议编号：
+                            <span
+                              v-for="(candidate, index) in row.recommended_candidates"
+                              :key="candidate.provider_product_no"
+                            >
+                              {{ index + 1 }}. {{ candidate.provider_product_no }}（{{ formatCandidateCost(candidate) }}）<span v-if="index < row.recommended_candidates.length - 1">，</span>
+                            </span>
                           </div>
                           <span v-if="row.candidates?.length" class="text-slate-400">-</span>
                         </td>
@@ -975,7 +984,18 @@ const activePrimaryGroup = computed(() => {
 
 const visibleSkus = computed(() => activePrimaryGroup.value?.children || displaySkus.value)
 
-const isSkuAvailable = (sku) => Boolean(sku?.is_available)
+const isThirdPartyProduct = computed(() => {
+  if (!workflow.value) return false
+  if (workflow.value.has_third_party_delivery === true) return true
+  const modes = normalizeJsonList(workflow.value.skus || workflow.value.specs || workflow.value.product_skus)
+    .map((sku) => String(sku?.delivery_mode || sku?.fulfillment_type || '').trim().toLowerCase())
+  const topLevelMode = String(workflow.value.delivery_mode || workflow.value.fulfillment_type || '').trim().toLowerCase()
+  return ['third_party_api', 'api'].includes(topLevelMode) || modes.some((mode) => ['third_party_api', 'api'].includes(mode))
+})
+
+const isAdminPriceTableVisible = computed(() => Boolean(workflow.value?.is_admin_viewer && isThirdPartyProduct.value))
+
+const isSkuAvailable = (sku) => isThirdPartyProduct.value ? Boolean(sku?.is_available) : true
 
 const selectedSku = computed(() => {
   if (visibleSkus.value.length === 0 && displaySkus.value.length === 0) {
@@ -1343,7 +1363,7 @@ const loadWorkflowDetail = async (showLoading = true) => {
 }
 
 const loadAdminPriceTable = async () => {
-  if (!workflow.value?.is_admin_viewer) return
+  if (!isAdminPriceTableVisible.value) return
   adminPriceTableLoading.value = true
   try {
     const res = await getWorkflowAdminPriceTable(workflowId.value)

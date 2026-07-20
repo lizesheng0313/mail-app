@@ -373,6 +373,12 @@ const goToNotification = async (notification: any) => {
   }
 
   showAnnouncements.value = false
+  // 货源巡检通知需要先打开通知详情，不能直接跳到工作流页面。
+  if (notification.notification_type === 'resource_market') {
+    await router.push(`/user/notifications?tab=personal&id=${notification.id}`)
+    return
+  }
+
   if (notification.link_url) {
     await router.push(notification.link_url)
   } else {
