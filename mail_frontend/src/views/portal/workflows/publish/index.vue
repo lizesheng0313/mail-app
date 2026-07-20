@@ -1299,8 +1299,14 @@ const handleIconUpload = async (event) => {
     })
 
     if (res.code === 0) {
-      // 后端已返回完整URL，直接使用
+      // 更换主图时，旧主图不能继续留在详情图列表里，否则页面会同时展示新旧两张主图。
+      const previousIconUrl = formData.value.iconUrl
       formData.value.iconUrl = res.data.url
+      if (previousIconUrl) {
+        formData.value.screenshots = formData.value.screenshots.filter(
+          (url) => url !== previousIconUrl
+        )
+      }
       showMessage(t('publishWorkflow.iconUploadSuccess'), 'success')
     }
   } catch (error) {

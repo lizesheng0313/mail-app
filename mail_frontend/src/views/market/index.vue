@@ -58,12 +58,19 @@
           class="group cursor-pointer overflow-hidden rounded-xl border border-slate-200 bg-white transition hover:-translate-y-0.5 hover:border-primary-200 hover:shadow-md"
           @click="viewResource(product)"
         >
-          <div class="relative h-48 overflow-hidden bg-white">
+          <div class="relative flex h-48 items-center justify-center overflow-hidden bg-slate-100">
+            <div
+              v-if="product.cover_url"
+              class="absolute inset-0 scale-110 bg-cover bg-center opacity-25 blur-xl"
+              :style="{ backgroundImage: `url(${product.cover_url})` }"
+              aria-hidden="true"
+            />
+            <div v-if="product.cover_url" class="absolute inset-0 bg-white/45" aria-hidden="true" />
             <img
               v-if="product.cover_url"
               :src="product.cover_url"
               :alt="product.name"
-              class="h-full w-full object-contain transition duration-300"
+              class="relative z-10 h-full w-full p-2 object-contain transition duration-300 group-hover:scale-[1.01]"
               @error="handleCardImageError"
             />
             <div v-else class="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary-50 via-white to-primary-100">
