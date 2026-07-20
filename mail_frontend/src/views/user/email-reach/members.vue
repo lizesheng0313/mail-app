@@ -62,7 +62,9 @@
       title="导入会员"
       size="lg"
       confirm-text="导入"
-      :confirm-loading="saving"
+      :confirm-loading="saving || parsingImport"
+      :confirm-disabled="parsingImport"
+      @close="closeImportModal"
       @confirm="handleImport"
     >
       <div class="space-y-3">
@@ -174,6 +176,7 @@ const importFileRef = ref(null)
 const importFileName = ref('')
 const importRows = ref([])
 const rawImportRows = ref([])
+const parsingImport = ref(false)
 const defaultImportGroup = ref('')
 const access = ref({ status: 'pending', reason: '' })
 const filters = reactive({ search: '', group_name: '' })
@@ -248,6 +251,7 @@ const handleImportFileChange = async (event) => {
   const file = event.target.files?.[0]
   if (!file) return
   importFileName.value = file.name
+  parsingImport.value = true
   try {
     const buffer = await file.arrayBuffer()
     const workbook = XLSX.read(buffer, { type: 'array', cellDates: false })
@@ -262,8 +266,21 @@ const handleImportFileChange = async (event) => {
     showMessage(`已读取 ${importRows.value.length} 条会员`, 'success')
   } catch (error) {
     importRows.value = []
+    rawImportRows.value = []
     showMessage('Excel 解析失败，请检查文件格式', 'error')
+  } finally {
+    parsingImport.value = false
   }
+}
+
+const closeImportModal = () => {
+  if (saving.value || parsingImport.value) return
+  showImportModal.value = false
+  importRows.value = []
+  rawImportRows.value = []
+  importFileName.value = ''
+  defaultImportGroup.value = ''
+  if (importFileRef.value) importFileRef.value.value = ''
 }
 
 const downloadImportTemplate = () => {
@@ -298,11 +315,16 @@ const loadMembers = async () => {
 }
 
 const handleImport = async () => {
+  if (parsingImport.value) {
+    showMessage('Excel 正在解析，请稍候', 'warning')
+    return
+  }
   saving.value = true
   try {
-    const rows = (rawImportRows.value.length ? rawImportRows.value : importRows.value).map(mapExcelRowToMember).filter(Boolean)
+    // 文件选择后的解析结果作为唯一提交来源，避免提交时二次解析造成状态不一致。
+    const rows = importRows.value.filter((item) => item?.email)
     if (!rows.length) {
-      showMessage('先选择 Excel 文件', 'warning')
+      showMessage(importFileName.value ? 'Excel 里没有可导入的会员邮箱' : '先选择 Excel 文件', 'warning')
       return
     }
     const res = await emailReachApi.importMembers({ members: rows, source: 'manual' })

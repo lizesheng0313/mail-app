@@ -23,7 +23,7 @@
                   <img
                     v-if="activeGalleryImage"
                     :src="activeGalleryImage"
-                    class="block h-auto w-full cursor-pointer object-contain"
+                    class="mx-auto block max-h-[520px] max-w-full w-auto cursor-pointer object-contain"
                     :alt="workflow.name"
                     @click="viewImage(activeGalleryImage)"
                     @error="$event.target.style.display = 'none'"
@@ -294,6 +294,7 @@
                         <th class="sticky top-0 z-10 w-24 whitespace-nowrap bg-slate-50 px-3 py-2 font-medium">一级规格</th>
                         <th class="sticky top-0 z-10 w-[420px] bg-slate-50 px-3 py-2 font-medium">二级规格</th>
                         <th class="sticky top-0 z-10 w-20 whitespace-nowrap bg-slate-50 px-3 py-2 font-medium">售出价</th>
+                        <th class="sticky top-0 z-10 w-20 whitespace-nowrap bg-slate-50 px-2 py-2 font-medium">方案</th>
                         <th class="sticky top-0 z-10 w-20 whitespace-nowrap bg-slate-50 px-2 py-2 font-medium">编号1</th>
                         <th class="sticky top-0 z-10 w-44 whitespace-nowrap bg-slate-50 px-2 py-2 font-medium">编号1成本</th>
                         <th class="sticky top-0 z-10 w-20 whitespace-nowrap bg-slate-50 px-2 py-2 font-medium">编号1利润</th>
@@ -308,15 +309,19 @@
                     </thead>
                     <tbody class="divide-y divide-slate-100 text-slate-700">
                       <tr v-if="adminPriceTableLoading">
-                        <td colspan="14" class="px-3 py-5 text-center text-slate-400">价格表加载中...</td>
+                        <td colspan="15" class="px-3 py-5 text-center text-slate-400">价格表加载中...</td>
                       </tr>
-                      <tr v-for="row in workflow.admin_price_table || []" v-else :key="row.local_sku_id">
+                      <template v-for="(row, rowIndex) in workflow.admin_price_table || []" :key="row.local_sku_id">
+                      <tr v-if="!adminPriceTableLoading">
                         <td class="whitespace-nowrap px-3 py-2">{{ displayCategoryLabel(workflow.primary_category || workflow.category) }}</td>
                         <td class="whitespace-nowrap px-3 py-2">{{ row.primary_spec_name || '-' }}</td>
                         <td class="break-words px-3 py-2 font-medium">
                           {{ row.secondary_spec_name || '-' }}
                         </td>
                         <td class="whitespace-nowrap px-3 py-2">{{ formatTablePrice(row.sell_price) }}</td>
+                        <td class="min-w-[220px] px-2 py-2 font-semibold text-emerald-700">
+                          {{ sourcePlanDisplay(row) }}
+                        </td>
                         <template v-for="index in 3" :key="index">
                           <td class="break-all px-3 py-2">
                             {{ row.candidates?.[index - 1]?.provider_product_no || '-' }}
@@ -337,6 +342,12 @@
                             class="text-xs font-semibold text-red-600"
                           >
                             已绑定编号不可用，未自动替换，请人工确认
+                          </div>
+                          <div v-if="row.invalid_bound_candidates?.length" class="text-xs font-semibold text-red-600">
+                            已绑定编号详情未完整包含该规格饮品，下单已拦截：
+                            <span v-for="(item, index) in row.invalid_bound_candidates" :key="item.provider_product_no">
+                              编号 {{ item.provider_product_no }} 少 {{ item.missing_products.join('、') }}<span v-if="index < row.invalid_bound_candidates.length - 1">；</span>
+                            </span>
                           </div>
                           <div v-if="!row.candidates?.length && row.missing_products?.length" class="text-xs font-medium text-red-600">
                             缺少：{{ row.missing_products.join('、') }}
@@ -364,8 +375,39 @@
                           <span v-if="row.candidates?.length" class="text-slate-400">-</span>
                         </td>
                       </tr>
+                      <tr
+                        v-if="!adminPriceTableLoading && isLastPrimaryRow(row, rowIndex)"
+                        :key="`${row.local_sku_id}-source-summary`"
+                        class="bg-emerald-50/60"
+                      >
+                        <td colspan="15" class="px-4 py-3 text-base text-slate-700">
+                          <div class="text-lg font-semibold text-emerald-700">
+                            {{ row.primary_spec_name || '默认规格' }}货源方案：共 {{ primarySourcePlans(row.primary_spec_name).length }} 组
+                          </div>
+                          <div v-if="primarySourcePlans(row.primary_spec_name).length" class="mt-2 space-y-1.5 text-lg">
+                            <div v-for="(plan, planIndex) in primarySourcePlans(row.primary_spec_name)" :key="plan.signature" class="font-medium">
+                              方案{{ planIndex + 1 }}：
+                              <span v-for="(source, sourceIndex) in plan.candidates" :key="source.provider_product_no">
+                                {{ source.provider_product_no }}<span v-if="sourceIndex < plan.candidates.length - 1"> + </span>
+                              </span>
+                            </div>
+                          </div>
+                          <div v-if="primarySuggestedPlans(row.primary_spec_name).length" class="mt-3 border-t border-emerald-100 pt-2 text-lg">
+                            <div class="font-semibold text-blue-700">
+                              建议货源方案：共 {{ primarySuggestedPlans(row.primary_spec_name).length }} 组
+                            </div>
+                            <div class="mt-1.5 space-y-1.5">
+                              <div v-for="(plan, planIndex) in primarySuggestedPlans(row.primary_spec_name)" :key="plan.signature" class="font-medium text-blue-700">
+                                建议方案{{ planIndex + 1 }}：{{ plan.provider_product_nos.join(' + ') }}
+                              </div>
+                            </div>
+                          </div>
+                          <div v-if="!primarySourcePlans(row.primary_spec_name).length && !primarySuggestedPlans(row.primary_spec_name).length" class="mt-1 text-slate-400">当前一级规格还没有绑定货源</div>
+                        </td>
+                      </tr>
+                      </template>
                       <tr v-if="!adminPriceTableLoading && !(workflow.admin_price_table || []).length">
-                        <td colspan="14" class="px-3 py-5 text-center text-slate-400">当前商品还没有可展示的编号绑定</td>
+                        <td colspan="15" class="px-3 py-5 text-center text-slate-400">当前商品还没有可展示的编号绑定</td>
                       </tr>
                     </tbody>
                   </table>
@@ -1048,6 +1090,77 @@ const candidateProfit = (row, index) => {
     return Number(candidate.profit || 0)
   }
   return Number((Number(row.sell_price || 0) - Number(candidate.cost_price || 0)).toFixed(4))
+}
+
+const primarySourcePlans = (primarySpecName) => {
+  const rows = workflow.value?.admin_price_table || []
+  const plans = new Map()
+  for (const row of rows) {
+    if (String(row?.primary_spec_name || '') !== String(primarySpecName || '')) continue
+    const candidates = (row.candidates || []).filter((candidate) => candidate?.provider_product_no)
+    if (!candidates.length) continue
+    const signature = candidates
+      .map((candidate) => String(candidate.provider_product_no))
+      .sort()
+      .join('|')
+    if (!plans.has(signature)) {
+      plans.set(signature, { signature, candidates })
+    }
+  }
+  return Array.from(plans.values())
+}
+
+const primarySuggestedPlans = (primarySpecName) => {
+  const currentSignatures = new Set(
+    primarySourcePlans(primarySpecName).map((plan) => plan.signature),
+  )
+  const plans = new Map()
+  for (const row of workflow.value?.admin_price_table || []) {
+    if (String(row?.primary_spec_name || '') !== String(primarySpecName || '')) continue
+    if (row.candidates?.length) continue
+    const candidates = (row.recommended_candidates || [])
+      .filter((candidate) => candidate?.provider_product_no)
+    if (!candidates.length) continue
+    const providerProductNos = candidates.map((candidate) => String(candidate.provider_product_no))
+    const signature = providerProductNos.slice().sort().join('|')
+    if (currentSignatures.has(signature) || plans.has(signature)) continue
+    plans.set(signature, { signature, provider_product_nos: providerProductNos })
+  }
+  return Array.from(plans.values())
+}
+
+const sourcePlanLabel = (row) => {
+  const candidates = (row?.candidates || []).filter((candidate) => candidate?.provider_product_no)
+  if (!candidates.length) return '-'
+  const signature = candidates
+    .map((candidate) => String(candidate.provider_product_no))
+    .sort()
+    .join('|')
+  const planIndex = primarySourcePlans(row?.primary_spec_name).findIndex(
+    (plan) => plan.signature === signature,
+  )
+  return planIndex >= 0 ? `方案${planIndex + 1}` : '-'
+}
+
+const sourcePlanDisplay = (row) => {
+  const current = (row?.candidates || [])
+    .map((candidate) => String(candidate?.provider_product_no || '').trim())
+    .filter(Boolean)
+  const suggested = (row?.suggested_plan_candidates || [])
+    .map((candidate) => String(candidate?.provider_product_no || '').trim())
+    .filter(Boolean)
+  if (!suggested.length || current.slice().sort().join('|') === suggested.slice().sort().join('|')) {
+    return sourcePlanLabel(row)
+  }
+  const formatPlan = (items) => items.length ? items.join(' + ') : '无'
+  return `${sourcePlanLabel(row)}：由 ${formatPlan(current)} 调整为 ${formatPlan(suggested)}`
+}
+
+const isLastPrimaryRow = (row, rowIndex) => {
+  const rows = workflow.value?.admin_price_table || []
+  const currentPrimary = String(row?.primary_spec_name || '')
+  const nextPrimary = String(rows[rowIndex + 1]?.primary_spec_name || '')
+  return rowIndex === rows.length - 1 || currentPrimary !== nextPrimary
 }
 
 const displayCategoryLabel = (category) => {
