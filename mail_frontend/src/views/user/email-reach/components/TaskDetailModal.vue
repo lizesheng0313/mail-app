@@ -31,13 +31,14 @@
         class="h-[420px]"
         title="收件人明细"
         :loading="loading"
-        :column-count="6"
-        table-class="min-w-[980px] table-fixed"
+        :column-count="7"
+        table-class="min-w-[1140px] table-fixed"
       >
         <template #thead>
           <tr>
             <th class="w-[220px] px-4 py-3 text-left text-xs font-medium text-black">收件人</th>
             <th class="w-[110px] px-4 py-3 text-left text-xs font-medium text-black">状态</th>
+            <th class="w-[210px] px-4 py-3 text-left text-xs font-medium text-black">发信账号</th>
             <th class="w-[130px] px-4 py-3 text-left text-xs font-medium text-black">打开/点击/回复</th>
             <th class="w-[220px] px-4 py-3 text-left text-xs font-medium text-black">失败原因</th>
             <th class="w-[180px] px-4 py-3 text-left text-xs font-medium text-black">主题</th>
@@ -46,12 +47,15 @@
         </template>
         <template #tbody>
           <tr v-if="!records.length && !loading">
-            <td colspan="6" :class="TABLE_EMPTY_CELL_CLASS">暂无明细</td>
+            <td colspan="7" :class="TABLE_EMPTY_CELL_CLASS">暂无明细</td>
           </tr>
           <tr v-for="record in records" :key="record.id" class="hover:bg-gray-50">
             <td class="whitespace-nowrap px-4 py-3 text-sm text-black">{{ record.recipient_email || '-' }}</td>
             <td class="whitespace-nowrap px-4 py-3 text-sm text-black">
               <span :class="recordStatusTagClass(record.status)">{{ recordStatusLabel(record.status) }}</span>
+            </td>
+            <td class="px-4 py-3 text-sm text-slate-700">
+              <div class="max-w-[210px] truncate" :title="record.provider || ''">{{ record.provider || '-' }}</div>
             </td>
             <td class="whitespace-nowrap px-4 py-3 text-sm text-black">
               {{ record.open_count || 0 }} / {{ record.click_count || 0 }} / {{ record.reply_count || 0 }}
