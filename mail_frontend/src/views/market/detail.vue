@@ -404,11 +404,15 @@
                           </div>
                           <div v-if="primarySuggestedPlans(row.primary_spec_name).length" class="mt-3 border-t border-emerald-100 pt-2 text-lg">
                             <div class="font-semibold text-blue-700">
-                              建议货源方案：共 {{ primarySuggestedPlans(row.primary_spec_name).length }} 组
+                              新方案：共 {{ primarySuggestedPlans(row.primary_spec_name).length }} 组
                             </div>
                             <div class="mt-1.5 space-y-1.5">
-                              <div v-for="(plan, planIndex) in primarySuggestedPlans(row.primary_spec_name)" :key="plan.signature" class="font-medium text-blue-700">
-                                建议方案{{ planIndex + 1 }}：{{ plan.provider_product_nos.join(' + ') }}
+                              <div v-for="replacement in primaryPlanReplacements(row.primary_spec_name)" :key="replacement.key" class="font-medium text-blue-700">
+                                原方案{{ replacement.oldIndex + 1 }} → 新方案{{ replacement.newIndex + 1 }}：
+                                {{ replacement.provider_product_nos.join(' + ') }}
+                              </div>
+                              <div v-for="(plan, planIndex) in unlinkedSuggestedPlans(row.primary_spec_name)" :key="plan.signature" class="font-medium text-blue-700">
+                                新方案{{ planIndex + 1 }}：{{ plan.provider_product_nos.join(' + ') }}
                               </div>
                             </div>
                           </div>
@@ -1127,8 +1131,9 @@ const primarySuggestedPlans = (primarySpecName) => {
   const plans = new Map()
   for (const row of workflow.value?.admin_price_table || []) {
     if (String(row?.primary_spec_name || '') !== String(primarySpecName || '')) continue
-    if (row.candidates?.length) continue
-    const candidates = (row.recommended_candidates || [])
+    const candidates = (row.suggested_plan_candidates?.length
+      ? row.suggested_plan_candidates
+      : row.recommended_candidates || [])
       .filter((candidate) => candidate?.provider_product_no)
     if (!candidates.length) continue
     const providerProductNos = candidates.map((candidate) => String(candidate.provider_product_no))
@@ -1137,6 +1142,46 @@ const primarySuggestedPlans = (primarySpecName) => {
     plans.set(signature, { signature, provider_product_nos: providerProductNos })
   }
   return Array.from(plans.values())
+}
+
+const primaryPlanReplacements = (primarySpecName) => {
+  const currentPlans = primarySourcePlans(primarySpecName)
+  const suggestedPlans = primarySuggestedPlans(primarySpecName)
+  const planIndexBySignature = new Map(
+    suggestedPlans.map((plan, index) => [plan.signature, index]),
+  )
+  const replacements = []
+  for (const row of workflow.value?.admin_price_table || []) {
+    if (String(row?.primary_spec_name || '') !== String(primarySpecName || '')) continue
+    const current = (row.candidates || [])
+      .map((candidate) => String(candidate?.provider_product_no || '').trim())
+      .filter(Boolean)
+    const suggested = (row.suggested_plan_candidates?.length
+      ? row.suggested_plan_candidates
+      : row.recommended_candidates || [])
+      .map((candidate) => String(candidate?.provider_product_no || '').trim())
+      .filter(Boolean)
+    if (!current.length || !suggested.length) continue
+    const oldIndex = currentPlans.findIndex(
+      (plan) => plan.signature === current.slice().sort().join('|'),
+    )
+    const newSignature = suggested.slice().sort().join('|')
+    const newIndex = planIndexBySignature.get(newSignature)
+    if (oldIndex < 0 || newIndex === undefined) continue
+    replacements.push({
+      key: `${oldIndex}-${newIndex}-${newSignature}`,
+      oldIndex,
+      newIndex,
+      signature: newSignature,
+      provider_product_nos: suggested,
+    })
+  }
+  return replacements
+}
+
+const unlinkedSuggestedPlans = (primarySpecName) => {
+  const linked = new Set(primaryPlanReplacements(primarySpecName).map((item) => item.signature))
+  return primarySuggestedPlans(primarySpecName).filter((plan) => !linked.has(plan.signature))
 }
 
 const sourcePlanLabel = (row) => {
