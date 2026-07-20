@@ -400,19 +400,21 @@
                               <span v-for="(source, sourceIndex) in plan.candidates" :key="source.provider_product_no">
                                 {{ source.provider_product_no }}<span v-if="sourceIndex < plan.candidates.length - 1"> + </span>
                               </span>
+                              <template v-if="replacementForPlan(row.primary_spec_name, planIndex)">
+                                → {{ replacementForPlan(row.primary_spec_name, planIndex).provider_product_nos.join(' + ') }}
+                              </template>
+                              <template v-else-if="plan.candidates.length && plan.candidates.every((source) => source.is_available === false)">
+                                删除
+                              </template>
                             </div>
                           </div>
-                          <div v-if="primarySuggestedPlans(row.primary_spec_name).length" class="mt-3 border-t border-emerald-100 pt-2 text-lg">
+                          <div v-if="unlinkedSuggestedPlans(row.primary_spec_name).length" class="mt-3 border-t border-emerald-100 pt-2 text-lg">
                             <div class="font-semibold text-blue-700">
-                              新方案：共 {{ primarySuggestedPlans(row.primary_spec_name).length }} 组
+                              建议新增方案
                             </div>
                             <div class="mt-1.5 space-y-1.5">
-                              <div v-for="replacement in primaryPlanReplacements(row.primary_spec_name)" :key="replacement.key" class="font-medium text-blue-700">
-                                原方案{{ replacement.oldIndex + 1 }} → 新方案{{ replacement.newIndex + 1 }}：
-                                {{ replacement.provider_product_nos.join(' + ') }}
-                              </div>
                               <div v-for="(plan, planIndex) in unlinkedSuggestedPlans(row.primary_spec_name)" :key="plan.signature" class="font-medium text-blue-700">
-                                新方案{{ planIndex + 1 }}：{{ plan.provider_product_nos.join(' + ') }}
+                                方案{{ primarySourcePlans(row.primary_spec_name).length + planIndex + 1 }}：{{ plan.provider_product_nos.join(' + ') }}
                               </div>
                             </div>
                           </div>
@@ -1151,6 +1153,7 @@ const primaryPlanReplacements = (primarySpecName) => {
     suggestedPlans.map((plan, index) => [plan.signature, index]),
   )
   const replacements = []
+  const seen = new Set()
   for (const row of workflow.value?.admin_price_table || []) {
     if (String(row?.primary_spec_name || '') !== String(primarySpecName || '')) continue
     const current = (row.candidates || [])
@@ -1166,13 +1169,15 @@ const primaryPlanReplacements = (primarySpecName) => {
       (plan) => plan.signature === current.slice().sort().join('|'),
     )
     const newSignature = suggested.slice().sort().join('|')
-    const newIndex = planIndexBySignature.get(newSignature)
-    if (oldIndex < 0 || newIndex === undefined) continue
+    if (oldIndex < 0 || !planIndexBySignature.has(newSignature)) continue
+    const key = `${oldIndex}-${newSignature}`
+    if (seen.has(key)) continue
+    seen.add(key)
     replacements.push({
-      key: `${oldIndex}-${newIndex}-${newSignature}`,
+      key,
       oldIndex,
-      newIndex,
       signature: newSignature,
+      current_product_nos: current,
       provider_product_nos: suggested,
     })
   }
@@ -1183,6 +1188,10 @@ const unlinkedSuggestedPlans = (primarySpecName) => {
   const linked = new Set(primaryPlanReplacements(primarySpecName).map((item) => item.signature))
   return primarySuggestedPlans(primarySpecName).filter((plan) => !linked.has(plan.signature))
 }
+
+const replacementForPlan = (primarySpecName, planIndex) => (
+  primaryPlanReplacements(primarySpecName).find((item) => item.oldIndex === planIndex) || null
+)
 
 const sourcePlanLabel = (row) => {
   const candidates = (row?.candidates || []).filter((candidate) => candidate?.provider_product_no)
@@ -1207,8 +1216,10 @@ const sourcePlanDisplay = (row) => {
   if (!suggested.length || current.slice().sort().join('|') === suggested.slice().sort().join('|')) {
     return sourcePlanLabel(row)
   }
-  const formatPlan = (items) => items.length ? items.join(' + ') : '无'
-  return `${sourcePlanLabel(row)}：由 ${formatPlan(current)} 调整为 ${formatPlan(suggested)}`
+  const currentSignature = current.slice().sort().join('|')
+  const oldPlanIndex = primarySourcePlans(row?.primary_spec_name)
+    .findIndex((plan) => plan.signature === currentSignature)
+  return oldPlanIndex >= 0 ? `新方案${oldPlanIndex + 1}` : '新方案'
 }
 
 const isLastPrimaryRow = (row, rowIndex) => {
