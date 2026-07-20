@@ -338,10 +338,20 @@
                         </template>
                         <td class="w-[520px] max-w-[520px] px-3 py-2 align-top">
                           <div
-                            v-if="row.candidates?.some((candidate) => candidate.is_available === false)"
+                            v-if="row.unavailable_bound_product_nos?.length"
                             class="text-xs font-semibold text-red-600"
                           >
-                            已绑定编号不可用，未自动替换，请人工确认
+                            已绑定编号不可用：{{ row.unavailable_bound_product_nos.join('、') }}；未自动替换，请人工确认
+                          </div>
+                          <div v-if="row.suggested_plan_candidates?.length" class="mt-1 text-xs font-semibold text-blue-700">
+                            建议替换方案：当前编号
+                            {{ row.candidates?.map((candidate) => candidate.provider_product_no).filter(Boolean).join('、') || '无' }}
+                            →
+                            {{ row.suggested_plan_candidates.map((candidate) => candidate.provider_product_no).filter(Boolean).join('、') }}
+                            （仅建议，未自动替换）
+                          </div>
+                          <div v-else-if="row.unavailable_bound_product_nos?.length" class="mt-1 text-xs font-semibold text-amber-700">
+                            当前商品范围内暂无可用替代编号，不能自动推荐。
                           </div>
                           <div v-if="row.invalid_bound_candidates?.length" class="text-xs font-semibold text-red-600">
                             已绑定编号详情未完整包含该规格饮品，下单已拦截：
