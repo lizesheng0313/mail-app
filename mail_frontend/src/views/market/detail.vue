@@ -986,6 +986,8 @@ const visibleSkus = computed(() => activePrimaryGroup.value?.children || display
 
 const isThirdPartyProduct = computed(() => {
   if (!workflow.value) return false
+  // 库存商品不使用供货编号可用性；旧数据里的 is_available 不能覆盖这个规则。
+  if (workflow.value.inventory_enabled === true) return false
   if (workflow.value.has_third_party_delivery === true) return true
   const modes = normalizeJsonList(workflow.value.skus || workflow.value.specs || workflow.value.product_skus)
     .map((sku) => String(sku?.delivery_mode || sku?.fulfillment_type || '').trim().toLowerCase())
