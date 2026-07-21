@@ -337,52 +337,45 @@
                           </td>
                         </template>
                         <td class="w-[520px] max-w-[520px] px-3 py-2 align-top">
-                          <div
-                            v-if="row.unavailable_bound_product_nos?.length"
-                            class="text-xs font-semibold text-red-600"
-                          >
-                            已绑定编号不可用：{{ row.unavailable_bound_product_nos.join('、') }}；未自动替换，请人工确认
-                          </div>
-                          <div v-if="row.suggested_plan_candidates?.length" class="mt-1 text-xs font-semibold text-blue-700">
-                            建议替换方案：当前编号
+                          <div v-if="row.suggested_plan_candidates?.length" class="mt-1 text-xs font-semibold text-emerald-700">
+                            当前完整方案：
                             {{ row.candidates?.map((candidate) => candidate.provider_product_no).filter(Boolean).join('、') || '无' }}
                             →
-                            {{ row.suggested_plan_candidates.map((candidate) => candidate.provider_product_no).filter(Boolean).join('、') }}
-                            （仅建议，未自动替换）
+                            建议完整方案：{{ row.suggested_plan_candidates.map((candidate) => candidate.provider_product_no).filter(Boolean).join('、') }}
                           </div>
-                          <div v-else-if="row.unavailable_bound_product_nos?.length" class="mt-1 text-xs font-semibold text-amber-700">
-                            当前商品范围内暂无可用替代编号，不能自动推荐。
+                          <div v-if="row.suggested_plan_reason?.type === 'lower_cost'" class="mt-1 text-xs font-medium text-emerald-700">
+                            替换原因：
+                            <template v-for="(replacement, replacementIndex) in row.suggested_plan_reason.replacements || []" :key="replacement.from_product_no">
+                              编号 {{ replacement.from_product_no }} 成本更高，替换为 {{ replacement.to_product_no }}<span v-if="replacementIndex < row.suggested_plan_reason.replacements.length - 1">；</span>
+                            </template>。
                           </div>
-                          <div v-if="row.invalid_bound_candidates?.length" class="text-xs font-semibold text-red-600">
-                            已绑定编号详情未完整包含该规格饮品，下单已拦截：
-                            <span v-for="(item, index) in row.invalid_bound_candidates" :key="item.provider_product_no">
-                              编号 {{ item.provider_product_no }} 少 {{ item.missing_products.join('、') }}<span v-if="index < row.invalid_bound_candidates.length - 1">；</span>
-                            </span>
-                          </div>
-                          <div v-if="!row.candidates?.length && row.missing_products?.length" class="text-xs font-medium text-red-600">
-                            缺少：{{ row.missing_products.join('、') }}
-                          </div>
-                          <div v-else-if="!row.candidates?.length && row.coverage_message" class="text-xs font-medium text-red-600">
-                            {{ row.coverage_message }}
+                          <div v-else-if="row.suggested_plan_reason?.type === 'unusable'" class="mt-1 text-xs font-medium text-emerald-700">
+                            替换原因：
+                            <template v-for="(issue, issueIndex) in row.suggested_plan_reason.issues || []" :key="issue.product_no">
+                              编号 {{ issue.product_no }}
+                              <template v-if="issue.type === 'unavailable'">当前不可用</template>
+                              <template v-else-if="issue.type === 'missing_products'">未覆盖：{{ issue.missing_products.join('、') }}</template>
+                              <template v-else>商品详情无法确认是否覆盖当前规格</template><span v-if="issueIndex < row.suggested_plan_reason.issues.length - 1">；</span>
+                            </template>。
                           </div>
                           <div v-if="!row.candidates?.length && row.partial_coverage?.length" class="mt-1 max-h-32 space-y-0.5 overflow-y-auto text-xs font-medium text-amber-700">
                             <div v-for="item in row.partial_coverage" :key="item.provider_product_no">
                               编号 {{ item.provider_product_no }} 少：{{ item.missing_products.join('、') }}
                             </div>
                           </div>
-                          <div v-if="!row.candidates?.length && row.recommended_title" class="mt-1 text-xs font-semibold text-blue-700">
+                          <div v-if="row.suggested_plan_candidates?.length && row.recommended_title" class="mt-1 text-xs font-semibold text-emerald-700">
                             建议标题：{{ row.recommended_title }}
                           </div>
-                          <div v-if="!row.candidates?.length && row.recommended_candidates?.length" class="mt-1 text-xs font-semibold text-blue-700">
-                            建议编号：
-                            <span
-                              v-for="(candidate, index) in row.recommended_candidates"
-                              :key="candidate.provider_product_no"
-                            >
-                              {{ index + 1 }}. {{ candidate.provider_product_no }}（{{ formatCandidateCost(candidate) }}）<span v-if="index < row.recommended_candidates.length - 1">，</span>
+                          <div v-if="row.suggested_plan_candidates?.length" class="mt-1 text-xs font-semibold text-emerald-700">
+                            建议方案：
+                            <span v-for="(candidate, index) in row.suggested_plan_candidates" :key="candidate.provider_product_no">
+                              {{ index + 1 }}. {{ candidate.provider_product_no }}（{{ formatCandidateCost(candidate) }}）<span v-if="index < row.suggested_plan_candidates.length - 1">，</span>
                             </span>
                           </div>
-                          <span v-if="row.candidates?.length" class="text-slate-400">-</span>
+                          <div v-if="!row.candidates?.length && row.missing_products?.length" class="mt-1 text-xs font-medium text-amber-700">
+                            未覆盖饮品：{{ row.missing_products.join('、') }}
+                          </div>
+                          <span v-if="row.candidates?.length && !row.suggested_plan_candidates?.length" class="text-slate-400">-</span>
                         </td>
                       </tr>
                       <tr
@@ -396,24 +389,29 @@
                           </div>
                           <div v-if="primarySourcePlans(row.primary_spec_name).length" class="mt-2 space-y-1.5 text-lg">
                             <div v-for="(plan, planIndex) in primarySourcePlans(row.primary_spec_name)" :key="plan.signature" class="font-medium">
-                              方案{{ planIndex + 1 }}：
-                              <span v-for="(source, sourceIndex) in plan.candidates" :key="source.provider_product_no">
-                                {{ source.provider_product_no }}<span v-if="sourceIndex < plan.candidates.length - 1"> + </span>
-                              </span>
-                              <template v-if="replacementForPlan(row.primary_spec_name, planIndex)">
-                                → {{ replacementForPlan(row.primary_spec_name, planIndex).provider_product_nos.join(' + ') }}
-                              </template>
-                              <template v-else-if="plan.candidates.length && plan.candidates.every((source) => source.is_available === false)">
-                                删除
-                              </template>
+                              <div>
+                                方案{{ planIndex + 1 }}：
+                                <span v-for="(source, sourceIndex) in plan.candidates" :key="source.provider_product_no">
+                                  {{ source.provider_product_no }}<span v-if="sourceIndex < plan.candidates.length - 1"> + </span>
+                                </span>
+                                <template v-if="plan.candidates.length && plan.candidates.every((source) => source.is_available === false)">
+                                  删除
+                                </template>
+                                <span v-for="replacement in replacementsForPlan(row.primary_spec_name, planIndex)" :key="replacement.key" class="text-emerald-700">
+                                  → 新方案{{ planIndex + 1 }}：
+                                  <span v-for="(source, sourceIndex) in replacement.candidates" :key="source.provider_product_no">
+                                    {{ source.provider_product_no }}<span v-if="sourceIndex < replacement.candidates.length - 1"> + </span>
+                                  </span>
+                                </span>
+                              </div>
                             </div>
                           </div>
-                          <div v-if="unlinkedSuggestedPlans(row.primary_spec_name).length" class="mt-3 border-t border-emerald-100 pt-2 text-lg">
-                            <div class="font-semibold text-blue-700">
+                          <div v-if="primaryUnboundSuggestedPlans(row.primary_spec_name).length" class="mt-3 border-t border-emerald-100 pt-2 text-lg">
+                            <div class="font-semibold text-emerald-700">
                               建议新增方案
                             </div>
                             <div class="mt-1.5 space-y-1.5">
-                              <div v-for="(plan, planIndex) in unlinkedSuggestedPlans(row.primary_spec_name)" :key="plan.signature" class="font-medium text-blue-700">
+                              <div v-for="(plan, planIndex) in primaryUnboundSuggestedPlans(row.primary_spec_name)" :key="plan.signature" class="font-medium text-emerald-700">
                                 方案{{ primarySourcePlans(row.primary_spec_name).length + planIndex + 1 }}：{{ plan.provider_product_nos.join(' + ') }}
                               </div>
                             </div>
@@ -1133,25 +1131,27 @@ const primarySuggestedPlans = (primarySpecName) => {
   const plans = new Map()
   for (const row of workflow.value?.admin_price_table || []) {
     if (String(row?.primary_spec_name || '') !== String(primarySpecName || '')) continue
-    const candidates = (row.suggested_plan_candidates?.length
-      ? row.suggested_plan_candidates
-      : row.recommended_candidates || [])
-      .filter((candidate) => candidate?.provider_product_no)
-    if (!candidates.length) continue
-    const providerProductNos = candidates.map((candidate) => String(candidate.provider_product_no))
-    const signature = providerProductNos.slice().sort().join('|')
-    if (currentSignatures.has(signature) || plans.has(signature)) continue
-    plans.set(signature, { signature, provider_product_nos: providerProductNos })
+    for (const candidates of [row.suggested_plan_candidates || []]) {
+      const validCandidates = candidates.filter((candidate) => candidate?.provider_product_no)
+      if (!validCandidates.length) continue
+      const sortedCandidates = validCandidates.slice().sort(
+        (left, right) => Number(left?.cost_price || 0) - Number(right?.cost_price || 0),
+      )
+      const providerProductNos = sortedCandidates.map((candidate) => String(candidate.provider_product_no))
+      const signature = providerProductNos.slice().sort().join('|')
+      if (currentSignatures.has(signature) || plans.has(signature)) continue
+      plans.set(signature, {
+        signature,
+        provider_product_nos: providerProductNos,
+        total_cost: sortedCandidates.reduce((total, candidate) => total + Number(candidate?.cost_price || 0), 0),
+      })
+    }
   }
-  return Array.from(plans.values())
+  return Array.from(plans.values()).sort((left, right) => left.total_cost - right.total_cost)
 }
 
 const primaryPlanReplacements = (primarySpecName) => {
   const currentPlans = primarySourcePlans(primarySpecName)
-  const suggestedPlans = primarySuggestedPlans(primarySpecName)
-  const planIndexBySignature = new Map(
-    suggestedPlans.map((plan, index) => [plan.signature, index]),
-  )
   const replacements = []
   const seen = new Set()
   for (const row of workflow.value?.admin_price_table || []) {
@@ -1159,9 +1159,7 @@ const primaryPlanReplacements = (primarySpecName) => {
     const current = (row.candidates || [])
       .map((candidate) => String(candidate?.provider_product_no || '').trim())
       .filter(Boolean)
-    const suggested = (row.suggested_plan_candidates?.length
-      ? row.suggested_plan_candidates
-      : row.recommended_candidates || [])
+    const suggested = (row.suggested_plan_candidates || [])
       .map((candidate) => String(candidate?.provider_product_no || '').trim())
       .filter(Boolean)
     if (!current.length || !suggested.length) continue
@@ -1169,7 +1167,7 @@ const primaryPlanReplacements = (primarySpecName) => {
       (plan) => plan.signature === current.slice().sort().join('|'),
     )
     const newSignature = suggested.slice().sort().join('|')
-    if (oldIndex < 0 || !planIndexBySignature.has(newSignature)) continue
+    if (oldIndex < 0 || newSignature === current.slice().sort().join('|')) continue
     const key = `${oldIndex}-${newSignature}`
     if (seen.has(key)) continue
     seen.add(key)
@@ -1179,18 +1177,40 @@ const primaryPlanReplacements = (primarySpecName) => {
       signature: newSignature,
       current_product_nos: current,
       provider_product_nos: suggested,
+      candidates: row.suggested_plan_candidates || [],
     })
   }
   return replacements
 }
 
-const unlinkedSuggestedPlans = (primarySpecName) => {
-  const linked = new Set(primaryPlanReplacements(primarySpecName).map((item) => item.signature))
-  return primarySuggestedPlans(primarySpecName).filter((plan) => !linked.has(plan.signature))
+const primaryUnboundSuggestedPlans = (primarySpecName) => {
+  const knownSignatures = new Set([
+    ...primarySourcePlans(primarySpecName).map((plan) => plan.signature),
+    ...primaryPlanReplacements(primarySpecName).map((replacement) => replacement.signature),
+  ])
+  const plans = new Map()
+  for (const row of workflow.value?.admin_price_table || []) {
+    if (String(row?.primary_spec_name || '') !== String(primarySpecName || '')) continue
+    if ((row.candidates || []).some((candidate) => candidate?.provider_product_no)) continue
+    const candidates = (row.suggested_plan_candidates || []).filter((candidate) => candidate?.provider_product_no)
+    if (!candidates.length) continue
+    const sortedCandidates = candidates.slice().sort(
+      (left, right) => Number(left?.cost_price || 0) - Number(right?.cost_price || 0),
+    )
+    const providerProductNos = sortedCandidates.map((candidate) => String(candidate.provider_product_no))
+    const signature = providerProductNos.slice().sort().join('|')
+    if (knownSignatures.has(signature) || plans.has(signature)) continue
+    plans.set(signature, {
+      signature,
+      provider_product_nos: providerProductNos,
+      total_cost: sortedCandidates.reduce((total, candidate) => total + Number(candidate?.cost_price || 0), 0),
+    })
+  }
+  return Array.from(plans.values()).sort((left, right) => left.total_cost - right.total_cost)
 }
 
-const replacementForPlan = (primarySpecName, planIndex) => (
-  primaryPlanReplacements(primarySpecName).find((item) => item.oldIndex === planIndex) || null
+const replacementsForPlan = (primarySpecName, planIndex) => (
+  primaryPlanReplacements(primarySpecName).filter((item) => item.oldIndex === planIndex)
 )
 
 const sourcePlanLabel = (row) => {
@@ -1213,6 +1233,22 @@ const sourcePlanDisplay = (row) => {
   const suggested = (row?.suggested_plan_candidates || [])
     .map((candidate) => String(candidate?.provider_product_no || '').trim())
     .filter(Boolean)
+  if (!current.length && suggested.length) {
+    const suggestedSignature = suggested.slice().sort().join('|')
+    const existingIndex = primarySourcePlans(row?.primary_spec_name)
+      .findIndex((plan) => plan.signature === suggestedSignature)
+    if (existingIndex >= 0) return `建议方案${existingIndex + 1}`
+
+    const replacement = primaryPlanReplacements(row?.primary_spec_name)
+      .find((item) => item.signature === suggestedSignature)
+    if (replacement) return `建议方案${replacement.oldIndex + 1}`
+
+    // 真正的新组合才按底部“建议新增方案”的顺序分配新编号。
+    const suggestedIndex = primaryUnboundSuggestedPlans(row?.primary_spec_name)
+      .findIndex((plan) => plan.signature === suggestedSignature)
+    const baseIndex = primarySourcePlans(row?.primary_spec_name).length
+    return `建议方案${baseIndex + Math.max(0, suggestedIndex) + 1}`
+  }
   if (!suggested.length || current.slice().sort().join('|') === suggested.slice().sort().join('|')) {
     return sourcePlanLabel(row)
   }

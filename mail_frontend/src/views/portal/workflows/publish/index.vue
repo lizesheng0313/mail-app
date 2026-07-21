@@ -37,13 +37,24 @@
               <span v-else class="text-sm text-gray-400">上传商品主图</span>
             </div>
             <input ref="iconInput" type="file" accept="image/*" class="hidden" @change="handleIconUpload" />
-            <button
-              @click="$refs.iconInput.click()"
-              :disabled="uploadingIcon"
-              class="w-full rounded-lg border border-primary-200 bg-primary-50 px-3 py-2 text-sm font-medium text-primary-700 hover:bg-primary-100 disabled:opacity-50"
-            >
-              {{ uploadingIcon ? t('publishWorkflow.uploading') : formData.iconUrl ? t('publishWorkflow.replace') : t('publishWorkflow.upload') }}
-            </button>
+            <div class="flex gap-2">
+              <button
+                type="button"
+                @click="$refs.iconInput.click()"
+                :disabled="uploadingIcon"
+                class="min-w-0 flex-1 rounded-lg border border-primary-200 bg-primary-50 px-3 py-2 text-sm font-medium text-primary-700 hover:bg-primary-100 disabled:opacity-50"
+              >
+                {{ uploadingIcon ? t('publishWorkflow.uploading') : formData.iconUrl ? t('publishWorkflow.replace') : t('publishWorkflow.upload') }}
+              </button>
+              <button
+                v-if="formData.iconUrl"
+                type="button"
+                class="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-100"
+                @click="removeIcon"
+              >
+                删除
+              </button>
+            </div>
           </div>
 
           <div class="space-y-5">
@@ -916,6 +927,10 @@ const removeTag = (tag) => {
 // 移除截图
 const removeScreenshot = (index) => {
   formData.value.screenshots.splice(index, 1)
+}
+
+const removeIcon = () => {
+  formData.value.iconUrl = ''
 }
 
 const handleSkuImageUpload = async (event, sku) => {

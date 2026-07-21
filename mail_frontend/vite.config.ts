@@ -19,7 +19,10 @@ export default defineConfig({
         target: 'http://localhost:8088',
         changeOrigin: true,
         secure: false,
-        ws: true
+        ws: true,
+        // 管理员价格表会等待 AI 完整分析，开发代理不能在后端返回前断开连接。
+        timeout: 120000,
+        proxyTimeout: 120000
       },
       '/open': {
         target: 'http://localhost:8088',
