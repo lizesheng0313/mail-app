@@ -17,8 +17,10 @@ export function getWorkflowDetail(workflowId) {
   return api.get(`/workflow-market/workflows/${workflowId}`)
 }
 
-export function getWorkflowAdminPriceTable(workflowId) {
-  return api.get(`/workflow-market/workflows/${workflowId}/admin-price-table`)
+export function getWorkflowAdminPriceTable(workflowId, params = {}) {
+  return api.get(`/workflow-market/workflows/${workflowId}/admin-price-table`, {
+    params
+  })
 }
 
 /**

@@ -269,7 +269,15 @@
                 <div class="mb-3 flex items-center justify-between gap-3">
                   <div class="text-sm font-semibold text-slate-900">商品价格表</div>
                   <div class="flex items-center gap-3">
-                    <div class="text-xs text-slate-500">每小时巡检后更新</div>
+                    <div class="text-xs text-slate-500">{{ adminPriceTableHintText }}</div>
+                    <button
+                      type="button"
+                      class="rounded-md border border-primary-200 bg-primary-50 px-3 py-1.5 text-xs font-semibold text-primary-700 transition hover:border-primary-300 hover:bg-primary-100 disabled:cursor-not-allowed disabled:opacity-60"
+                      :disabled="adminPriceTableLoading || adminPriceTableAnalyzing"
+                      @click="runAdminPriceTableAnalysis"
+                    >
+                      {{ adminPriceTableActionText }}
+                    </button>
                     <button
                       type="button"
                       class="flex h-9 w-9 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-700 hover:border-primary-400 hover:text-primary-600"
@@ -703,6 +711,8 @@ const loading = ref(true)
 const canReview = ref(false)
 const reviews = ref([])
 const adminPriceTableLoading = ref(false)
+const adminPriceTableAnalyzing = ref(false)
+const adminPriceTableAnalyzed = ref(false)
 const isAdminPriceTableFullscreen = ref(false)
 const showExecutionResult = ref(false)
 const showExecutionHistory = ref(false)
@@ -1052,6 +1062,21 @@ const isThirdPartyProduct = computed(() => {
 })
 
 const isAdminPriceTableVisible = computed(() => Boolean(workflow.value?.is_admin_viewer && isThirdPartyProduct.value))
+const adminPriceTableHintText = computed(() => {
+  if (adminPriceTableAnalyzing.value) {
+    return 'AI 分析中，完成后会刷新建议方案'
+  }
+  if (adminPriceTableAnalyzed.value) {
+    return '当前已展示本次 AI 分析结果'
+  }
+  return '默认只加载基础成本利润，点开始分析才跑 AI'
+})
+const adminPriceTableActionText = computed(() => {
+  if (adminPriceTableAnalyzing.value) {
+    return '分析中...'
+  }
+  return adminPriceTableAnalyzed.value ? '重新分析' : '开始分析'
+})
 
 const isSkuAvailable = (sku) => isThirdPartyProduct.value ? Boolean(sku?.is_available) : true
 
@@ -1579,22 +1604,38 @@ const loadWorkflowDetail = async (showLoading = true) => {
   }
 }
 
-const loadAdminPriceTable = async () => {
+const loadAdminPriceTable = async ({ analyze = false } = {}) => {
   if (!isAdminPriceTableVisible.value) return
-  adminPriceTableLoading.value = true
+  if (analyze) {
+    adminPriceTableAnalyzing.value = true
+  } else {
+    adminPriceTableLoading.value = true
+  }
   try {
-    const res = await getWorkflowAdminPriceTable(workflowId.value)
+    const res = await getWorkflowAdminPriceTable(workflowId.value, { analyze })
     if (res.code === 0 && workflow.value) {
       workflow.value = {
         ...workflow.value,
         admin_price_table: Array.isArray(res.data?.items) ? res.data.items : []
       }
+      adminPriceTableAnalyzed.value = Boolean(res.data?.analysis_enabled)
     }
   } catch (error) {
     console.error('加载商品价格表失败:', error)
+    if (analyze) {
+      showMessage('AI 分析失败，请稍后再试', 'error')
+    }
   } finally {
-    adminPriceTableLoading.value = false
+    if (analyze) {
+      adminPriceTableAnalyzing.value = false
+    } else {
+      adminPriceTableLoading.value = false
+    }
   }
+}
+
+const runAdminPriceTableAnalysis = async () => {
+  await loadAdminPriceTable({ analyze: true })
 }
 
 // 立即执行工作流
