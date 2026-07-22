@@ -930,7 +930,14 @@ const removeScreenshot = (index) => {
 }
 
 const removeIcon = () => {
+  const previousIconUrl = formData.value.iconUrl
   formData.value.iconUrl = ''
+  // 主图删除时同步移除同地址详情图，避免更换主图后留下旧主图。
+  if (previousIconUrl) {
+    formData.value.screenshots = formData.value.screenshots.filter(
+      (url) => url !== previousIconUrl
+    )
+  }
 }
 
 const handleSkuImageUpload = async (event, sku) => {
@@ -1368,8 +1375,10 @@ const handleScreenshotsUpload = async (event) => {
       })
 
       if (res.code === 0) {
-        // 后端已返回完整URL，直接使用
-        formData.value.screenshots.push(res.data.url)
+        // 主图只能由 iconUrl 管理，不能同时进入详情图列表。
+        if (res.data.url !== formData.value.iconUrl && !formData.value.screenshots.includes(res.data.url)) {
+          formData.value.screenshots.push(res.data.url)
+        }
       }
     }
     showMessage(t('publishWorkflow.screenshotUploadSuccess'), 'success')
@@ -1632,7 +1641,8 @@ const loadWorkflowInfo = async () => {
         requiresRechargeAccount: inferOrderFieldPreset(wf) !== 'none',
         inventoryEnabled: Boolean(wf.inventory_enabled),
         iconUrl: wf.icon_url || '',
-        screenshots: wf.screenshots || [],
+        // 兼容旧数据：主图不应在详情图里重复展示。
+        screenshots: Array.from(new Set((wf.screenshots || []).filter((url) => url && url !== wf.icon_url))),
         skus: normalizeWorkflowSkus(wf),
         longDescription: wf.long_description || ''
       }
