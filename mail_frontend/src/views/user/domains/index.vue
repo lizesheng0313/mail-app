@@ -370,6 +370,18 @@
                     >
                       {{ getDnsStatusLabel(record.status) }}
                     </span>
+                    <div
+                      v-if="record.check_message || record.fail_reason"
+                      class="mt-2 flex max-w-[560px] items-start gap-1.5 text-xs leading-5 text-gray-500"
+                    >
+                      <span
+                        :class="getDnsDetailDotClass(record.status)"
+                        class="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full"
+                      ></span>
+                      <span class="whitespace-normal break-all">
+                        {{ record.check_message || record.fail_reason }}
+                      </span>
+                    </div>
                   </td>
                 </tr>
               </tbody>
@@ -680,6 +692,15 @@ const getDnsStatusLabel = (status: string) => {
   if (normalized === 'error') return '查询失败'
   if (normalized === 'not_found') return '未找到'
   return '待检查'
+}
+
+const getDnsDetailDotClass = (status: string) => {
+  const normalized = String(status || '').toLowerCase()
+  if (normalized === 'not_found') return 'bg-amber-400'
+  if (normalized === 'invalid' || normalized === 'failed' || normalized === 'error') {
+    return 'bg-red-400'
+  }
+  return 'bg-gray-300'
 }
 
 const applyDomainDetailToModal = (detail: any, _created = false) => {
