@@ -905,16 +905,13 @@ const resourceCover = computed(() => {
   if (!workflow.value) {
     return ''
   }
-  if (workflow.value.cover_url || workflow.value.icon_url) {
-    return workflow.value.cover_url || workflow.value.icon_url
-  }
-  const screenshots = normalizeJsonList(workflow.value.screenshots)
-  return screenshots[0] || ''
+  // The cover is an explicit asset. Detail screenshots must never be promoted
+  // into the main-image area when a cover has not been configured.
+  return workflow.value.cover_url || workflow.value.icon_url || ''
 })
 
 const galleryImages = computed(() => {
-  const images = [resourceCover.value, ...validScreenshots.value].filter(Boolean)
-  return Array.from(new Set(images))
+  return resourceCover.value ? [resourceCover.value] : []
 })
 
 const detailImages = computed(() => {
