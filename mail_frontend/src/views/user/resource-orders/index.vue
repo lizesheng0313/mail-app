@@ -53,9 +53,27 @@
                 <span class="rounded-full px-2.5 py-1 text-xs font-medium" :class="getStatusClass(item.status)">
                   {{ getStatusText(item.status) }}
                 </span>
+                <div v-if="getRefundText(item)" class="mt-2 max-w-[220px] text-xs leading-5" :class="getRefundClass(item)">
+                  {{ getRefundText(item) }}
+                </div>
               </td>
               <td class="px-5 py-4 text-sm text-gray-600">{{ formatTime(item.created_at) }}</td>
               <td class="px-5 py-4">
+                <button
+                  v-if="canRequestRefund(item)"
+                  class="mr-3 text-sm font-medium text-rose-600 hover:text-rose-700 disabled:text-gray-400"
+                  :disabled="item.refund_status === 'pending'"
+                  @click="requestRefund(item)"
+                >
+                  {{ item.refund_status === 'pending' ? '退款处理中' : '申请退款' }}
+                </button>
+                <button
+                  v-if="item.resource_kind === 'product'"
+                  class="mr-3 text-sm font-medium text-primary-700 hover:text-primary-800"
+                  @click="showDelivery(item)"
+                >
+                  查看结果
+                </button>
                 <button
                   class="text-sm font-medium text-primary-700 hover:text-primary-800 disabled:text-gray-400"
                   :disabled="!item.workflow_id"
@@ -69,17 +87,67 @@
         </table>
       </div>
     </div>
+
+    <BaseModal
+      v-model="deliveryDialogVisible"
+      title="购买结果"
+      size="lg"
+      :show-footer="false"
+      @close="closeDelivery"
+    >
+      <div class="space-y-4 text-sm text-gray-700">
+        <div class="grid gap-3 rounded-lg bg-gray-50 p-4 sm:grid-cols-2">
+          <div>
+            <div class="text-xs text-gray-500">供货订单号</div>
+            <div class="mt-1 break-all font-medium text-gray-900">{{ selectedDelivery?.provider_order_no || '-' }}</div>
+          </div>
+          <div>
+            <div class="text-xs text-gray-500">供货商品编号</div>
+            <div class="mt-1 break-all font-medium text-gray-900">{{ selectedDelivery?.provider_product_no || '-' }}</div>
+          </div>
+        </div>
+
+        <template v-if="hasDeliveryContent()">
+          <a
+            v-if="deliveryLink()"
+            :href="deliveryLink()"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="inline-flex rounded-md bg-primary-600 px-4 py-2 font-medium text-white hover:bg-primary-700"
+          >
+            打开供货链接
+          </a>
+          <div v-if="selectedDelivery?.delivery?.pickup_code" class="rounded-lg border border-primary-100 bg-primary-50 p-4">
+            <div class="text-xs text-primary-700">取餐码 / 提货码</div>
+            <div class="mt-1 break-all text-base font-semibold text-primary-900">{{ selectedDelivery.delivery.pickup_code }}</div>
+          </div>
+          <div v-for="(card, index) in selectedDelivery?.delivery?.cards || []" :key="`${card.cardNo || ''}-${index}`" class="rounded-lg border border-gray-200 p-4">
+            <div class="font-medium text-gray-900">卡券 {{ index + 1 }}</div>
+            <div v-if="card.cardNo" class="mt-2 break-all">卡号：{{ card.cardNo }}</div>
+            <div v-if="card.cardPwd" class="mt-1 break-all">卡密：{{ card.cardPwd }}</div>
+            <div v-if="card.expireTime" class="mt-1">有效期：{{ card.expireTime }}</div>
+            <a v-if="card.jumpLink" :href="card.jumpLink" target="_blank" rel="noopener noreferrer" class="mt-3 inline-block font-medium text-primary-700 hover:text-primary-800">打开卡券链接</a>
+          </div>
+        </template>
+        <div v-else class="rounded-lg border border-amber-200 bg-amber-50 p-4 leading-6 text-amber-800">
+          {{ selectedDelivery?.provider_order_no ? '供货方暂未返回可打开的链接或提货信息，请用上方供货订单号处理。' : '该历史订单未保存供货返回内容，无法补回链接。' }}
+        </div>
+      </div>
+    </BaseModal>
   </div>
 </template>
 
 <script setup>
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { getMyPurchases } from '@/api/workflowMarket'
+import { getMyPurchases, requestWorkflowRefund } from '@/api/workflowMarket'
+import BaseModal from '@/components/BaseModal/index.vue'
 
 const router = useRouter()
 const loading = ref(false)
 const orders = ref([])
+const deliveryDialogVisible = ref(false)
+const selectedDelivery = ref(null)
 
 const fetchOrders = async () => {
   loading.value = true
@@ -136,8 +204,57 @@ const getStatusClass = (status) => {
   return 'bg-gray-100 text-gray-600'
 }
 
+const canRequestRefund = (item) => (
+  item.status === 'active'
+  && item.order_status === 'paid'
+  && item.refund_status !== 'refunded'
+)
+
+const getRefundText = (item) => {
+  if (item.refund_status === 'pending') return '退款处理中，等待半方确认撤单'
+  if (item.refund_status === 'rejected') {
+    return item.refund_admin_reply || item.refund_seller_reply || '退款未通过'
+  }
+  return ''
+}
+
+const getRefundClass = (item) => (item.refund_status === 'rejected' ? 'text-rose-600' : 'text-amber-600')
+
+const requestRefund = async (item) => {
+  if (!window.confirm(`确认申请退款《${item.workflow_name || '该商品'}》？`)) return
+  try {
+    const res = await requestWorkflowRefund(item.id)
+    window.alert(res?.message || '退款申请已提交')
+    await fetchOrders()
+  } catch (error) {
+    window.alert(error?.response?.data?.detail || error?.message || '退款申请失败')
+  }
+}
+
 const viewMarket = (item) => {
   router.push(`/market/workflow/${item.workflow_id}`)
+}
+
+const showDelivery = (item) => {
+  selectedDelivery.value = item.last_execution_result || {}
+  deliveryDialogVisible.value = true
+}
+
+const closeDelivery = () => {
+  deliveryDialogVisible.value = false
+  selectedDelivery.value = null
+}
+
+const getDeliveryLink = (delivery) => {
+  const data = delivery?.delivery || {}
+  return data.jump_link || data.delivery_link || data.pickup_link || data.order_link || ''
+}
+
+const deliveryLink = () => getDeliveryLink(selectedDelivery.value)
+
+const hasDeliveryContent = () => {
+  const delivery = selectedDelivery.value?.delivery || {}
+  return Boolean(getDeliveryLink(selectedDelivery.value) || delivery.pickup_code || delivery.cards?.length)
 }
 
 onMounted(fetchOrders)

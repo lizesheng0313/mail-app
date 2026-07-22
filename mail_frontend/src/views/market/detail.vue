@@ -333,6 +333,7 @@
                         <template v-for="index in 3" :key="index">
                           <td class="break-all px-3 py-2">
                             {{ row.candidates?.[index - 1]?.provider_product_no || '-' }}
+                            <span v-if="row.candidates?.[index - 1]?.is_available === false" class="ml-1 whitespace-nowrap text-xs font-medium text-red-600">（已下架）</span>
                           </td>
                           <td class="whitespace-nowrap px-3 py-2">
                             {{ row.candidates?.[index - 1] ? formatCandidateCost(row.candidates[index - 1]) : '-' }}
@@ -345,19 +346,21 @@
                           </td>
                         </template>
                         <td class="w-[520px] max-w-[520px] px-3 py-2 align-top">
-                          <div v-if="row.suggested_plan_candidates?.length" class="mt-1 text-xs font-semibold text-emerald-700">
+                          <div v-if="hasDifferentSuggestedPlan(row)" class="mt-1 text-xs font-semibold text-emerald-700">
                             当前完整方案：
-                            {{ row.candidates?.map((candidate) => candidate.provider_product_no).filter(Boolean).join('、') || '无' }}
+                            {{ currentPlanProductNos(row).join('、') || '无' }}
                             →
                             建议完整方案：{{ row.suggested_plan_candidates.map((candidate) => candidate.provider_product_no).filter(Boolean).join('、') }}
                           </div>
-                          <div v-if="row.suggested_plan_reason?.type === 'lower_cost'" class="mt-1 text-xs font-medium text-emerald-700">
+                          <div v-if="hasDifferentSuggestedPlan(row) && row.suggested_plan_reason?.type === 'lower_cost'" class="mt-1 text-xs font-medium text-emerald-700">
                             替换原因：
                             <template v-for="(replacement, replacementIndex) in row.suggested_plan_reason.replacements || []" :key="replacement.from_product_no">
-                              编号 {{ replacement.from_product_no }} 成本更高，替换为 {{ replacement.to_product_no }}<span v-if="replacementIndex < row.suggested_plan_reason.replacements.length - 1">；</span>
+                              编号 {{ replacement.from_product_no }}<template v-if="replacement.from_source_name">（{{ replacement.from_source_name }}）</template>
+                              替换为 {{ replacement.to_product_no }}<template v-if="replacement.to_source_name">（{{ replacement.to_source_name }}）</template>
+                              <template v-if="replacement.saving > 0">，每单省 {{ formatProfit(replacement.saving) }}</template><span v-if="replacementIndex < row.suggested_plan_reason.replacements.length - 1">；</span>
                             </template>。
                           </div>
-                          <div v-else-if="row.suggested_plan_reason?.type === 'unusable'" class="mt-1 text-xs font-medium text-emerald-700">
+                          <div v-else-if="hasDifferentSuggestedPlan(row) && row.suggested_plan_reason?.type === 'unusable'" class="mt-1 text-xs font-medium text-emerald-700">
                             替换原因：
                             <template v-for="(issue, issueIndex) in row.suggested_plan_reason.issues || []" :key="issue.product_no">
                               编号 {{ issue.product_no }}
@@ -366,15 +369,31 @@
                               <template v-else>商品详情无法确认是否覆盖当前规格</template><span v-if="issueIndex < row.suggested_plan_reason.issues.length - 1">；</span>
                             </template>。
                           </div>
+                          <div v-if="row.unavailable_candidates?.length && row.suggested_plan_reason?.no_eligible_replacement" class="mt-1 text-xs font-medium text-red-600">
+                            下架编号：{{ row.unavailable_candidates.map((candidate) => candidate.provider_product_no).filter(Boolean).join('、') }}。暂无合格替代方案
+                            <template v-if="row.suggested_plan_reason.profit_blocked_replacements?.length">
+                              ，可替换编号均亏损超过 {{ formatProfit(-0.04) }}，不建议替换
+                            </template>。
+                          </div>
+                          <div v-if="hasDifferentSuggestedPlan(row) && row.suggested_plan_reason?.omitted_candidates?.length" class="mt-1 text-xs font-medium text-emerald-700">
+                            未纳入建议方案：
+                            <template v-for="(candidate, candidateIndex) in row.suggested_plan_reason.omitted_candidates" :key="candidate.provider_product_no">
+                              编号 {{ candidate.provider_product_no }}
+                              <template v-if="candidate.reason_type === 'profit_below_threshold'">
+                                成本 {{ formatCandidateCost(candidate) }}，按售价 {{ formatTablePrice(row.sell_price) }} 计算利润 {{ formatProfit(candidate.profit) }}，低于允许亏损上限 {{ formatProfit(candidate.min_profit) }}
+                              </template>
+                              <template v-else>未进入当前建议方案</template><span v-if="candidateIndex < row.suggested_plan_reason.omitted_candidates.length - 1">；</span>
+                            </template>。
+                          </div>
                           <div v-if="!row.candidates?.length && row.partial_coverage?.length" class="mt-1 max-h-32 space-y-0.5 overflow-y-auto text-xs font-medium text-amber-700">
                             <div v-for="item in row.partial_coverage" :key="item.provider_product_no">
                               编号 {{ item.provider_product_no }} 少：{{ item.missing_products.join('、') }}
                             </div>
                           </div>
-                          <div v-if="row.suggested_plan_candidates?.length && row.recommended_title" class="mt-1 text-xs font-semibold text-emerald-700">
+                          <div v-if="hasDifferentSuggestedPlan(row) && row.recommended_title" class="mt-1 text-xs font-semibold text-emerald-700">
                             建议标题：{{ row.recommended_title }}
                           </div>
-                          <div v-if="row.suggested_plan_candidates?.length" class="mt-1 text-xs font-semibold text-emerald-700">
+                          <div v-if="hasDifferentSuggestedPlan(row)" class="mt-1 text-xs font-semibold text-emerald-700">
                             建议方案：
                             <span v-for="(candidate, index) in row.suggested_plan_candidates" :key="candidate.provider_product_no">
                               {{ index + 1 }}. {{ candidate.provider_product_no }}（{{ formatCandidateCost(candidate) }}）<span v-if="index < row.suggested_plan_candidates.length - 1">，</span>
@@ -1128,12 +1147,34 @@ const candidateProfit = (row, index) => {
   return Number((Number(row.sell_price || 0) - Number(candidate.cost_price || 0)).toFixed(4))
 }
 
+// 新接口提供真实绑定方案；旧数据仍回退到表格候选，避免历史资源无法展示。
+const currentPlanCandidates = (row) => {
+  const planCandidates = Array.isArray(row?.current_plan_candidates)
+    ? row.current_plan_candidates
+    : row?.candidates || []
+  return planCandidates.filter((candidate) => candidate?.provider_product_no)
+}
+
+const currentPlanProductNos = (row) => currentPlanCandidates(row)
+  .map((candidate) => String(candidate?.provider_product_no || '').trim())
+  .filter(Boolean)
+
+const hasDifferentSuggestedPlan = (row) => {
+  const current = currentPlanProductNos(row).slice().sort().join('|')
+  const suggested = (row?.suggested_plan_candidates || [])
+    .map((candidate) => String(candidate?.provider_product_no || '').trim())
+    .filter(Boolean)
+    .sort()
+    .join('|')
+  return Boolean(suggested) && suggested !== current
+}
+
 const primarySourcePlans = (primarySpecName) => {
   const rows = workflow.value?.admin_price_table || []
   const plans = new Map()
   for (const row of rows) {
     if (String(row?.primary_spec_name || '') !== String(primarySpecName || '')) continue
-    const candidates = (row.candidates || []).filter((candidate) => candidate?.provider_product_no)
+    const candidates = currentPlanCandidates(row)
     if (!candidates.length) continue
     const signature = candidates
       .map((candidate) => String(candidate.provider_product_no))
@@ -1178,9 +1219,7 @@ const primaryPlanReplacements = (primarySpecName) => {
   const seen = new Set()
   for (const row of workflow.value?.admin_price_table || []) {
     if (String(row?.primary_spec_name || '') !== String(primarySpecName || '')) continue
-    const current = (row.candidates || [])
-      .map((candidate) => String(candidate?.provider_product_no || '').trim())
-      .filter(Boolean)
+    const current = currentPlanProductNos(row)
     const suggested = (row.suggested_plan_candidates || [])
       .map((candidate) => String(candidate?.provider_product_no || '').trim())
       .filter(Boolean)
@@ -1213,7 +1252,7 @@ const primaryUnboundSuggestedPlans = (primarySpecName) => {
   const plans = new Map()
   for (const row of workflow.value?.admin_price_table || []) {
     if (String(row?.primary_spec_name || '') !== String(primarySpecName || '')) continue
-    if ((row.candidates || []).some((candidate) => candidate?.provider_product_no)) continue
+    if (currentPlanCandidates(row).length) continue
     const candidates = (row.suggested_plan_candidates || []).filter((candidate) => candidate?.provider_product_no)
     if (!candidates.length) continue
     const sortedCandidates = candidates.slice().sort(
@@ -1236,7 +1275,7 @@ const replacementsForPlan = (primarySpecName, planIndex) => (
 )
 
 const sourcePlanLabel = (row) => {
-  const candidates = (row?.candidates || []).filter((candidate) => candidate?.provider_product_no)
+  const candidates = currentPlanCandidates(row)
   if (!candidates.length) return '-'
   const signature = candidates
     .map((candidate) => String(candidate.provider_product_no))
@@ -1249,9 +1288,7 @@ const sourcePlanLabel = (row) => {
 }
 
 const sourcePlanDisplay = (row) => {
-  const current = (row?.candidates || [])
-    .map((candidate) => String(candidate?.provider_product_no || '').trim())
-    .filter(Boolean)
+  const current = currentPlanProductNos(row)
   const suggested = (row?.suggested_plan_candidates || [])
     .map((candidate) => String(candidate?.provider_product_no || '').trim())
     .filter(Boolean)
