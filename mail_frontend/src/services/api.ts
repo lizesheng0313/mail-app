@@ -53,6 +53,22 @@ const shouldSuppressErrorMessage = (config: any) =>
   config?.silentErrorMessage === true || config?.suppressErrorMessage === 'silent'
 const t = (key: string) => String(i18n.global.t(key))
 
+export const BALANCE_INSUFFICIENT_CODE = 10001
+
+export const isInsufficientBalanceError = (payload: any) => {
+  const code = payload?.code ?? payload?.data?.code
+  return Number(code) === BALANCE_INSUFFICIENT_CODE
+}
+
+const redirectToRechargeIfNeeded = (payload?: any) => {
+  if (!isInsufficientBalanceError(payload)) return false
+  if (window.location.pathname === '/user/finance' && window.location.hash === '#recharge') {
+    return true
+  }
+  window.location.assign('/user/finance#recharge')
+  return true
+}
+
 // 检测是否在 Tauri 环境
 const isTauri = () => {
   // Tauri v2: 检查 __TAURI_INTERNALS__ 或 __TAURI__
@@ -156,6 +172,7 @@ api.interceptors.request.use(
   (config) => {
     // 添加授权头
     const token = localStorage.getItem('token')
+    ;(config as any).__authTokenSnapshot = token || ''
     if (token) {
       if (!config.headers) {
         config.headers = {} as any
@@ -188,9 +205,13 @@ api.interceptors.response.use(
     // 请求成功，重置错误计数
     resetErrorCount()
 
-    // 统一处理业务错误：只要 code !== 0 就显示错误消息
-    if (data.code !== 0 && !shouldSuppressErrorMessage(response.config)) {
-      showMessage(extractApiErrorMessage(data, t('common.operationFailed')), 'error')
+    // 统一处理业务错误：余额不足直接引导到充值，其他错误照常提示。
+    if (data.code !== 0) {
+      const errorMessage = extractApiErrorMessage(data, t('common.operationFailed'))
+      const redirectedToRecharge = redirectToRechargeIfNeeded(data)
+      if (!redirectedToRecharge && !shouldSuppressErrorMessage(response.config)) {
+        showMessage(errorMessage, 'error')
+      }
     }
 
     // 直接返回后端数据，保持 {code: 0, message: "", data: []} 格式
@@ -199,6 +220,11 @@ api.interceptors.response.use(
   (error) => {
     // 401错误不计入维护检测
     if (error.response?.status === 401) {
+      const requestTokenSnapshot = String((error.config as any)?.__authTokenSnapshot || '')
+      const currentToken = localStorage.getItem('token') || ''
+      const shouldInvalidateCurrentSession =
+        Boolean(requestTokenSnapshot) && requestTokenSnapshot === currentToken
+
       const backendDetail = extractApiErrorMessage(error.response?.data, '').trim().toLowerCase()
       const isAccountDisabled =
         backendDetail === '账户已被禁用' ||
@@ -206,6 +232,19 @@ api.interceptors.response.use(
       const authErrorMessage = isAccountDisabled
         ? t('common.accountDisabled')
         : t('common.sessionExpired')
+
+      // 旧请求晚返回 401 时，不要把当前已切换的新会话一并清掉。
+      if (!shouldInvalidateCurrentSession) {
+        return Promise.reject({
+          response: {
+            data: {
+              code: 1,
+              message: authErrorMessage,
+              data: null
+            }
+          }
+        })
+      }
 
       if (isAccountDisabled) {
         sessionStorage.setItem('login_error_message', authErrorMessage)
@@ -247,6 +286,19 @@ api.interceptors.response.use(
 
     // 处理HTTP错误状态码，返回统一格式
     const errorMessage = extractApiErrorMessage(error.response?.data, t('common.networkErrorRetry'))
+
+    // 余额不足的 HTTP 错误同样统一跳转充值，避免不同页面漏处理。
+    if (redirectToRechargeIfNeeded(error.response?.data)) {
+      return Promise.reject({
+        response: {
+          data: {
+            code: BALANCE_INSUFFICIENT_CODE,
+            message: errorMessage,
+            data: null
+          }
+        }
+      })
+    }
 
     // 显示网络错误
     if (!shouldSuppressErrorMessage(error.config)) {

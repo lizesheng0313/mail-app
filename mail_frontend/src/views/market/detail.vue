@@ -271,6 +271,15 @@
                   <div class="flex items-center gap-3">
                     <div class="text-xs text-slate-500">{{ adminPriceTableHintText }}</div>
                     <button
+                      v-if="suggestedPlanBatchPayload.length"
+                      type="button"
+                      class="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                      :disabled="adminPriceTableLoading || adminPriceTableAnalyzing || applyingAllSuggestedPlans"
+                      @click="openApplyAllSuggestedPlansConfirm"
+                    >
+                      {{ applyingAllSuggestedPlans ? '全部适配中...' : `一键适配全部方案（${suggestedPlanBatchPayload.length}组）` }}
+                    </button>
+                    <button
                       type="button"
                       class="rounded-md border border-primary-200 bg-primary-50 px-3 py-1.5 text-xs font-semibold text-primary-700 transition hover:border-primary-300 hover:bg-primary-100 disabled:cursor-not-allowed disabled:opacity-60"
                       :disabled="adminPriceTableLoading || adminPriceTableAnalyzing"
@@ -292,6 +301,47 @@
                         <path d="M9 3v6H3M15 3v6h6M9 21v-6H3M15 21v-6h6" />
                       </svg>
                     </button>
+                  </div>
+                </div>
+                <div
+                  v-if="workflow.admin_loss_leader_suggestions?.length"
+                  class="mb-3 rounded-lg border border-amber-200 bg-amber-50 p-3"
+                >
+                  <div class="flex items-center justify-between gap-3">
+                    <div class="text-sm font-semibold text-amber-900">
+                      建议新增 {{ workflow.admin_loss_leader_suggestions.length }} 个独立引流规格（原规格不修改）
+                    </div>
+                    <button
+                      type="button"
+                      class="rounded-md bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-60"
+                      :disabled="creatingLossLeaderSkus"
+                      @click="openCreateLossLeaderSkusConfirm"
+                    >
+                      {{ creatingLossLeaderSkus ? '上架中...' : `一键同意并上架（${workflow.admin_loss_leader_suggestions.length}个）` }}
+                    </button>
+                  </div>
+                  <div class="mt-2 grid gap-2 lg:grid-cols-2">
+                    <div
+                      v-for="(suggestion, suggestionIndex) in workflow.admin_loss_leader_suggestions"
+                      :key="`${suggestion.primary_spec_name}-${suggestion.candidate?.provider_product_no}`"
+                      class="rounded-md border border-amber-200 bg-white px-3 py-2 text-sm"
+                    >
+                      <div class="font-semibold text-slate-900">
+                        新增引流{{ suggestionIndex + 1 }}：{{ suggestion.recommended_title }}
+                      </div>
+                      <div class="mt-1 text-xs text-slate-600">
+                        {{ suggestion.primary_spec_name }}，售价 {{ formatTablePrice(suggestion.sell_price) }}；
+                        编号 {{ suggestion.candidate?.provider_product_no }}，
+                        成本 {{ formatCandidateCost(suggestion.candidate) }}，
+                        利润
+                        <span :class="Number(suggestion.candidate?.profit || 0) >= 0 ? 'text-emerald-700' : 'text-red-600'">
+                          {{ formatProfit(Number(suggestion.candidate?.profit || 0)) }}
+                        </span>
+                      </div>
+                      <div class="mt-1 text-xs text-amber-800">
+                        标题仅包含该编号已确认支持的饮品，不与原引流规格共用方案。
+                      </div>
+                    </div>
                   </div>
                 </div>
                 <div class="overflow-auto rounded-md border border-slate-200 bg-white" :class="isAdminPriceTableFullscreen ? 'min-h-0 flex-1' : ''">
@@ -702,7 +752,13 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
-import { getWorkflowAdminPriceTable, getWorkflowDetail } from '@/api/workflowMarket'
+import {
+  applyAllSuggestedSourcePlans,
+  createLossLeaderSkus,
+  getWorkflowAdminPriceTable,
+  getWorkflowDetail,
+  refreshWorkflowAdminPriceCatalog
+} from '@/api/workflowMarket'
 import { createReview, deleteReview } from '@/api/workflowMarket'
 import { workflowApi } from '@/api/workflow'
 import { getBalance, getFeeConfig } from '@/api/milkCoin'
@@ -732,7 +788,10 @@ const reviews = ref([])
 const adminPriceTableLoading = ref(false)
 const adminPriceTableAnalyzing = ref(false)
 const adminPriceTableAnalyzed = ref(false)
+const adminPriceTableAnalysisStage = ref('')
 const isAdminPriceTableFullscreen = ref(false)
+const applyingAllSuggestedPlans = ref(false)
+const creatingLossLeaderSkus = ref(false)
 const showExecutionResult = ref(false)
 const showExecutionHistory = ref(false)
 const selectedExecutionCount = ref(1)
@@ -1080,7 +1139,9 @@ const isThirdPartyProduct = computed(() => {
 const isAdminPriceTableVisible = computed(() => Boolean(workflow.value?.is_admin_viewer && isThirdPartyProduct.value))
 const adminPriceTableHintText = computed(() => {
   if (adminPriceTableAnalyzing.value) {
-    return 'AI 分析中，完成后会刷新建议方案'
+    return adminPriceTableAnalysisStage.value === 'catalog'
+      ? '第 1 步：同步当前商品分类及上下架状态'
+      : '第 2 步：分析候选方案'
   }
   if (adminPriceTableAnalyzed.value) {
     return '当前已展示本次 AI 分析结果'
@@ -1089,7 +1150,7 @@ const adminPriceTableHintText = computed(() => {
 })
 const adminPriceTableActionText = computed(() => {
   if (adminPriceTableAnalyzing.value) {
-    return '分析中...'
+    return adminPriceTableAnalysisStage.value === 'catalog' ? '同步分类中...' : '分析中...'
   }
   return adminPriceTableAnalyzed.value ? '重新分析' : '开始分析'
 })
@@ -1273,6 +1334,171 @@ const primaryUnboundSuggestedPlans = (primarySpecName) => {
 const replacementsForPlan = (primarySpecName, planIndex) => (
   primaryPlanReplacements(primarySpecName).filter((item) => item.oldIndex === planIndex)
 )
+
+const sourcePlanSignature = (productNos = []) => productNos
+  .map((productNo) => String(productNo || '').trim())
+  .filter(Boolean)
+  .sort()
+  .join('|')
+
+const getSuggestedPlanTargetSkuIds = (primarySpecName, replacement) => {
+  const currentSignature = sourcePlanSignature(replacement?.current_product_nos || [])
+  const suggestedSignature = sourcePlanSignature(replacement?.provider_product_nos || [])
+  return (workflow.value?.admin_price_table || [])
+    .filter((row) => (
+      String(row?.primary_spec_name || '') === String(primarySpecName || '')
+      && sourcePlanSignature(currentPlanProductNos(row)) === currentSignature
+      && sourcePlanSignature(
+        (row?.suggested_plan_candidates || []).map((candidate) => candidate?.provider_product_no),
+      ) === suggestedSignature
+    ))
+    .map((row) => String(row?.local_sku_id || '').trim())
+    .filter(Boolean)
+}
+
+const normalizeSuggestedPlanCandidates = (candidates = []) => {
+  const seen = new Set()
+  return candidates
+    .map((candidate) => ({
+      source_id: Number(candidate?.source_id || 0),
+      source_kind: String(candidate?.source_kind || 'standard').trim() || 'standard',
+      provider_product_no: String(candidate?.provider_product_no || '').trim(),
+    }))
+    .filter((candidate) => {
+      const key = `${candidate.source_id}:${candidate.source_kind}:${candidate.provider_product_no}`
+      if (candidate.source_id <= 0 || !candidate.provider_product_no || seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+}
+
+const suggestedPlanBatchPayload = computed(() => {
+  const plans = []
+  const seen = new Set()
+  const primarySpecNames = new Set(
+    (workflow.value?.admin_price_table || [])
+      .map((row) => String(row?.primary_spec_name || '').trim())
+      .filter(Boolean),
+  )
+
+  primarySpecNames.forEach((primarySpecName) => {
+    primaryPlanReplacements(primarySpecName).forEach((replacement) => {
+      const localSkuIds = getSuggestedPlanTargetSkuIds(primarySpecName, replacement)
+      const suggestedCandidates = normalizeSuggestedPlanCandidates(replacement?.candidates || [])
+      if (!localSkuIds.length || !suggestedCandidates.length) return
+
+      const key = [
+        primarySpecName,
+        sourcePlanSignature(replacement?.current_product_nos || []),
+        sourcePlanSignature(suggestedCandidates.map((candidate) => candidate.provider_product_no)),
+      ].join(':')
+      if (seen.has(key)) return
+      seen.add(key)
+      plans.push({
+        primary_spec_name: primarySpecName,
+        local_sku_ids: localSkuIds,
+        current_provider_product_nos: replacement.current_product_nos || [],
+        suggested_candidates: suggestedCandidates,
+      })
+    })
+  })
+
+  return plans
+})
+
+const openCreateLossLeaderSkusConfirm = () => {
+  const suggestions = workflow.value?.admin_loss_leader_suggestions || []
+  if (!suggestions.length) {
+    showMessage('暂无可新增的引流规格，请重新分析后再试', 'warning')
+    return
+  }
+  confirmDialog.value = {
+    visible: true,
+    title: '新增并上架引流规格',
+    message: `确认新增并立即上架 ${suggestions.length} 个独立引流规格吗？\n\n原有规格不会修改；新规格将使用页面显示的标题、售价和供货编号。`,
+    type: 'warning',
+    loading: false,
+    onConfirm: async () => {
+      confirmDialog.value.loading = true
+      creatingLossLeaderSkus.value = true
+      try {
+        const payload = {
+          suggestions: suggestions.map((suggestion) => ({
+            primary_spec_name: String(suggestion?.primary_spec_name || ''),
+            recommended_title: String(suggestion?.recommended_title || ''),
+            sell_price: Number(suggestion?.sell_price || 0),
+            candidate: {
+              source_id: Number(suggestion?.candidate?.source_id || 0),
+              source_kind: String(suggestion?.candidate?.source_kind || 'standard'),
+              provider_product_no: String(suggestion?.candidate?.provider_product_no || ''),
+            },
+          })),
+        }
+        const res = await createLossLeaderSkus(workflowId.value, payload)
+        if (res?.code !== 0) {
+          showMessage(res?.message || '新增引流规格失败', 'error')
+          return
+        }
+        confirmDialog.value.visible = false
+        showMessage(res?.message || '引流规格已新增并上架', 'success')
+        await loadWorkflowDetail(false)
+      } catch (error) {
+        showMessage(
+          error?.response?.data?.detail || error?.response?.data?.message || error?.message || '新增引流规格失败',
+          'error',
+        )
+      } finally {
+        confirmDialog.value.loading = false
+        creatingLossLeaderSkus.value = false
+      }
+    },
+    onCancel: () => {
+      confirmDialog.value.visible = false
+    },
+  }
+}
+
+const openApplyAllSuggestedPlansConfirm = () => {
+  const plans = suggestedPlanBatchPayload.value
+  if (!plans.length) {
+    showMessage('暂无可一键适配的建议方案，请重新分析后再试', 'warning')
+    return
+  }
+
+  const targetSkuCount = new Set(plans.flatMap((plan) => plan.local_sku_ids)).size
+  confirmDialog.value = {
+    visible: true,
+    title: '一键适配全部方案',
+    message: `确认一次适配全部 ${plans.length} 组建议方案，覆盖 ${targetSkuCount} 个规格吗？\n\n只修改绑定编号，不会修改售价、标题和详情。任意一组已变化或不可用时，本次不会写入任何方案。`,
+    type: 'warning',
+    loading: false,
+    onConfirm: async () => {
+      confirmDialog.value.loading = true
+      applyingAllSuggestedPlans.value = true
+      try {
+        const res = await applyAllSuggestedSourcePlans(workflowId.value, { plans })
+        if (res?.code !== 0) {
+          showMessage(res?.message || '一键适配失败', 'error')
+          return
+        }
+        confirmDialog.value.visible = false
+        showMessage(res?.message || '全部建议方案已适配，售价未修改', 'success')
+        await loadAdminPriceTable()
+      } catch (error) {
+        showMessage(
+          error?.response?.data?.detail || error?.response?.data?.message || error?.message || '一键适配失败',
+          'error',
+        )
+      } finally {
+        confirmDialog.value.loading = false
+        applyingAllSuggestedPlans.value = false
+      }
+    },
+    onCancel: () => {
+      confirmDialog.value.visible = false
+    },
+  }
+}
 
 const sourcePlanLabel = (row) => {
   const candidates = currentPlanCandidates(row)
@@ -1646,22 +1872,42 @@ const loadAdminPriceTable = async ({ analyze = false } = {}) => {
     adminPriceTableLoading.value = true
   }
   try {
+    if (analyze) {
+      adminPriceTableAnalysisStage.value = 'catalog'
+      try {
+        await refreshWorkflowAdminPriceCatalog(workflowId.value)
+      } catch (firstError) {
+        const status = Number(firstError?.response?.status || 0)
+        if (status > 0 && status < 500) throw firstError
+        await new Promise((resolve) => setTimeout(resolve, 800))
+        await refreshWorkflowAdminPriceCatalog(workflowId.value)
+      }
+      adminPriceTableAnalysisStage.value = 'analysis'
+    }
     const res = await getWorkflowAdminPriceTable(workflowId.value, { analyze })
     if (res.code === 0 && workflow.value) {
       workflow.value = {
         ...workflow.value,
-        admin_price_table: Array.isArray(res.data?.items) ? res.data.items : []
+        admin_price_table: Array.isArray(res.data?.items) ? res.data.items : [],
+        admin_loss_leader_suggestions: Array.isArray(res.data?.loss_leader_suggestions)
+          ? res.data.loss_leader_suggestions
+          : [],
       }
       adminPriceTableAnalyzed.value = Boolean(res.data?.analysis_enabled)
     }
   } catch (error) {
     console.error('加载商品价格表失败:', error)
     if (analyze) {
-      showMessage('AI 分析失败，请稍后再试', 'error')
+      const detail = error?.response?.data?.detail
+      const fallback = adminPriceTableAnalysisStage.value === 'catalog'
+        ? '商品分类同步失败，请稍后再试'
+        : 'AI 分析失败，请稍后再试'
+      showMessage(detail || fallback, 'error')
     }
   } finally {
     if (analyze) {
       adminPriceTableAnalyzing.value = false
+      adminPriceTableAnalysisStage.value = ''
     } else {
       adminPriceTableLoading.value = false
     }

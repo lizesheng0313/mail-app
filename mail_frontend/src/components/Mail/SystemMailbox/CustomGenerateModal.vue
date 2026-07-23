@@ -347,6 +347,7 @@ import { mailboxAPI } from '@/api/mailbox'
 import { hostedDomainAPI } from '@/api/hostedDomain'
 import { getBalance } from '@/api/milkCoin'
 import { showMessage } from '@/utils/message'
+import { isInsufficientBalanceError } from '@/services/api'
 import { formatTimestamp } from '@/utils/timeUtils'
 
 const props = defineProps({
@@ -928,10 +929,12 @@ const performCustomGenerate = async () => {
     }
     emit('success', data)
   } catch (error: any) {
-    showMessage(
-      error?.response?.data?.message || error?.message || t('home.customGenerateFailed'),
-      'error'
-    )
+    const message = error?.response?.data?.message || error?.message || t('home.customGenerateFailed')
+    if (isInsufficientBalanceError(error?.response?.data)) {
+      goRecharge()
+      return
+    }
+    showMessage(message, 'error')
   } finally {
     customGenerateLoading.value = false
   }

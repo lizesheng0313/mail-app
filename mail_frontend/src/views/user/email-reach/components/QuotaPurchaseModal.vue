@@ -55,6 +55,7 @@ import { useRouter } from 'vue-router'
 import BaseModal from '@/components/BaseModal/index.vue'
 import emailReachApi from '@/api/emailReach'
 import { showMessage } from '@/utils/message'
+import { isInsufficientBalanceError } from '@/services/api'
 
 const props = defineProps({
   visible: { type: Boolean, default: false },
@@ -104,7 +105,7 @@ const handleClose = () => emit('update:visible', false)
 const handleConfirm = async () => {
   if (!hasEnoughBalance.value) {
     handleClose()
-    router.push('/payment')
+    router.push('/user/finance#recharge')
     return
   }
   submitting.value = true
@@ -118,9 +119,9 @@ const handleConfirm = async () => {
       handleClose()
       return
     }
-    if (String(res.message || '').includes('余额不足') || String(res.message || '').includes('奶片')) {
+    if (isInsufficientBalanceError(res)) {
       handleClose()
-      router.push('/payment')
+      router.push('/user/finance#recharge')
       return
     }
     showMessage(res.message || '购买失败', 'error')

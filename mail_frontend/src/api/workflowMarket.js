@@ -23,6 +23,18 @@ export function getWorkflowAdminPriceTable(workflowId, params = {}) {
   })
 }
 
+export function refreshWorkflowAdminPriceCatalog(workflowId) {
+  return api.post(`/workflow-market/workflows/${workflowId}/admin-price-table/refresh-catalog`)
+}
+
+export function applyAllSuggestedSourcePlans(workflowId, payload) {
+  return api.post(`/workflow-market/workflows/${workflowId}/admin-price-table/apply-all-suggested-plans`, payload)
+}
+
+export function createLossLeaderSkus(workflowId, payload) {
+  return api.post(`/workflow-market/workflows/${workflowId}/admin-price-table/create-loss-leader-skus`, payload)
+}
+
 /**
  * 获取工作流评价列表
  */

@@ -166,7 +166,7 @@
                 />
                 <!-- 重新上架（已下架的） -->
                 <ActionButton
-                  v-if="workflow.market_status === 'offline'"
+                  v-if="['offline', 'unlisted'].includes(workflow.market_status)"
                   icon="upload"
                   :tooltip="t('workflowList.republish')"
                   variant="success"
