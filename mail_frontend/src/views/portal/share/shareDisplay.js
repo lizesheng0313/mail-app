@@ -11,6 +11,9 @@ export const formatShareDate = (dateValue, locale) => {
   })
 }
 
+export const isShareTerminalState = (shareState) =>
+  shareState === 'consumed' || shareState === 'completed'
+
 export const formatShareCountdown = ({ expireAt, now }) => {
   if (!expireAt || !Number.isFinite(Number(now))) return ''
 

@@ -36,9 +36,6 @@
             </svg>
             <span>{{ shareValidityText }}</span>
           </div>
-          <div v-if="shareState === 'completed'" class="text-sm text-green-600">
-            {{ t('sharePage.shareCompleted') }}
-          </div>
         </div>
       </template>
 
@@ -239,7 +236,7 @@ import BaseIcon from '@/components/BaseIcon/index.vue'
 import { mailboxShareAPI } from '@/api/mailboxShare'
 import { showMessage } from '@/utils/message'
 import { getCurrentLocale } from '@/i18n'
-import { resolveShareValidity } from './shareDisplay'
+import { isShareTerminalState, resolveShareValidity } from './shareDisplay'
 
 const route = useRoute()
 const { t } = useI18n()
@@ -337,7 +334,7 @@ const startValidityCountdown = () => {
   if (validityCountdownTimer) clearInterval(validityCountdownTimer)
   validityCountdownTimer = null
 
-  if (expireMode.value !== 'minutes' || !expireAt.value) return
+  if (!expireAt.value) return
 
   validityNow.value = Date.now()
   validityCountdownTimer = setInterval(() => {
@@ -345,8 +342,7 @@ const startValidityCountdown = () => {
     const expireAtMs =
       typeof expireAt.value === 'number' ? expireAt.value : new Date(expireAt.value).getTime()
     if (Number.isFinite(expireAtMs) && validityNow.value >= expireAtMs) {
-      clearInterval(validityCountdownTimer)
-      validityCountdownTimer = null
+      markShareExpired()
     }
   }, 1000)
 }
@@ -356,6 +352,18 @@ const stopValidityCountdown = () => {
     clearInterval(validityCountdownTimer)
     validityCountdownTimer = null
   }
+}
+
+const markShareExpired = () => {
+  shareState.value = 'expired'
+  emails.value = []
+  emailTotal.value = 0
+  totalPages.value = 1
+  selectedEmail.value = null
+  showEmailModal.value = false
+  modalEmail.value = null
+  stopAutoRefresh()
+  stopValidityCountdown()
 }
 
 const loadShareInfo = async () => {
@@ -381,7 +389,7 @@ const loadShareInfo = async () => {
       selectedMailbox.value = null
       await loadEmails()
       // 启动自动刷新
-      if (shareState.value !== 'completed') startAutoRefresh()
+      if (!isShareTerminalState(shareState.value)) startAutoRefresh()
     } else {
       error.value = res.message || t('sharePage.loadShareFailed')
     }
@@ -401,7 +409,7 @@ const loadShareInfo = async () => {
 }
 
 const loadEmails = async () => {
-  if (shareState.value === 'completed' || shareState.value === 'expired') return
+  if (isShareTerminalState(shareState.value) || shareState.value === 'expired') return
   const shareToken = route.params.token
   loadingEmails.value = true
   try {
@@ -411,11 +419,15 @@ const loadEmails = async () => {
       page_size: pageSize.value
     })
     if (res.code === 0) {
-      emails.value = res.data.emails || []
-      shareState.value = res.data.share_state || shareState.value
+      const nextShareState = res.data.share_state || shareState.value
+      const nextEmails = res.data.emails || []
+      if (nextEmails.length || !['waiting', 'completed'].includes(nextShareState)) {
+        emails.value = nextEmails
+      }
+      shareState.value = nextShareState
       emailTotal.value = res.data.pagination?.total || 0
       totalPages.value = res.data.pagination?.total_pages || 1
-      if (shareState.value === 'completed') {
+      if (isShareTerminalState(shareState.value)) {
         stopAutoRefresh()
       }
       // 不自动选中第一封邮件，保持空状态
@@ -425,9 +437,7 @@ const loadEmails = async () => {
   } catch (err) {
     console.error('加载邮件失败:', err)
     if (err.response?.status === 410) {
-      shareState.value = 'expired'
-      stopAutoRefresh()
-      stopValidityCountdown()
+      markShareExpired()
       return
     }
     showMessage(t('sharePage.loadEmailsFailed'), 'error')
@@ -470,9 +480,7 @@ const handleSelectEmail = async (email) => {
   } catch (err) {
     console.error('获取邮件详情失败:', err)
     if (err.response?.status === 410) {
-      shareState.value = 'expired'
-      stopAutoRefresh()
-      stopValidityCountdown()
+      markShareExpired()
       return
     }
     showMessage(t('sharePage.loadEmailDetailFailed'), 'error')

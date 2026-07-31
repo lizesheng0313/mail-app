@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { formatShareDate, resolveShareValidity } from '../src/views/portal/share/shareDisplay'
+import {
+  formatShareDate,
+  isShareTerminalState,
+  resolveShareValidity
+} from '../src/views/portal/share/shareDisplay'
 import zhCN from '../src/i18n/messages/zh-CN'
 
 describe('share display metadata', () => {
@@ -82,5 +86,11 @@ describe('share display metadata', () => {
         validityText: formatValidity
       })
     ).toBe('有效期：00:48')
+  })
+
+  it('treats consumed and completed share states as terminal', () => {
+    expect(isShareTerminalState('consumed')).toBe(true)
+    expect(isShareTerminalState('completed')).toBe(true)
+    expect(isShareTerminalState('waiting')).toBe(false)
   })
 })
