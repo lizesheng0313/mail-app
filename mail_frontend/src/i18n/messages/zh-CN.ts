@@ -8,6 +8,7 @@ const zhCN = {
     operationFailed: '操作失败',
     networkErrorRetry: '网络错误，请稍后重试',
     sessionExpired: '登录已过期，请重新登录',
+    sessionReplaced: '账号已在其他地方登录，当前设备已退出',
     accountDisabled: '账户已被禁用',
     justNow: '刚刚',
     minutesAgo: '{count}分钟前',

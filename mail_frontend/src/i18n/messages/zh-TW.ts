@@ -8,6 +8,7 @@ const zhTW = {
     operationFailed: '操作失敗',
     networkErrorRetry: '網路錯誤，請稍後重試',
     sessionExpired: '登入已過期，請重新登入',
+    sessionReplaced: '帳戶已在其他地方登入，目前裝置已登出',
     accountDisabled: '帳戶已被停用',
     justNow: '剛剛',
     minutesAgo: '{count}分鐘前',

@@ -8,6 +8,7 @@ const en = {
     operationFailed: 'Operation failed',
     networkErrorRetry: 'Network error. Please try again later.',
     sessionExpired: 'Your session has expired. Please sign in again.',
+    sessionReplaced: 'This account was signed in elsewhere. This device has been signed out.',
     accountDisabled: 'This account has been disabled',
     justNow: 'Just now',
     minutesAgo: '{count} minutes ago',

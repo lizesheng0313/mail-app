@@ -4,6 +4,7 @@ use chrono::Utc;
 use imap::{types::NameAttribute, Authenticator};
 use log::{error, info, warn};
 use native_tls::TlsStream;
+use serde_json::{json, Value};
 use std::collections::HashSet;
 use std::io::{Read, Write};
 use std::net::TcpStream;
@@ -399,6 +400,7 @@ pub async fn fetch_emails(
     limit: usize,
     fetch_oldest: bool,
     proxy_config: Option<RuntimeProxy>,
+    sync_cursor: Option<Value>,
 ) -> Result<FetchResult, String> {
     info!("开始 IMAP 收取邮件: {} -> {}:{}", email, host, port);
 
@@ -407,7 +409,16 @@ pub async fn fetch_emails(
     let host = host.to_string();
 
     tokio::task::spawn_blocking(move || {
-        imap_fetch_sync(&email, &password, &host, port, limit, fetch_oldest, proxy_config.as_ref())
+        imap_fetch_sync(
+            &email,
+            &password,
+            &host,
+            port,
+            limit,
+            fetch_oldest,
+            proxy_config.as_ref(),
+            sync_cursor.as_ref(),
+        )
     })
     .await
     .map_err(|e| format!("任务执行失败: {}", e))?
@@ -422,6 +433,7 @@ pub async fn fetch_emails_oauth2(
     limit: usize,
     fetch_oldest: bool,
     proxy_config: Option<RuntimeProxy>,
+    sync_cursor: Option<Value>,
 ) -> Result<FetchResult, String> {
     info!("开始 IMAP XOAUTH2 收取邮件: {} -> {}:{}", email, host, port);
 
@@ -430,7 +442,16 @@ pub async fn fetch_emails_oauth2(
     let host = host.to_string();
 
     tokio::task::spawn_blocking(move || {
-        imap_fetch_oauth2_sync(&email, &access_token, &host, port, limit, fetch_oldest, proxy_config.as_ref())
+        imap_fetch_oauth2_sync(
+            &email,
+            &access_token,
+            &host,
+            port,
+            limit,
+            fetch_oldest,
+            proxy_config.as_ref(),
+            sync_cursor.as_ref(),
+        )
     })
     .await
     .map_err(|e| format!("任务执行失败: {}", e))?
@@ -444,9 +465,11 @@ fn imap_fetch_oauth2_sync(
     limit: usize,
     fetch_oldest: bool,
     proxy_config: Option<&RuntimeProxy>,
+    sync_cursor: Option<&Value>,
 ) -> Result<FetchResult, String> {
     let (mut session, _) = connect_and_xoauth2(host, port, email, access_token, proxy_config)?;
-    let emails = fetch_from_candidate_mailboxes(&mut session, limit, fetch_oldest)?;
+    let (emails, sync_cursor) =
+        fetch_from_candidate_mailboxes(&mut session, limit, fetch_oldest, sync_cursor)?;
 
     let _ = session.logout();
 
@@ -456,6 +479,7 @@ fn imap_fetch_oauth2_sync(
         message: format!("收取成功，共 {} 封邮件", emails.len()),
         count: emails.len(),
         emails,
+        sync_cursor: Some(sync_cursor),
     })
 }
 
@@ -709,10 +733,13 @@ fn build_email_content_dedupe_key(email: &EmailData) -> String {
 fn select_and_search_all_uids<T: Read + Write>(
     session: &mut imap::Session<T>,
     mailbox: &str,
-) -> Result<Vec<u32>, String> {
-    session
+) -> Result<(Vec<u32>, Option<u32>, Option<u32>), String> {
+    let selected = session
         .select(mailbox)
         .map_err(|e| format!("选择文件夹 {} 失败: {}", mailbox, e))?;
+
+    let uid_validity = selected.uid_validity;
+    let server_last_uid = selected.uid_next.map(|uid| uid.saturating_sub(1));
 
     let search_result = session.uid_search("ALL");
     let uids = if let Err(_) = search_result {
@@ -726,7 +753,46 @@ fn select_and_search_all_uids<T: Read + Write>(
 
     let mut uids_vec: Vec<u32> = uids.into_iter().collect();
     uids_vec.sort_unstable();
-    Ok(uids_vec)
+    Ok((uids_vec, uid_validity, server_last_uid))
+}
+
+fn select_incremental_uids(
+    all_uids: &[u32],
+    uid_validity: u32,
+    previous_uid_validity: Option<u32>,
+    previous_last_uid: Option<u32>,
+) -> Vec<u32> {
+    if previous_uid_validity != Some(uid_validity) {
+        return all_uids.to_vec();
+    }
+
+    let last_uid = previous_last_uid.unwrap_or(0);
+    all_uids
+        .iter()
+        .copied()
+        .filter(|uid| *uid > last_uid)
+        .collect()
+}
+
+fn imap_folder_cursor(cursor: Option<&Value>, mailbox: &str) -> (Option<u32>, Option<u32>) {
+    let Some(cursor) = cursor else {
+        return (None, None);
+    };
+    if cursor.get("protocol").and_then(Value::as_str) != Some("imap") {
+        return (None, None);
+    }
+
+    let folder = cursor.get("folders").and_then(|folders| folders.get(mailbox));
+    (
+        folder
+            .and_then(|value| value.get("uid_validity"))
+            .and_then(Value::as_u64)
+            .and_then(|value| u32::try_from(value).ok()),
+        folder
+            .and_then(|value| value.get("last_uid"))
+            .and_then(Value::as_u64)
+            .and_then(|value| u32::try_from(value).ok()),
+    )
 }
 
 fn pick_uids_to_fetch(uids: &[u32], limit: usize, fetch_oldest: bool) -> Vec<u32> {
@@ -746,7 +812,8 @@ fn fetch_from_candidate_mailboxes<T: Read + Write>(
     session: &mut imap::Session<T>,
     limit: usize,
     fetch_oldest: bool,
-) -> Result<Vec<EmailData>, String> {
+    sync_cursor: Option<&Value>,
+) -> Result<(Vec<EmailData>, Value), String> {
     let mailboxes = list_sync_candidate_mailboxes(session);
     let mailbox_count = mailboxes.len().max(1);
     let per_mailbox_limit = if mailbox_count == 1 {
@@ -761,6 +828,12 @@ fn fetch_from_candidate_mailboxes<T: Read + Write>(
     let mut seen_fallback_keys: HashSet<String> = HashSet::new();
     let mut scanned_any_mailbox = false;
     let mut last_error: Option<String> = None;
+    let mut cursor_folders = sync_cursor
+        .and_then(|cursor| cursor.get("protocol").and_then(Value::as_str).filter(|protocol| *protocol == "imap"))
+        .and_then(|_| sync_cursor.and_then(|cursor| cursor.get("folders")))
+        .and_then(Value::as_object)
+        .cloned()
+        .unwrap_or_default();
 
     info!(
         "开始扫描 IMAP 文件夹: count={}, limit={}, fetch_oldest={}, per_mailbox_limit={}",
@@ -773,16 +846,42 @@ fn fetch_from_candidate_mailboxes<T: Read + Write>(
         }
 
         match select_and_search_all_uids(session, &mailbox) {
-            Ok(uids_vec) => {
+            Ok((all_uids, uid_validity, server_last_uid)) => {
                 scanned_any_mailbox = true;
-                let uids_to_fetch = pick_uids_to_fetch(&uids_vec, per_mailbox_limit, fetch_oldest);
+                let (previous_uid_validity, previous_last_uid) =
+                    imap_folder_cursor(sync_cursor, &mailbox);
+                let is_incremental = uid_validity.is_some()
+                    && previous_uid_validity.is_some()
+                    && previous_uid_validity == uid_validity;
+                let uids_vec = if let Some(uid_validity) = uid_validity {
+                    select_incremental_uids(
+                        &all_uids,
+                        uid_validity,
+                        previous_uid_validity,
+                        previous_last_uid,
+                    )
+                } else {
+                    all_uids.clone()
+                };
+                let uids_to_fetch = if is_incremental {
+                    // 增量始终从最小 UID 开始，避免达到本次上限后跳过中间邮件。
+                    uids_vec
+                        .iter()
+                        .take(per_mailbox_limit)
+                        .copied()
+                        .collect::<Vec<_>>()
+                } else {
+                    pick_uids_to_fetch(&uids_vec, per_mailbox_limit, fetch_oldest)
+                };
                 info!(
                     "扫描文件夹成功: mailbox={} total_uids={} fetch_uids={}",
                     mailbox,
-                    uids_vec.len(),
+                    all_uids.len(),
                     uids_to_fetch.len()
                 );
 
+                let mut last_fetched_uid = previous_last_uid;
+                let mut cursor_blocked = false;
                 for uid in uids_to_fetch {
                     if emails.len() >= limit {
                         break;
@@ -790,6 +889,9 @@ fn fetch_from_candidate_mailboxes<T: Read + Write>(
 
                     match fetch_single_email(session, uid) {
                         Ok(email_data) => {
+                            if !cursor_blocked {
+                                last_fetched_uid = Some(last_fetched_uid.unwrap_or(0).max(uid));
+                            }
                             let normalized_message_id =
                                 normalize_message_id_for_dedupe(&email_data.message_id);
                             let has_message_id_key = !normalized_message_id.is_empty();
@@ -825,9 +927,26 @@ fn fetch_from_candidate_mailboxes<T: Read + Write>(
                             emails.push(email_data);
                         }
                         Err(e) => {
+                            cursor_blocked = true;
                             error!("获取邮件失败 mailbox={} uid={}: {}", mailbox, uid, e);
                         }
                     }
+                }
+
+                if let Some(uid_validity) = uid_validity {
+                    let last_uid = if is_incremental {
+                        last_fetched_uid.or(previous_last_uid)
+                    } else {
+                        last_fetched_uid
+                    }
+                    .or(server_last_uid.filter(|_| all_uids.is_empty()));
+                    cursor_folders.insert(
+                        mailbox.clone(),
+                        json!({
+                            "uid_validity": uid_validity,
+                            "last_uid": last_uid.unwrap_or(0),
+                        }),
+                    );
                 }
             }
             Err(e) => {
@@ -841,7 +960,14 @@ fn fetch_from_candidate_mailboxes<T: Read + Write>(
         return Err(last_error.unwrap_or_else(|| "没有可用的收件文件夹".to_string()));
     }
 
-    Ok(emails)
+    Ok((
+        emails,
+        json!({
+            "version": 1,
+            "protocol": "imap",
+            "folders": cursor_folders,
+        }),
+    ))
 }
 
 fn find_message_uid_in_selected_mailbox<T: Read + Write>(
@@ -888,9 +1014,11 @@ fn imap_fetch_sync(
     limit: usize,
     fetch_oldest: bool,
     proxy_config: Option<&RuntimeProxy>,
+    sync_cursor: Option<&Value>,
 ) -> Result<FetchResult, String> {
     let (mut session, _) = connect_and_login(host, port, email, password, proxy_config)?;
-    let emails = fetch_from_candidate_mailboxes(&mut session, limit, fetch_oldest)?;
+    let (emails, sync_cursor) =
+        fetch_from_candidate_mailboxes(&mut session, limit, fetch_oldest, sync_cursor)?;
 
     let _ = session.logout();
 
@@ -900,6 +1028,7 @@ fn imap_fetch_sync(
         message: format!("收取成功，共 {} 封邮件", emails.len()),
         count: emails.len(),
         emails,
+        sync_cursor: Some(sync_cursor),
     })
 }
 
@@ -1052,4 +1181,25 @@ fn extract_content(mail: &mailparse::ParsedMail) -> (String, String, Vec<Attachm
     }
 
     (content_text, content_html, attachments)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::select_incremental_uids;
+
+    #[test]
+    fn imap_cursor_only_returns_uids_after_last_uid_when_validity_matches() {
+        assert_eq!(
+            select_incremental_uids(&[1, 2, 3, 9], 77, Some(77), Some(3)),
+            vec![9]
+        );
+    }
+
+    #[test]
+    fn imap_cursor_rescans_when_uidvalidity_changes() {
+        assert_eq!(
+            select_incremental_uids(&[1, 2, 3], 78, Some(77), Some(3)),
+            vec![1, 2, 3]
+        );
+    }
 }

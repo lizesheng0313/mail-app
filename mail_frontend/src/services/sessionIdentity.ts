@@ -1,4 +1,6 @@
-import { isTauri } from '@/services/api'
+import { isTauri } from '@/services/clientPlatform'
+
+export { getClientPlatform } from '@/services/clientPlatform'
 
 const BROWSER_INSTANCE_KEY = 'browser_instance_id'
 const TAB_SESSION_KEY = 'tab_session_id'
@@ -27,8 +29,6 @@ export const getTabSessionId = () => {
   }
   return value
 }
-
-export const getClientPlatform = () => (isTauri() ? 'desktop' : 'web')
 
 export const getDeviceType = () => {
   if (isTauri()) return 'desktop'

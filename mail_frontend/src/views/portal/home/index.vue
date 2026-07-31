@@ -2936,6 +2936,7 @@ const handleSelectHostedMailbox = async (mailbox: any) => {
 
 // 选择外部邮箱
 const handleSelectExternalMailbox = async (account: any) => {
+  mailboxType.value = 'external'
   if (currentView.value === 'send-email') {
     const idx = selectedExternalMailboxIds.value.indexOf(account.id)
     if (idx > -1) {
@@ -3292,6 +3293,13 @@ const toggleExternalUnread = () => {
 
 // 加载所有外部邮箱的所有邮件
 const loadAllExternalEmails = async () => {
+  // 已选中具体邮箱时，不能被“全部外部邮件”请求覆盖当前列表。
+  // 返回全部邮件的唯一入口是 backToAllExternalEmails，它会先清空选中邮箱。
+  if (selectedExternalMailboxId.value) {
+    await loadExternalMailboxEmails()
+    return
+  }
+
   const requestSeq = ++externalEmailListRequestSeq.value
   try {
     const response = await batchLoginAPI.getExternalEmails(

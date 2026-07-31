@@ -3,6 +3,8 @@ use crate::mail::types::{AttachmentData, EmailData, FetchResult, LoginResult, Ru
 use chrono::Utc;
 use log::{error, info, warn};
 use native_tls::TlsStream;
+use serde_json::{json, Value};
+use std::collections::HashSet;
 use std::io::{Read, Write};
 use std::net::TcpStream;
 use std::time::Duration;
@@ -307,6 +309,7 @@ pub async fn fetch_emails(
     limit: usize,
     fetch_oldest: bool,
     proxy_config: Option<RuntimeProxy>,
+    sync_cursor: Option<Value>,
 ) -> Result<FetchResult, String> {
     info!("开始 POP3 收取邮件: {} -> {}:{}", email, host, port);
 
@@ -315,7 +318,16 @@ pub async fn fetch_emails(
     let host = host.to_string();
 
     let result = tokio::task::spawn_blocking(move || {
-        pop3_fetch_sync(&email, &password, &host, port, limit, fetch_oldest, proxy_config.as_ref())
+        pop3_fetch_sync(
+            &email,
+            &password,
+            &host,
+            port,
+            limit,
+            fetch_oldest,
+            proxy_config.as_ref(),
+            sync_cursor.as_ref(),
+        )
     })
     .await
     .map_err(|e| format!("任务执行失败: {}", e))?;
@@ -331,6 +343,7 @@ fn pop3_fetch_sync(
     limit: usize,
     fetch_oldest: bool,
     proxy_config: Option<&RuntimeProxy>,
+    sync_cursor: Option<&Value>,
 ) -> Result<FetchResult, String> {
     let (mut tls, _) = connect_and_login(host, port, email, password, proxy_config)?;
 
@@ -343,21 +356,52 @@ fn pop3_fetch_sync(
     let total: usize = parts.get(1).and_then(|s| s.parse().ok()).unwrap_or(0);
 
     let mut emails: Vec<EmailData> = Vec::new();
-    let (start, end) = if total == 0 {
-        (1, 0)
+    let current_uidls = match read_uidl_list(&mut tls) {
+        Ok(uidls) => Some(uidls),
+        Err(error) => {
+            warn!("POP3 UIDL 列表读取失败，退回序号扫描: {}", error);
+            None
+        }
+    };
+    let previous_uidls = pop3_cursor_uidls(sync_cursor);
+    let mut requested_indices = if let Some(uidls) = &current_uidls {
+        if previous_uidls.is_empty() {
+            let indices: Vec<usize> = uidls.iter().map(|(index, _)| *index).collect();
+            if fetch_oldest {
+                indices.into_iter().take(limit).collect()
+            } else {
+                indices.into_iter().rev().take(limit).collect()
+            }
+        } else {
+            select_new_uidls(uidls, &previous_uidls)
+        }
+    } else if total == 0 {
+        Vec::new()
     } else if fetch_oldest {
-        // 历史回补：优先抓最早的邮件
-        (1, std::cmp::min(total, limit))
+        // UIDL 不可用时保留兼容路径：优先抓最早的邮件。
+        (1..=std::cmp::min(total, limit)).collect()
     } else if total > limit {
-        // 增量同步：抓最新邮件
-        (total - limit + 1, total)
+        (total - limit + 1..=total).collect()
     } else {
-        (1, total)
+        (1..=total).collect()
     };
 
-    for i in start..=end {
+    // 增量按最小序号开始，达到单次上限时下次继续，不跳过中间 UIDL。
+    if !previous_uidls.is_empty() && requested_indices.len() > limit {
+        requested_indices.truncate(limit);
+    }
+
+    let mut successful_uidls = HashSet::new();
+    for i in requested_indices {
         match fetch_single_pop3(&mut tls, i) {
-            Ok(email_data) => emails.push(email_data),
+            Ok(email_data) => {
+                if let Some(uidls) = &current_uidls {
+                    if let Some((_, uidl)) = uidls.iter().find(|(index, _)| *index == i) {
+                        successful_uidls.insert(uidl.clone());
+                    }
+                }
+                emails.push(email_data)
+            }
             Err(e) => {
                 error!("获取邮件 {} 失败: {}", i, e);
                 continue;
@@ -367,13 +411,80 @@ fn pop3_fetch_sync(
 
     let _ = tls.write_all(b"QUIT\r\n");
 
+    let sync_cursor = current_uidls.map(|uidls| {
+        let uidls = uidls
+            .into_iter()
+            .filter_map(|(_, uidl)| {
+                if previous_uidls.contains(&uidl) || successful_uidls.contains(&uidl) {
+                    Some(uidl)
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+        json!({
+            "version": 1,
+            "protocol": "pop3",
+            "uidls": uidls,
+        })
+    });
+
     info!("✅ POP3 收取完成，共 {} 封邮件", emails.len());
     Ok(FetchResult {
         success: true,
         message: format!("收取成功，共 {} 封邮件", emails.len()),
         count: emails.len(),
         emails,
+        sync_cursor,
     })
+}
+
+fn select_new_uidls(current_uidls: &[(usize, String)], previous_uidls: &HashSet<String>) -> Vec<usize> {
+    current_uidls
+        .iter()
+        .filter(|(_, uidl)| !previous_uidls.contains(uidl))
+        .map(|(index, _)| *index)
+        .collect()
+}
+
+fn pop3_cursor_uidls(cursor: Option<&Value>) -> HashSet<String> {
+    let Some(cursor) = cursor else {
+        return HashSet::new();
+    };
+    if cursor.get("protocol").and_then(Value::as_str) != Some("pop3") {
+        return HashSet::new();
+    }
+    cursor
+        .get("uidls")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_str)
+        .map(ToOwned::to_owned)
+        .collect()
+}
+
+fn read_uidl_list<S: Read + Write>(stream: &mut S) -> Result<Vec<(usize, String)>, String> {
+    stream
+        .write_all(b"UIDL\r\n")
+        .map_err(|e| format!("发送 UIDL 失败: {}", e))?;
+    let response = read_line(stream)?;
+    if !response.starts_with("+OK") {
+        return Err(format!("UIDL 响应失败: {}", response.trim()));
+    }
+    let data = read_multiline(stream)?;
+    let mut result = Vec::new();
+    for line in String::from_utf8_lossy(&data).lines() {
+        let mut parts = line.split_whitespace();
+        let Some(index) = parts.next().and_then(|value| value.parse::<usize>().ok()) else {
+            continue;
+        };
+        let Some(uidl) = parts.next().filter(|value| !value.is_empty()) else {
+            continue;
+        };
+        result.push((index, uidl.to_string()));
+    }
+    Ok(result)
 }
 
 // ── IO 辅助 ───────────────────────────────────────────────────
@@ -795,4 +906,22 @@ fn matches_fallback_email_metadata(
     }
 
     true
+}
+
+#[cfg(test)]
+mod tests {
+    use super::select_new_uidls;
+    use std::collections::HashSet;
+
+    #[test]
+    fn pop3_cursor_only_returns_unseen_uidls() {
+        let previous = HashSet::from(["old-a".to_string(), "old-b".to_string()]);
+        let current = vec![
+            (1, "old-a".to_string()),
+            (2, "new-c".to_string()),
+            (3, "new-d".to_string()),
+        ];
+
+        assert_eq!(select_new_uidls(&current, &previous), vec![2, 3]);
+    }
 }

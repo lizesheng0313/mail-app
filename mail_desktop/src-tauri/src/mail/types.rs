@@ -220,4 +220,6 @@ pub struct FetchResult {
     pub message: String,
     pub emails: Vec<EmailData>,
     pub count: usize,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sync_cursor: Option<serde_json::Value>,
 }

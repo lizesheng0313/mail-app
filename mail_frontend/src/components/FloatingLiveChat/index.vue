@@ -8,8 +8,10 @@
         <div class="border-b border-primary-200 bg-gradient-to-r from-primary-800 via-primary-700 to-primary-500 px-4 py-3 text-white">
           <div class="flex items-center justify-between gap-3">
             <div>
-              <p class="text-sm font-semibold">全站聊天室</p>
-              <p class="mt-1 text-xs text-primary-50/90">登录用户可实时聊天交流。</p>
+              <p class="text-sm font-semibold">在线客服</p>
+              <p class="mt-1 text-xs text-primary-50/90">
+                {{ isAdmin ? '可查看并回复用户会话。' : '只有你和管理员能看到这段对话。' }}
+              </p>
             </div>
             <div class="flex items-center gap-3">
               <div class="rounded-full bg-white/10 px-3 py-1 text-xs font-medium">
@@ -28,6 +30,37 @@
           <div class="mt-3 flex items-center gap-2 text-xs text-primary-50/90">
             <span class="inline-block h-2 w-2 rounded-full" :class="statusDotClass"></span>
             <span>{{ statusText }}</span>
+          </div>
+          <div
+            v-if="isAdmin"
+            class="mt-3 rounded-xl bg-white/10 px-3 py-2 text-xs text-primary-50"
+          >
+            <div class="mb-2 flex items-center justify-between">
+              <span>客户会话</span>
+              <span v-if="activeConversationUserId">当前：{{ activeConversation?.user.display_name }}</span>
+            </div>
+            <div v-if="conversations.length" class="flex gap-2 overflow-x-auto pb-1">
+              <button
+                v-for="conversation in conversations"
+                :key="conversation.user.id"
+                type="button"
+                class="min-w-[112px] rounded-lg px-2.5 py-2 text-left transition-colors"
+                :class="activeConversationUserId === conversation.user.id ? 'bg-white text-primary-700' : 'bg-white/10 text-primary-50 hover:bg-white/20'"
+                @click="selectConversation(conversation)"
+              >
+                <span class="flex items-center gap-1.5 truncate font-medium">
+                  <span class="inline-block h-1.5 w-1.5 shrink-0 rounded-full" :class="conversation.is_online ? 'bg-emerald-300' : 'bg-slate-300'"></span>
+                  {{ conversation.user.display_name }}
+                </span>
+                <span class="mt-1 flex items-center justify-between text-[10px] opacity-80">
+                  <span>{{ conversation.is_online ? '在线' : '最近联系' }}</span>
+                  <span v-if="conversation.unread_count" class="rounded-full bg-rose-500 px-1.5 text-white">
+                    {{ conversation.unread_count }}
+                  </span>
+                </span>
+              </button>
+            </div>
+            <span v-else class="text-primary-100/80">暂无客户会话</span>
           </div>
         </div>
 
@@ -54,7 +87,7 @@
             v-if="!userStore.isAuthenticated"
             class="rounded-2xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm leading-6 text-yellow-800"
           >
-            未登录也能查看聊天记录，登录后才可以参与发言。
+            登录后才能查看你的客服会话。
           </div>
 
           <div v-if="loadingHistory" class="rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-500">
@@ -138,7 +171,7 @@
             v-if="!loadingHistory && messages.length === 0"
             class="rounded-2xl border border-dashed border-gray-300 bg-white/70 px-4 py-6 text-center text-sm text-gray-500"
           >
-            还没人发言，你可以先打个招呼。
+            {{ isAdmin && !activeConversationUserId ? '请先在上方选择客户会话。' : '还没有客服消息。' }}
           </div>
         </div>
 
@@ -194,8 +227,8 @@
               v-model="draft"
               rows="1"
               class="min-h-[24px] min-w-0 flex-1 resize-none border-0 bg-transparent p-0 text-sm leading-10 text-gray-800 outline-none focus:ring-0 placeholder:text-gray-400"
-              :disabled="!canSend"
-              :placeholder="userStore.isAuthenticated ? 'Enter 发送，Shift+Enter 换行' : '登录后参与聊天'"
+              :disabled="!canSend || (isAdmin && !activeConversationUserId)"
+              :placeholder="userStore.isAuthenticated ? (isAdmin ? '输入回复，消息会发给当前客户' : 'Enter 发送，Shift+Enter 换行') : '登录后查看客服会话'"
               @keydown.enter.exact.prevent="submitMessage"
               @paste="handleTextareaPaste"
             />
@@ -239,7 +272,7 @@
         />
       </svg>
       <div class="pointer-events-none absolute right-full mr-3 whitespace-nowrap rounded-lg bg-gray-900 px-3 py-2 text-sm text-white opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-        {{ visible ? '收起全站聊天室' : '打开全站聊天室' }}
+        {{ visible ? '收起在线客服' : '打开在线客服' }}
         <div class="absolute left-full top-1/2 h-0 w-0 -translate-y-1/2 border-b-4 border-l-4 border-t-4 border-b-transparent border-l-gray-900 border-t-transparent"></div>
       </div>
     </button>
@@ -273,7 +306,18 @@ type LiveChatMessage = {
     size?: number
   }>
   created_at_ms: number
+  recipient_user_id?: number | null
   user: LiveChatUser
+}
+
+type LiveChatConversation = {
+  user: LiveChatUser
+  is_online: boolean
+  unread_count: number
+  last_message: {
+    content: string
+    created_at_ms: number
+  }
 }
 
 const getAttachmentListClass = (count: number) => {
@@ -297,6 +341,8 @@ const userStore = useUserStore()
 const visible = ref(false)
 const draft = ref('')
 const messages = ref<LiveChatMessage[]>([])
+const conversations = ref<LiveChatConversation[]>([])
+const activeConversationUserId = ref(0)
 const loadingHistory = ref(false)
 const loadingMoreHistory = ref(false)
 const onlineCount = ref(0)
@@ -314,6 +360,7 @@ let historyLoaded = false
 let manualClose = false
 let socketConnecting = false
 let historyRequest: Promise<void> | null = null
+let conversationsRequest: Promise<void> | null = null
 let historyCursor = 0
 let summaryRequest: Promise<void> | null = null
 const SOCKET_IO_PATH = '/mail-api/v1/live-chat/socket.io'
@@ -326,8 +373,13 @@ const normalizeUserId = (value: unknown) => {
 
 const selfUserId = computed(() => normalizeUserId(socketUserId.value || userStore.user?.id))
 const canSend = computed(() => userStore.isAuthenticated && connectionStatus.value === 'connected')
+const isAdmin = computed(() => Boolean(userStore.user?.is_admin))
+const activeConversation = computed(() => conversations.value.find(
+  (conversation) => conversation.user.id === activeConversationUserId.value,
+))
 const canSubmit = computed(() =>
   canSend.value &&
+  (!isAdmin.value || activeConversationUserId.value > 0) &&
   !imageUploading.value &&
   (Boolean(draft.value.trim()) || pendingAttachments.value.length > 0)
 )
@@ -349,6 +401,12 @@ const statusDotClass = computed(() => {
 })
 
 const isSelf = (item: LiveChatMessage) => normalizeUserId(item.user?.id) === selfUserId.value
+
+const getMessageConversationUserId = (message: LiveChatMessage) => (
+  message.user.is_admin
+    ? normalizeUserId(message.recipient_user_id)
+    : normalizeUserId(message.user.id)
+)
 
 const OTHER_AVATAR_STYLES = [
   'border border-sky-200 bg-sky-50 text-sky-700',
@@ -389,10 +447,69 @@ const getSocketServerURL = () => {
   return window.location.origin
 }
 
+const selectConversation = async (conversation: LiveChatConversation) => {
+  if (!isAdmin.value) return
+  const nextUserId = normalizeUserId(conversation.user.id)
+  if (nextUserId <= 0) return
+
+  activeConversationUserId.value = nextUserId
+  messages.value = []
+  historyLoaded = false
+  historyCursor = 0
+  hasMoreHistory.value = false
+  await loadHistory(true)
+  await scrollToBottom()
+  if (visible.value) {
+    await markMessagesRead()
+  }
+}
+
+const loadConversations = async (force = false) => {
+  if (!isAdmin.value) return
+  if (conversationsRequest && !force) return conversationsRequest
+
+  conversationsRequest = (async () => {
+    try {
+      const response: any = await api.get('/live-chat/conversations', {
+        suppressErrorMessage: true,
+      })
+      if (response.code !== 0) return
+
+      const items = Array.isArray(response.data?.items) ? response.data.items : []
+      conversations.value = items
+      const activeStillExists = items.some(
+        (conversation: LiveChatConversation) => conversation.user.id === activeConversationUserId.value,
+      )
+      if (!activeStillExists) {
+        activeConversationUserId.value = 0
+        messages.value = []
+        historyLoaded = false
+      }
+
+      if (!activeConversationUserId.value && items.length > 0 && visible.value) {
+        await selectConversation(items[0])
+      }
+    } catch (error) {
+      console.error('加载客服会话失败:', error)
+    } finally {
+      conversationsRequest = null
+    }
+  })()
+
+  return conversationsRequest
+}
+
 const toggleVisible = async () => {
   visible.value = !visible.value
   if (visible.value) {
-    await loadHistory(!historyLoaded)
+    if (isAdmin.value) {
+      await loadConversations(true)
+      if (activeConversationUserId.value && !historyLoaded) {
+        await loadHistory(true)
+      }
+    } else {
+      await loadHistory(!historyLoaded)
+    }
     await scrollToBottom()
     if (userStore.isAuthenticated) {
       await markMessagesRead()
@@ -529,6 +646,12 @@ const markMessagesRead = async (messageId?: number) => {
   } catch {}
 
   unreadCount.value = 0
+  if (isAdmin.value && activeConversationUserId.value) {
+    const active = conversations.value.find(
+      (conversation) => conversation.user.id === activeConversationUserId.value,
+    )
+    if (active) active.unread_count = 0
+  }
 }
 
 const cleanupSocket = () => {
@@ -552,7 +675,12 @@ const loadHistory = async (force = false) => {
     loadingHistory.value = true
     try {
       const response: any = await api.get('/live-chat/messages', {
-        params: { limit: 60 },
+        params: {
+          limit: 60,
+          ...(isAdmin.value && activeConversationUserId.value
+            ? { conversation_user_id: activeConversationUserId.value }
+            : {}),
+        },
         suppressErrorMessage: true
       })
       if (response.code === 0) {
@@ -590,7 +718,10 @@ const loadOlderHistory = async () => {
     const response: any = await api.get('/live-chat/messages', {
       params: {
         limit: 60,
-        before_message_id: beforeMessageId
+        before_message_id: beforeMessageId,
+        ...(isAdmin.value && activeConversationUserId.value
+          ? { conversation_user_id: activeConversationUserId.value }
+          : {}),
       },
       suppressErrorMessage: true
     })
@@ -634,7 +765,15 @@ const handleSocketPayload = async (payload: SocketPayload) => {
   }
 
   if (payload.type === 'message' && payload.message) {
+    const conversationUserId = getMessageConversationUserId(payload.message)
+    if (isAdmin.value && conversationUserId !== activeConversationUserId.value) {
+      void loadConversations(true)
+      return
+    }
     upsertMessage(payload.message)
+    if (isAdmin.value) {
+      void loadConversations()
+    }
     if (visible.value) {
       await scrollToBottom()
       if (userStore.isAuthenticated) {
@@ -723,13 +862,25 @@ const submitMessage = () => {
     return
   }
 
+  if (isAdmin.value && !activeConversationUserId.value) {
+    showMessage('请先选择客户会话', 'warning')
+    return
+  }
+
   if (!socket || !socket.connected) {
     showMessage('聊天室连接中，请稍后再试', 'warning')
     void connectSocket()
     return
   }
 
-  socket.emit('chat_event', { type: 'message', content, attachments })
+  socket.emit('chat_event', {
+    type: 'message',
+    content,
+    attachments,
+    ...(isAdmin.value && activeConversationUserId.value
+      ? { recipient_user_id: activeConversationUserId.value }
+      : {}),
+  })
   draft.value = ''
   pendingAttachments.value = []
 }
@@ -778,12 +929,19 @@ watch(
     cleanupSocket()
     historyLoaded = false
     historyRequest = null
+    conversationsRequest = null
     summaryRequest = null
     historyCursor = 0
     hasMoreHistory.value = false
     unreadCount.value = 0
+    conversations.value = []
+    activeConversationUserId.value = 0
     if (visible.value) {
-      void loadHistory(true)
+      if (isAdmin.value) {
+        void loadConversations(true)
+      } else {
+        void loadHistory(true)
+      }
     } else {
       void loadSummary()
     }

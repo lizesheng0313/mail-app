@@ -5,7 +5,8 @@ use crate::mail::types::{get_server_config, EmailData, FetchResult, LoginResult,
 use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
+use std::future::Future;
 use std::pin::Pin;
 use std::path::PathBuf;
 use std::process::Command;
@@ -23,6 +24,7 @@ const AUTO_RECOVERY_MAX_FAILURES: u32 = 3;
 const AUTO_RECOVERY_WINDOW_MS: i64 = 30 * 60 * 1000;
 const AUTO_RECOVERY_LIMIT_MARKER: &str = "__AUTO_RECOVERY_LIMIT__::";
 const EXTERNAL_VERIFY_PROGRESS_EVENT: &str = "external-verify-progress";
+const FETCH_OPERATION_TIMEOUT: Duration = Duration::from_secs(180);
 
 #[derive(Debug, Clone, Serialize)]
 pub struct SmtpSendResult {
@@ -161,46 +163,24 @@ fn push_fetch_candidate(candidates: &mut Vec<FetchCandidate>, candidate: FetchCa
     }
 }
 
-fn build_email_dedupe_key(email: &EmailData) -> String {
-    let message_id = email.message_id.trim();
-    if !message_id.is_empty() {
-        return format!("mid:{}", message_id.to_lowercase());
-    }
+async fn fetch_first_successful_candidate<F, Fut>(
+    candidates: &[FetchCandidate],
+    mut fetch: F,
+) -> Result<FetchResult, String>
+where
+    F: FnMut(FetchCandidate) -> Fut,
+    Fut: Future<Output = Result<FetchResult, String>>,
+{
+    let mut error_messages = Vec::new();
 
-    format!(
-        "fp:{}|{}|{}|{}",
-        email.from_addr.trim().to_lowercase(),
-        email.to_addr.trim().to_lowercase(),
-        email.subject.trim().to_lowercase(),
-        email.email_date_ms
-    )
-}
-
-fn merge_fetched_emails(results: Vec<FetchResult>, limit: usize, fetch_oldest: bool) -> FetchResult {
-    let mut merged = Vec::new();
-    let mut seen = HashSet::new();
-
-    for result in results {
-        for email in result.emails {
-            if seen.insert(build_email_dedupe_key(&email)) {
-                merged.push(email);
-            }
+    for candidate in candidates.iter().cloned() {
+        match fetch(candidate.clone()).await {
+            Ok(result) => return Ok(result),
+            Err(err) => error_messages.push(format!("{}: {}", candidate.protocol, err)),
         }
     }
 
-    if fetch_oldest {
-        merged.sort_by_key(|email| email.email_date_ms);
-    } else {
-        merged.sort_by(|a, b| b.email_date_ms.cmp(&a.email_date_ms));
-    }
-    merged.truncate(limit);
-
-    FetchResult {
-        success: true,
-        message: format!("收取成功，共 {} 封邮件", merged.len()),
-        count: merged.len(),
-        emails: merged,
-    }
+    Err(error_messages.join("；"))
 }
 
 async fn fetch_with_candidate(
@@ -210,6 +190,7 @@ async fn fetch_with_candidate(
     limit: usize,
     fetch_oldest: bool,
     proxy_config: Option<&RuntimeProxy>,
+    sync_cursor: Option<Value>,
 ) -> Result<FetchResult, String> {
     if candidate.protocol == "imap" {
         mail::imap::fetch_emails(
@@ -220,6 +201,7 @@ async fn fetch_with_candidate(
             limit,
             fetch_oldest,
             proxy_config.cloned(),
+            sync_cursor.clone(),
         )
         .await
     } else {
@@ -231,12 +213,13 @@ async fn fetch_with_candidate(
             limit,
             fetch_oldest,
             proxy_config.cloned(),
+            sync_cursor,
         )
         .await
     }
 }
 
-async fn fetch_password_mailbox_with_merge(
+async fn fetch_password_mailbox_with_fallback(
     email: &str,
     password: &str,
     primary_protocol: &str,
@@ -246,6 +229,7 @@ async fn fetch_password_mailbox_with_merge(
     limit: usize,
     fetch_oldest: bool,
     proxy_config: Option<&RuntimeProxy>,
+    sync_cursor: Option<Value>,
 ) -> Result<FetchResult, String> {
     let mut candidates = Vec::new();
     push_fetch_candidate(
@@ -276,37 +260,52 @@ async fn fetch_password_mailbox_with_merge(
         );
     }
 
-    let mut success_results = Vec::new();
-    let mut error_messages = Vec::new();
+    let email = email.to_string();
+    let password = password.to_string();
+    let proxy_config = proxy_config.cloned();
 
-    for candidate in candidates {
+    fetch_first_successful_candidate(&candidates, move |candidate| {
+        let email = email.clone();
+        let password = password.clone();
+        let proxy_config = proxy_config.clone();
+        let sync_cursor = sync_cursor.clone();
         info!(
-            "尝试协议补抓: email={} protocol={} host={}:{}",
+            "尝试协议收取: email={} protocol={} host={}:{}",
             email, candidate.protocol, candidate.host, candidate.port
         );
-        match fetch_with_candidate(&candidate, email, password, limit, fetch_oldest, proxy_config).await {
-            Ok(result) => {
-                info!(
-                    "协议收取成功，继续检查其他协议并合并去重: email={} protocol={} fetched={}",
-                    email, candidate.protocol, result.count
-                );
-                success_results.push(result);
-            }
-            Err(err) => {
+        async move {
+            let result = fetch_with_candidate(
+                &candidate,
+                &email,
+                &password,
+                limit,
+                fetch_oldest,
+                proxy_config.as_ref(),
+                sync_cursor,
+            )
+            .await;
+            if let Err(err) = &result {
                 warn!(
-                    "协议补抓失败: email={} protocol={} host={}:{} error={}",
+                    "协议收取失败，准备尝试备用协议: email={} protocol={} host={}:{} error={}",
                     email, candidate.protocol, candidate.host, candidate.port, err
                 );
-                error_messages.push(format!("{}: {}", candidate.protocol, err));
             }
+            result
         }
-    }
+    })
+    .await
+}
 
-    if !success_results.is_empty() {
-        return Ok(merge_fetched_emails(success_results, limit, fetch_oldest));
-    }
-
-    Err(error_messages.join("；"))
+async fn run_fetch_with_timeout<F>(
+    future: F,
+    timeout: Duration,
+) -> Result<FetchResult, String>
+where
+    F: Future<Output = Result<FetchResult, String>>,
+{
+    tokio::time::timeout(timeout, future)
+        .await
+        .map_err(|_| "收取邮件超时，请稍后重试".to_string())?
 }
 
 /// 同步邮件请求（发送到远程服务器）
@@ -314,6 +313,8 @@ async fn fetch_password_mailbox_with_merge(
 pub struct SyncEmailsRequest {
     pub mailbox_id: i64,
     pub emails: Vec<EmailData>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sync_cursor: Option<Value>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -321,6 +322,33 @@ struct ApiEnvelope<T> {
     code: i32,
     message: String,
     data: Option<T>,
+}
+
+async fn load_sync_cursor(server_url: &str, token: &str, mailbox_id: i64) -> Option<Value> {
+    let url = format!(
+        "{}/unified-emails/external-mailboxes/{}/sync-cursor",
+        server_url, mailbox_id
+    );
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(10))
+        .build()
+        .ok()?;
+    let response = client
+        .get(url)
+        .header("Authorization", format!("Bearer {}", token))
+        .send()
+        .await
+        .ok()?;
+    if !response.status().is_success() {
+        warn!("读取邮箱同步游标失败: mailbox_id={} status={}", mailbox_id, response.status());
+        return None;
+    }
+    let body: ApiEnvelope<Value> = response.json().await.ok()?;
+    if body.code != 0 {
+        warn!("读取邮箱同步游标失败: mailbox_id={} message={}", mailbox_id, body.message);
+        return None;
+    }
+    body.data
 }
 
 #[derive(Debug, Deserialize)]
@@ -652,10 +680,12 @@ pub async fn add_external_mailbox_without_events(
 
 /// 获取本地出口 IP（用于验证）
 async fn get_local_ip() -> Result<String, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(5))
+        .build()
+        .map_err(|e| format!("创建 IP 查询客户端失败: {}", e))?;
     let response = client
         .get("https://api.ipify.org?format=text")
-        .timeout(std::time::Duration::from_secs(5))
         .send()
         .await
         .map_err(|e| format!("获取 IP 失败: {}", e))?;
@@ -698,7 +728,16 @@ async fn try_smtp_verify(
 /// - 首次/数据很少：历史回补窗口（2000）
 /// - 否则：增量窗口（200）
 async fn resolve_fetch_policy(server_url: &str, token: &str, mailbox_id: i64) -> (usize, bool) {
-    let client = reqwest::Client::new();
+    let client = match reqwest::Client::builder()
+        .timeout(Duration::from_secs(10))
+        .build()
+    {
+        Ok(client) => client,
+        Err(error) => {
+            info!("创建同步策略查询客户端失败，使用增量窗口: {}", error);
+            return (INCREMENTAL_FETCH_LIMIT, false);
+        }
+    };
     let url = format!(
         "{}/unified-emails/external-emails",
         server_url.trim_end_matches('/')
@@ -771,7 +810,10 @@ async fn load_mailbox_relogin_config(
     token: &str,
     mailbox_id: i64,
 ) -> Result<MailboxReloginConfig, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(10))
+        .build()
+        .map_err(|e| format!("创建重登配置客户端失败: {}", e))?;
     let url = format!(
         "{}/unified-emails/external-mailboxes/{}/relogin-config",
         server_url.trim_end_matches('/'),
@@ -863,7 +905,10 @@ async fn activate_mailbox_password_login(
         smtp_error: login_result.smtp_error.clone(),
     };
 
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(10))
+        .build()
+        .map_err(|e| format!("创建账号恢复客户端失败: {}", e))?;
     let url = format!(
         "{}/unified-emails/external-mailboxes/{}/recover-password-login",
         server_url.trim_end_matches('/'),
@@ -998,41 +1043,31 @@ async fn fetch_mailbox_via_relogin_config(
         );
     }
 
-    let mut success_results = Vec::new();
-    let mut error_messages = Vec::new();
-    for candidate in candidates {
-        match fetch_with_candidate(
-            &candidate,
-            &config.email,
-            &config.password,
-            limit,
-            fetch_oldest,
-            None,
-        )
-        .await
-        {
-            Ok(result) => {
-                info!(
-                    "自动重登协议收取成功，继续检查其他协议并合并去重: mailbox_id={} email={} protocol={} fetched={}",
-                    mailbox_id, config.email, candidate.protocol, result.count
-                );
-                success_results.push(result);
-            }
-            Err(err) => {
-                warn!(
-                    "自动重登收取协议失败: mailbox_id={} email={} protocol={} host={}:{} error={}",
-                    mailbox_id, config.email, candidate.protocol, candidate.host, candidate.port, err
-                );
-                error_messages.push(format!("{}: {}", candidate.protocol, err));
-            }
+    let sync_cursor = load_sync_cursor(server_url, token, mailbox_id).await;
+    let email = config.email.clone();
+    let password = config.password.clone();
+    fetch_first_successful_candidate(&candidates, move |candidate| {
+        let email = email.clone();
+        let password = password.clone();
+        let sync_cursor = sync_cursor.clone();
+        async move {
+            info!(
+                "自动重登尝试协议收取: mailbox_id={} email={} protocol={} host={}:{}",
+                mailbox_id, email, candidate.protocol, candidate.host, candidate.port
+            );
+            fetch_with_candidate(
+                &candidate,
+                &email,
+                &password,
+                limit,
+                fetch_oldest,
+                None,
+                sync_cursor,
+            )
+            .await
         }
-    }
-
-    if !success_results.is_empty() {
-        return Ok(merge_fetched_emails(success_results, limit, fetch_oldest));
-    }
-
-    Err(error_messages.join("；"))
+    })
+    .await
 }
 
 #[tauri::command]
@@ -1057,14 +1092,23 @@ pub async fn recover_and_fetch_external_mailbox(
         fetch_mailbox_via_relogin_config(&server_url, &token, mailbox_id, fetch_limit, fetch_oldest)
             .await?;
 
-    if result.success && !result.emails.is_empty() {
-        match sync_emails_to_server(&server_url, &token, mailbox_id, &result.emails).await {
+    if result.success {
+        match sync_emails_to_server(
+            &server_url,
+            &token,
+            mailbox_id,
+            &result.emails,
+            result.sync_cursor.as_ref(),
+        )
+        .await
+        {
             Ok(new_count) => {
                 return Ok(FetchResult {
                     success: true,
                     message: format!("收取成功，新增 {} 封邮件", new_count),
                     emails: vec![],
                     count: new_count,
+                    sync_cursor: None,
                 });
             }
             Err(e) => {
@@ -1084,6 +1128,38 @@ pub async fn recover_and_fetch_external_mailbox(
 /// 前端调用：invoke('fetch_emails', { mailboxId, email, password, protocol, host?, port?, token, serverUrl, authType?, accessToken? })
 #[tauri::command]
 pub async fn fetch_emails(
+    mailbox_id: i64,
+    email: String,
+    password: String,
+    protocol: String,
+    host: Option<String>,
+    port: Option<u16>,
+    token: String,
+    server_url: String,
+    auth_type: Option<String>,
+    access_token: Option<String>,
+    proxy: Option<RuntimeProxy>,
+) -> Result<FetchResult, String> {
+    run_fetch_with_timeout(
+        fetch_emails_inner(
+            mailbox_id,
+            email,
+            password,
+            protocol,
+            host,
+            port,
+            token,
+            server_url,
+            auth_type,
+            access_token,
+            proxy,
+        ),
+        FETCH_OPERATION_TIMEOUT,
+    )
+    .await
+}
+
+async fn fetch_emails_inner(
     mailbox_id: i64,
     email: String,
     password: String,
@@ -1123,6 +1199,7 @@ pub async fn fetch_emails(
     info!("密码长度: {}, token长度: {}, serverUrl: {}", password.len(), token.len(), server_url);
 
     let (fetch_limit, fetch_oldest) = resolve_fetch_policy(&server_url, &token, mailbox_id).await;
+    let sync_cursor = load_sync_cursor(&server_url, &token, mailbox_id).await;
     info!(
         "本次本地收取策略: mailbox_id={}, limit={}, oldest_first={}",
         mailbox_id,
@@ -1142,6 +1219,7 @@ pub async fn fetch_emails(
             fetch_limit,
             fetch_oldest,
             proxy.clone(),
+            sync_cursor.clone(),
         )
         .await
         {
@@ -1169,7 +1247,7 @@ pub async fn fetch_emails(
             }
         }
     } else {
-        match fetch_password_mailbox_with_merge(
+        match fetch_password_mailbox_with_fallback(
             &email,
             &password,
             &final_protocol,
@@ -1179,6 +1257,7 @@ pub async fn fetch_emails(
             fetch_limit,
             fetch_oldest,
             proxy.as_ref(),
+            sync_cursor.clone(),
         )
         .await
         {
@@ -1190,9 +1269,17 @@ pub async fn fetch_emails(
         }
     };
 
-    if result.success && !result.emails.is_empty() {
+    if result.success {
         // 同步到远程服务器（附件 data 字段会被 serde(skip) 跳过，只发元数据）
-        match sync_emails_to_server(&server_url, &token, mailbox_id, &result.emails).await {
+        match sync_emails_to_server(
+            &server_url,
+            &token,
+            mailbox_id,
+            &result.emails,
+            result.sync_cursor.as_ref(),
+        )
+        .await
+        {
             Ok(new_count) => {
                 // 用后端去重后的实际新增数替换总数，emails 不通过 IPC 返回（内容太大）
                 return Ok(FetchResult {
@@ -1200,6 +1287,7 @@ pub async fn fetch_emails(
                     message: format!("收取成功，新增 {} 封邮件", new_count),
                     emails: vec![],
                     count: new_count,
+                    sync_cursor: None,
                 });
             }
             Err(e) => {
@@ -1335,6 +1423,7 @@ async fn sync_emails_to_server(
     token: &str,
     mailbox_id: i64,
     emails: &[EmailData],
+    sync_cursor: Option<&Value>,
 ) -> Result<usize, String> {
     info!("同步 {} 封邮件到服务器", emails.len());
 
@@ -1348,6 +1437,7 @@ async fn sync_emails_to_server(
     let request_body = SyncEmailsRequest {
         mailbox_id,
         emails: emails.to_vec(),
+        sync_cursor: sync_cursor.cloned(),
     };
 
     let response = client
@@ -1980,4 +2070,67 @@ async fn resolve_reachable_smtp_candidate(
     }
 
     Err(format!("所有 SMTP 候选均失败，最后错误: {}", last_error))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{fetch_first_successful_candidate, FetchCandidate, FetchResult};
+    use std::sync::{Arc, Mutex};
+
+    #[tokio::test]
+    async fn stops_after_the_primary_protocol_succeeds() {
+        let candidates = vec![
+            FetchCandidate {
+                protocol: "imap".to_string(),
+                host: "imap.example.com".to_string(),
+                port: 993,
+            },
+            FetchCandidate {
+                protocol: "pop3".to_string(),
+                host: "pop3.example.com".to_string(),
+                port: 995,
+            },
+        ];
+        let attempted = Arc::new(Mutex::new(Vec::new()));
+        let attempted_for_fetch = Arc::clone(&attempted);
+
+        let result = fetch_first_successful_candidate(&candidates, move |candidate| {
+            let attempted = Arc::clone(&attempted_for_fetch);
+            async move {
+                attempted.lock().unwrap().push(candidate.protocol.clone());
+                Ok(FetchResult {
+                    success: true,
+                    message: "ok".to_string(),
+                    count: 1,
+                    emails: Vec::new(),
+                    sync_cursor: None,
+                })
+            }
+        })
+        .await
+        .expect("primary protocol should succeed");
+
+        assert_eq!(result.count, 1);
+        assert_eq!(*attempted.lock().unwrap(), vec!["imap"]);
+    }
+
+    #[tokio::test]
+    async fn returns_timeout_when_fetch_exceeds_deadline() {
+        let result = super::run_fetch_with_timeout(
+            async {
+                tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+                Ok(FetchResult {
+                    success: true,
+                    message: "ok".to_string(),
+                    count: 0,
+                    emails: Vec::new(),
+                    sync_cursor: None,
+                })
+            },
+            std::time::Duration::from_millis(1),
+        )
+        .await;
+
+        assert!(matches!(result, Err(message) if message.contains("超时")));
+    }
 }

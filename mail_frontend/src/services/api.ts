@@ -1,6 +1,8 @@
 import axios from 'axios'
 import { showMessage } from '@/utils/message'
 import { getCurrentLocale, i18n } from '@/i18n'
+import { getClientPlatform, isTauri } from '@/services/clientPlatform'
+import { classifySessionError } from '@/services/sessionAuth'
 
 const normalizeMessageValue = (value: any): string => {
   if (value === undefined || value === null) return ''
@@ -49,8 +51,10 @@ export const extractFetchErrorMessage = async (response: Response, fallback: str
   }
 }
 
-const shouldSuppressErrorMessage = (config: any) =>
-  config?.silentErrorMessage === true || config?.suppressErrorMessage === 'silent'
+export const shouldSuppressErrorMessage = (config: any) =>
+  config?.silentErrorMessage === true ||
+  config?.suppressErrorMessage === true ||
+  config?.suppressErrorMessage === 'silent'
 const t = (key: string) => String(i18n.global.t(key))
 
 export const BALANCE_INSUFFICIENT_CODE = 10001
@@ -67,18 +71,6 @@ const redirectToRechargeIfNeeded = (payload?: any) => {
   }
   window.location.assign('/user/finance#recharge')
   return true
-}
-
-// 检测是否在 Tauri 环境
-const isTauri = () => {
-  // Tauri v2: 检查 __TAURI_INTERNALS__ 或 __TAURI__
-  // Tauri v1: 检查 __TAURI__
-  // 同时检查 URL 协议（tauri:// 或 https://tauri.localhost）
-  const hasTauriGlobal = '__TAURI__' in window || '__TAURI_INTERNALS__' in window
-  const isTauriProtocol = window.location.protocol === 'tauri:' ||
-    window.location.hostname === 'tauri.localhost' ||
-    window.location.hostname === 'localhost' && window.location.port === ''
-  return hasTauriGlobal || isTauriProtocol
 }
 
 // 根据环境确定 API 基础地址
@@ -182,6 +174,7 @@ api.interceptors.request.use(
     if (!config.headers) {
       config.headers = {} as any
     }
+    config.headers['X-Client-Type'] = getClientPlatform()
     config.headers['Accept-Language'] = getCurrentLocale()
     
     return config
@@ -226,11 +219,15 @@ api.interceptors.response.use(
         Boolean(requestTokenSnapshot) && requestTokenSnapshot === currentToken
 
       const backendDetail = extractApiErrorMessage(error.response?.data, '').trim().toLowerCase()
+      const sessionErrorKind = classifySessionError(error.response?.data)
       const isAccountDisabled =
         backendDetail === '账户已被禁用' ||
         backendDetail === 'this account has been disabled'
+      const isSessionReplaced = sessionErrorKind === 'replaced'
       const authErrorMessage = isAccountDisabled
         ? t('common.accountDisabled')
+        : isSessionReplaced
+          ? t('common.sessionReplaced')
         : t('common.sessionExpired')
 
       // 旧请求晚返回 401 时，不要把当前已切换的新会话一并清掉。
@@ -246,7 +243,7 @@ api.interceptors.response.use(
         })
       }
 
-      if (isAccountDisabled) {
+      if (isAccountDisabled || isSessionReplaced) {
         sessionStorage.setItem('login_error_message', authErrorMessage)
       }
 
