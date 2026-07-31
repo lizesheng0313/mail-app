@@ -3,6 +3,8 @@
  */
 import api from '@/services/api'
 
+const pendingReadRequests = new Map()
+
 /**
  * 获取公告列表
  */
@@ -21,7 +23,16 @@ export function getAnnouncementDetail(id) {
  * 标记公告为已读
  */
 export function markAnnouncementAsRead(id) {
-  return api.put(`/announcements/${id}/read`)
+  const key = String(id)
+  const pending = pendingReadRequests.get(key)
+  if (pending) return pending
+
+  const request = api
+    .post(`/announcements/${id}/read`)
+    .finally(() => pendingReadRequests.delete(key))
+
+  pendingReadRequests.set(key, request)
+  return request
 }
 
 /**

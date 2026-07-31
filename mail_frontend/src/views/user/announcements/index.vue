@@ -182,6 +182,7 @@ import { useI18n } from 'vue-i18n'
 import { showMessage } from '@/utils/message'
 import ActionButton from '@/components/ActionButton/index.vue'
 import api from '@/services/api'
+import { markAnnouncementAsRead } from '@/api/announcement'
 import { getCurrentLocale } from '@/i18n'
 
 const route = useRoute()
@@ -241,7 +242,7 @@ const viewDetail = async (announcement) => {
 // 标记为已读
 const markAsRead = async (announcementId) => {
   try {
-    const result = await api.post(`/announcements/${announcementId}/read`)
+    const result = await markAnnouncementAsRead(announcementId)
     if (result.code === 0) {
       // 更新本地状态
       const announcement = announcements.value.find((a) => a.id === announcementId)

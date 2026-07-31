@@ -179,6 +179,7 @@ import { useRoute, useRouter } from 'vue-router'
 import api from '@/services/api'
 import { getCurrentLocale } from '@/i18n'
 import { getNotifications, markAsRead as markNotificationAsRead } from '@/api/notification'
+import { markAnnouncementAsRead } from '@/api/announcement'
 import { showMessage } from '@/utils/message'
 
 const route = useRoute()
@@ -288,7 +289,7 @@ const openAnnouncement = async (announcement) => {
 
   if (!announcement.is_read) {
     try {
-      const result = await api.post(`/announcements/${announcement.id}/read`)
+      const result = await markAnnouncementAsRead(announcement.id)
       if (result.code === 0) {
         announcement.is_read = true
       }

@@ -293,7 +293,10 @@ import {
   markAsRead as markNotificationAsRead,
   markAllAsRead as markAllNotificationsAsRead
 } from '@/api/notification'
-import { markAllAnnouncementsAsRead } from '@/api/announcement'
+import {
+  markAllAnnouncementsAsRead,
+  markAnnouncementAsRead
+} from '@/api/announcement'
 
 const { t, locale } = useI18n()
 const router = useRouter()
@@ -497,7 +500,7 @@ const viewAnnouncement = async (announcement: any) => {
 // 标记为已读
 const markAsRead = async (announcementId: number) => {
   try {
-    const result = await api.post(`/announcements/${announcementId}/read`)
+    const result = await markAnnouncementAsRead(announcementId)
     if (result.code === 0) {
       // 更新本地状态
       const announcement = announcements.value.find(a => a.id === announcementId)
