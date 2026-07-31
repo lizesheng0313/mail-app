@@ -17,7 +17,7 @@ export const mailboxShareAPI = {
    * @param {string} shareToken - 分享token
    */
   getShareInfo(shareToken) {
-    return request.get(`/mailbox-share/${shareToken}/info`)
+    return request.get(`/mailbox-share/${shareToken}/info`, { suppressErrorMessage: true })
   },
 
   /**
@@ -26,7 +26,10 @@ export const mailboxShareAPI = {
    * @param {Object} params - { mailbox_id?: number, page: number, page_size: number }
    */
   getShareEmails(shareToken, params = {}) {
-    return request.get(`/mailbox-share/${shareToken}/emails`, { params })
+    return request.get(`/mailbox-share/${shareToken}/emails`, {
+      params,
+      suppressErrorMessage: true
+    })
   },
 
   /**
@@ -36,11 +39,12 @@ export const mailboxShareAPI = {
    * @param {string} type - 邮箱类型 'system' 或 'external'
    */
   getShareEmailDetail(shareToken, emailId, type = 'system') {
-    return request.get(`/unified-emails/emails/${emailId}`, { 
-      params: { 
+    return request.get(`/unified-emails/emails/${emailId}`, {
+      params: {
         type,
         share_token: shareToken
-      } 
+      },
+      suppressErrorMessage: true
     })
   },
 
@@ -50,7 +54,10 @@ export const mailboxShareAPI = {
    * @param {Object} params - { mailbox_id?: number }
    */
   fetchShareEmails(shareToken, params = {}) {
-    return request.post(`/mailbox-share/${shareToken}/fetch-emails`, null, { params })
+    return request.post(`/mailbox-share/${shareToken}/fetch-emails`, null, {
+      params,
+      suppressErrorMessage: true
+    })
   },
 
   /**

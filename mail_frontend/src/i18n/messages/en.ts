@@ -218,8 +218,7 @@ const en = {
     customGenerateConfirmTitle: 'Confirm generation',
     customGenerateConfirmMessage:
       'This will generate {quantity} mailboxes as {mode} and consume {cost} coins.',
-    customGenerateConfirmMessageHosted:
-      'This will generate {quantity} domain mailboxes.',
+    customGenerateConfirmMessageHosted: 'This will generate {quantity} domain mailboxes.',
     customGenerateNoDomains: 'No system domains are available right now',
     customGenerateNoHostedDomains: 'No verified domains are available right now',
     customGenerateSpecifiedDomainSingle: 'Exact mailbox generation supports only one domain',
@@ -250,8 +249,7 @@ const en = {
       'This area shows a preview of external mailboxes. Sign up to connect real accounts.',
     guestPreviewMailboxEmpty:
       'No sample mailboxes are shown here. Sign up to view your real mailbox list.',
-    guestPreviewEmailEmpty:
-      'No sample emails are shown here. Sign up to view real email content.',
+    guestPreviewEmailEmpty: 'No sample emails are shown here. Sign up to view real email content.',
     guestPreviewDetailHint:
       'This is preview content only. Sign up to view real email details, batch actions, and more.',
     workflowMarket: 'Workflow marketplace',
@@ -413,7 +411,8 @@ const en = {
     step3Desc:
       'Temporary mailboxes, domain mailboxes, external mailboxes, emails, verification codes, and workflows are all listed below.',
     commonHeadersTitle: 'Common Headers',
-    commonApiKeyDesc: 'Create it in My Keys, then send it in the request headers. All open platform APIs use this header.',
+    commonApiKeyDesc:
+      'Create it in My Keys, then send it in the request headers. All open platform APIs use this header.',
     requestSample: 'Request example',
     endpointCount: '{count} endpoints',
     scopeLabel: 'Scope',
@@ -519,6 +518,8 @@ const en = {
   sharePage: {
     title: 'Mailbox Share',
     mailboxCount: '{count} mailboxes',
+    validity: 'Validity',
+    validitySummary: 'Validity: {value}',
     validUntil: 'Valid until: {date}',
     myMailboxes: 'My Mailboxes',
     noMailbox: 'No mailboxes',
@@ -531,6 +532,8 @@ const en = {
     loadShareFailed: 'Failed to load share information',
     shareNotFound: 'Share not found',
     shareExpired: 'This share has expired',
+    waitingForTurn: 'This link is waiting for its turn to receive mail',
+    shareCompleted: 'This link has completed its one-time receipt',
     loadFailed: 'Loading failed',
     loadEmailsFailed: 'Failed to load emails',
     loadEmailDetailFailed: 'Failed to load email details',
@@ -674,18 +677,13 @@ const en = {
     pluginStoreDescription: 'Browse and install available plugins.',
     myDomainsDescription:
       'Connect your own domain, complete DNS verification, and create receiving addresses.',
-    emailReachDashboardDescription:
-      'Review sending volume, unsubscribes, and overall engagement.',
+    emailReachDashboardDescription: 'Review sending volume, unsubscribes, and overall engagement.',
     emailReachTemplatesDescription:
       'Manage transactional and marketing templates with AI generation and AI review.',
-    emailReachQuotaDescription:
-      'Review remaining quota, top-up pricing, and purchase entries.',
-    emailReachMembersDescription:
-      'Import members and configure custom fields, tags, and groups.',
-    emailReachTasksDescription:
-      'Manage event-triggered tasks and bulk sending tasks in one place.',
-    emailReachRecordsDescription:
-      'Review recipient behavior and link click counts.',
+    emailReachQuotaDescription: 'Review remaining quota, top-up pricing, and purchase entries.',
+    emailReachMembersDescription: 'Import members and configure custom fields, tags, and groups.',
+    emailReachTasksDescription: 'Manage event-triggered tasks and bulk sending tasks in one place.',
+    emailReachRecordsDescription: 'Review recipient behavior and link click counts.',
     emailReachRecipientsDescription:
       'Manage invalid addresses, complaint addresses, and blacklists with automatic blocking before send.',
     emailReachUnsubscribesDescription:
@@ -694,8 +692,7 @@ const en = {
       'Import accounts, preview formats, and later connect the desktop local verification flow.',
     bulkSendDescription:
       'Choose sendable accounts in one place and handle recipients, attachments, and content together.',
-    outboxDescription:
-      'Review sent records, bounce statuses, and reopen drafts for another send.',
+    outboxDescription: 'Review sent records, bounce statuses, and reopen drafts for another send.',
     groupManagementDescription:
       'Organize external mailboxes by group and prepare for group-based operations.',
     batchRepairDescription:
@@ -1021,8 +1018,10 @@ const en = {
     historyFetchStarted: 'Historical email fetch started',
     historyFetchCancelled: 'History fetch stopped. {count} emails added',
     historyFetchCancelFailed: 'Failed to stop history fetch',
-    historyFetchCompleted: 'History fetch completed. {success} mailboxes succeeded, {count} emails added',
-    historyFetchCompletedWithFailures: 'History fetch completed. {success} mailboxes succeeded, {failed} failed, {count} emails added',
+    historyFetchCompleted:
+      'History fetch completed. {success} mailboxes succeeded, {count} emails added',
+    historyFetchCompletedWithFailures:
+      'History fetch completed. {success} mailboxes succeeded, {failed} failed, {count} emails added',
     deleteAccount: 'Delete account',
     batchDeleteTitle: 'Delete selected',
     deleteTitle: 'Delete account',
@@ -1104,7 +1103,8 @@ const en = {
     sendSuccess: 'Email sent successfully',
     sendFailed: 'Send failed',
     compose: {
-      desktopOnlyBanner: 'Bulk send email is available on desktop only. Please download and use the desktop app.',
+      desktopOnlyBanner:
+        'Bulk send email is available on desktop only. Please download and use the desktop app.',
       emptyState: 'Select a sender mailbox from the left to start composing',
       panelTitle: 'Compose Email',
       panelDescription: 'Handle recipients, attachments, and the message body in one place.',
@@ -1138,8 +1138,10 @@ const en = {
       aiSubtitle: 'Generate an email from a simple instruction',
       aiCompose: 'Draft for Me',
       aiPolish: 'Rewrite Draft',
-      aiComposePlaceholder: 'Example: write a quote follow-up email and remind the client to confirm this week.',
-      aiPolishPlaceholder: 'Example: make it more formal, shorter, translate to English, or strengthen the closing CTA.',
+      aiComposePlaceholder:
+        'Example: write a quote follow-up email and remind the client to confirm this week.',
+      aiPolishPlaceholder:
+        'Example: make it more formal, shorter, translate to English, or strengthen the closing CTA.',
       aiGenerating: 'Processing...',
       aiGenerate: 'Generate',
       aiRewrite: 'Rewrite',
@@ -1152,13 +1154,17 @@ const en = {
       lengthMedium: 'Medium',
       lengthLong: 'Long',
       quickQuoteFollowup: 'Quote Follow-up',
-      quickQuoteFollowupPrompt: 'Write a follow-up email after sending a quote, asking the client to confirm requirements, budget, and next steps.',
+      quickQuoteFollowupPrompt:
+        'Write a follow-up email after sending a quote, asking the client to confirm requirements, budget, and next steps.',
       quickOutbound: 'Outbound',
-      quickOutboundPrompt: 'Write a short outbound email to a cold prospect, briefly introducing the product value and inviting a reply.',
+      quickOutboundPrompt:
+        'Write a short outbound email to a cold prospect, briefly introducing the product value and inviting a reply.',
       quickReminder: 'Reminder',
-      quickReminderPrompt: 'Write a polite reminder email asking the recipient to review the previous email and respond.',
+      quickReminderPrompt:
+        'Write a polite reminder email asking the recipient to review the previous email and respond.',
       quickMeeting: 'Meeting Invite',
-      quickMeetingPrompt: 'Write a meeting invitation email that explains the purpose and asks for a convenient time.',
+      quickMeetingPrompt:
+        'Write a meeting invitation email that explains the purpose and asks for a convenient time.',
       quickFormal: 'More Formal',
       quickFormalPrompt: 'Make this email more formal and clearer.',
       quickShorter: 'Shorter',
@@ -1166,7 +1172,8 @@ const en = {
       quickTranslate: 'To English',
       quickTranslatePrompt: 'Translate this email into English.',
       quickCta: 'Strong CTA',
-      quickCtaPrompt: 'Strengthen the closing call to action so the recipient is more likely to reply.',
+      quickCtaPrompt:
+        'Strengthen the closing call to action so the recipient is more likely to reply.',
       bodyEditorPlaceholder: 'Enter the email body...',
       loadAccountsFailed: 'Failed to load accounts',
       readFileFailed: 'Failed to read file',
@@ -1188,7 +1195,8 @@ const en = {
       sendCompletedSummaryWithDetail: 'Completed: {success} sent, {fail} failed. {detail}',
       recordSyncFailed: 'Failed to save the sent record',
       recordSyncFailedAfterSend: 'The email was sent, but saving the sent record failed',
-      recordSyncFailedAfterFailure: 'The email failed to send, and saving the sent record also failed',
+      recordSyncFailedAfterFailure:
+        'The email failed to send, and saving the sent record also failed',
       aiPolishSuccess: 'AI polish completed',
       aiPolishFailed: 'AI polish failed',
       aiPolishRetryFailed: 'AI polish failed, please try again later',
@@ -1204,7 +1212,24 @@ const en = {
     title: 'Share Mailboxes',
     selectedMailboxes: '{count} mailboxes selected',
     expireDays: 'Validity period',
+    expireMode: 'Validity type',
+    minutesMode: 'Minutes',
+    daysMode: 'Days',
+    minutes: 'Minutes',
+    days: 'Days',
+    minuteUnit: 'min',
+    minuteShortUnit: 'm',
+    secondUnit: 's',
+    dayUnit: 'days',
+    startMode: 'Timer starts',
+    startAtCreated: 'When created',
+    startAtFirstOpened: 'When first opened',
+    linkCount: 'Link count',
+    latestOnly: 'Only allow one latest email',
+    copyAll: 'Copy all links',
+    batchCopy: 'Batch copy',
     linkGenerated: 'Share link created',
+    generatedCount: '{count} links generated',
     create: 'Create share',
     creating: 'Creating...',
     day1: '1 day',
@@ -1212,6 +1237,9 @@ const en = {
     day30: '30 days',
     permanentValid: 'Permanent',
     validUntil: 'Valid until {date}',
+    validitySummary: 'Validity: {value}',
+    invalidDays: 'Days must be greater than 0',
+    invalidMinutes: 'Minutes must be greater than 0',
     selectMailboxWarning: 'Select at least one mailbox to share',
     createSuccess: 'Share created successfully',
     createFailed: 'Failed to create share',
@@ -1813,7 +1841,8 @@ const en = {
     quantityLabel: 'Quantity',
     remainingInventory: 'Available inventory: {count}',
     totalPrice: 'Total: {totalPrice} coins',
-    buyerFeeBreakdown: 'Item {itemPrice} coins + platform fee {fee} coins, total {totalPrice} coins',
+    buyerFeeBreakdown:
+      'Item {itemPrice} coins + platform fee {fee} coins, total {totalPrice} coins',
     executingTitle: 'Running workflow...',
     executingSubtitle: 'Please wait while your request is being processed',
     seoFallbackTitle: 'Workflow Details',
@@ -1831,7 +1860,8 @@ const en = {
     confirmExecutePerUse: 'Run workflow "{name}" now and spend {price} coins?',
     confirmExecutePerUseMultiple:
       'Run workflow "{name}" {count} times now and spend {totalPrice} coins total ({price} coins each)?',
-    confirmBuyOutlook: 'Buy "{name}" for {price} coins? It will be added to your external mailboxes automatically.',
+    confirmBuyOutlook:
+      'Buy "{name}" for {price} coins? It will be added to your external mailboxes automatically.',
     confirmBuyOutlookMultiple:
       'Buy {count} "{name}" items for {totalPrice} coins total ({price} coins each)? They will be added to your external mailboxes automatically.',
     confirmExecuteSubscription:
@@ -1968,7 +1998,8 @@ const en = {
     windowStart: 'Start time',
     windowEnd: 'End time',
     timePlaceholder: 'For example: 09:00',
-    randomWindowHelp: 'After the trigger matches, execution will be randomly scheduled within this window. If today is missed, it will roll over to the next day.',
+    randomWindowHelp:
+      'After the trigger matches, execution will be randomly scheduled within this window. If today is missed, it will roll over to the next day.',
     matchCondition: 'Match Condition',
     matchTypePlaceholder: 'Select a match type',
     matchContent: 'Contains',

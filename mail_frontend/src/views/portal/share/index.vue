@@ -1,182 +1,217 @@
 <template>
   <div>
-    <!-- 公共头部 -->
-    <PageHeader />
-    
-    <ThreeColumnLayout>
-      <template #header>
-        <div></div>
-      </template>
-    
-    <template #toolbar>
-      <div class="flex items-center justify-between">
-        <div class="flex items-center gap-3">
-          <svg class="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path>
-          </svg>
-          <h1 class="text-lg font-semibold text-gray-900">{{ t('sharePage.title') }}</h1>
-          <span v-if="mailboxCount > 0" class="text-sm text-gray-500">({{ t('sharePage.mailboxCount', { count: mailboxCount }) }})</span>
-        </div>
-        <div v-if="expireAt" class="flex items-center gap-2 text-sm text-gray-500">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-          </svg>
-          <span>{{ t('sharePage.validUntil', { date: formatDate(expireAt) }) }}</span>
-        </div>
-      </div>
-    </template>
-
-    <!-- 左栏：邮箱列表 -->
-    <template #left>
-      <div v-if="loading" class="flex items-center justify-center h-full">
-        <div class="text-center">
-          <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
-          <p class="mt-2 text-sm text-gray-600">{{ t('common.loading') }}</p>
-        </div>
-      </div>
-
-      <div v-else-if="error" class="flex items-center justify-center h-full p-4">
-        <div class="text-center">
-          <svg class="w-12 h-12 text-red-500 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-          </svg>
-          <p class="text-red-800 font-medium">{{ error }}</p>
-        </div>
-      </div>
-
-      <MailboxList
-        v-else
-        :title="t('sharePage.myMailboxes')"
-        :mailboxes="mailboxes"
-        :selectedId="selectedMailbox?.id"
-        :emptyText="t('sharePage.noMailbox')"
-        @select="handleSelectMailbox"
-      >
-        <template #content="{ mailboxes, selectedId, batchMode, selectedIds, toggleSelection, onSelect }">
-          <MailboxCard
-            v-for="mailbox in mailboxes"
-            :key="mailbox.id"
-            :batch-mode="batchMode"
-            :checked="selectedIds.includes(mailbox.id)"
-            :card-class="[
-              'cursor-pointer transition-colors',
-              selectedId === mailbox.id ? 'bg-primary-100 border-primary-200' : 'bg-gray-50 hover:bg-primary-50'
-            ]"
-            @click="batchMode ? toggleSelection(mailbox.id) : onSelect(mailbox)"
-            @toggle-check="toggleSelection(mailbox.id)"
-          >
-            <div class="flex items-center gap-2 min-w-0">
-              <div class="w-2 h-2 rounded-full bg-green-500 flex-shrink-0"></div>
-              <code class="block text-sm text-gray-900 truncate">{{ mailbox.email || mailbox.email_address }}</code>
-            </div>
-            <div class="text-xs text-gray-600 mt-1 flex items-center justify-between">
-              <span>{{ t('common.createdAt') }}：{{ formatDate(mailbox.created_at || mailbox.created_at_ms) }}</span>
-              <span v-if="mailboxType === 'system' && mailbox.expires_at_ms" class="text-orange-600">
-                {{ t('common.expiresAtLabel') }}：{{ formatDate(mailbox.expires_at_ms) }}
-              </span>
-            </div>
-            <template #actions>
-              <div
-                class="relative"
-                @mouseenter="handleActionMenuEnter(mailbox.id, $event)"
-                @mouseleave="handleActionMenuLeave(mailbox.id)"
-              >
-                <button
-                  type="button"
-                  class="flex h-8 w-8 items-center justify-center rounded-full text-gray-500 transition-colors hover:bg-white hover:text-gray-700"
-                  :title="t('externalMailbox.moreActions')"
-                  @click.stop="openActionMenu(mailbox.id, $event)"
-                >
-                  <BaseIcon name="more" size="sm" />
-                </button>
-                <div
-                  v-if="openMenuId === mailbox.id"
-                  :class="[
-                    'absolute right-0 z-20 min-w-[128px] overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg',
-                    openMenuPlacement === 'up' ? 'bottom-full' : 'top-full'
-                  ]"
-                  @click.stop
-                >
-                  <button
-                    type="button"
-                    class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-50"
-                    @click.stop="copyMailboxAddress(mailbox.email || mailbox.email_address)"
-                  >
-                    <BaseIcon name="copy" size="sm" />
-                    {{ t('externalMailbox.copyMailbox') }}
-                  </button>
-                  <button
-                    v-if="mailboxType === 'external'"
-                    type="button"
-                    class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-                    :disabled="fetchingShareEmailIds.includes(mailbox.id)"
-                    @click.stop="handleFetchShareEmails(mailbox)"
-                  >
-                    <BaseIcon
-                      name="refresh"
-                      size="sm"
-                      :class="{ 'animate-spin': fetchingShareEmailIds.includes(mailbox.id) }"
-                    />
-                    {{ fetchingShareEmailIds.includes(mailbox.id) ? t('externalMailbox.fetching') : t('externalMailbox.fetchMail') }}
-                  </button>
-                </div>
-              </div>
-            </template>
-          </MailboxCard>
-        </template>
-      </MailboxList>
-    </template>
-
-    <!-- 中栏：邮件列表 -->
-    <template #middle>
-      <EmailList
-        :title="t('mail.myEmails')"
-        :emails="emails"
-        :selectedId="selectedEmail?.id"
-        :showPagination="totalPages > 1"
-        :autoRefresh="mailboxType === 'system' ? { countdown: { value: countdown } } : null"
-        @select="handleSelectEmail"
-      >
-        <template #title-extra>
-          <button
-            v-if="selectedMailbox"
-            @click="handleSelectMailbox(null)"
-            class="px-2 py-1 text-xs text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors whitespace-nowrap"
-          >
-            {{ t('sharePage.viewAll') }}
-          </button>
-        </template>
-
-        <template #content="{ emails, selectedId, onSelect }">
-          <div v-if="loadingEmails" class="flex items-center justify-center h-full">
-            <div class="text-center">
-              <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
-              <p class="mt-2 text-sm text-gray-600">{{ t('sharePage.loadingEmails') }}</p>
-            </div>
+    <ThreeColumnLayout workspace-mode resizable-panels>
+      <template #toolbar>
+        <div class="flex items-center justify-between pb-3">
+          <div class="flex items-center gap-3">
+            <svg
+              class="w-5 h-5 text-primary-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
+              ></path>
+            </svg>
+            <h1 class="text-lg font-semibold text-gray-900">{{ t('sharePage.title') }}</h1>
+            <span v-if="mailboxCount > 0" class="text-sm text-gray-500"
+              >({{ t('sharePage.mailboxCount', { count: mailboxCount }) }})</span
+            >
           </div>
-          <EmailItem
-            v-else
-            v-for="email in emails"
-            :key="email.id"
-            :email="{ ...email, is_read: email.is_read || readEmailIds.has(email.id) }"
-            :isSelected="selectedId === email.id"
-            @click="onSelect(email)"
-          />
-        </template>
+          <div v-if="shareState === 'expired'" class="text-sm text-red-600">
+            {{ t('sharePage.shareExpired') }}
+          </div>
+          <div v-else-if="shareValidityText" class="flex items-center gap-2 text-sm text-gray-500">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+              ></path>
+            </svg>
+            <span>{{ shareValidityText }}</span>
+          </div>
+          <div v-if="shareState === 'completed'" class="text-sm text-green-600">
+            {{ t('sharePage.shareCompleted') }}
+          </div>
+        </div>
+      </template>
 
-        <template #pagination>
-          <Pagination
-            :currentPage="currentPage"
-            :totalPages="totalPages"
-            @update:currentPage="handlePageChange"
-          />
-        </template>
-      </EmailList>
-    </template>
+      <!-- 左栏：邮箱列表 -->
+      <template #left>
+        <div v-if="loading" class="flex items-center justify-center h-full">
+          <div class="text-center">
+            <div
+              class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"
+            ></div>
+            <p class="mt-2 text-sm text-gray-600">{{ t('common.loading') }}</p>
+          </div>
+        </div>
 
-    <template #right>
-      <EmailDetail :email="selectedEmail" @expand="openEmailModal" />
-    </template>
+        <div v-else-if="error" class="flex items-center justify-center h-full p-4">
+          <div class="text-center">
+            <svg
+              class="w-12 h-12 text-red-500 mx-auto mb-3"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              ></path>
+            </svg>
+            <p class="text-red-800 font-medium">{{ error }}</p>
+          </div>
+        </div>
+
+        <MailboxList
+          v-else
+          :title="t('sharePage.myMailboxes')"
+          :mailboxes="mailboxes"
+          :selectedId="selectedMailbox?.id"
+          :emptyText="t('sharePage.noMailbox')"
+          hide-batch-mode
+          @select="handleSelectMailbox"
+        >
+          <template
+            #content="{ mailboxes, selectedId, batchMode, selectedIds, toggleSelection, onSelect }"
+          >
+            <MailboxCard
+              v-for="mailbox in mailboxes"
+              :key="mailbox.id"
+              :batch-mode="batchMode"
+              :checked="selectedIds.includes(mailbox.id)"
+              :card-class="[
+                'cursor-pointer transition-colors',
+                selectedId === mailbox.id
+                  ? 'bg-primary-100 border-primary-200'
+                  : 'bg-gray-50 hover:bg-primary-50'
+              ]"
+              @click="batchMode ? toggleSelection(mailbox.id) : onSelect(mailbox)"
+              @toggle-check="toggleSelection(mailbox.id)"
+            >
+              <div class="flex items-center gap-2 min-w-0">
+                <div class="w-2 h-2 rounded-full bg-green-500 flex-shrink-0"></div>
+                <code class="block text-sm text-gray-900 truncate">{{
+                  mailbox.email || mailbox.email_address
+                }}</code>
+              </div>
+              <template #actions>
+                <div
+                  class="relative"
+                  @mouseenter="handleActionMenuEnter(mailbox.id, $event)"
+                  @mouseleave="handleActionMenuLeave(mailbox.id)"
+                >
+                  <button
+                    type="button"
+                    class="flex h-8 w-8 items-center justify-center rounded-full text-gray-500 transition-colors hover:bg-white hover:text-gray-700"
+                    :title="t('externalMailbox.moreActions')"
+                    @click.stop="openActionMenu(mailbox.id, $event)"
+                  >
+                    <BaseIcon name="more" size="sm" />
+                  </button>
+                  <div
+                    v-if="openMenuId === mailbox.id"
+                    :class="[
+                      'absolute right-0 z-20 min-w-[128px] overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg',
+                      openMenuPlacement === 'up' ? 'bottom-full' : 'top-full'
+                    ]"
+                    @click.stop
+                  >
+                    <button
+                      type="button"
+                      class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-50"
+                      @click.stop="copyMailboxAddress(mailbox.email || mailbox.email_address)"
+                    >
+                      <BaseIcon name="copy" size="sm" />
+                      {{ t('externalMailbox.copyMailbox') }}
+                    </button>
+                    <button
+                      v-if="mailboxType === 'external'"
+                      type="button"
+                      class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      :disabled="fetchingShareEmailIds.includes(mailbox.id)"
+                      @click.stop="handleFetchShareEmails(mailbox)"
+                    >
+                      <BaseIcon
+                        name="refresh"
+                        size="sm"
+                        :class="{ 'animate-spin': fetchingShareEmailIds.includes(mailbox.id) }"
+                      />
+                      {{
+                        fetchingShareEmailIds.includes(mailbox.id)
+                          ? t('externalMailbox.fetching')
+                          : t('externalMailbox.fetchMail')
+                      }}
+                    </button>
+                  </div>
+                </div>
+              </template>
+            </MailboxCard>
+          </template>
+        </MailboxList>
+      </template>
+
+      <!-- 中栏：邮件列表 -->
+      <template #middle>
+        <EmailList
+          :title="t('mail.myEmails')"
+          :emails="emails"
+          :selectedId="selectedEmail?.id"
+          :showPagination="totalPages > 1"
+          :autoRefresh="mailboxType === 'system' ? { countdown: { value: countdown } } : null"
+          @select="handleSelectEmail"
+        >
+          <template #title-extra>
+            <button
+              v-if="selectedMailbox"
+              @click="handleSelectMailbox(null)"
+              class="px-2 py-1 text-xs text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors whitespace-nowrap"
+            >
+              {{ t('sharePage.viewAll') }}
+            </button>
+          </template>
+
+          <template #content="{ emails, selectedId, onSelect }">
+            <div v-if="loadingEmails" class="flex items-center justify-center h-full">
+              <div class="text-center">
+                <div
+                  class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"
+                ></div>
+                <p class="mt-2 text-sm text-gray-600">{{ t('sharePage.loadingEmails') }}</p>
+              </div>
+            </div>
+            <EmailItem
+              v-else
+              v-for="email in emails"
+              :key="email.id"
+              :email="{ ...email, is_read: email.is_read || readEmailIds.has(email.id) }"
+              :isSelected="selectedId === email.id"
+              @click="onSelect(email)"
+            />
+          </template>
+
+          <template #pagination>
+            <Pagination
+              :currentPage="currentPage"
+              :totalPages="totalPages"
+              @update:currentPage="handlePageChange"
+            />
+          </template>
+        </EmailList>
+      </template>
+
+      <template #right>
+        <EmailDetail :email="selectedEmail" @expand="openEmailModal" />
+      </template>
     </ThreeColumnLayout>
 
     <!-- 邮件内容弹窗 -->
@@ -189,10 +224,9 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import PageHeader from '@/components/PageHeader/index.vue'
 import ThreeColumnLayout from '@/components/Mail/Layout/ThreeColumnLayout.vue'
 import MailboxList from '@/components/Mail/MailboxList/MailboxList.vue'
 import MailboxCard from '@/components/Mail/MailboxList/MailboxCard.vue'
@@ -205,6 +239,7 @@ import BaseIcon from '@/components/BaseIcon/index.vue'
 import { mailboxShareAPI } from '@/api/mailboxShare'
 import { showMessage } from '@/utils/message'
 import { getCurrentLocale } from '@/i18n'
+import { resolveShareValidity } from './shareDisplay'
 
 const route = useRoute()
 const { t } = useI18n()
@@ -215,7 +250,31 @@ const mailboxType = ref('system')
 const mailboxes = ref([])
 const mailboxCount = ref(0)
 const expireAt = ref(null)
+const expireMode = ref(null)
+const expireMinutes = ref(null)
+const expireDays = ref(null)
+const shareState = ref('ready')
 const selectedMailbox = ref(null)
+const validityNow = ref(Date.now())
+let validityCountdownTimer = null
+
+const shareValidityText = computed(() => {
+  if (expireMode.value === null && !expireAt.value) return ''
+  return resolveShareValidity({
+    expireAt: expireAt.value,
+    expireMode: expireMode.value || (expireAt.value ? 'days' : 'permanent'),
+    expireMinutes: expireMinutes.value,
+    expireDays: expireDays.value,
+    minuteShortUnit: t('shareMailbox.minuteShortUnit'),
+    secondUnit: t('shareMailbox.secondUnit'),
+    now: validityNow.value,
+    locale: getCurrentLocale(),
+    minuteUnit: t('shareMailbox.minuteUnit'),
+    dayUnit: t('shareMailbox.dayUnit'),
+    permanentValue: t('common.permanent'),
+    validityText: (value) => t('sharePage.validitySummary', { value })
+  })
+})
 
 const loadingEmails = ref(false)
 const fetchingShareEmailIds = ref([])
@@ -250,12 +309,12 @@ const startAutoRefresh = () => {
   if (mailboxType.value !== 'system') {
     return
   }
-  
+
   // 清除旧的定时器
   if (countdownTimer) clearInterval(countdownTimer)
-  
+
   countdown.value = 10
-  
+
   // 每秒倒计时
   countdownTimer = setInterval(() => {
     countdown.value--
@@ -274,6 +333,31 @@ const stopAutoRefresh = () => {
   }
 }
 
+const startValidityCountdown = () => {
+  if (validityCountdownTimer) clearInterval(validityCountdownTimer)
+  validityCountdownTimer = null
+
+  if (expireMode.value !== 'minutes' || !expireAt.value) return
+
+  validityNow.value = Date.now()
+  validityCountdownTimer = setInterval(() => {
+    validityNow.value = Date.now()
+    const expireAtMs =
+      typeof expireAt.value === 'number' ? expireAt.value : new Date(expireAt.value).getTime()
+    if (Number.isFinite(expireAtMs) && validityNow.value >= expireAtMs) {
+      clearInterval(validityCountdownTimer)
+      validityCountdownTimer = null
+    }
+  }, 1000)
+}
+
+const stopValidityCountdown = () => {
+  if (validityCountdownTimer) {
+    clearInterval(validityCountdownTimer)
+    validityCountdownTimer = null
+  }
+}
+
 const loadShareInfo = async () => {
   const shareToken = route.params.token
   if (!shareToken) {
@@ -288,11 +372,16 @@ const loadShareInfo = async () => {
       mailboxes.value = res.data.mailboxes || []
       mailboxCount.value = mailboxes.value.length
       expireAt.value = res.data.expire_at
+      expireMode.value = res.data.expire_mode || (res.data.expire_at ? 'days' : 'permanent')
+      expireMinutes.value = res.data.expire_minutes
+      expireDays.value = res.data.expire_days
+      shareState.value = res.data.share_state || 'ready'
+      startValidityCountdown()
       // 默认不选中任何邮箱，显示全部邮件
       selectedMailbox.value = null
       await loadEmails()
       // 启动自动刷新
-      startAutoRefresh()
+      if (shareState.value !== 'completed') startAutoRefresh()
     } else {
       error.value = res.message || t('sharePage.loadShareFailed')
     }
@@ -301,6 +390,7 @@ const loadShareInfo = async () => {
     if (err.response?.status === 404) {
       error.value = t('sharePage.shareNotFound')
     } else if (err.response?.status === 410) {
+      stopValidityCountdown()
       error.value = t('sharePage.shareExpired')
     } else {
       error.value = err.response?.data?.detail || t('sharePage.loadFailed')
@@ -311,6 +401,7 @@ const loadShareInfo = async () => {
 }
 
 const loadEmails = async () => {
+  if (shareState.value === 'completed' || shareState.value === 'expired') return
   const shareToken = route.params.token
   loadingEmails.value = true
   try {
@@ -321,14 +412,24 @@ const loadEmails = async () => {
     })
     if (res.code === 0) {
       emails.value = res.data.emails || []
+      shareState.value = res.data.share_state || shareState.value
       emailTotal.value = res.data.pagination?.total || 0
       totalPages.value = res.data.pagination?.total_pages || 1
+      if (shareState.value === 'completed') {
+        stopAutoRefresh()
+      }
       // 不自动选中第一封邮件，保持空状态
     } else {
       showMessage(res.message || t('sharePage.loadEmailsFailed'), 'error')
     }
   } catch (err) {
     console.error('加载邮件失败:', err)
+    if (err.response?.status === 410) {
+      shareState.value = 'expired'
+      stopAutoRefresh()
+      stopValidityCountdown()
+      return
+    }
     showMessage(t('sharePage.loadEmailsFailed'), 'error')
   } finally {
     loadingEmails.value = false
@@ -345,10 +446,10 @@ const handleSelectMailbox = (mailbox) => {
 const handleSelectEmail = async (email) => {
   // 先设置选中状态（显示基本信息）
   selectedEmail.value = email
-  
+
   // 标记为已读（仅前端本地）
   readEmailIds.value.add(email.id)
-  
+
   // 获取完整邮件详情（包含 content_text 和 content_html）
   try {
     const shareToken = route.params.token
@@ -368,6 +469,12 @@ const handleSelectEmail = async (email) => {
     }
   } catch (err) {
     console.error('获取邮件详情失败:', err)
+    if (err.response?.status === 410) {
+      shareState.value = 'expired'
+      stopAutoRefresh()
+      stopValidityCountdown()
+      return
+    }
     showMessage(t('sharePage.loadEmailDetailFailed'), 'error')
   }
 }
@@ -413,7 +520,12 @@ const handleActionMenuLeave = (mailboxId) => {
 
 const handleFetchShareEmails = async (mailbox) => {
   const targetMailboxId = mailbox?.id
-  if (mailboxType.value !== 'external' || !targetMailboxId || fetchingShareEmailIds.value.includes(targetMailboxId)) return
+  if (
+    mailboxType.value !== 'external' ||
+    !targetMailboxId ||
+    fetchingShareEmailIds.value.includes(targetMailboxId)
+  )
+    return
   const shareToken = route.params.token
   fetchingShareEmailIds.value = [...fetchingShareEmailIds.value, targetMailboxId]
   closeActionMenu()
@@ -422,8 +534,12 @@ const handleFetchShareEmails = async (mailbox) => {
       mailbox_id: targetMailboxId
     })
     if (res.code === 0) {
-      const messageType = res.data?.success_count === 0 && res.data?.fail_count > 0 ? 'error' : 'success'
-      showMessage(res.message || t('sharePage.fetchAllSuccess', { count: res.data?.new_email_count || 0 }), messageType)
+      const messageType =
+        res.data?.success_count === 0 && res.data?.fail_count > 0 ? 'error' : 'success'
+      showMessage(
+        res.message || t('sharePage.fetchAllSuccess', { count: res.data?.new_email_count || 0 }),
+        messageType
+      )
       currentPage.value = 1
       selectedEmail.value = null
       await loadEmails()
@@ -434,7 +550,7 @@ const handleFetchShareEmails = async (mailbox) => {
     console.error('分享收取邮件失败:', err)
     showMessage(err.response?.data?.detail || t('sharePage.loadEmailsFailed'), 'error')
   } finally {
-    fetchingShareEmailIds.value = fetchingShareEmailIds.value.filter(id => id !== targetMailboxId)
+    fetchingShareEmailIds.value = fetchingShareEmailIds.value.filter((id) => id !== targetMailboxId)
   }
 }
 
@@ -451,28 +567,12 @@ const copyMailboxAddress = (email) => {
   showMessage(t('sharePage.copied'), 'success')
 }
 
-const formatDate = (dateStr) => {
-  if (!dateStr) return ''
-  let date
-  if (typeof dateStr === 'number') {
-    date = new Date(dateStr)
-  } else {
-    date = new Date(dateStr)
-  }
-  return date.toLocaleString(getCurrentLocale(), {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit'
-  })
-}
-
 onMounted(() => {
   loadShareInfo()
 })
 
 onUnmounted(() => {
   stopAutoRefresh()
+  stopValidityCountdown()
 })
 </script>

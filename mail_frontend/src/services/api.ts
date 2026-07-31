@@ -304,6 +304,7 @@ api.interceptors.response.use(
 
     return Promise.reject({
       response: {
+        status: error.response?.status,
         data: {
           code: 1,
           message: errorMessage,

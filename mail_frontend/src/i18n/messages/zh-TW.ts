@@ -501,6 +501,8 @@ const zhTW = {
   sharePage: {
     title: '郵箱分享',
     mailboxCount: '{count} 個郵箱',
+    validity: '有效期',
+    validitySummary: '有效期：{value}',
     validUntil: '有效期至：{date}',
     myMailboxes: '我的郵箱',
     noMailbox: '暫無郵箱',
@@ -513,6 +515,8 @@ const zhTW = {
     loadShareFailed: '取得分享資訊失敗',
     shareNotFound: '分享不存在',
     shareExpired: '分享已過期',
+    waitingForTurn: '目前連結正在排隊等待收信',
+    shareCompleted: '目前連結已完成收信',
     loadFailed: '載入失敗',
     loadEmailsFailed: '載入郵件失敗',
     loadEmailDetailFailed: '取得郵件詳情失敗',
@@ -781,7 +785,8 @@ const zhTW = {
     waitingVerify: '等待驗證',
     yourDomain: '你的網域',
     mailboxTitle: '網域郵箱',
-    mailboxPublicHint: '這裡可以新增和編輯網域郵箱。勾選「是否公益」後，這個郵箱會進入公益池，其他人生成網域郵箱時也可能領到它。',
+    mailboxPublicHint:
+      '這裡可以新增和編輯網域郵箱。勾選「是否公益」後，這個郵箱會進入公益池，其他人生成網域郵箱時也可能領到它。',
     addMailbox: '新增郵箱',
     addMailboxTitle: '新增網域郵箱',
     editMailbox: '編輯郵箱',
@@ -799,13 +804,15 @@ const zhTW = {
     mailboxUpdateSuccess: '網域郵箱更新成功',
     mailboxDeleteSuccess: '網域郵箱刪除成功',
     publicMailboxLabel: '是否公益',
-    publicMailboxHelp: '勾選後，這個郵箱會按臨時郵箱那套共享邏輯進入公益池，其他使用者生成網域郵箱時也可以直接領用。',
+    publicMailboxHelp:
+      '勾選後，這個郵箱會按臨時郵箱那套共享邏輯進入公益池，其他使用者生成網域郵箱時也可以直接領用。',
     publicMailboxWarning: '公益郵箱會對外開放給其他使用者領取，請不要放私人地址。',
     publicMailboxDisabledHint: '預設代收郵箱不支援設為公益郵箱。',
     publicMailboxBadge: '公益',
     catchAllDefaultBadge: '預設代收',
     publicDomainLabel: '是否公益',
-    publicDomainHelp: '勾選後，整個網域會進入公益池，其他人生成網域郵箱時也會像臨時郵箱那樣優先分配到這個網域下。',
+    publicDomainHelp:
+      '勾選後，整個網域會進入公益池，其他人生成網域郵箱時也會像臨時郵箱那樣優先分配到這個網域下。',
     publicDomainBadge: '公益網域'
   },
   purchasesPage: {
@@ -971,7 +978,8 @@ const zhTW = {
     historyFetchCancelled: '已停止背景收取，已新增 {count} 封郵件',
     historyFetchCancelFailed: '停止收取失敗',
     historyFetchCompleted: '歷史郵件收取完成，成功 {success} 個郵箱，新增 {count} 封郵件',
-    historyFetchCompletedWithFailures: '歷史郵件收取完成，成功 {success} 個郵箱，失敗 {failed} 個，新增 {count} 封郵件',
+    historyFetchCompletedWithFailures:
+      '歷史郵件收取完成，成功 {success} 個郵箱，失敗 {failed} 個，新增 {count} 封郵件',
     deleteAccount: '刪除帳號',
     batchDeleteTitle: '批量刪除',
     deleteTitle: '刪除帳號',
@@ -1148,7 +1156,24 @@ const zhTW = {
     title: '分享郵箱',
     selectedMailboxes: '已選擇 {count} 個郵箱',
     expireDays: '有效期',
+    expireMode: '有效期類型',
+    minutesMode: '按分鐘',
+    daysMode: '按天',
+    minutes: '分鐘數',
+    days: '天數',
+    minuteUnit: '分鐘',
+    minuteShortUnit: '分',
+    secondUnit: '秒',
+    dayUnit: '天',
+    startMode: '計時起點',
+    startAtCreated: '建立後開始',
+    startAtFirstOpened: '首次開啟後開始',
+    linkCount: '連結數量',
+    latestOnly: '只允許查看最新一封郵件',
+    copyAll: '批量複製全部連結',
+    batchCopy: '批量複製',
     linkGenerated: '分享連結已生成',
+    generatedCount: '已生成 {count} 個連結',
     create: '建立分享',
     creating: '建立中...',
     day1: '1天',
@@ -1156,6 +1181,9 @@ const zhTW = {
     day30: '30天',
     permanentValid: '永久有效',
     validUntil: '有效期至 {date}',
+    validitySummary: '有效期：{value}',
+    invalidDays: '天數必須大於0',
+    invalidMinutes: '分鐘數必須大於0',
     selectMailboxWarning: '請選擇要分享的郵箱',
     createSuccess: '分享建立成功',
     createFailed: '建立分享失敗',
@@ -1765,7 +1793,8 @@ const zhTW = {
     confirmExecutePerUse: '立即執行工作流 "{name}" 將扣除 {price} 奶片。確認執行嗎？',
     confirmExecutePerUseMultiple:
       '立即執行工作流 "{name}" {count} 次，將扣除 {totalPrice} 奶片（{price} 奶片/次）。確認執行嗎？',
-    confirmBuyOutlook: '購買 "{name}" 將扣除 {price} 奶片，購買後會自動添加到你的第三方郵箱。確認購買嗎？',
+    confirmBuyOutlook:
+      '購買 "{name}" 將扣除 {price} 奶片，購買後會自動添加到你的第三方郵箱。確認購買嗎？',
     confirmBuyOutlookMultiple:
       '購買 "{name}" {count} 個，將扣除 {totalPrice} 奶片（{price} 奶片/個），購買後會自動添加到你的第三方郵箱。確認購買嗎？',
     confirmExecuteSubscription:
@@ -2310,8 +2339,7 @@ const zhTW = {
       },
       about: {
         title: '幫助中心 - 肥貓貓郵箱服務',
-        description:
-          '查看臨時郵箱、網域郵箱、第三方郵箱的使用說明，後續會持續補截圖和常見問題。',
+        description: '查看臨時郵箱、網域郵箱、第三方郵箱的使用說明，後續會持續補截圖和常見問題。',
         keywords: '幫助中心, 臨時郵箱, 網域郵箱, 第三方郵箱, 驗號, 收件, DNS'
       },
       privacyPolicy: {

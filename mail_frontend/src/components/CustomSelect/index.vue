@@ -9,14 +9,19 @@
     >
       <span class="block truncate pr-2">{{ displayText }}</span>
       <span class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-        <svg 
+        <svg
           class="h-4 w-4 text-gray-400 transition-transform duration-200"
           :class="{ 'rotate-180': isOpen }"
-          fill="none" 
-          stroke="currentColor" 
+          fill="none"
+          stroke="currentColor"
           viewBox="0 0 24 24"
         >
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M19 9l-7 7-7-7"
+          />
         </svg>
       </span>
     </button>
@@ -33,7 +38,7 @@
         <div
           v-if="isOpen"
           ref="dropdownRef"
-          class="fixed z-[9999] max-h-60 overflow-auto rounded-md bg-white py-1 text-sm shadow-lg ring-1 ring-black/5 focus:outline-none"
+          class="fixed z-[12000] max-h-60 overflow-auto rounded-md bg-white py-1 text-sm shadow-lg ring-1 ring-black/5 focus:outline-none"
           :style="dropdownStyle"
         >
           <button
@@ -78,7 +83,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{
   'update:modelValue': [value: string | number]
-  'change': [value: string | number]
+  change: [value: string | number]
 }>()
 
 const isOpen = ref(false)
@@ -87,7 +92,9 @@ const dropdownRef = ref<HTMLElement>()
 const dropdownStyle = ref<Record<string, string>>({})
 
 const buttonClass = computed(() => {
-  const disabledClass = props.disabled ? 'cursor-not-allowed bg-gray-50 text-gray-500 opacity-75' : 'cursor-pointer bg-white'
+  const disabledClass = props.disabled
+    ? 'cursor-not-allowed bg-gray-50 text-gray-500 opacity-75'
+    : 'cursor-pointer bg-white'
   if (props.size === 'sm') {
     return `relative h-10 w-full rounded-lg border border-gray-300 pl-3 pr-9 text-left text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${disabledClass}`
   }
@@ -96,7 +103,7 @@ const buttonClass = computed(() => {
 
 // 显示文本
 const displayText = computed(() => {
-  const selected = props.options.find(option => option.value === props.modelValue)
+  const selected = props.options.find((option) => option.value === props.modelValue)
   return selected ? selected.label : props.placeholder
 })
 
@@ -106,7 +113,8 @@ const updateDropdownPosition = () => {
   const rect = selectRef.value.getBoundingClientRect()
   const dropdownHeight = dropdownRef.value?.offsetHeight || 240
   const spaceBelow = window.innerHeight - rect.bottom
-  const shouldOpenTop = props.placement === 'top' || (spaceBelow < dropdownHeight + 8 && rect.top > spaceBelow)
+  const shouldOpenTop =
+    props.placement === 'top' || (spaceBelow < dropdownHeight + 8 && rect.top > spaceBelow)
   const top = shouldOpenTop
     ? Math.max(8, rect.top - dropdownHeight - 4)
     : Math.min(window.innerHeight - 8, rect.bottom + 4)
@@ -140,9 +148,9 @@ const selectOption = (option: Option) => {
 const handleClickOutside = (event: MouseEvent) => {
   const target = event.target as Node
   if (
-    selectRef.value
-    && !selectRef.value.contains(target)
-    && !dropdownRef.value?.contains(target)
+    selectRef.value &&
+    !selectRef.value.contains(target) &&
+    !dropdownRef.value?.contains(target)
   ) {
     isOpen.value = false
   }

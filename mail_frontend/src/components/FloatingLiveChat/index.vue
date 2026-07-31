@@ -3,14 +3,15 @@
     <Transition name="floating-panel">
       <div
         v-if="visible"
-        class="flex h-[min(78vh,760px)] w-[min(420px,calc(100vw-1rem))] flex-col overflow-hidden rounded-[28px] border border-primary-100 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.18)]"
+        class="flex h-[min(78vh,760px)] flex-col overflow-hidden rounded-[28px] border border-primary-100 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.18)]"
+        :class="isAdmin ? 'w-[min(860px,calc(100vw-1rem))]' : 'w-[min(420px,calc(100vw-1rem))]'"
       >
         <div class="border-b border-primary-200 bg-gradient-to-r from-primary-800 via-primary-700 to-primary-500 px-4 py-3 text-white">
           <div class="flex items-center justify-between gap-3">
             <div>
               <p class="text-sm font-semibold">在线客服</p>
-              <p class="mt-1 text-xs text-primary-50/90">
-                {{ isAdmin ? '可查看并回复用户会话。' : '只有你和管理员能看到这段对话。' }}
+              <p v-if="isAdmin" class="mt-1 text-xs text-primary-50/90">
+                可查看并回复用户会话。
               </p>
             </div>
             <div class="flex items-center gap-3">
@@ -31,44 +32,113 @@
             <span class="inline-block h-2 w-2 rounded-full" :class="statusDotClass"></span>
             <span>{{ statusText }}</span>
           </div>
-          <div
+        </div>
+
+        <div
+          class="min-h-0 flex-1"
+          :class="isAdmin ? 'flex sm:grid sm:grid-cols-[220px_minmax(0,1fr)]' : 'flex'"
+        >
+          <aside
             v-if="isAdmin"
-            class="mt-3 rounded-xl bg-white/10 px-3 py-2 text-xs text-primary-50"
+            data-testid="admin-conversation-list"
+            class="min-h-0 w-full shrink-0 flex-col border-r border-gray-200 bg-gray-50/90 sm:w-[220px]"
+            :class="mobileShowConversation ? 'hidden sm:flex' : 'flex'"
           >
-            <div class="mb-2 flex items-center justify-between">
-              <span>客户会话</span>
-              <span v-if="activeConversationUserId">当前：{{ activeConversation?.user.display_name }}</span>
+            <div class="flex shrink-0 items-center justify-between border-b border-gray-200 px-4 py-3">
+              <div>
+                <p class="text-sm font-semibold text-gray-800">客户会话</p>
+                <p class="mt-0.5 text-[11px] text-gray-400">在线客户即时消息</p>
+              </div>
+              <span class="rounded-full bg-primary-50 px-2 py-1 text-[11px] font-medium text-primary-700">
+                {{ conversations.length }} 个
+              </span>
             </div>
-            <div v-if="conversations.length" class="flex gap-2 overflow-x-auto pb-1">
+
+            <div class="min-h-0 flex-1 overflow-y-auto px-2 pb-2 pt-2">
               <button
                 v-for="conversation in conversations"
                 :key="conversation.user.id"
                 type="button"
-                class="min-w-[112px] rounded-lg px-2.5 py-2 text-left transition-colors"
-                :class="activeConversationUserId === conversation.user.id ? 'bg-white text-primary-700' : 'bg-white/10 text-primary-50 hover:bg-white/20'"
+                class="mb-1.5 flex w-full items-start gap-3 rounded-2xl px-3 py-3 text-left transition-colors"
+                :class="activeConversationUserId === conversation.user.id ? 'bg-white shadow-sm ring-1 ring-primary-100' : 'hover:bg-white/75'"
                 @click="selectConversation(conversation)"
               >
-                <span class="flex items-center gap-1.5 truncate font-medium">
-                  <span class="inline-block h-1.5 w-1.5 shrink-0 rounded-full" :class="conversation.is_online ? 'bg-emerald-300' : 'bg-slate-300'"></span>
-                  {{ conversation.user.display_name }}
+                <span
+                  class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-100 text-sm font-semibold text-primary-700"
+                >
+                  {{ conversation.user.avatar_text }}
+                  <span
+                    class="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full ring-2 ring-white"
+                    :class="conversation.is_online ? 'bg-emerald-500' : 'bg-gray-300'"
+                  ></span>
                 </span>
-                <span class="mt-1 flex items-center justify-between text-[10px] opacity-80">
-                  <span>{{ conversation.is_online ? '在线' : '最近联系' }}</span>
-                  <span v-if="conversation.unread_count" class="rounded-full bg-rose-500 px-1.5 text-white">
-                    {{ conversation.unread_count }}
+                <span class="min-w-0 flex-1">
+                  <span class="flex items-center justify-between gap-2">
+                    <span class="truncate text-sm font-semibold text-gray-800">
+                      {{ conversation.user.display_name }}
+                    </span>
+                    <span
+                      v-if="conversation.unread_count"
+                      class="shrink-0 rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-semibold text-white"
+                    >
+                      {{ conversation.unread_count > 99 ? '99+' : conversation.unread_count }}
+                    </span>
+                  </span>
+                  <span class="mt-1 flex items-center justify-between gap-2">
+                    <span class="truncate text-[11px] text-gray-500">
+                      {{ conversation.last_message.content || '暂无消息' }}
+                    </span>
+                    <span class="shrink-0 text-[10px] text-gray-400">
+                      {{ conversation.is_online ? '在线' : '最近联系' }}
+                    </span>
                   </span>
                 </span>
               </button>
-            </div>
-            <span v-else class="text-primary-100/80">暂无客户会话</span>
-          </div>
-        </div>
 
-        <div
-          ref="messageContainerRef"
-          class="min-h-0 flex-1 space-y-4 overflow-y-auto bg-gradient-to-b from-primary-50 via-white to-gray-50 px-4 py-4"
-          @scroll="handleMessageScroll"
-        >
+              <div
+                v-if="conversations.length === 0"
+                class="rounded-2xl border border-dashed border-gray-300 bg-white/70 px-3 py-6 text-center text-xs text-gray-500"
+              >
+                暂无客户会话
+              </div>
+            </div>
+          </aside>
+
+          <section
+            :data-testid="isAdmin ? 'admin-chat-pane' : undefined"
+            class="min-w-0 flex-1 flex-col"
+            :class="isAdmin && !mobileShowConversation ? 'hidden sm:flex' : 'flex'"
+          >
+            <div
+              v-if="isAdmin"
+              class="flex shrink-0 items-center gap-3 border-b border-gray-200 bg-white px-4 py-3"
+            >
+              <button
+                data-testid="admin-chat-back"
+                type="button"
+                class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-800 sm:hidden"
+                aria-label="返回客户列表"
+                @click="backToConversationList"
+              >
+                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 18l-6-6 6-6" />
+                </svg>
+              </button>
+              <div class="min-w-0">
+                <p class="truncate text-sm font-semibold text-gray-800">
+                  {{ activeConversation?.user.display_name || '选择客户会话' }}
+                </p>
+                <p class="mt-0.5 text-[11px] text-gray-400">
+                  {{ activeConversation ? (activeConversation.is_online ? '在线' : '最近联系') : '从左侧选择一位客户开始聊天' }}
+                </p>
+              </div>
+            </div>
+
+            <div
+              ref="messageContainerRef"
+              class="min-h-0 flex-1 space-y-4 overflow-y-auto bg-gradient-to-b from-primary-50 via-white to-gray-50 px-4 py-4"
+              @scroll="handleMessageScroll"
+            >
           <div
             v-if="loadingMoreHistory"
             class="rounded-2xl border border-gray-200 bg-white px-4 py-3 text-center text-sm text-gray-500"
@@ -171,7 +241,7 @@
             v-if="!loadingHistory && messages.length === 0"
             class="rounded-2xl border border-dashed border-gray-300 bg-white/70 px-4 py-6 text-center text-sm text-gray-500"
           >
-            {{ isAdmin && !activeConversationUserId ? '请先在上方选择客户会话。' : '还没有客服消息。' }}
+            {{ isAdmin && !activeConversationUserId ? '请先在左侧选择客户会话。' : '还没有客服消息。' }}
           </div>
         </div>
 
@@ -249,6 +319,8 @@
               去登录
             </button>
           </div>
+        </div>
+          </section>
         </div>
       </div>
     </Transition>
@@ -343,6 +415,7 @@ const draft = ref('')
 const messages = ref<LiveChatMessage[]>([])
 const conversations = ref<LiveChatConversation[]>([])
 const activeConversationUserId = ref(0)
+const mobileShowConversation = ref(false)
 const loadingHistory = ref(false)
 const loadingMoreHistory = ref(false)
 const onlineCount = ref(0)
@@ -370,6 +443,10 @@ const normalizeUserId = (value: unknown) => {
   const normalized = Number(value || 0)
   return Number.isFinite(normalized) ? normalized : 0
 }
+
+const isCompactViewport = () => (
+  typeof window !== 'undefined' && window.matchMedia('(max-width: 639px)').matches
+)
 
 const selfUserId = computed(() => normalizeUserId(socketUserId.value || userStore.user?.id))
 const canSend = computed(() => userStore.isAuthenticated && connectionStatus.value === 'connected')
@@ -453,6 +530,7 @@ const selectConversation = async (conversation: LiveChatConversation) => {
   if (nextUserId <= 0) return
 
   activeConversationUserId.value = nextUserId
+  mobileShowConversation.value = true
   messages.value = []
   historyLoaded = false
   historyCursor = 0
@@ -482,11 +560,13 @@ const loadConversations = async (force = false) => {
       )
       if (!activeStillExists) {
         activeConversationUserId.value = 0
+        mobileShowConversation.value = false
         messages.value = []
         historyLoaded = false
       }
 
-      if (!activeConversationUserId.value && items.length > 0 && visible.value) {
+      const canAutoSelect = !isCompactViewport() || mobileShowConversation.value
+      if (!activeConversationUserId.value && items.length > 0 && visible.value && canAutoSelect) {
         await selectConversation(items[0])
       }
     } catch (error) {
@@ -503,6 +583,7 @@ const toggleVisible = async () => {
   visible.value = !visible.value
   if (visible.value) {
     if (isAdmin.value) {
+      mobileShowConversation.value = false
       await loadConversations(true)
       if (activeConversationUserId.value && !historyLoaded) {
         await loadHistory(true)
@@ -517,6 +598,11 @@ const toggleVisible = async () => {
       unreadCount.value = 0
     }
   }
+}
+
+const backToConversationList = () => {
+  if (!isAdmin.value) return
+  mobileShowConversation.value = false
 }
 
 const goToLogin = () => {
@@ -936,6 +1022,7 @@ watch(
     unreadCount.value = 0
     conversations.value = []
     activeConversationUserId.value = 0
+    mobileShowConversation.value = false
     if (visible.value) {
       if (isAdmin.value) {
         void loadConversations(true)

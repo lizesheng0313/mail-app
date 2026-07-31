@@ -238,7 +238,8 @@ const zhCN = {
     guestExternalPreviewHint: '这里先展示第三方邮箱的预览样式，注册后才能接入真实账号。',
     guestPreviewMailboxEmpty: '这里先不展示虚拟邮箱，注册后显示你的真实邮箱列表。',
     guestPreviewEmailEmpty: '这里先不展示虚拟邮件，注册后显示真实邮件内容。',
-    guestPreviewDetailHint: '当前展示的是预览内容，注册后才能查看真实邮件详情、批量操作和更多能力。',
+    guestPreviewDetailHint:
+      '当前展示的是预览内容，注册后才能查看真实邮件详情、批量操作和更多能力。',
     workflowMarket: '资源市场',
     downloadDesktop: '下载桌面端',
     learnMore: '帮助中心',
@@ -501,6 +502,8 @@ const zhCN = {
   sharePage: {
     title: '邮箱分享',
     mailboxCount: '{count} 个邮箱',
+    validity: '有效期',
+    validitySummary: '有效期：{value}',
     validUntil: '有效期至：{date}',
     myMailboxes: '我的邮箱',
     noMailbox: '暂无邮箱',
@@ -513,6 +516,8 @@ const zhCN = {
     loadShareFailed: '获取分享信息失败',
     shareNotFound: '分享不存在',
     shareExpired: '分享已过期',
+    waitingForTurn: '当前链接正在排队等待收信',
+    shareCompleted: '当前链接已完成收信',
     loadFailed: '加载失败',
     loadEmailsFailed: '加载邮件失败',
     loadEmailDetailFailed: '获取邮件详情失败',
@@ -781,7 +786,8 @@ const zhCN = {
     waitingVerify: '等待验证',
     yourDomain: '你的域名',
     mailboxTitle: '域名邮箱',
-    mailboxPublicHint: '这里可以新建和编辑域名邮箱。勾选“是否公益”后，这个邮箱会进入公益池，别人生成域名邮箱时也可能领到它。',
+    mailboxPublicHint:
+      '这里可以新建和编辑域名邮箱。勾选“是否公益”后，这个邮箱会进入公益池，别人生成域名邮箱时也可能领到它。',
     addMailbox: '新增邮箱',
     addMailboxTitle: '新增域名邮箱',
     editMailbox: '编辑邮箱',
@@ -799,7 +805,8 @@ const zhCN = {
     mailboxUpdateSuccess: '域名邮箱更新成功',
     mailboxDeleteSuccess: '域名邮箱删除成功',
     publicMailboxLabel: '是否公益',
-    publicMailboxHelp: '勾选后，这个邮箱会按临时邮箱那套共享逻辑进入公益池，其他用户生成域名邮箱时也可以直接领用。',
+    publicMailboxHelp:
+      '勾选后，这个邮箱会按临时邮箱那套共享逻辑进入公益池，其他用户生成域名邮箱时也可以直接领用。',
     publicMailboxWarning: '公益邮箱会对外开放给其他用户领取，请不要放私用地址。',
     publicMailboxDisabledHint: '默认代收邮箱不支持设为公益邮箱。',
     publicMailboxBadge: '公益',
@@ -971,7 +978,8 @@ const zhCN = {
     historyFetchCancelled: '已停止后台收取，已新增 {count} 封邮件',
     historyFetchCancelFailed: '停止收取失败',
     historyFetchCompleted: '历史邮件收取完成，成功 {success} 个邮箱，新增 {count} 封邮件',
-    historyFetchCompletedWithFailures: '历史邮件收取完成，成功 {success} 个邮箱，失败 {failed} 个，新增 {count} 封邮件',
+    historyFetchCompletedWithFailures:
+      '历史邮件收取完成，成功 {success} 个邮箱，失败 {failed} 个，新增 {count} 封邮件',
     deleteAccount: '删除账号',
     batchDeleteTitle: '批量删除',
     deleteTitle: '删除账号',
@@ -1148,7 +1156,24 @@ const zhCN = {
     title: '分享邮箱',
     selectedMailboxes: '已选择 {count} 个邮箱',
     expireDays: '有效期',
+    expireMode: '有效期类型',
+    minutesMode: '按分钟',
+    daysMode: '按天',
+    minutes: '分钟数',
+    days: '天数',
+    minuteUnit: '分钟',
+    minuteShortUnit: '分',
+    secondUnit: '秒',
+    dayUnit: '天',
+    startMode: '计时起点',
+    startAtCreated: '创建后开始',
+    startAtFirstOpened: '首次打开后开始',
+    linkCount: '链接数量',
+    latestOnly: '只允许看最新一封邮件',
+    copyAll: '批量复制全部链接',
+    batchCopy: '批量复制',
     linkGenerated: '分享链接已生成',
+    generatedCount: '已生成 {count} 个链接',
     create: '创建分享',
     creating: '创建中...',
     day1: '1天',
@@ -1156,6 +1181,9 @@ const zhCN = {
     day30: '30天',
     permanentValid: '永久有效',
     validUntil: '有效期至 {date}',
+    validitySummary: '有效期：{value}',
+    invalidDays: '天数必须大于0',
+    invalidMinutes: '分钟数必须大于0',
     selectMailboxWarning: '请选择要分享的邮箱',
     createSuccess: '分享创建成功',
     createFailed: '创建分享失败',
@@ -1765,7 +1793,8 @@ const zhCN = {
     confirmExecutePerUse: '立即执行工作流 "{name}" 将扣除 {price} 奶片。确认执行吗？',
     confirmExecutePerUseMultiple:
       '立即执行工作流 "{name}" {count} 次，将扣除 {totalPrice} 奶片（{price} 奶片/次）。确认执行吗？',
-    confirmBuyOutlook: '购买 "{name}" 将扣除 {price} 奶片，购买后会自动添加到你的第三方邮箱。确认购买吗？',
+    confirmBuyOutlook:
+      '购买 "{name}" 将扣除 {price} 奶片，购买后会自动添加到你的第三方邮箱。确认购买吗？',
     confirmBuyOutlookMultiple:
       '购买 "{name}" {count} 个，将扣除 {totalPrice} 奶片（{price} 奶片/个），购买后会自动添加到你的第三方邮箱。确认购买吗？',
     confirmExecuteSubscription:
@@ -2310,8 +2339,7 @@ const zhCN = {
       },
       about: {
         title: '帮助中心 - 肥猫猫邮箱服务',
-        description:
-          '查看临时邮箱、域名邮箱、第三方邮箱的使用说明，后续会持续补截图和常见问题。',
+        description: '查看临时邮箱、域名邮箱、第三方邮箱的使用说明，后续会持续补截图和常见问题。',
         keywords: '帮助中心, 临时邮箱, 域名邮箱, 第三方邮箱, 验号, 收件, DNS'
       },
       privacyPolicy: {
@@ -2328,8 +2356,7 @@ const zhCN = {
         title: '资源市场 - 邮箱管理与权益资源',
         description:
           '在肥猫猫资源市场浏览邮箱管理、邮件自动化模板、插件与数字资源，快速找到适合第三方邮箱接入、收发处理和数据流转的资源。',
-        keywords:
-          '资源市场, 邮箱管理模板, 邮件自动化模板, 数字资源, 插件市场, workflow marketplace'
+        keywords: '资源市场, 邮箱管理模板, 邮件自动化模板, 数字资源, 插件市场, workflow marketplace'
       },
       workflowDetail: {
         title: '资源详情 - 邮件自动化模板',

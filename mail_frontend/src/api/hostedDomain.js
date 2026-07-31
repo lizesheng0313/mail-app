@@ -1,7 +1,7 @@
 import api from '@/services/api'
 
 export const hostedDomainAPI = {
-  listDomains: () => api.get('/hosted-domains'),
+  listDomains: (params = {}) => api.get('/hosted-domains', { params }),
   getDomainDetail: (domainId) => api.get(`/hosted-domains/${domainId}`),
   createDomain: (data) => api.post('/hosted-domains', data),
   updateDomain: (domainId, data) => api.put(`/hosted-domains/${domainId}`, data),

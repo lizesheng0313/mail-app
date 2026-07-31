@@ -44,7 +44,15 @@
       </div>
     </div>
 
-    <AdminDataTable :title="t('domainsPage.listTitle')" :loading="loading" :column-count="6">
+    <AdminDataTable
+      :title="t('domainsPage.listTitle')"
+      :loading="loading"
+      :column-count="6"
+      :pagination="pagination"
+      :show-page-size-selector="true"
+      @page-change="handlePageChange"
+      @page-size-change="handlePageSizeChange"
+    >
       <template #thead>
         <tr>
           <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
@@ -69,7 +77,7 @@
       </template>
 
       <template #tbody>
-        <tr v-for="domain in filteredDomains" :key="domain.id" class="hover:bg-gray-50">
+        <tr v-for="domain in domains" :key="domain.id" class="hover:bg-gray-50">
           <td class="px-6 py-4 whitespace-nowrap">
             <div class="flex items-center">
               <div v-if="isDomainDeleted(domain) || isDomainExpired(domain)" class="mr-2">
@@ -197,7 +205,7 @@
           </td>
         </tr>
 
-        <tr v-if="!filteredDomains.length">
+        <tr v-if="!domains.length">
           <td colspan="6" class="px-6 py-12 text-center text-black">
             {{ t('domainsPage.empty') }}
           </td>
@@ -541,6 +549,12 @@ const transferringDomains = ref(false)
 
 const searchQuery = ref('')
 const domains = ref<any[]>([])
+const pagination = ref({
+  page: 1,
+  limit: 20,
+  total: 0,
+  pages: 0
+})
 const showDomainModal = ref(false)
 const showEditModal = ref(false)
 const showDeleteConfirm = ref(false)
@@ -580,16 +594,6 @@ const editForm = ref({
   is_public: false
 })
 
-const filteredDomains = computed(() => {
-  const keyword = searchQuery.value.trim().toLowerCase()
-  if (!keyword) return domains.value
-  return domains.value.filter((item) =>
-    String(item.domain_name || '')
-      .toLowerCase()
-      .includes(keyword)
-  )
-})
-
 const domainModalTitle = computed(() =>
   domainModalDetail.value ? 'DNS 验证' : t('domainsPage.addTitle')
 )
@@ -627,12 +631,26 @@ const getVerificationClass = (status: string) => {
   return 'bg-amber-100 text-amber-700'
 }
 
-const loadDomains = async () => {
+const loadDomains = async (targetPage = pagination.value.page) => {
   loading.value = true
   try {
-    const response: any = await hostedDomainAPI.listDomains()
+    const response: any = await hostedDomainAPI.listDomains({
+      page: targetPage,
+      limit: pagination.value.limit,
+      search: searchQuery.value.trim() || undefined
+    })
     if (response.code === 0 && response.data) {
       domains.value = (response.data.items || []).filter((item: any) => !item?.is_deleted)
+      pagination.value = {
+        page: Number(response.data.pagination?.page || targetPage || 1),
+        limit: Number(response.data.pagination?.limit || pagination.value.limit || 20),
+        total: Number(response.data.pagination?.total || 0),
+        pages: Number(response.data.pagination?.pages || 0)
+      }
+
+      if (!domains.value.length && pagination.value.total > 0 && pagination.value.pages > 0 && pagination.value.page > pagination.value.pages) {
+        await loadDomains(pagination.value.pages)
+      }
     }
   } finally {
     loading.value = false
@@ -668,7 +686,7 @@ const handleCreateDomain = async () => {
     if (response.code === 0) {
       showMessage(t('domainsPage.createSuccess'), 'success')
       applyDomainDetailToModal(response.data, true)
-      await loadDomains()
+      await loadDomains(1)
     }
   } finally {
     creatingDomain.value = false
@@ -924,7 +942,20 @@ const confirmTransferDomains = async () => {
 }
 
 const applyFilters = () => {
-  // 当前仅前端筛选，保留这个方法让交互和其它列表一致
+  pagination.value.page = 1
+  void loadDomains(1)
+}
+
+const handlePageChange = (page: number) => {
+  if (page < 1 || (pagination.value.pages > 0 && page > pagination.value.pages)) return
+  pagination.value.page = page
+  void loadDomains(page)
+}
+
+const handlePageSizeChange = (limit: number) => {
+  pagination.value.limit = limit
+  pagination.value.page = 1
+  void loadDomains(1)
 }
 
 onMounted(async () => {
