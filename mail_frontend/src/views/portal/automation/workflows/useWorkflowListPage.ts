@@ -157,7 +157,7 @@ export function useWorkflowListPage() {
       const response = await workflowApi.deleteWorkflow(workflowToDelete.value.workflow_id)
       if (response.code === 0) {
         workflows.value = workflows.value.filter((workflow) => workflow.id !== workflowToDelete.value?.id)
-        showMessage(t('automationWorkflows.deleteSuccess'), 'success')
+        showMessage(response.message || t('automationWorkflows.deleteSuccess'), 'success')
       }
     } catch (error) {
       console.error('删除工作流失败:', error)
@@ -226,15 +226,12 @@ export function useWorkflowListPage() {
     try {
       const res = await unpublishWorkflow(workflowToUnpublish.value.workflow_id)
       if (res.code === 0) {
-        showMessage(t('automationWorkflows.unpublishSuccess'), 'success')
+        showMessage(res.message || t('automationWorkflows.unpublishSuccess'), 'success')
         showUnpublishConfirm.value = false
         fetchWorkflows()
-      } else {
-        showMessage(t('automationWorkflows.unpublishFailed'), 'error')
       }
     } catch (error) {
       console.error('下架失败:', error)
-      showMessage(t('automationWorkflows.unpublishFailed'), 'error')
     } finally {
       unpublishing.value = false
       workflowToUnpublish.value = null
@@ -245,14 +242,11 @@ export function useWorkflowListPage() {
     try {
       const res = await republishWorkflow(workflow.workflow_id)
       if (res.code === 0) {
-        showMessage(t('automationWorkflows.republishSuccess'), 'success')
+        showMessage(res.message || t('automationWorkflows.republishSuccess'), 'success')
         fetchWorkflows()
-      } else {
-        showMessage(t('automationWorkflows.republishFailed'), 'error')
       }
     } catch (error) {
       console.error('重新上架失败:', error)
-      showMessage(t('automationWorkflows.republishFailed'), 'error')
     }
   }
 
@@ -278,7 +272,6 @@ export function useWorkflowListPage() {
     try {
       const response = await workflowApi.exportWorkflow(workflow.workflow_id)
       if (response.code !== 0) {
-        showMessage(response.message || '导出工作流失败', 'error')
         return
       }
 
@@ -296,10 +289,9 @@ export function useWorkflowListPage() {
       document.body.removeChild(link)
       window.URL.revokeObjectURL(url)
 
-      showMessage('工作流已导出', 'success')
+      showMessage(response.message || '工作流已导出', 'success')
     } catch (error) {
       console.error('导出工作流失败:', error)
-      showMessage('导出工作流失败', 'error')
     }
   }
 
@@ -317,15 +309,16 @@ export function useWorkflowListPage() {
       const response = await workflowApi.importWorkflow(content)
 
       if (response.code !== 0) {
-        showMessage(response.message || '导入工作流失败', 'error')
         return
       }
 
       await fetchWorkflows()
-      showMessage('工作流已导入', 'success')
+      showMessage(response.message || '工作流已导入', 'success')
     } catch (error) {
       console.error('导入工作流失败:', error)
-      showMessage('导入工作流失败，请检查 JSON 文件', 'error')
+      if (error instanceof SyntaxError) {
+        showMessage('导入文件不是有效的 JSON', 'error')
+      }
     } finally {
       importing.value = false
     }
@@ -357,11 +350,11 @@ export function useWorkflowListPage() {
         if (status === 'completed') {
           executionResultData.value = response.data
           showExecutionResult.value = true
-          showMessage(t('marketDetail.executionSuccess'), 'success')
+          showMessage(response.message || t('marketDetail.executionSuccess'), 'success')
         } else if (status === 'failed') {
-          showMessage(t('marketDetail.executionFailed'), 'error')
+          showMessage(response.message || t('marketDetail.executionFailed'), 'error')
         } else {
-          showMessage(t('marketDetail.executionSubmitted'), 'info')
+          showMessage(response.message || t('marketDetail.executionSubmitted'), 'info')
         }
       }
     } catch (error) {

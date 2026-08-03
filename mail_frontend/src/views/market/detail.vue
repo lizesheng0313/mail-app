@@ -370,11 +370,17 @@
                         <td colspan="15" class="px-3 py-5 text-center text-slate-400">价格表加载中...</td>
                       </tr>
                       <template v-for="(row, rowIndex) in workflow.admin_price_table || []" :key="row.local_sku_id">
-                      <tr v-if="!adminPriceTableLoading">
+                      <tr v-if="!adminPriceTableLoading" :class="row.is_dynamic_redeem_sku ? 'bg-amber-50/70' : ''">
                         <td class="whitespace-nowrap px-3 py-2">{{ displayCategoryLabel(workflow.primary_category || workflow.category) }}</td>
                         <td class="whitespace-nowrap px-3 py-2">{{ row.primary_spec_name || '-' }}</td>
                         <td class="break-words px-3 py-2 font-medium">
-                          {{ row.secondary_spec_name || '-' }}
+                          <div class="flex flex-wrap items-center gap-2">
+                            <span>{{ row.secondary_spec_name || '-' }}</span>
+                            <span v-if="row.is_dynamic_redeem_sku" class="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">动态通兑</span>
+                          </div>
+                          <div v-if="row.is_dynamic_redeem_sku" class="mt-1 text-xs font-semibold text-slate-600">
+                            售价 {{ formatTablePrice(row.sell_price) }}；当前分析会重新读取商品详情并调用 DeepSeek
+                          </div>
                         </td>
                         <td class="whitespace-nowrap px-3 py-2">{{ formatTablePrice(row.sell_price) }}</td>
                         <td class="min-w-[220px] px-2 py-2 font-semibold text-emerald-700">
@@ -452,7 +458,28 @@
                           <div v-if="!row.candidates?.length && row.missing_products?.length" class="mt-1 text-xs font-medium text-amber-700">
                             未覆盖饮品：{{ row.missing_products.join('、') }}
                           </div>
-                          <span v-if="row.candidates?.length && !row.suggested_plan_candidates?.length" class="text-slate-400">-</span>
+                          <div
+                            v-if="row.closest_reference_candidates?.length"
+                            class="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900"
+                          >
+                            <div class="font-semibold">最接近参考（仅提示，不会自动绑定）</div>
+                            <div v-if="row.closest_recommended_title" class="mt-1">
+                              建议标题：{{ row.closest_recommended_title }}
+                            </div>
+                            <div class="mt-1">
+                              建议编号：
+                              <span v-for="(candidate, index) in row.closest_reference_candidates" :key="candidate.provider_product_no">
+                                {{ index + 1 }}. {{ candidate.provider_product_no }}（{{ formatCandidateCost(candidate) }}）<span v-if="index < row.closest_reference_candidates.length - 1">，</span>
+                              </span>
+                            </div>
+                            <div v-if="row.closest_missing_products?.length" class="mt-1 font-semibold text-amber-700">
+                              仍缺：{{ row.closest_missing_products.join('、') }}
+                            </div>
+                          </div>
+                          <span
+                            v-if="row.candidates?.length && !row.suggested_plan_candidates?.length && !row.closest_reference_candidates?.length"
+                            class="text-slate-400"
+                          >-</span>
                         </td>
                       </tr>
                       <tr
@@ -462,10 +489,10 @@
                       >
                         <td colspan="15" class="px-4 py-3 text-base text-slate-700">
                           <div class="text-lg font-semibold text-emerald-700">
-                            {{ row.primary_spec_name || '默认规格' }}货源方案：共 {{ primarySourcePlans(row.primary_spec_name).length }} 组
+                            {{ row.primary_spec_name || '默认规格' }}货源方案：共 {{ primarySummaryPlans(row.primary_spec_name).length }} 组
                           </div>
-                          <div v-if="primarySourcePlans(row.primary_spec_name).length" class="mt-2 space-y-1.5 text-lg">
-                            <div v-for="(plan, planIndex) in primarySourcePlans(row.primary_spec_name)" :key="plan.signature" class="font-medium">
+                          <div v-if="primarySummaryPlans(row.primary_spec_name).length" class="mt-2 space-y-1.5 text-lg">
+                            <div v-for="(plan, planIndex) in primarySummaryPlans(row.primary_spec_name)" :key="plan.signature" class="font-medium">
                               <div>
                                 方案{{ planIndex + 1 }}：
                                 <span v-for="(source, sourceIndex) in plan.candidates" :key="source.provider_product_no">
@@ -1190,8 +1217,11 @@ const formatTablePrice = (price) => {
 const formatCandidateCost = (candidate) => {
   const actualCost = Number(candidate?.cost_price || 0)
   const baseCost = Number(candidate?.base_cost_price ?? actualCost)
-  const serviceFee = Number(candidate?.service_fee ?? Math.max(0, actualCost - baseCost))
-  return `${baseCost.toFixed(2)} + ${serviceFee.toFixed(2)} = ${actualCost.toFixed(2)}`
+  const fixedCost = Number(candidate?.fixed_cost_fee || 0)
+  const serviceFee = Number(
+    candidate?.service_fee ?? Math.max(0, actualCost - baseCost - fixedCost),
+  )
+  return `${baseCost.toFixed(2)} + ${serviceFee.toFixed(2)} + ${fixedCost.toFixed(2)} = ${actualCost.toFixed(2)}`
 }
 
 const formatProfit = (profit) => {
@@ -1246,6 +1276,22 @@ const primarySourcePlans = (primarySpecName) => {
     }
   }
   return Array.from(plans.values())
+}
+
+// 页面总览每个杯型只展示一组完整方案；普通规格的逐行候选仍按原逻辑保留。
+const primarySummaryPlans = (primarySpecName) => {
+  const redeemRow = (workflow.value?.admin_price_table || []).find((row) => (
+    String(row?.primary_spec_name || '') === String(primarySpecName || '')
+    && row?.is_dynamic_redeem_sku
+  ))
+  const redeemCandidates = currentPlanCandidates(redeemRow)
+  if (redeemCandidates.length) {
+    return [{
+      signature: redeemCandidates.map((candidate) => String(candidate.provider_product_no)).sort().join('|'),
+      candidates: redeemCandidates,
+    }]
+  }
+  return primarySourcePlans(primarySpecName)
 }
 
 const primarySuggestedPlans = (primarySpecName) => {
