@@ -121,7 +121,7 @@
 
           <section
             :data-testid="isAdmin ? 'admin-chat-pane' : undefined"
-            class="min-w-0 flex-1 flex-col"
+            class="min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
             :class="isAdmin && !mobileShowConversation ? 'hidden sm:flex' : 'flex'"
           >
             <div
@@ -151,7 +151,8 @@
 
             <div
               ref="messageContainerRef"
-              class="min-h-0 flex-1 space-y-4 overflow-y-auto bg-gradient-to-b from-primary-50 via-white to-gray-50 px-4 py-4"
+              data-testid="chat-message-container"
+              class="scrollbar-stable min-h-0 flex-1 space-y-4 overflow-y-auto bg-gradient-to-b from-primary-50 via-white to-gray-50 px-4 py-4"
               @scroll="handleMessageScroll"
             >
           <div
@@ -458,6 +459,7 @@ let historyCursor = 0
 let summaryRequest: Promise<void> | null = null
 const SOCKET_IO_PATH = '/mail-api/v1/live-chat/socket.io'
 const MAX_CHAT_IMAGES = 4
+const MESSAGE_BOTTOM_THRESHOLD_PX = 48
 
 const normalizeUserId = (value: unknown) => {
   const normalized = Number(value || 0)
@@ -743,6 +745,12 @@ const scrollToBottom = async () => {
   element.scrollTop = element.scrollHeight
 }
 
+const isMessageNearBottom = () => {
+  const element = messageContainerRef.value
+  if (!element) return true
+  return element.scrollHeight - element.scrollTop - element.clientHeight <= MESSAGE_BOTTOM_THRESHOLD_PX
+}
+
 const loadSummary = async () => {
   if (summaryRequest) return summaryRequest
 
@@ -918,14 +926,19 @@ const handleSocketPayload = async (payload: SocketPayload) => {
       void loadConversations()
       return
     }
+    const shouldFollowNewMessage = isMessageNearBottom()
     upsertMessage(payload.message)
     if (isAdmin.value) {
       void loadConversations()
     }
     if (visible.value) {
-      await scrollToBottom()
-      if (userStore.isAuthenticated) {
-        await markMessagesRead(payload.message.id)
+      if (shouldFollowNewMessage) {
+        await scrollToBottom()
+        if (userStore.isAuthenticated) {
+          await markMessagesRead(payload.message.id)
+        }
+      } else if (!isSelf(payload.message)) {
+        unreadCount.value += 1
       }
     } else if (!isSelf(payload.message)) {
       unreadCount.value += 1

@@ -162,6 +162,7 @@ describe('FloatingLiveChat admin conversation layout', () => {
       '请帮我看一下这个问题'
     )
     expect(wrapper.get('[data-testid="admin-chat-pane"]').text()).toContain('客户甲')
+    expect(wrapper.get('[data-testid="admin-chat-pane"]').classes()).toContain('min-h-0')
 
     const customerB = wrapper.get('[data-testid="admin-conversation-item-102"]')
     await customerB.trigger('click')
@@ -236,6 +237,137 @@ describe('FloatingLiveChat admin conversation layout', () => {
     await flushPromises()
 
     expect(wrapper.get('[data-testid="chat-launcher-unread"]').text()).toBe('1')
+  })
+
+  it('keeps the message panel scrollable without jumping when the user is reading older messages', async () => {
+    mocks.userStore.user = {
+      id: 2,
+      display_name: '普通用户',
+      email: 'user@example.com',
+      is_admin: false,
+      avatar_text: '用'
+    }
+    wrapper = mount(FloatingLiveChat)
+    await wrapper.get('[data-testid="chat-launcher"]').trigger('click')
+    await flushPromises()
+
+    const container = wrapper.get('[data-testid="chat-message-container"]')
+    expect(container.classes()).toContain('scrollbar-stable')
+
+    Object.defineProperties(container.element, {
+      clientHeight: { configurable: true, value: 400 },
+      scrollHeight: { configurable: true, value: 900 }
+    })
+    container.element.scrollTop = 0
+
+    const chatEventRegistration = mocks.socket.on.mock.calls.find(
+      ([eventName]) => eventName === 'chat_event'
+    )
+    await chatEventRegistration![1]({
+      type: 'message',
+      message: {
+        id: 502,
+        content: '新的客服消息',
+        attachments: [],
+        created_at_ms: 1710000000000,
+        recipient_user_id: null,
+        user: {
+          id: 1,
+          display_name: '管理员',
+          email: 'admin@example.com',
+          is_admin: true,
+          avatar_text: '管'
+        }
+      }
+    })
+    await flushPromises()
+
+    expect(container.element.scrollTop).toBe(0)
+
+    container.element.scrollTop = 500
+    await chatEventRegistration![1]({
+      type: 'message',
+      message: {
+        id: 503,
+        content: '底部的新客服消息',
+        attachments: [],
+        created_at_ms: 1710000000000,
+        recipient_user_id: null,
+        user: {
+          id: 1,
+          display_name: '管理员',
+          email: 'admin@example.com',
+          is_admin: true,
+          avatar_text: '管'
+        }
+      }
+    })
+    await flushPromises()
+
+    expect(container.element.scrollTop).toBe(900)
+  })
+
+  it('opens the first chat at the bottom after history loading completes', async () => {
+    mocks.userStore.user = {
+      id: 2,
+      display_name: '普通用户',
+      email: 'user@example.com',
+      is_admin: false,
+      avatar_text: '用'
+    }
+
+    let resolveHistory: ((response: any) => void) | null = null
+    const historyResponse = new Promise((resolve) => {
+      resolveHistory = resolve
+    })
+    mocks.apiGet.mockImplementation((url: string) => {
+      if (url === '/live-chat/messages') return historyResponse
+      if (url === '/live-chat/summary') {
+        return Promise.resolve({ code: 0, data: { online_count: 2, unread_count: 0 } })
+      }
+      return Promise.resolve({ code: 0, data: {} })
+    })
+
+    wrapper = mount(FloatingLiveChat)
+    const opening = wrapper.get('[data-testid="chat-launcher"]').trigger('click')
+    await flushPromises()
+
+    const container = wrapper.get('[data-testid="chat-message-container"]')
+    Object.defineProperties(container.element, {
+      clientHeight: { configurable: true, value: 400 },
+      scrollHeight: { configurable: true, value: 900 }
+    })
+    container.element.scrollTop = 0
+
+    resolveHistory?.({
+      code: 0,
+      data: {
+        items: [
+          {
+            id: 504,
+            content: '历史消息',
+            attachments: [],
+            created_at_ms: 1710000000000,
+            recipient_user_id: null,
+            user: {
+              id: 1,
+              display_name: '管理员',
+              email: 'admin@example.com',
+              is_admin: true,
+              avatar_text: '管'
+            }
+          }
+        ],
+        next_before_message_id: 504,
+        has_more: false,
+        online_count: 2,
+        unread_count: 0
+      }
+    })
+    await opening
+    await flushPromises()
+
+    expect(container.element.scrollTop).toBe(900)
   })
 
   it('removes a customer from the list without deleting the conversation history', async () => {
