@@ -55,13 +55,16 @@
             </div>
 
             <div class="min-h-0 flex-1 overflow-y-auto px-2 pb-2 pt-2">
-              <button
+              <div
                 v-for="conversation in conversations"
                 :key="conversation.user.id"
-                type="button"
-                class="mb-1.5 flex w-full items-start gap-3 rounded-2xl px-3 py-3 text-left transition-colors"
+                :data-testid="`admin-conversation-item-${conversation.user.id}`"
+                role="button"
+                tabindex="0"
+                class="group mb-1.5 flex w-full items-start gap-3 rounded-2xl px-3 py-3 text-left transition-colors"
                 :class="activeConversationUserId === conversation.user.id ? 'bg-white shadow-sm ring-1 ring-primary-100' : 'hover:bg-white/75'"
                 @click="selectConversation(conversation)"
+                @keydown.enter="selectConversation(conversation)"
               >
                 <span
                   class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-100 text-sm font-semibold text-primary-700"
@@ -93,7 +96,19 @@
                     </span>
                   </span>
                 </span>
-              </button>
+                <button
+                  type="button"
+                  :data-testid="`admin-remove-conversation-${conversation.user.id}`"
+                  class="mt-1 shrink-0 rounded-lg p-1.5 text-gray-300 opacity-0 transition hover:bg-rose-50 hover:text-rose-500 group-hover:opacity-100 focus:opacity-100"
+                  aria-label="移除客户会话"
+                  title="移除联系人（保留聊天记录）"
+                  @click.stop="removeConversation(conversation)"
+                >
+                  <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M6 7h12m-10 0v10m4-10v10m4-10v10M9 7V4h6v3m-8 0h10" />
+                  </svg>
+                </button>
+              </div>
 
               <div
                 v-if="conversations.length === 0"
@@ -327,14 +342,18 @@
 
     <button
       v-if="!visible"
+      data-testid="chat-launcher"
       type="button"
       class="group relative flex h-16 w-16 items-center justify-center rounded-full bg-primary-600 text-white shadow-[0_18px_40px_rgba(37,99,235,0.32)] transition-all duration-300 hover:-translate-y-0.5 hover:bg-primary-700"
       @click="toggleVisible"
     >
       <span
         v-if="unreadCount > 0"
-        class="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white/85 opacity-90"
-      ></span>
+        data-testid="chat-launcher-unread"
+        class="absolute -right-1 -top-1 min-w-5 rounded-full bg-rose-500 px-1.5 py-0.5 text-center text-[10px] font-semibold leading-4 text-white ring-2 ring-white/85"
+      >
+        {{ unreadCount > 99 ? '99+' : unreadCount }}
+      </span>
       <svg class="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path
           stroke-linecap="round"
@@ -415,6 +434,7 @@ const draft = ref('')
 const messages = ref<LiveChatMessage[]>([])
 const conversations = ref<LiveChatConversation[]>([])
 const activeConversationUserId = ref(0)
+const removingConversationUserId = ref(0)
 const mobileShowConversation = ref(false)
 const loadingHistory = ref(false)
 const loadingMoreHistory = ref(false)
@@ -542,9 +562,42 @@ const selectConversation = async (conversation: LiveChatConversation) => {
   }
 }
 
-const loadConversations = async (force = false) => {
+const removeConversation = async (conversation: LiveChatConversation) => {
   if (!isAdmin.value) return
-  if (conversationsRequest && !force) return conversationsRequest
+  const customerUserId = normalizeUserId(conversation.user.id)
+  if (customerUserId <= 0 || removingConversationUserId.value > 0) return
+
+  removingConversationUserId.value = customerUserId
+  try {
+    const response: any = await api.delete(`/live-chat/conversations/${customerUserId}`)
+    if (response?.code !== 0) {
+      showMessage(response?.message || '移除联系人失败', 'error')
+      return
+    }
+
+    unreadCount.value = Math.max(0, unreadCount.value - Number(conversation.unread_count || 0))
+    conversations.value = conversations.value.filter(
+      (item) => normalizeUserId(item.user.id) !== customerUserId,
+    )
+    if (activeConversationUserId.value === customerUserId) {
+      activeConversationUserId.value = 0
+      mobileShowConversation.value = false
+      messages.value = []
+      historyLoaded = false
+      historyCursor = 0
+      hasMoreHistory.value = false
+    }
+  } catch (error: any) {
+    showMessage(error?.message || '移除联系人失败', 'error')
+  } finally {
+    removingConversationUserId.value = 0
+  }
+}
+
+const loadConversations = async () => {
+  if (!isAdmin.value) return
+  // Socket.IO 触发的刷新也复用正在进行的请求，避免多条新消息同时打爆列表接口。
+  if (conversationsRequest) return conversationsRequest
 
   conversationsRequest = (async () => {
     try {
@@ -584,7 +637,7 @@ const toggleVisible = async () => {
   if (visible.value) {
     if (isAdmin.value) {
       mobileShowConversation.value = false
-      await loadConversations(true)
+      await loadConversations()
       if (activeConversationUserId.value && !historyLoaded) {
         await loadHistory(true)
       }
@@ -726,7 +779,12 @@ const markMessagesRead = async (messageId?: number) => {
   try {
     await api.post(
       '/live-chat/read',
-      { last_read_message_id: lastMessageId },
+      {
+        last_read_message_id: lastMessageId,
+        ...(isAdmin.value && activeConversationUserId.value
+          ? { conversation_user_id: activeConversationUserId.value }
+          : {}),
+      },
       { suppressErrorMessage: true }
     )
   } catch {}
@@ -852,8 +910,12 @@ const handleSocketPayload = async (payload: SocketPayload) => {
 
   if (payload.type === 'message' && payload.message) {
     const conversationUserId = getMessageConversationUserId(payload.message)
+    const isIncomingCustomerMessage = !payload.message.user.is_admin && !isSelf(payload.message)
     if (isAdmin.value && conversationUserId !== activeConversationUserId.value) {
-      void loadConversations(true)
+      if (isIncomingCustomerMessage) {
+        unreadCount.value += 1
+      }
+      void loadConversations()
       return
     }
     upsertMessage(payload.message)
@@ -1025,7 +1087,7 @@ watch(
     mobileShowConversation.value = false
     if (visible.value) {
       if (isAdmin.value) {
-        void loadConversations(true)
+        void loadConversations()
       } else {
         void loadHistory(true)
       }

@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => {
   return {
     apiGet: vi.fn(),
     apiPost: vi.fn(),
+    apiDelete: vi.fn(),
     io: vi.fn(() => socket),
     router: { push: vi.fn() },
     socket,
@@ -27,7 +28,8 @@ const mocks = vi.hoisted(() => {
 vi.mock('@/services/api', () => ({
   default: {
     get: mocks.apiGet,
-    post: mocks.apiPost
+    post: mocks.apiPost,
+    delete: mocks.apiDelete
   },
   getApiBaseURL: () => '/mail-api/v1'
 }))
@@ -107,6 +109,7 @@ const configureApi = () => {
     }
   })
   mocks.apiPost.mockResolvedValue({ code: 0, data: {} })
+  mocks.apiDelete.mockResolvedValue({ code: 0, data: {} })
 }
 
 const setViewport = (isCompact: boolean) => {
@@ -137,6 +140,8 @@ describe('FloatingLiveChat admin conversation layout', () => {
     mocks.socket.connected = true
     mocks.apiGet.mockReset()
     mocks.apiPost.mockReset()
+    mocks.apiDelete.mockReset()
+    mocks.socket.on.mockClear()
     mocks.io.mockClear()
     configureApi()
     setViewport(false)
@@ -158,12 +163,8 @@ describe('FloatingLiveChat admin conversation layout', () => {
     )
     expect(wrapper.get('[data-testid="admin-chat-pane"]').text()).toContain('客户甲')
 
-    const customerB = wrapper
-      .get('[data-testid="admin-conversation-list"]')
-      .findAll('button')
-      .find((button) => button.text().includes('客户乙'))
-    expect(customerB).toBeTruthy()
-    await customerB!.trigger('click')
+    const customerB = wrapper.get('[data-testid="admin-conversation-item-102"]')
+    await customerB.trigger('click')
     await flushPromises()
 
     expect(wrapper.get('[data-testid="admin-chat-pane"]').text()).toContain('客户乙')
@@ -178,11 +179,8 @@ describe('FloatingLiveChat admin conversation layout', () => {
     expect(wrapper.get('[data-testid="admin-conversation-list"]').classes()).not.toContain('hidden')
     expect(wrapper.get('[data-testid="admin-chat-pane"]').classes()).toContain('hidden')
 
-    const customerA = wrapper
-      .get('[data-testid="admin-conversation-list"]')
-      .findAll('button')
-      .find((button) => button.text().includes('客户甲'))
-    await customerA!.trigger('click')
+    const customerA = wrapper.get('[data-testid="admin-conversation-item-101"]')
+    await customerA.trigger('click')
     await flushPromises()
 
     expect(wrapper.get('[data-testid="admin-chat-pane"]').classes()).not.toContain('hidden')
@@ -207,5 +205,49 @@ describe('FloatingLiveChat admin conversation layout', () => {
     expect(wrapper.find('[data-testid="admin-chat-pane"]').exists()).toBe(false)
     expect(wrapper.text()).toContain('还没有客服消息。')
     expect(wrapper.text()).not.toContain('只有你和管理员能看到这段对话。')
+  })
+
+  it('shows a launcher unread indicator when an inactive customer sends a message', async () => {
+    wrapper = mount(FloatingLiveChat)
+    await flushPromises()
+
+    const chatEventRegistration = mocks.socket.on.mock.calls.find(
+      ([eventName]) => eventName === 'chat_event'
+    )
+    expect(chatEventRegistration).toBeTruthy()
+
+    await chatEventRegistration![1]({
+      type: 'message',
+      message: {
+        id: 501,
+        content: '有新的客户问题',
+        attachments: [],
+        created_at_ms: 1710000000000,
+        recipient_user_id: null,
+        user: {
+          id: 101,
+          display_name: '客户甲',
+          email: 'customer-a@example.com',
+          is_admin: false,
+          avatar_text: '甲'
+        }
+      }
+    })
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="chat-launcher-unread"]').text()).toBe('1')
+  })
+
+  it('removes a customer from the list without deleting the conversation history', async () => {
+    wrapper = mount(FloatingLiveChat)
+    await wrapper.get('[data-testid="chat-launcher"]').trigger('click')
+    await flushPromises()
+
+    await wrapper.get('[data-testid="admin-remove-conversation-101"]').trigger('click')
+    await flushPromises()
+
+    expect(mocks.apiDelete).toHaveBeenCalledWith('/live-chat/conversations/101')
+    expect(wrapper.find('[data-testid="admin-conversation-item-101"]').exists()).toBe(false)
+    expect(wrapper.get('[data-testid="admin-conversation-list"]').text()).toContain('客户乙')
   })
 })

@@ -178,6 +178,71 @@
         </div>
       </div>
 
+      <!-- 邮箱分享监控 -->
+      <div class="bg-white rounded-lg shadow-sm border p-6">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-semibold text-black">邮箱分享监控</h3>
+          <span class="text-sm text-gray-500">按天统计</span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+          <div class="rounded-lg bg-emerald-50 border border-emerald-100 p-4">
+            <p class="text-sm text-black">今日创建分享的用户</p>
+            <p class="mt-2 text-2xl font-bold text-black">{{ businessStats.summary?.share_users_today || 0 }}</p>
+            <p class="mt-1 text-xs text-black">按用户去重</p>
+          </div>
+
+          <div class="rounded-lg bg-blue-50 border border-blue-100 p-4">
+            <p class="text-sm text-black">今日创建链接</p>
+            <p class="mt-2 text-2xl font-bold text-black">{{ businessStats.summary?.share_links_created_today || 0 }}</p>
+            <p class="mt-1 text-xs text-black">生成的链接总数</p>
+          </div>
+
+          <div class="rounded-lg bg-violet-50 border border-violet-100 p-4">
+            <p class="text-sm text-black">今日打开过的链接</p>
+            <p class="mt-2 text-2xl font-bold text-black">{{ businessStats.summary?.share_links_opened_today || 0 }}</p>
+            <p class="mt-1 text-xs text-black">按链接去重</p>
+          </div>
+
+          <div class="rounded-lg bg-amber-50 border border-amber-100 p-4">
+            <p class="text-sm text-black">今日无登录访问次数</p>
+            <p class="mt-2 text-2xl font-bold text-black">{{ businessStats.summary?.share_visits_today || 0 }}</p>
+            <p class="mt-1 text-xs text-black">打开分享页的次数</p>
+          </div>
+
+          <div class="rounded-lg bg-pink-50 border border-pink-100 p-4">
+            <p class="text-sm text-black">今日无登录访客</p>
+            <p class="mt-2 text-2xl font-bold text-black">{{ businessStats.summary?.share_visitors_today || 0 }}</p>
+            <p class="mt-1 text-xs text-black">按浏览器匿名标识去重</p>
+          </div>
+        </div>
+
+        <div v-if="businessStats.trend?.length" class="mt-6 overflow-x-auto">
+          <table class="min-w-full divide-y divide-gray-200 text-sm">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-4 py-3 text-left font-medium text-black">日期</th>
+                <th class="px-4 py-3 text-left font-medium text-black">创建用户</th>
+                <th class="px-4 py-3 text-left font-medium text-black">创建链接</th>
+                <th class="px-4 py-3 text-left font-medium text-black">打开链接</th>
+                <th class="px-4 py-3 text-left font-medium text-black">访问次数</th>
+                <th class="px-4 py-3 text-left font-medium text-black">无登录访客</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100 bg-white">
+              <tr v-for="item in businessStats.trend || []" :key="`share-${item.date}`">
+                <td class="px-4 py-3 text-black">{{ item.date }}</td>
+                <td class="px-4 py-3 text-black">{{ item.share_users || 0 }}</td>
+                <td class="px-4 py-3 text-black">{{ item.share_links_created || 0 }}</td>
+                <td class="px-4 py-3 text-black">{{ item.share_links_opened || 0 }}</td>
+                <td class="px-4 py-3 text-black">{{ item.share_visits || 0 }}</td>
+                <td class="px-4 py-3 text-black">{{ item.share_visitors || 0 }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <!-- 图表区域 -->
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
