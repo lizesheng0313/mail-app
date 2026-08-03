@@ -3,6 +3,26 @@
  */
 import request from '@/services/api'
 
+const SHARE_VISITOR_STORAGE_KEY = 'mailbox_share_visitor_id'
+
+export const getShareVisitorId = () => {
+  if (typeof window === 'undefined') return ''
+
+  try {
+    const existing = window.localStorage.getItem(SHARE_VISITOR_STORAGE_KEY)
+    if (existing) return existing
+
+    const generated =
+      typeof window.crypto?.randomUUID === 'function'
+        ? window.crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2)}`
+    window.localStorage.setItem(SHARE_VISITOR_STORAGE_KEY, generated)
+    return generated
+  } catch {
+    return ''
+  }
+}
+
 export const mailboxShareAPI = {
   /**
    * 创建分享
@@ -14,10 +34,14 @@ export const mailboxShareAPI = {
 
   /**
    * 获取分享信息（无需登录）
-   * @param {string} shareToken - 分享token
-   */
+  * @param {string} shareToken - 分享token
+  */
   getShareInfo(shareToken) {
-    return request.get(`/mailbox-share/${shareToken}/info`, { suppressErrorMessage: true })
+    const visitorId = getShareVisitorId()
+    return request.get(`/mailbox-share/${shareToken}/info`, {
+      headers: visitorId ? { 'X-Share-Visitor-Id': visitorId } : undefined,
+      suppressErrorMessage: true
+    })
   },
 
   /**

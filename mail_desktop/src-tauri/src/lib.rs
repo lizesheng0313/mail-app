@@ -1,9 +1,16 @@
 // 模块声明
+mod automation;
+mod browser_workflow;
 mod commands;
 mod local_api_server;
 mod mail;
 mod oauth_callback_server;
 
+use browser_workflow::{
+    browser_workflow_component_status, cancel_browser_workflow_component_download,
+    install_browser_workflow_component, start_browser_workflow_component,
+    stop_browser_workflow_component, BrowserWorkflowComponentState,
+};
 use commands::{add_external_mailbox, check_for_update, download_and_install_update, download_attachment, fetch_emails, get_attachment_path, is_tauri, open_external_url, open_local_attachment, recover_and_fetch_external_mailbox, recover_external_mailbox_session, refresh_oauth2_token_locally, send_smtp_email};
 use local_api_server::start_local_api_server;
 use oauth_callback_server::start_oauth_callback_server;
@@ -12,6 +19,7 @@ use tauri::Manager;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .manage(BrowserWorkflowComponentState::default())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
@@ -45,6 +53,11 @@ pub fn run() {
             download_attachment,
             open_external_url,
             send_smtp_email,
+            browser_workflow_component_status,
+            install_browser_workflow_component,
+            start_browser_workflow_component,
+            stop_browser_workflow_component,
+            cancel_browser_workflow_component_download,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

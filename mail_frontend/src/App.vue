@@ -27,7 +27,9 @@ const maintenanceRef = ref<InstanceType<typeof SystemMaintenance>>()
 const updaterRef = ref<InstanceType<typeof AppUpdater>>()
 let unlistenOAuthCallback: null | (() => void) = null
 const desktopOAuthKeepAlive = useDesktopOAuthKeepAlive()
-const showGlobalLiveChat = computed(() => !route.path.startsWith('/user'))
+const showGlobalLiveChat = computed(() => (
+  !route.path.startsWith('/user') && !route.path.startsWith('/browser-workflows')
+))
 
 // 启用页面访问统计
 usePageTracking()

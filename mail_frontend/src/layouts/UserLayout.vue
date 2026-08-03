@@ -114,6 +114,16 @@ const menuSections = computed(() => [
         }
       },
       {
+        path: '/user/automation/browser-workflows',
+        label: '浏览器工作流',
+        icon: {
+          render: () =>
+            h('svg', { fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' }, [
+              h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'stroke-width': '2', d: 'M4 5a2 2 0 012-2h12a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm4 3h8M8 12h8M8 16h5' })
+            ])
+        }
+      },
+      {
         path: '/user/resource-orders',
         label: t('userLayout.resourceOrders'),
         icon: {
@@ -450,6 +460,7 @@ const menuSections = computed(() => [
 
 // 当前页面标题
 const currentPageTitle = computed(() => {
+  if (route.path.startsWith('/user/automation/browser-workflows')) return route.params.workflowId ? '编辑浏览器工作流' : '浏览器工作流'
   if (route.path === '/user/automation/workflows') return t('userLayout.automationWorkflows')
   if (route.path === '/user/automation/execution-history') return '执行记录'
   if (route.path === '/user/automation/triggers') return t('userLayout.automationTriggers')
@@ -488,6 +499,7 @@ const currentPageTitle = computed(() => {
 
 // 页面描述
 const pageDescription = computed(() => {
+  if (route.path.startsWith('/user/automation/browser-workflows')) return route.params.workflowId ? '编辑节点、配置凭据并启动当前流程' : '查看和管理浏览器自动化流程'
   if (route.path === '/user/automation/workflows') return t('userLayout.automationWorkflowsDescription')
   if (route.path === '/user/automation/execution-history') return '查看当前工作流的执行记录和失败详情'
   if (route.path === '/user/automation/triggers') return t('userLayout.automationTriggersDescription')

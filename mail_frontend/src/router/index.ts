@@ -12,6 +12,8 @@ const PluginManagement = () => import('@/views/portal/plugins/index.vue')
 const PluginStore = () => import('@/views/portal/plugin-store/index.vue')
 const AutomationTriggers = () => import('@/views/portal/automation/triggers/index.vue')
 const AutomationWorkflows = () => import('@/views/portal/automation/workflows/index.vue')
+const BrowserWorkflows = () => import('@/views/portal/browser-workflows/index.vue')
+const BrowserWorkflowList = () => import('@/views/portal/browser-workflows/list.vue')
 const PublishWorkflow = () => import('@/views/portal/workflows/publish/index.vue')
 const ExecutionHistory = () => import('@/views/portal/workflows/execution-history/index.vue')
 const ProxyManagement = () => import('@/views/portal/proxy/index.vue')
@@ -167,6 +169,18 @@ const router = createRouter({
       path: '/automation/workflows',
       name: 'automation-workflows',
       component: AutomationWorkflows,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/browser-workflows',
+      name: 'browser-workflows',
+      redirect: '/user/automation/browser-workflows',
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/browser-workflows/:workflowId',
+      name: 'browser-workflow-editor-fullscreen',
+      component: BrowserWorkflows,
       meta: { requiresAuth: true }
     },
     {
@@ -328,6 +342,16 @@ const router = createRouter({
           path: 'automation/execution-history',
           name: 'user-automation-execution-history',
           component: ExecutionHistory
+        },
+        {
+          path: 'automation/browser-workflows',
+          name: 'user-browser-workflows',
+          component: BrowserWorkflowList
+        },
+        {
+          path: 'automation/browser-workflows/:workflowId',
+          name: 'user-browser-workflow-editor',
+          component: BrowserWorkflows
         },
         {
           path: 'automation/plugins',
