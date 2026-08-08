@@ -144,6 +144,16 @@ export function useWorkflowListPage() {
     throw new Error(res.message || t('automationWorkflows.loadDetailFailed'))
   }
 
+  const editWorkflow = async (workflow: WorkflowItem) => {
+    try {
+      selectedWorkflow.value = await loadWorkflowDetail(workflow)
+      showCreateDialog.value = true
+    } catch (error) {
+      console.error('获取工作流详情失败:', error)
+      showMessage(t('automationWorkflows.loadDetailFailed'), 'error')
+    }
+  }
+
   const deleteWorkflow = (workflow: WorkflowItem) => {
     workflowToDelete.value = workflow
     showDeleteConfirm.value = true
@@ -212,6 +222,43 @@ export function useWorkflowListPage() {
         edit_mode: true
       }
     })
+  }
+
+  const copyText = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text)
+      return
+    } catch {
+      const textarea = document.createElement('textarea')
+      textarea.value = text
+      textarea.style.position = 'fixed'
+      textarea.style.opacity = '0'
+      document.body.appendChild(textarea)
+      textarea.select()
+      const copied = document.execCommand('copy')
+      document.body.removeChild(textarea)
+      if (!copied) throw new Error('copy failed')
+    }
+  }
+
+  const handleShareWorkflow = async (workflow: WorkflowItem) => {
+    if (!workflow.id || workflow.market_status !== 'published') {
+      showMessage(t('workflowList.shareUnavailable'), 'warning')
+      return
+    }
+
+    try {
+      const routeLocation = router.resolve({
+        name: 'workflow-detail',
+        params: { id: workflow.id }
+      })
+      const shareUrl = new URL(routeLocation.href, window.location.origin).toString()
+      await copyText(shareUrl)
+      showMessage(t('workflowList.shareCopied'), 'success')
+    } catch (error) {
+      console.error('复制资源分享链接失败:', error)
+      showMessage(t('workflowList.shareCopyFailed'), 'error')
+    }
   }
 
   const handleUnpublish = (workflow: WorkflowItem) => {
@@ -379,6 +426,7 @@ export function useWorkflowListPage() {
     confirmUnpublish,
     deleteWorkflow,
     deleting,
+    editWorkflow,
     executeConfirmMessage,
     executing,
     executionResultData,
@@ -393,6 +441,7 @@ export function useWorkflowListPage() {
     handleManageInventory,
     handlePublish,
     handleRepublish,
+    handleShareWorkflow,
     handleUnpublish,
     handleWorkflowCreated,
     handleWorkflowUpdated,

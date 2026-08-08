@@ -149,8 +149,16 @@
               
               <!-- 我创建的工作流 - 完整按钮 -->
               <div v-else class="flex items-center justify-start gap-2">
-                <!-- 统一编辑入口：工作流和商品都从发布编辑页维护。 -->
+                <!-- 工作流编辑和商城资料编辑是两条独立链路。 -->
                 <ActionButton
+                  v-if="!isProductResource(workflow)"
+                  icon="edit"
+                  :tooltip="t('workflowList.edit')"
+                  variant="edit"
+                  @click="$emit('edit', workflow)"
+                />
+                <ActionButton
+                  v-else
                   icon="edit"
                   :tooltip="t('workflowList.editMarketInfo')"
                   variant="edit"
@@ -171,6 +179,21 @@
                   :tooltip="t('workflowList.republish')"
                   variant="success"
                   @click="$emit('republish', workflow)"
+                />
+                <!-- 已发布工作流单独维护商城展示资料。 -->
+                <ActionButton
+                  v-if="!isProductResource(workflow) && ['published', 'approved', 'offline', 'unlisted'].includes(workflow.market_status)"
+                  icon="settings"
+                  :tooltip="t('workflowList.editMarketInfo')"
+                  variant="warning"
+                  @click="$emit('edit-publish', workflow)"
+                />
+                <ActionButton
+                  v-if="workflow.market_status === 'published'"
+                  icon="share"
+                  :tooltip="t('workflowList.shareResource')"
+                  variant="primary"
+                  @click="$emit('share', workflow)"
                 />
                 <!-- 常用操作直接放在操作列，避免弹出菜单撑出列表滚动条。 -->
                 <ActionButton
@@ -245,7 +268,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['delete', 'publish', 'unpublish', 'republish', 'manage-inventory', 'execute', 'edit-publish', 'export'])
+const emit = defineEmits(['delete', 'publish', 'unpublish', 'republish', 'manage-inventory', 'execute', 'edit', 'edit-publish', 'share', 'export'])
 
 const isProductResource = (workflow) => {
   return workflow.resource_kind === 'product' || workflow.category === 'resource'

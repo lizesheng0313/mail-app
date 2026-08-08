@@ -598,8 +598,6 @@ import { showMessage } from '@/utils/message'
 import { showConfirm, showPrompt, showAlert } from '@/utils/dialog'
 import {
   getBalance,
-  createRecharge,
-  rechargeCallback,
   createWithdrawal,
   getFeeConfig
 } from '@/api/milkCoin'

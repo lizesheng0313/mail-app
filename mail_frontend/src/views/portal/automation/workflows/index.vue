@@ -72,8 +72,10 @@
         :loading="loading"
         @export="handleExportWorkflow"
         @delete="deleteWorkflow"
+        @edit="editWorkflow"
         @publish="handlePublish"
         @edit-publish="handleEditPublish"
+        @share="handleShareWorkflow"
         @manage-inventory="handleManageInventory"
         @execute="handleExecuteWorkflow"
         @unpublish="handleUnpublish"
@@ -203,6 +205,7 @@ const {
   confirmUnpublish,
   deleteWorkflow,
   deleting,
+  editWorkflow,
   executeConfirmMessage,
   executing,
   executionResultData,
@@ -217,6 +220,7 @@ const {
   handleManageInventory,
   handlePublish,
   handleRepublish,
+  handleShareWorkflow,
   handleUnpublish,
   handleWorkflowCreated,
   handleWorkflowUpdated,
