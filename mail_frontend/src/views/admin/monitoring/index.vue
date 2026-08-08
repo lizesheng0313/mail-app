@@ -93,11 +93,12 @@
 
         <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
           <div class="rounded-lg bg-orange-50 border border-orange-100 p-4">
-            <p class="text-sm text-black">当前在线人数</p>
+            <p class="text-sm text-black">当前在线用户（去重）</p>
             <p class="mt-2 text-2xl font-bold text-black">{{ businessStats.summary?.online_users_now || 0 }}</p>
             <p class="mt-1 text-xs text-black">
-              桌面端 {{ businessStats.summary?.desktop_online_users_now || 0 }} / Web {{ businessStats.summary?.web_online_users_now || 0 }}
+              平台分布：桌面端 {{ businessStats.summary?.desktop_online_users_now || 0 }} / Web {{ businessStats.summary?.web_online_users_now || 0 }} / 小程序 {{ businessStats.summary?.miniapp_online_users_now || 0 }}
             </p>
+            <p class="mt-1 text-xs text-gray-500">同一用户可同时计入多个平台</p>
           </div>
 
           <div class="rounded-lg bg-blue-50 border border-blue-100 p-4">
@@ -591,7 +592,8 @@ const refreshOnlineCount = async () => {
           ...(businessStats.value.summary || {}),
           online_users_now: onlineData.online_users || 0,
           desktop_online_users_now: onlineData.desktop_online_users || 0,
-          web_online_users_now: onlineData.web_online_users || 0
+          web_online_users_now: onlineData.web_online_users || 0,
+          miniapp_online_users_now: onlineData.miniapp_online_users || 0
         }
       }
     }

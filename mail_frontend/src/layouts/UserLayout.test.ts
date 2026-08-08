@@ -36,7 +36,7 @@ vi.mock('@/components/SidebarLayout/index.vue', () => ({
 import UserLayout from './UserLayout.vue'
 
 describe('UserLayout 浏览器工作流入口', () => {
-  it('不在左侧菜单显示浏览器工作流入口', () => {
+  it('在左侧菜单显示浏览器工作流入口', () => {
     const wrapper = mount(UserLayout, {
       global: {
         stubs: {
@@ -45,7 +45,7 @@ describe('UserLayout 浏览器工作流入口', () => {
       }
     })
 
-    expect(wrapper.get('[data-testid="sidebar-menu"]').text()).not.toContain(
+    expect(wrapper.get('[data-testid="sidebar-menu"]').text()).toContain(
       '/user/automation/browser-workflows'
     )
   })

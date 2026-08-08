@@ -65,6 +65,35 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
+  const completeLogin = async (accessToken: string) => {
+    const token = String(accessToken || '').trim()
+    if (!token) {
+      return { success: false, error: '未获取到登录凭证' }
+    }
+
+    loading.value = true
+    try {
+      localStorage.setItem('token', token)
+      localStorage.setItem('isAuthenticated', 'true')
+      isAuthenticated.value = true
+
+      const profileResult = await updateUserProfile(true)
+      if (!profileResult.success) {
+        logout()
+        return { success: false, error: profileResult.error || '获取用户信息失败' }
+      }
+      return { success: true, message: '登录成功' }
+    } catch (error: any) {
+      logout()
+      return {
+        success: false,
+        error: error.response?.data?.message || '登录失败，请稍后重试'
+      }
+    } finally {
+      loading.value = false
+    }
+  }
+
   const register = async (email: string, password: string, verificationCode: string) => {
     loading.value = true
     try {
@@ -209,6 +238,7 @@ export const useUserStore = defineStore('user', () => {
     verificationEmail,
     sendVerificationCode,
     login,
+    completeLogin,
     register,
     resetPassword,
     logout,

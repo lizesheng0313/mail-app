@@ -3,6 +3,7 @@
 //! This module is intentionally not called from app startup or mailbox commands.
 //! The web workflow page calls it only when a browser action is requested.
 
+use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use log::{info, warn};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
@@ -20,6 +21,7 @@ use url::Url;
 const AGENT_BASE_URL: &str = "http://127.0.0.1:19201";
 const HEALTH_URL: &str = "http://127.0.0.1:19201/health";
 const PROGRESS_EVENT: &str = "browser-workflow-component-progress";
+const MAX_IMAGE_MATERIAL_BYTES: u64 = 20 * 1024 * 1024;
 
 #[derive(Default)]
 pub struct BrowserWorkflowComponentState {
@@ -60,6 +62,37 @@ struct AgentHealth {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+struct BrowserLaunchStatus {
+    #[serde(default)]
+    debug_port: Option<u16>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct BrowserCdpVersion {
+    #[serde(rename = "webSocketDebuggerUrl")]
+    web_socket_debugger_url: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BrowserWorkflowBrowserConnection {
+    pub profile_id: String,
+    pub debug_port: u16,
+    pub web_socket_debugger_url: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BrowserWorkflowImageMaterial {
+    pub material_id: String,
+    pub name: String,
+    pub file_name: String,
+    pub mime_type: String,
+    pub size: u64,
+    pub preview_data_url: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
 struct ComponentReleaseChannel {
     schema_version: String,
     version: String,
@@ -97,6 +130,184 @@ fn component_dir(app: &AppHandle) -> Result<PathBuf, String> {
 
 fn component_package_dir(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(component_dir(app)?.join("package"))
+}
+
+fn safe_material_segment(value: &str, label: &str) -> Result<String, String> {
+    let normalized = value.trim();
+    if normalized.is_empty()
+        || normalized.len() > 160
+        || !normalized
+            .chars()
+            .all(|character| character.is_ascii_alphanumeric() || matches!(character, '.' | '_' | '-'))
+    {
+        return Err(format!("{label}格式无效"));
+    }
+    Ok(normalized.to_string())
+}
+
+fn image_material_type(extension: &str) -> Option<&'static str> {
+    match extension.to_ascii_lowercase().as_str() {
+        "jpg" | "jpeg" => Some("image/jpeg"),
+        "png" => Some("image/png"),
+        "gif" => Some("image/gif"),
+        "webp" => Some("image/webp"),
+        "bmp" => Some("image/bmp"),
+        _ => None,
+    }
+}
+
+fn workflow_material_dir(app: &AppHandle, workflow_id: &str) -> Result<PathBuf, String> {
+    let workflow_id = safe_material_segment(workflow_id, "工作流编号")?;
+    Ok(component_dir(app)?.join("materials").join(workflow_id))
+}
+
+async fn resolve_material_path(
+    app: &AppHandle,
+    workflow_id: &str,
+    file_name: &str,
+) -> Result<PathBuf, String> {
+    let file_name = safe_material_segment(file_name, "素材文件名")?;
+    let base = workflow_material_dir(app, workflow_id)?;
+    let path = fs::canonicalize(base.join(file_name))
+        .await
+        .map_err(|_| "本地图片素材不存在，请重新选择".to_string())?;
+    let canonical_base = fs::canonicalize(&base)
+        .await
+        .map_err(|_| "本地素材目录不存在，请重新选择图片".to_string())?;
+    if !path.starts_with(canonical_base) {
+        return Err("素材文件路径无效".to_string());
+    }
+    Ok(path)
+}
+
+#[tauri::command]
+pub async fn import_browser_workflow_image_material(
+    app: AppHandle,
+    workflow_id: String,
+    source_path: String,
+) -> Result<BrowserWorkflowImageMaterial, String> {
+    let source = fs::canonicalize(PathBuf::from(source_path))
+        .await
+        .map_err(|_| "选择的图片不存在".to_string())?;
+    let metadata = fs::metadata(&source)
+        .await
+        .map_err(|err| format!("读取图片失败: {err}"))?;
+    if !metadata.is_file() {
+        return Err("请选择图片文件".to_string());
+    }
+    if metadata.len() == 0 || metadata.len() > MAX_IMAGE_MATERIAL_BYTES {
+        return Err("图片大小必须在 20MB 以内".to_string());
+    }
+    let extension = source
+        .extension()
+        .and_then(|value| value.to_str())
+        .map(str::to_ascii_lowercase)
+        .ok_or_else(|| "图片格式不受支持".to_string())?;
+    let mime_type = image_material_type(&extension)
+        .ok_or_else(|| "只支持 JPG、PNG、GIF、WEBP 和 BMP 图片".to_string())?;
+    let original_name = source
+        .file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or("图片")
+        .to_string();
+    let directory = workflow_material_dir(&app, &workflow_id)?;
+    fs::create_dir_all(&directory)
+        .await
+        .map_err(|err| format!("创建本地素材目录失败: {err}"))?;
+    let timestamp = chrono::Utc::now().timestamp_millis();
+    let mut sequence = 0_u16;
+    let (material_id, file_name, destination) = loop {
+        let material_id = format!("material-{timestamp}-{sequence}");
+        let file_name = format!("{material_id}.{extension}");
+        let destination = directory.join(&file_name);
+        if !fs::try_exists(&destination).await.unwrap_or(false) {
+            break (material_id, file_name, destination);
+        }
+        sequence = sequence
+            .checked_add(1)
+            .ok_or_else(|| "生成素材编号失败，请重试".to_string())?;
+    };
+    fs::copy(&source, &destination)
+        .await
+        .map_err(|err| format!("保存本地图片素材失败: {err}"))?;
+    let bytes = fs::read(&destination)
+        .await
+        .map_err(|err| format!("读取本地图片素材失败: {err}"))?;
+    Ok(BrowserWorkflowImageMaterial {
+        material_id,
+        name: original_name,
+        file_name,
+        mime_type: mime_type.to_string(),
+        size: metadata.len(),
+        preview_data_url: format!(
+            "data:{mime_type};base64,{}",
+            BASE64_STANDARD.encode(bytes)
+        ),
+    })
+}
+
+#[tauri::command]
+pub async fn browser_workflow_image_material_preview(
+    app: AppHandle,
+    workflow_id: String,
+    file_name: String,
+) -> Result<String, String> {
+    let path = resolve_material_path(&app, &workflow_id, &file_name).await?;
+    let metadata = fs::metadata(&path)
+        .await
+        .map_err(|err| format!("读取图片失败: {err}"))?;
+    if metadata.len() > MAX_IMAGE_MATERIAL_BYTES {
+        return Err("图片大小超过 20MB".to_string());
+    }
+    let extension = path
+        .extension()
+        .and_then(|value| value.to_str())
+        .unwrap_or("");
+    let mime_type = image_material_type(extension)
+        .ok_or_else(|| "图片格式不受支持".to_string())?;
+    let bytes = fs::read(path)
+        .await
+        .map_err(|err| format!("读取图片失败: {err}"))?;
+    Ok(format!(
+        "data:{mime_type};base64,{}",
+        BASE64_STANDARD.encode(bytes)
+    ))
+}
+
+#[tauri::command]
+pub async fn resolve_browser_workflow_image_materials(
+    app: AppHandle,
+    workflow_id: String,
+    materials: HashMap<String, String>,
+) -> Result<HashMap<String, String>, String> {
+    let mut resolved = HashMap::new();
+    for (material_id, file_name) in materials {
+        let material_id = safe_material_segment(&material_id, "素材编号")?;
+        let path = resolve_material_path(&app, &workflow_id, &file_name).await?;
+        resolved.insert(material_id, path.to_string_lossy().to_string());
+    }
+    Ok(resolved)
+}
+
+#[tauri::command]
+pub async fn delete_browser_workflow_image_material(
+    app: AppHandle,
+    workflow_id: String,
+    file_name: String,
+) -> Result<(), String> {
+    let workflow_id = safe_material_segment(&workflow_id, "工作流编号")?;
+    let file_name = safe_material_segment(&file_name, "素材文件名")?;
+    let path = workflow_material_dir(&app, &workflow_id)?.join(file_name);
+    if !path
+        .try_exists()
+        .map_err(|err| format!("检查本地图片素材失败: {err}"))?
+    {
+        return Ok(());
+    }
+    fs::remove_file(path)
+        .await
+        .map_err(|err| format!("删除本地图片素材失败: {err}"))?;
+    Ok(())
 }
 
 fn validate_component_download_url(value: &str) -> Result<Url, String> {
@@ -588,6 +799,67 @@ pub async fn stop_browser_workflow_component(
     }
     drop(process);
     browser_workflow_component_status(app).await
+}
+
+#[tauri::command]
+pub async fn launch_browser_workflow_browser(
+    profile_id: String,
+) -> Result<BrowserWorkflowBrowserConnection, String> {
+    let profile_id = profile_id.trim();
+    if profile_id.is_empty() || profile_id.len() > 128 {
+        return Err("桌面端浏览器 profile 标识无效".to_string());
+    }
+    if !profile_id
+        .chars()
+        .all(|character| character.is_ascii_alphanumeric() || matches!(character, '.' | '_' | '-'))
+    {
+        return Err("桌面端浏览器 profile 标识包含非法字符".to_string());
+    }
+
+    let client = Client::new();
+    let launch = client
+        .post(format!("{AGENT_BASE_URL}/v1/browser/launch"))
+        .timeout(Duration::from_secs(20))
+        .json(&serde_json::json!({
+            "profile_id": profile_id,
+            "url": "about:blank",
+        }))
+        .send()
+        .await
+        .map_err(|err| format!("启动 FMMBrowser 失败: {err}"))?
+        .error_for_status()
+        .map_err(|err| format!("启动 FMMBrowser 失败: {err}"))?
+        .json::<BrowserLaunchStatus>()
+        .await
+        .map_err(|err| format!("读取 FMMBrowser 启动状态失败: {err}"))?;
+    let debug_port = launch
+        .debug_port
+        .filter(|port| (1024..=65535).contains(port))
+        .ok_or_else(|| "FMMBrowser 没有返回有效的调试端口".to_string())?;
+    let cdp = client
+        .get(format!("http://127.0.0.1:{debug_port}/json/version"))
+        .timeout(Duration::from_secs(5))
+        .send()
+        .await
+        .map_err(|err| format!("读取 FMMBrowser 调试地址失败: {err}"))?
+        .error_for_status()
+        .map_err(|err| format!("读取 FMMBrowser 调试地址失败: {err}"))?
+        .json::<BrowserCdpVersion>()
+        .await
+        .map_err(|err| format!("FMMBrowser 调试地址格式无效: {err}"))?;
+    let cdp_url = Url::parse(&cdp.web_socket_debugger_url)
+        .map_err(|err| format!("FMMBrowser 调试地址无效: {err}"))?;
+    if cdp_url.scheme() != "ws"
+        || !matches!(cdp_url.host_str(), Some("127.0.0.1" | "localhost" | "::1"))
+        || cdp_url.port_or_known_default() != Some(debug_port)
+    {
+        return Err("FMMBrowser 调试地址不是本机地址".to_string());
+    }
+    Ok(BrowserWorkflowBrowserConnection {
+        profile_id: profile_id.to_string(),
+        debug_port,
+        web_socket_debugger_url: cdp.web_socket_debugger_url,
+    })
 }
 
 #[tauri::command]

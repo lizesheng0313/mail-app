@@ -3,6 +3,19 @@
     <div class="fixed right-4 top-4 z-40">
       <LanguageSwitcher />
     </div>
+    <div
+      v-if="wechatLoading && !wechatQrVisible"
+      class="fixed inset-0 z-[60] flex items-center justify-center bg-black/20 backdrop-blur-[1px]"
+      aria-live="polite"
+      aria-label="Loading"
+    >
+      <div class="rounded-xl bg-white/95 p-4 shadow-xl">
+        <svg class="h-8 w-8 animate-spin text-green-600" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="3" opacity="0.2" />
+          <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" stroke-width="3" stroke-linecap="round" />
+        </svg>
+      </div>
+    </div>
     <!-- 消息提示 -->
     <div v-if="message" class="fixed top-4 right-4 z-50">
       <div :class="[
@@ -17,6 +30,97 @@
             <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
           </svg>
           <span class="font-medium">{{ message }}</span>
+        </div>
+      </div>
+    </div>
+    <div v-if="wechatQrVisible" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+      <div class="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-2xl">
+        <h3 class="text-xl font-semibold text-gray-900">{{ t('login.wechatQrTitle') }}</h3>
+        <p class="mt-2 text-sm leading-6 text-gray-600">{{ t('login.wechatQrDesc') }}</p>
+        <div class="mx-auto mt-5 flex h-56 w-56 items-center justify-center rounded-xl border border-gray-200 bg-white p-3">
+          <img v-if="wechatQrUrl" :src="wechatQrUrl" alt="微信小程序登录二维码" class="h-full w-full object-contain" />
+          <span v-else class="text-sm text-gray-500">{{ t('login.wechatQrLoading') }}</span>
+        </div>
+        <button
+          type="button"
+          class="mt-5 w-full rounded-lg border border-gray-300 px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          @click="stopWechatLogin"
+        >
+          {{ t('login.wechatQrCancel') }}
+        </button>
+      </div>
+    </div>
+    <div v-if="wechatChoiceVisible" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+      <div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <h3 class="text-xl font-semibold text-gray-900">{{ t('login.wechatAccountChoiceTitle') }}</h3>
+            <p class="mt-2 text-sm leading-6 text-gray-600">{{ t('login.wechatAccountChoiceDesc') }}</p>
+          </div>
+          <button type="button" class="text-2xl leading-none text-gray-400 hover:text-gray-700" @click="closeWechatChoice">&times;</button>
+        </div>
+
+        <div v-if="wechatChoiceError" class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+          {{ wechatChoiceError }}
+        </div>
+
+        <div v-if="wechatBindMode" class="mt-5 space-y-4">
+          <div>
+            <label class="mb-2 block text-sm font-medium text-gray-900">{{ t('login.wechatBindEmail') }}</label>
+            <BaseInput
+              v-model="wechatBindEmail"
+              type="email"
+              autocomplete="email"
+              :placeholder="t('login.emailPlaceholder')"
+              :disabled="wechatCompleting"
+            />
+          </div>
+          <div>
+            <label class="mb-2 block text-sm font-medium text-gray-900">{{ t('login.wechatBindPassword') }}</label>
+            <BaseInput
+              v-model="wechatBindPassword"
+              type="password"
+              autocomplete="current-password"
+              :placeholder="t('login.passwordPlaceholder')"
+              :disabled="wechatCompleting"
+            />
+          </div>
+          <div class="flex gap-3">
+            <button
+              type="button"
+              class="flex-1 rounded-lg border border-gray-300 px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              :disabled="wechatCompleting"
+              @click="wechatBindMode = false"
+            >
+              {{ t('login.wechatBackToChoice') }}
+            </button>
+            <button
+              type="button"
+              class="flex-1 rounded-lg bg-primary-600 px-4 py-3 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+              :disabled="wechatCompleting"
+              @click="completeWechatChoice('bind')"
+            >
+              {{ wechatCompleting ? t('login.wechatCompleting') : t('login.wechatBindConfirm') }}
+            </button>
+          </div>
+        </div>
+
+        <div v-else class="mt-6 space-y-3">
+          <button
+            type="button"
+            class="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            @click="wechatBindMode = true"
+          >
+            {{ t('login.wechatBindExisting') }}
+          </button>
+          <button
+            type="button"
+            class="w-full rounded-lg bg-green-600 px-4 py-3 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
+            :disabled="wechatCompleting"
+            @click="completeWechatChoice('create')"
+          >
+            {{ wechatCompleting ? t('login.wechatCompleting') : t('login.wechatCreateNew') }}
+          </button>
         </div>
       </div>
     </div>
@@ -240,22 +344,38 @@
           </div>
         </div>
         
+        <!-- 微信扫码登录按钮 -->
+        <button
+          v-if="isLoginMode"
+          @click="loginWithWechat"
+          type="button"
+          :disabled="wechatLoading"
+          class="w-full h-12 flex items-center justify-center px-4 border border-green-200 rounded-lg shadow-sm bg-green-50 text-sm font-medium text-green-700 hover:bg-green-100 transition-colors disabled:opacity-50"
+        >
+          <svg class="w-5 h-5 mr-2 shrink-0" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path fill="#07C160" d="M12.2 4C6.57 4 2 7.72 2 12.31c0 2.51 1.4 4.76 3.64 6.27L4.7 21.5l3.52-1.91c1.21.35 2.56.54 3.98.54 5.63 0 10.2-3.72 10.2-8.31S17.83 4 12.2 4Z"/>
+            <circle cx="8.5" cy="12" r="1" fill="white"/>
+            <circle cx="15.5" cy="12" r="1" fill="white"/>
+          </svg>
+          <span class="leading-5">{{ t('login.wechatLogin') }}</span>
+        </button>
+
         <!-- Google 登录按钮 -->
         <button
           v-if="isLoginMode"
           @click="loginWithGoogle"
           type="button"
           :disabled="googleLoading"
-          class="w-full flex items-center justify-center px-4 py-3 border border-gray-300 rounded-lg shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+          class="mt-3 w-full h-12 flex items-center justify-center px-4 border border-gray-300 rounded-lg shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
         >
-          <svg class="w-5 h-5 mr-2" viewBox="0 0 24 24">
+          <svg class="w-5 h-5 mr-2 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
             <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
             <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
             <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
             <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
           </svg>
-          <span v-if="googleLoading">{{ t('login.submittingLogin') }}</span>
-          <span v-else>{{ t('login.googleLogin') }}</span>
+          <span v-if="googleLoading" class="leading-5">{{ t('login.submittingLogin') }}</span>
+          <span v-else class="leading-5">{{ t('login.googleLogin') }}</span>
         </button>
         
         <div class="mt-6 text-center space-y-3">
@@ -290,7 +410,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
@@ -313,7 +433,19 @@ const showDomainHelp = ref(false)
 const showPassword = ref(false)
 const showConfirmPassword = ref(false)
 const googleLoading = ref(false)
+const wechatLoading = ref(false)
+const wechatQrVisible = ref(false)
+const wechatQrUrl = ref('')
+const wechatChoiceVisible = ref(false)
+const wechatBindMode = ref(false)
+const wechatCompleting = ref(false)
+const wechatChoiceError = ref('')
+const wechatState = ref('')
+const wechatBindEmail = ref('')
+const wechatBindPassword = ref('')
 const supportWechat = 'lizesheng1234'
+let wechatPollTimer: number | null = null
+let wechatPollInFlight = false
 
 // 消息提示
 const message = ref('')
@@ -511,6 +643,138 @@ const loginWithGoogle = async () => {
   }
 }
 
+const stopWechatLogin = () => {
+  if (wechatPollTimer !== null) {
+    window.clearInterval(wechatPollTimer)
+    wechatPollTimer = null
+  }
+  wechatPollInFlight = false
+  wechatLoading.value = false
+  wechatQrVisible.value = false
+  wechatQrUrl.value = ''
+}
+
+const closeWechatChoice = () => {
+  wechatChoiceVisible.value = false
+  wechatBindMode.value = false
+  wechatCompleting.value = false
+  wechatChoiceError.value = ''
+  wechatState.value = ''
+  wechatBindEmail.value = ''
+  wechatBindPassword.value = ''
+}
+
+const completeWechatChoice = async (action: 'bind' | 'create') => {
+  if (!wechatState.value || wechatCompleting.value) return
+  if (action === 'bind' && (!wechatBindEmail.value.trim() || !wechatBindPassword.value)) {
+    wechatChoiceError.value = t('login.wechatBindRequired')
+    return
+  }
+
+  wechatCompleting.value = true
+  wechatChoiceError.value = ''
+  try {
+    const result: any = await authAPI.completeWechatMiniappLogin({
+      state: wechatState.value,
+      action,
+      email: action === 'bind' ? wechatBindEmail.value : undefined,
+      password: action === 'bind' ? wechatBindPassword.value : undefined
+    })
+    if (result.code !== 0 || !result.data?.access_token) {
+      wechatChoiceError.value = result.message || t('login.wechatLoginFailed')
+      return
+    }
+
+    const loginResult = await userStore.completeLogin(result.data.access_token)
+    if (!loginResult.success) {
+      wechatChoiceError.value = loginResult.error || t('login.wechatLoginFailed')
+      return
+    }
+
+    closeWechatChoice()
+    const redirectPath = typeof route.query.redirect === 'string' && route.query.redirect.startsWith('/')
+      ? route.query.redirect
+      : '/'
+    router.push(redirectPath)
+  } catch (err: any) {
+    wechatChoiceError.value = err.response?.data?.message || t('login.wechatLoginFailed')
+  } finally {
+    wechatCompleting.value = false
+  }
+}
+
+const loginWithWechat = async () => {
+  if (wechatLoading.value) return
+
+  error.value = ''
+  wechatLoading.value = true
+  try {
+    const result: any = await authAPI.getWechatMiniappLoginQr()
+    if (result.code !== 0 || !result.data?.qr_code || !result.data?.state) {
+      stopWechatLogin()
+      error.value = result.message || t('login.wechatNotConfigured')
+      return
+    }
+
+    wechatQrUrl.value = result.data.qr_code
+    wechatQrVisible.value = true
+    const state = result.data.state
+    const startedAt = Date.now()
+    const pollWechatStatus = async () => {
+      if (wechatPollInFlight) return
+      if (Date.now() - startedAt > 5 * 60 * 1000) {
+        stopWechatLogin()
+        error.value = t('login.wechatLoginFailed')
+        return
+      }
+
+      wechatPollInFlight = true
+      try {
+        const pollResult: any = await authAPI.pollWechatMiniappLogin(state)
+        if (pollResult.code !== 0) {
+          stopWechatLogin()
+          error.value = pollResult.message || t('login.wechatLoginFailed')
+          return
+        }
+
+        if (pollResult.data?.status === 'choose') {
+          stopWechatLogin()
+          wechatState.value = state
+          wechatChoiceError.value = ''
+          wechatBindMode.value = false
+          wechatChoiceVisible.value = true
+          return
+        }
+
+        if (pollResult.data?.status !== 'success') return
+
+        const accessToken = pollResult.data.access_token
+        stopWechatLogin()
+        const loginResult = await userStore.completeLogin(accessToken)
+        if (loginResult.success) {
+          const redirectPath = typeof route.query.redirect === 'string' && route.query.redirect.startsWith('/')
+            ? route.query.redirect
+            : '/'
+          router.push(redirectPath)
+        } else {
+          error.value = loginResult.error || t('login.wechatLoginFailed')
+        }
+      } catch (err: any) {
+        stopWechatLogin()
+        error.value = err.response?.data?.message || t('login.wechatLoginFailed')
+      } finally {
+        wechatPollInFlight = false
+      }
+    }
+
+    wechatPollTimer = window.setInterval(pollWechatStatus, 1000)
+    void pollWechatStatus()
+  } catch (err: any) {
+    stopWechatLogin()
+    error.value = err.response?.data?.message || t('login.wechatLoginFailed')
+  }
+}
+
 const copySupportWechat = async () => {
   try {
     await navigator.clipboard.writeText(supportWechat)
@@ -543,4 +807,6 @@ watch(() => route.query.error, (queryError) => {
     error.value = queryError
   }
 })
+
+onBeforeUnmount(stopWechatLogin)
 </script>

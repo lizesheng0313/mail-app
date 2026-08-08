@@ -784,6 +784,7 @@ import {
   createLossLeaderSkus,
   getWorkflowAdminPriceTable,
   getWorkflowDetail,
+  purchaseWorkflow,
   refreshWorkflowAdminPriceCatalog
 } from '@/api/workflowMarket'
 import { createReview, deleteReview } from '@/api/workflowMarket'
@@ -1200,6 +1201,13 @@ const selectedSku = computed(() => {
     || displaySkus.value.find((sku) => sku.id === selectedSkuId.value)
     || visibleSkus.value[0]
     || displaySkus.value[0]
+})
+
+const isSelectedSkuThirdParty = computed(() => {
+  const mode = String(
+    selectedSku.value.delivery_mode || selectedSku.value.fulfillment_type || ''
+  ).trim().toLowerCase()
+  return ['third_party_api', 'api'].includes(mode)
 })
 
 const showSkuSelector = computed(() => skuGroups.value.length > 1 || visibleSkus.value.length > 1)
@@ -1750,7 +1758,7 @@ const maxExecutionCount = computed(() => {
   if (!workflow.value?.inventory_enabled) {
     return 99
   }
-  return Math.max(1, Number(workflow.value.inventory_count || 0))
+  return Math.max(0, Number(workflow.value.inventory_count || 0))
 })
 
 const calculatePlatformFee = (amount) => {
@@ -2044,7 +2052,25 @@ const executeNow = async () => {
     loading: false,
     onConfirm: async () => {
       confirmDialog.value.loading = true
+      let purchasedNow = false
       try {
+        const needsPurchase = ['subscription', 'one_time'].includes(model)
+          && !isSelectedSkuThirdParty.value
+          && !workflow.value.is_purchased
+        if (needsPurchase) {
+          const purchaseResponse = await purchaseWorkflow(
+            workflow.value.id,
+            executionCount,
+            selectedSku.value.id
+          )
+          if (purchaseResponse.code !== 0) {
+            showMessage(purchaseResponse.message || '购买失败', 'error')
+            return
+          }
+          workflow.value.is_purchased = true
+          purchasedNow = true
+        }
+
         const response = await workflowApi.executeWorkflow(
           currentWorkflowId,
           buildExecutionVariables(),
@@ -2109,7 +2135,10 @@ const executeNow = async () => {
         )
       } catch (error) {
         console.error('执行失败:', error)
-        showMessage(t('marketDetail.executionFailed'), 'error')
+        showMessage(
+          purchasedNow ? '购买已成功，执行提交失败，可到我的工作流中重试' : t('marketDetail.executionFailed'),
+          purchasedNow ? 'warning' : 'error'
+        )
       } finally {
         confirmDialog.value.loading = false
       }

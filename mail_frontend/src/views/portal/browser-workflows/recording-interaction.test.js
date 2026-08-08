@@ -5,6 +5,9 @@ import {
   beginListItemDemonstration,
   completeListItemDemonstration,
   completePaginationDemonstration,
+  describeListScope,
+  describeRecordedFlow,
+  describeRecordedStep,
   getRecordingAnchorChoice,
   normalizeRecordingFinishedPayload,
   resolveListScope,
@@ -168,5 +171,29 @@ describe('generic repeated-list recording interaction', () => {
     expect(result.scope.next_selector).toBe('button.next-page')
     expect(result.steps).toEqual([entryStep, detailStep])
     expect(result.steps).not.toContainEqual(expect.objectContaining({ selector: 'button.next-page' }))
+  })
+
+  it('shows Chinese action descriptions instead of CSS selectors', () => {
+    expect(describeRecordedStep({
+      kind: 'click',
+      selector: 'div:nth-of-type(2) > a:nth-of-type(1)',
+      reason: '点击Message按钮',
+    })).toBe('点击消息按钮')
+    expect(describeRecordedStep({
+      kind: 'click',
+      selector: 'div:nth-of-type(10) > a:nth-of-type(1)',
+    }, 0)).toBe('打开列表中的项目')
+  })
+
+  it('explains a list item and its detail-page action in Chinese', () => {
+    const steps = [
+      { kind: 'click', reason: '点击商品卡片进入详情页' },
+      { kind: 'click', reason: '点击Message按钮' },
+    ]
+
+    expect(describeRecordedFlow(steps)).toBe('点击商品卡片进入详情页，然后点击消息按钮')
+    expect(describeListScope({ mode: 'current_page' }, steps)).toBe(
+      '系统会在当前列表的每个项目中执行：点击商品卡片进入详情页，然后点击消息按钮',
+    )
   })
 })

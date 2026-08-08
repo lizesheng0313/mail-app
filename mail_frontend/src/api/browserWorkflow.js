@@ -25,7 +25,7 @@ export const browserWorkflowApi = {
   getExecutionEvents: (executionId, config = {}) => api.get(`/browser-workflow-executions/${executionId}/events`, config),
   resumeExecution: (executionId, nodeId, config = {}) => api.post(`/browser-workflow-executions/${executionId}/resume`, { node_id: nodeId }, config),
   recording: (executionId, action = 'start', payload = {}, config = {}) => api.post(`/browser-workflow-executions/${executionId}/recording`, { action, ...payload }, config),
-  testStep: (executionId, document, nodeIds, anchorNodeId, config = {}) => api.post(`/browser-workflow-executions/${executionId}/test-step`, { document, node_ids: nodeIds, anchor_node_id: anchorNodeId }, config),
+  testStep: (executionId, document, nodeIds, anchorNodeId, options = {}, config = {}) => api.post(`/browser-workflow-executions/${executionId}/test-step`, { document, node_ids: nodeIds, anchor_node_id: anchorNodeId, options }, config),
   export: (workflowId, config = {}) => api.get(`/browser-workflows/${workflowId}/export`, config),
   import: (document, config = {}) => api.post('/browser-workflows/import', { document }, config),
   remove: (workflowId, config = {}) => api.delete(`/browser-workflows/${workflowId}`, config),

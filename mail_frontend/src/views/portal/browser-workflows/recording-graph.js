@@ -1,4 +1,5 @@
 import { createWorkflowNode } from './node-registry'
+import { describeRecordedStep, recordedListItemName, recordedStepTitle } from './recording-interaction'
 
 function defaultIdFactory(prefix) {
   return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`
@@ -13,7 +14,7 @@ export function insertRecordedStepsIntoGraph({
   createNode = createWorkflowNode,
   createId = defaultIdFactory,
 }) {
-  const validSteps = (steps || []).filter(step => step?.selector && ['click', 'input', 'drag_slider'].includes(step.kind))
+  const validSteps = (steps || []).filter(step => step?.selector && ['click', 'input', 'upload_file', 'drag_slider'].includes(step.kind))
   const anchorNode = workflow?.nodes?.find(node => node.id === anchorNodeId)
   if (!validSteps.length || !anchorNode || anchorNode.kind === 'end') {
     return { createdNodeIds: [], insertedStepCount: 0, anchorNode: null }
@@ -52,15 +53,20 @@ export function insertRecordedStepsIntoGraph({
   const y = Number(anchorNode.position?.y || 120)
   let loopNode = null
   let listExtractNode = null
+  let returnToListNode = null
   let paginationNode = null
+  let loopBodyX = 0
+  const loopBodyY = y + 240
+  const listItemName = recordedListItemName(validSteps)
 
   if (scope?.mode === 'current_page' || scope?.mode === 'all_pages') {
     listExtractNode = createNode('extract', resolvePosition({ x, y }), createId('recorded-list-extract'))
-    listExtractNode.title = '提取当前列表'
-    listExtractNode.description = '使用用户确认的列表项目定位生成数组'
+    listExtractNode.title = listItemName === '项目' ? '获取列表项目' : `获取${listItemName}列表`
+    listExtractNode.description = '读取当前页面的列表内容'
     listExtractNode.config = { mode: 'list', item_selector: scope.item_selector, fields: [] }
     listExtractNode.outputs = [
       { name: 'items', type: 'array', required: true, description: '当前页面中的列表项目', source_path: 'items', object_schema: {} },
+      { name: 'page_url', type: 'string', required: true, description: '当前列表页地址', source_path: 'page_url', object_schema: {} },
     ]
     workflow.nodes.push(listExtractNode)
     workflow.edges.push({ id: createId('recorded-list-extract-edge'), source: anchorNode.id, target: listExtractNode.id })
@@ -68,8 +74,10 @@ export function insertRecordedStepsIntoGraph({
     x += 272
 
     loopNode = createNode('loop', resolvePosition({ x, y }), createId('recorded-list-loop'))
-    loopNode.title = scope.mode === 'all_pages' ? '处理后续页面中的每个项目' : '处理当前页每个项目'
-    loopNode.description = '系统按当前页面的同类项目逐个执行下面的操作'
+    loopNode.title = scope.mode === 'all_pages'
+      ? (listItemName === '项目' ? '遍历全部列表' : `遍历全部${listItemName}`)
+      : (listItemName === '项目' ? '遍历当前列表' : `遍历${listItemName}列表`)
+    loopNode.description = '逐项执行循环内操作'
     loopNode.config = {
       loop_type: 'array',
       source: 'items',
@@ -88,14 +96,16 @@ export function insertRecordedStepsIntoGraph({
     workflow.nodes.push(loopNode)
     workflow.edges.push({ id: createId('recorded-list-edge'), source: listExtractNode.id, target: loopNode.id })
     previous = loopNode
-    x += 272
+    loopBodyX = Number(loopNode.position?.x || x)
+    x += 544
   }
 
-  for (const step of validSteps) {
-    const node = createNode(step.kind, resolvePosition({ x, y }), createId('recorded'))
-    node.title = step.title || '录制步骤'
-    node.description = step.reason || 'AI 根据用户点击的 DOM 生成'
-    node.config = { selector: step.selector }
+  validSteps.forEach((step, index) => {
+    const preferredPosition = loopNode ? { x: loopBodyX, y: loopBodyY } : { x, y }
+    const node = createNode(step.kind, resolvePosition(preferredPosition), createId('recorded'))
+    node.title = recordedStepTitle(step, index)
+    node.description = describeRecordedStep(step, index)
+    node.config = { ...node.config, selector: step.selector }
     if (loopNode && step.within_list_item) {
       node.config.scope_selector = scope.item_selector
       node.inputs.push({
@@ -111,7 +121,13 @@ export function insertRecordedStepsIntoGraph({
     }
     if (step.kind === 'input') {
       node.config.value = step.value || ''
+      node.config.content_source = 'fixed'
       node.config.click_before_input = true
+    }
+    if (step.kind === 'upload_file') {
+      node.config.material_id = ''
+      node.config.accept = step.accept || 'image/*'
+      node.config.multiple = Boolean(step.multiple)
     }
     if (step.kind === 'drag_slider') {
       Object.assign(node.config, {
@@ -128,8 +144,9 @@ export function insertRecordedStepsIntoGraph({
       workflow.edges.push({ id: createId('recorded-edge'), source: previous.id, target: node.id })
     }
     previous = node
-    x += 272
-  }
+    if (loopNode) loopBodyX += 272
+    else x += 272
+  })
 
   if (loopNode && createdNodeIds.length) {
     workflow.edges.push({
@@ -138,11 +155,32 @@ export function insertRecordedStepsIntoGraph({
       target: createdNodeIds[0],
       condition: { branch: 'loop' },
     })
+    returnToListNode = createNode('return_to_page', resolvePosition({ x: loopBodyX, y: loopBodyY }), createId('recorded-return-list'))
+    returnToListNode.title = listItemName === '项目' ? '返回列表' : `返回${listItemName}列表`
+    returnToListNode.description = '继续处理下一项'
+    returnToListNode.config = { max_steps: 3 }
+    returnToListNode.inputs = [{
+      name: 'url',
+      type: 'string',
+      required: true,
+      description: '本轮项目所在的列表页地址',
+      source: 'node',
+      value: null,
+      variable: `${listExtractNode.id}.page_url`,
+      aggregation: 'latest',
+    }]
+    workflow.nodes.push(returnToListNode)
+    workflow.edges.push({
+      id: createId('recorded-return-list-edge'),
+      source: createdNodeIds[createdNodeIds.length - 1],
+      target: returnToListNode.id,
+    })
     workflow.edges.push({
       id: createId('recorded-loop-repeat'),
-      source: createdNodeIds[createdNodeIds.length - 1],
+      source: returnToListNode.id,
       target: loopNode.id,
     })
+    loopBodyX += 272
 
     const continuationTarget = continuationEdges[0].target
     if (scope.mode === 'all_pages') {
@@ -150,7 +188,7 @@ export function insertRecordedStepsIntoGraph({
       paginationNode.title = '继续下一页'
       paginationNode.description = scope.next_selector
         ? '点击用户演示的翻页组件，没有下一页时结束'
-        : '请补充下一页按钮定位后执行'
+        : '自动识别下一页按钮，没有下一页时结束'
       paginationNode.config = { next_selector: scope.next_selector || '', wait_after_click_ms: 1000 }
       workflow.nodes.push(paginationNode)
       workflow.edges.push({
@@ -200,11 +238,12 @@ export function insertRecordedStepsIntoGraph({
 
   return {
     createdNodeIds,
-    testNodeIds: loopNode ? [listExtractNode.id, loopNode.id, ...createdNodeIds] : [...createdNodeIds],
+    testNodeIds: loopNode ? [listExtractNode.id, loopNode.id, ...createdNodeIds, returnToListNode.id] : [...createdNodeIds],
     insertedStepCount: validSteps.length,
     anchorNode,
     listExtractNodeId: listExtractNode?.id || '',
     loopNodeId: loopNode?.id || '',
+    returnToListNodeId: returnToListNode?.id || '',
     paginationNodeId: paginationNode?.id || '',
   }
 }

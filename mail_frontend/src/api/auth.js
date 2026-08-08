@@ -35,7 +35,29 @@ export const authAPI = {
   getGoogleBindStatus: () => api.get('/auth/google/status'),
   unbindGoogle: () => api.post('/auth/google/unbind'),
   createGoogleAccount: (data) => api.post('/auth/google/create-account', data),
-  bindExistingGoogle: (data) => api.post('/auth/google/bind-existing', data)
+  bindExistingGoogle: (data) => api.post('/auth/google/bind-existing', data),
+
+  // 微信开放平台网站应用扫码登录
+  getWechatLoginUrl: (params = {}) =>
+    api.get('/auth/wechat/login-url', { params, suppressErrorMessage: true }),
+  pollWechatLogin: (state) =>
+    api.get('/auth/wechat/poll', {
+      params: { state },
+      suppressErrorMessage: true
+    }),
+  completeWechatLogin: (data) =>
+    api.post('/auth/wechat/complete', data, { suppressErrorMessage: true }),
+
+  // 使用已发布小程序码的网页扫码登录（与开放平台网站应用登录分开）
+  getWechatMiniappLoginQr: () =>
+    api.get('/auth/wechat-miniapp/login-qr', { suppressErrorMessage: true }),
+  pollWechatMiniappLogin: (state) =>
+    api.get('/auth/wechat-miniapp/poll', {
+      params: { state },
+      suppressErrorMessage: true
+    }),
+  completeWechatMiniappLogin: (data) =>
+    api.post('/auth/wechat-miniapp/complete', data, { suppressErrorMessage: true })
 }
 
 // 导出个别函数供测试使用

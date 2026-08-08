@@ -7,9 +7,14 @@ mod mail;
 mod oauth_callback_server;
 
 use browser_workflow::{
+    browser_workflow_image_material_preview,
     browser_workflow_component_status, cancel_browser_workflow_component_download,
-    install_browser_workflow_component, start_browser_workflow_component,
-    stop_browser_workflow_component, BrowserWorkflowComponentState,
+    delete_browser_workflow_image_material,
+    import_browser_workflow_image_material,
+    install_browser_workflow_component, launch_browser_workflow_browser,
+    resolve_browser_workflow_image_materials,
+    start_browser_workflow_component, stop_browser_workflow_component,
+    BrowserWorkflowComponentState,
 };
 use commands::{add_external_mailbox, check_for_update, download_and_install_update, download_attachment, fetch_emails, get_attachment_path, is_tauri, open_external_url, open_local_attachment, recover_and_fetch_external_mailbox, recover_external_mailbox_session, refresh_oauth2_token_locally, send_smtp_email};
 use local_api_server::start_local_api_server;
@@ -55,9 +60,14 @@ pub fn run() {
             send_smtp_email,
             browser_workflow_component_status,
             install_browser_workflow_component,
+            launch_browser_workflow_browser,
             start_browser_workflow_component,
             stop_browser_workflow_component,
             cancel_browser_workflow_component_download,
+            import_browser_workflow_image_material,
+            browser_workflow_image_material_preview,
+            resolve_browser_workflow_image_materials,
+            delete_browser_workflow_image_material,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

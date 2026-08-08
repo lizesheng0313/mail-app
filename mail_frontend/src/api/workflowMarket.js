@@ -78,10 +78,12 @@ export function republishWorkflow(workflowId) {
 /**
  * 购买工作流 (从token自动获取user_id)
  */
-export function purchaseWorkflow(workflowId, quantity = 1) {
-  return api.post(`/workflow-market/workflows/${workflowId}/purchase`, {
-    quantity
-  })
+export function purchaseWorkflow(workflowId, quantity = 1, selectedSkuId = '') {
+  const params = {
+    quantity,
+    ...(selectedSkuId ? { selected_sku_id: selectedSkuId } : {})
+  }
+  return api.post(`/workflow-market/workflows/${workflowId}/purchase`, null, { params })
 }
 
 /**

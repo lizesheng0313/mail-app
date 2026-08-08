@@ -189,6 +189,63 @@ describe('FloatingLiveChat admin conversation layout', () => {
     expect(wrapper.get('[data-testid="admin-chat-pane"]').classes()).toContain('hidden')
   })
 
+  it('searches a user for a private message without adding an empty conversation', async () => {
+    mocks.apiGet.mockImplementation(async (url: string) => {
+      if (url === '/live-chat/conversations') {
+        return { code: 0, data: { items: conversations } }
+      }
+      if (url === '/live-chat/users/search') {
+        return {
+          code: 0,
+          data: {
+            items: [{
+              user: {
+                id: 103,
+                display_name: '客户丙',
+                email: 'customer-c@example.com',
+                is_admin: false,
+                avatar_text: '丙'
+              },
+              is_online: true
+            }]
+          }
+        }
+      }
+      return {
+        code: 0,
+        data: {
+          items: [],
+          next_before_message_id: 0,
+          has_more: false,
+          online_count: 3,
+          unread_count: 0
+        }
+      }
+    })
+
+    wrapper = mount(FloatingLiveChat)
+    await wrapper.get('[data-testid="chat-launcher"]').trigger('click')
+    await flushPromises()
+
+    const searchInput = wrapper.get('[data-testid="admin-user-search-input"]')
+    await searchInput.setValue('customer-c')
+    await wrapper.get('[data-testid="admin-user-search-button"]').trigger('click')
+    await flushPromises()
+
+    expect(mocks.apiGet).toHaveBeenCalledWith(
+      '/live-chat/users/search',
+      expect.objectContaining({ params: { keyword: 'customer-c' } }),
+    )
+    expect(wrapper.get('[data-testid="admin-user-search-result"]').text()).toContain('客户丙')
+    expect(wrapper.find('[data-testid="admin-conversation-item-103"]').exists()).toBe(false)
+
+    await wrapper.get('[data-testid="admin-user-search-result"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="admin-chat-pane"]').text()).toContain('客户丙')
+    expect(wrapper.find('[data-testid="admin-conversation-item-103"]').exists()).toBe(false)
+  })
+
   it('keeps the ordinary user experience as a single chat pane', async () => {
     mocks.userStore.user = {
       id: 2,

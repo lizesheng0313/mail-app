@@ -10,9 +10,6 @@
           <div class="flex items-center justify-between gap-3">
             <div>
               <p class="text-sm font-semibold">在线客服</p>
-              <p v-if="isAdmin" class="mt-1 text-xs text-primary-50/90">
-                可查看并回复用户会话。
-              </p>
             </div>
             <div class="flex items-center gap-3">
               <div class="rounded-full bg-white/10 px-3 py-1 text-xs font-medium">
@@ -47,11 +44,60 @@
             <div class="flex shrink-0 items-center justify-between border-b border-gray-200 px-4 py-3">
               <div>
                 <p class="text-sm font-semibold text-gray-800">客户会话</p>
-                <p class="mt-0.5 text-[11px] text-gray-400">在线客户即时消息</p>
+                <p class="mt-0.5 text-[11px] text-gray-400">有过消息的客户</p>
               </div>
               <span class="rounded-full bg-primary-50 px-2 py-1 text-[11px] font-medium text-primary-700">
                 {{ conversations.length }} 个
               </span>
+            </div>
+
+            <div class="shrink-0 border-b border-gray-200 px-3 py-3">
+              <div class="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2">
+                <svg class="h-4 w-4 shrink-0 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="m21 21-4.35-4.35m1.35-5.15a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0Z" />
+                </svg>
+                <input
+                  v-model.trim="userSearchKeyword"
+                  data-testid="admin-user-search-input"
+                  type="search"
+                  class="min-w-0 flex-1 border-0 bg-transparent p-0 text-xs text-gray-700 outline-none focus:ring-0 placeholder:text-gray-400"
+                  placeholder="搜索用户名、邮箱或用户ID"
+                  @keydown.enter.exact.prevent="searchUsers"
+                />
+                <button
+                  type="button"
+                  data-testid="admin-user-search-button"
+                  class="shrink-0 rounded-lg bg-primary-600 px-2.5 py-1.5 text-[11px] font-medium text-white transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  :disabled="searchingUsers || !userSearchKeyword"
+                  @click="searchUsers"
+                >
+                  {{ searchingUsers ? '搜索中' : '搜索' }}
+                </button>
+              </div>
+              <div v-if="userSearchPerformed" class="mt-2 max-h-48 overflow-y-auto rounded-xl border border-primary-100 bg-white shadow-sm">
+                <button
+                  v-for="result in userSearchResults"
+                  :key="result.user.id"
+                  type="button"
+                  data-testid="admin-user-search-result"
+                  class="flex w-full items-center gap-2 px-3 py-2.5 text-left transition hover:bg-primary-50"
+                  @click="startPrivateConversation(result)"
+                >
+                  <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-100 text-xs font-semibold text-primary-700">
+                    {{ result.user.avatar_text }}
+                  </span>
+                  <span class="min-w-0 flex-1">
+                    <span class="block truncate text-xs font-semibold text-gray-800">{{ result.user.display_name }}</span>
+                    <span class="block truncate text-[10px] text-gray-400">{{ result.user.email || `用户ID：${result.user.id}` }}</span>
+                  </span>
+                  <span class="shrink-0 text-[10px]" :class="result.is_online ? 'text-emerald-600' : 'text-gray-400'">
+                    {{ result.is_online ? '在线' : '离线' }}
+                  </span>
+                </button>
+                <div v-if="!searchingUsers && userSearchResults.length === 0" class="px-3 py-4 text-center text-xs text-gray-400">
+                  没有找到匹配的用户
+                </div>
+              </div>
             </div>
 
             <div class="min-h-0 flex-1 overflow-y-auto px-2 pb-2 pt-2">
@@ -412,6 +458,11 @@ type LiveChatConversation = {
   }
 }
 
+type LiveChatUserSearchResult = {
+  user: LiveChatUser
+  is_online: boolean
+}
+
 const getAttachmentListClass = (count: number) => {
   return count > 1 ? 'grid max-w-[240px] grid-cols-2 gap-2' : 'w-24'
 }
@@ -435,6 +486,7 @@ const draft = ref('')
 const messages = ref<LiveChatMessage[]>([])
 const conversations = ref<LiveChatConversation[]>([])
 const activeConversationUserId = ref(0)
+const selectedSearchTarget = ref<LiveChatUserSearchResult | null>(null)
 const removingConversationUserId = ref(0)
 const mobileShowConversation = ref(false)
 const loadingHistory = ref(false)
@@ -448,6 +500,10 @@ const hasMoreHistory = ref(false)
 const imageUploading = ref(false)
 const pendingAttachments = ref<Array<{ url: string; filename: string; size: number }>>([])
 const socketUserId = ref(0)
+const userSearchKeyword = ref('')
+const userSearchResults = ref<LiveChatUserSearchResult[]>([])
+const searchingUsers = ref(false)
+const userSearchPerformed = ref(false)
 
 let socket: Socket | null = null
 let historyLoaded = false
@@ -473,9 +529,29 @@ const isCompactViewport = () => (
 const selfUserId = computed(() => normalizeUserId(socketUserId.value || userStore.user?.id))
 const canSend = computed(() => userStore.isAuthenticated && connectionStatus.value === 'connected')
 const isAdmin = computed(() => Boolean(userStore.user?.is_admin))
-const activeConversation = computed(() => conversations.value.find(
-  (conversation) => conversation.user.id === activeConversationUserId.value,
-))
+const activeConversation = computed<LiveChatConversation | undefined>(() => {
+  const existingConversation = conversations.value.find(
+    (conversation) => conversation.user.id === activeConversationUserId.value,
+  )
+  if (existingConversation) return existingConversation
+
+  if (
+    selectedSearchTarget.value &&
+    selectedSearchTarget.value.user.id === activeConversationUserId.value
+  ) {
+    return {
+      user: selectedSearchTarget.value.user,
+      is_online: selectedSearchTarget.value.is_online,
+      unread_count: 0,
+      last_message: {
+        content: '',
+        created_at_ms: 0,
+      },
+    }
+  }
+
+  return undefined
+})
 const canSubmit = computed(() =>
   canSend.value &&
   (!isAdmin.value || activeConversationUserId.value > 0) &&
@@ -546,11 +622,70 @@ const getSocketServerURL = () => {
   return window.location.origin
 }
 
+const searchUsers = async () => {
+  if (!isAdmin.value || searchingUsers.value) return
+
+  const keyword = userSearchKeyword.value.trim()
+  userSearchPerformed.value = Boolean(keyword)
+  if (!keyword) {
+    userSearchResults.value = []
+    return
+  }
+
+  searchingUsers.value = true
+  try {
+    const response: any = await api.get('/live-chat/users/search', {
+      params: { keyword },
+      suppressErrorMessage: true,
+    })
+    if (response?.code === 0) {
+      userSearchResults.value = Array.isArray(response.data?.items)
+        ? response.data.items
+        : []
+    } else {
+      userSearchResults.value = []
+    }
+  } catch (error: any) {
+    userSearchResults.value = []
+    showMessage(error?.message || '搜索用户失败', 'error')
+  } finally {
+    searchingUsers.value = false
+  }
+}
+
+const startPrivateConversation = async (result: LiveChatUserSearchResult) => {
+  if (!isAdmin.value) return
+  const userId = normalizeUserId(result?.user?.id)
+  if (userId <= 0) return
+
+  const existingConversation = conversations.value.find(
+    (conversation) => normalizeUserId(conversation.user.id) === userId,
+  )
+  if (existingConversation) {
+    await selectConversation(existingConversation)
+    return
+  }
+
+  selectedSearchTarget.value = result
+  activeConversationUserId.value = userId
+  mobileShowConversation.value = true
+  userSearchKeyword.value = ''
+  userSearchResults.value = []
+  userSearchPerformed.value = false
+  messages.value = []
+  historyLoaded = false
+  historyCursor = 0
+  hasMoreHistory.value = false
+  await loadHistory(true)
+  await scrollToBottom()
+}
+
 const selectConversation = async (conversation: LiveChatConversation) => {
   if (!isAdmin.value) return
   const nextUserId = normalizeUserId(conversation.user.id)
   if (nextUserId <= 0) return
 
+  selectedSearchTarget.value = null
   activeConversationUserId.value = nextUserId
   mobileShowConversation.value = true
   messages.value = []
@@ -581,6 +716,9 @@ const removeConversation = async (conversation: LiveChatConversation) => {
     conversations.value = conversations.value.filter(
       (item) => normalizeUserId(item.user.id) !== customerUserId,
     )
+    if (selectedSearchTarget.value?.user.id === customerUserId) {
+      selectedSearchTarget.value = null
+    }
     if (activeConversationUserId.value === customerUserId) {
       activeConversationUserId.value = 0
       mobileShowConversation.value = false
@@ -613,11 +751,17 @@ const loadConversations = async () => {
       const activeStillExists = items.some(
         (conversation: LiveChatConversation) => conversation.user.id === activeConversationUserId.value,
       )
+      if (activeStillExists) {
+        selectedSearchTarget.value = null
+      }
       if (!activeStillExists) {
-        activeConversationUserId.value = 0
-        mobileShowConversation.value = false
-        messages.value = []
-        historyLoaded = false
+        const isSearchTargetActive = selectedSearchTarget.value?.user.id === activeConversationUserId.value
+        if (!isSearchTargetActive) {
+          activeConversationUserId.value = 0
+          mobileShowConversation.value = false
+          messages.value = []
+          historyLoaded = false
+        }
       }
 
       const canAutoSelect = !isCompactViewport() || mobileShowConversation.value
@@ -1097,6 +1241,10 @@ watch(
     unreadCount.value = 0
     conversations.value = []
     activeConversationUserId.value = 0
+    selectedSearchTarget.value = null
+    userSearchKeyword.value = ''
+    userSearchResults.value = []
+    userSearchPerformed.value = false
     mobileShowConversation.value = false
     if (visible.value) {
       if (isAdmin.value) {

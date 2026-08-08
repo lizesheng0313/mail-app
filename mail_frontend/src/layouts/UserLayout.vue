@@ -153,7 +153,7 @@ const menuSections = computed(() => [
             ])
         }
       }
-    ].filter((item) => item.path !== '/user/automation/browser-workflows')
+    ]
   },
   {
     name: t('userLayout.developerAccess'),

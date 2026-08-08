@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { buildWorkflowEdgeCell, buildWorkflowNodeCell, createWorkflowGraph, disposeWorkflowGraph, getWorkflowPortItems, sanitizeWorkflowGraphDocument, syncWorkflowGraph } from './x6-workflow-graph'
 
 describe('X6 workflow graph adapter', () => {
@@ -47,7 +47,22 @@ describe('X6 workflow graph adapter', () => {
   })
 
   it('mounts and synchronizes a real X6 graph', () => {
-    SVGElement.prototype.getCTM ||= () => ({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 })
+    document.elementFromPoint ||= () => null
+    SVGElement.prototype.getCTM ||= () => ({
+      a: 1, b: 0, c: 0, d: 1, e: 0, f: 0,
+      inverse() { return this },
+      multiply() { return this },
+    })
+    SVGElement.prototype.getScreenCTM ||= () => ({
+      a: 1, b: 0, c: 0, d: 1, e: 0, f: 0,
+      inverse() { return this },
+      multiply() { return this },
+    })
+    SVGSVGElement.prototype.getScreenCTM ||= () => ({
+      a: 1, b: 0, c: 0, d: 1, e: 0, f: 0,
+      inverse() { return this },
+      multiply() { return this },
+    })
     SVGSVGElement.prototype.createSVGMatrix ||= () => ({
       a: 1, b: 0, c: 0, d: 1, e: 0, f: 0,
       multiply(matrix) { return matrix },
@@ -69,7 +84,6 @@ describe('X6 workflow graph adapter', () => {
     container.style.height = '600px'
     document.body.appendChild(container)
     const graph = createWorkflowGraph(container, { width: 800, height: 600 })
-
     syncWorkflowGraph(graph, {
       nodes: [
         { id: 'start', kind: 'start', position: { x: 40, y: 40 } },
@@ -84,4 +98,198 @@ describe('X6 workflow graph adapter', () => {
     disposeWorkflowGraph(graph)
     container.remove()
   })
+
+  it('keeps node dragging continuous instead of snapping to a 20px grid', () => {
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const graph = createWorkflowGraph(container, { width: 800, height: 600 })
+
+    expect(graph.getGridSize()).toBe(1)
+
+    disposeWorkflowGraph(graph)
+    container.remove()
+  })
+
+  it('allows one workflow edge to move without enabling whole-graph panning', () => {
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const graph = createWorkflowGraph(container, { width: 800, height: 600 })
+
+    expect(graph.options.interacting.edgeMovable).toBe(true)
+    expect(graph.options.panning.enabled).toBe(false)
+    expect(graph.options.interacting.arrowheadMovable).toBe(true)
+    expect(graph.options.interacting.vertexMovable).toBe(true)
+    expect(graph.options.interacting.vertexAddable).toBe(true)
+    expect(graph.options.interacting.magnetConnectable).toBe(true)
+
+    disposeWorkflowGraph(graph)
+    container.remove()
+  })
+
+  it('does not pan the whole graph when the edge path receives a drag', () => {
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const graph = createWorkflowGraph(container, { width: 800, height: 600 })
+
+    syncWorkflowGraph(graph, {
+      nodes: [
+        { id: 'start', kind: 'start', position: { x: 40, y: 40 } },
+        { id: 'end', kind: 'end', position: { x: 340, y: 40 } },
+      ],
+      edges: [{ id: 'start-end', source: 'start', target: 'end' }],
+    })
+
+    const edgePath = container.querySelector('.x6-edge path')
+    const translateBy = vi.spyOn(graph, 'translateBy')
+    edgePath.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0, clientX: 100, clientY: 100 }))
+    document.body.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, button: 0, buttons: 1, clientX: 200, clientY: 200 }))
+    document.body.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, button: 0, clientX: 200, clientY: 200 }))
+
+    expect(translateBy).not.toHaveBeenCalled()
+
+    disposeWorkflowGraph(graph)
+    container.remove()
+  })
+
+  it('creates a bend on only the edge whose raw line is dragged', () => {
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const graph = createWorkflowGraph(container, { width: 800, height: 600 })
+    syncWorkflowGraph(graph, {
+      nodes: [
+        { id: 'start', kind: 'start', position: { x: 40, y: 40 } },
+        { id: 'end', kind: 'end', position: { x: 340, y: 40 } },
+        { id: 'other-start', kind: 'start', position: { x: 40, y: 240 } },
+        { id: 'other-end', kind: 'end', position: { x: 340, y: 240 } },
+      ],
+      edges: [
+        { id: 'start-end', source: 'start', target: 'end' },
+        { id: 'other-start-end', source: 'other-start', target: 'other-end' },
+      ],
+    })
+
+    const edgePath = [...container.querySelectorAll('.x6-edge path')][0]
+    edgePath.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0, clientX: 200, clientY: 40 }))
+    document.body.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, button: 0, buttons: 1, clientX: 240, clientY: 140 }))
+    document.body.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, button: 0, clientX: 240, clientY: 140 }))
+
+    expect(graph.getCellById('start-end').getVertices()).toHaveLength(1)
+    expect(graph.getCellById('other-start-end').getVertices()).toHaveLength(0)
+
+    disposeWorkflowGraph(graph)
+    container.remove()
+  })
+
+  it('shows editing handles for reconnecting and moving the selected edge', () => {
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const graph = createWorkflowGraph(container, { width: 800, height: 600 })
+
+    syncWorkflowGraph(graph, {
+      nodes: [
+        { id: 'start', kind: 'start', position: { x: 40, y: 40 } },
+        { id: 'end', kind: 'end', position: { x: 340, y: 40 } },
+      ],
+      edges: [{ id: 'start-end', source: 'start', target: 'end' }],
+    })
+
+    const edgePath = container.querySelector('.x6-edge path')
+    edgePath.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0, clientX: 200, clientY: 40 }))
+    edgePath.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, button: 0, clientX: 200, clientY: 40 }))
+
+    expect(container.querySelector('.x6-edge-tool-source-arrowhead')).toBeTruthy()
+    expect(container.querySelector('.x6-edge-tool-target-arrowhead')).toBeTruthy()
+    expect(container.querySelector('.x6-edge-tool-vertex-path')).toBeTruthy()
+
+    disposeWorkflowGraph(graph)
+    container.remove()
+  })
+
+  it('moves an individual edge vertex through its editing handle', () => {
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const onEdgeVerticesChanged = vi.fn()
+    const graph = createWorkflowGraph(container, { width: 800, height: 600, onEdgeVerticesChanged })
+
+    syncWorkflowGraph(graph, {
+      nodes: [
+        { id: 'start', kind: 'start', position: { x: 40, y: 40 } },
+        { id: 'end', kind: 'end', position: { x: 340, y: 40 } },
+      ],
+      edges: [{ id: 'start-end', source: 'start', target: 'end' }],
+    })
+    const edgePath = container.querySelector('.x6-edge path')
+    edgePath.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0, clientX: 200, clientY: 40 }))
+    edgePath.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, button: 0, clientX: 200, clientY: 40 }))
+
+    const vertexPath = container.querySelector('.x6-edge-tool-vertex-path')
+    vertexPath.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0, clientX: 200, clientY: 100 }))
+    document.body.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, button: 0, buttons: 1, clientX: 240, clientY: 150 }))
+    document.body.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, button: 0, clientX: 240, clientY: 150 }))
+
+    expect(graph.getCellById('start-end').getVertices()).toHaveLength(1)
+    expect(onEdgeVerticesChanged).toHaveBeenCalled()
+
+    disposeWorkflowGraph(graph)
+    container.remove()
+  })
+
+  it('writes explicit HTML node coordinates for desktop WebKit', () => {
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const graph = createWorkflowGraph(container, { width: 800, height: 600 })
+
+    syncWorkflowGraph(graph, {
+      nodes: [{
+        id: 'click',
+        kind: 'click',
+        title: '点击按钮',
+        description: '点击页面元素',
+        position: { x: 120, y: 140 },
+      }],
+      edges: [],
+    })
+
+    const foreignObject = container.querySelector('foreignObject')
+    expect(foreignObject?.getAttribute('x')).toBe('120')
+    expect(foreignObject?.getAttribute('y')).toBe('140')
+    expect(container.querySelector('foreignObject > body > div > .x6-workflow-node')).toBeTruthy()
+
+    disposeWorkflowGraph(graph)
+    container.remove()
+  })
+
+  it('updates HTML node coordinates during X6 translation instead of on every moving event', () => {
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const graph = createWorkflowGraph(container, { width: 800, height: 600 })
+
+    syncWorkflowGraph(graph, {
+      nodes: [{
+        id: 'click',
+        kind: 'click',
+        title: '点击按钮',
+        description: '点击页面元素',
+        position: { x: 120, y: 140 },
+      }],
+      edges: [],
+    })
+
+    const node = graph.getCellById('click')
+    const foreignObject = container.querySelector('foreignObject')
+    node.position(300, 220)
+    expect(foreignObject?.getAttribute('x')).toBe('300')
+    expect(foreignObject?.getAttribute('y')).toBe('220')
+
+    const setAttribute = vi.spyOn(foreignObject, 'setAttribute')
+    graph.trigger('node:moving', { node })
+
+    expect(foreignObject?.getAttribute('x')).toBe('300')
+    expect(foreignObject?.getAttribute('y')).toBe('220')
+    expect(setAttribute).not.toHaveBeenCalled()
+
+    disposeWorkflowGraph(graph)
+    container.remove()
+  })
+
 })
