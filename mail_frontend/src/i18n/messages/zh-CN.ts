@@ -140,7 +140,6 @@ const zhCN = {
     wechatQrDesc: '用微信扫一扫下方二维码，进入小程序确认登录',
     wechatQrLoading: '二维码生成中...',
     wechatQrCancel: '取消登录',
-    wechatPopupBlocked: '浏览器拦截了登录窗口，请允许弹窗后重试',
     wechatNotConfigured: '微信登录尚未配置',
     wechatLoginFailed: '微信登录失败，请重试',
     wechatAccountChoiceTitle: '设置微信登录方式',

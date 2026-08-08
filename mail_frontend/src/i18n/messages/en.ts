@@ -140,7 +140,6 @@ const en = {
     wechatQrDesc: 'Scan the QR code with WeChat to open the mini program and confirm sign-in',
     wechatQrLoading: 'Generating QR code...',
     wechatQrCancel: 'Cancel sign-in',
-    wechatPopupBlocked: 'The login window was blocked. Allow pop-ups and try again.',
     wechatNotConfigured: 'WeChat login is not configured yet',
     wechatLoginFailed: 'WeChat sign-in failed. Please try again.',
     wechatAccountChoiceTitle: 'Choose WeChat sign-in mode',

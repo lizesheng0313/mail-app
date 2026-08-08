@@ -140,7 +140,6 @@ const zhTW = {
     wechatQrDesc: '使用微信掃描下方二維碼，進入小程式確認登入',
     wechatQrLoading: '二維碼生成中...',
     wechatQrCancel: '取消登入',
-    wechatPopupBlocked: '瀏覽器攔截了登入視窗，請允許彈窗後重試',
     wechatNotConfigured: '微信登入尚未配置',
     wechatLoginFailed: '微信登入失敗，請重試',
     wechatAccountChoiceTitle: '設定微信登入方式',

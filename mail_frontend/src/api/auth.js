@@ -37,18 +37,7 @@ export const authAPI = {
   createGoogleAccount: (data) => api.post('/auth/google/create-account', data),
   bindExistingGoogle: (data) => api.post('/auth/google/bind-existing', data),
 
-  // 微信开放平台网站应用扫码登录
-  getWechatLoginUrl: (params = {}) =>
-    api.get('/auth/wechat/login-url', { params, suppressErrorMessage: true }),
-  pollWechatLogin: (state) =>
-    api.get('/auth/wechat/poll', {
-      params: { state },
-      suppressErrorMessage: true
-    }),
-  completeWechatLogin: (data) =>
-    api.post('/auth/wechat/complete', data, { suppressErrorMessage: true }),
-
-  // 使用已发布小程序码的网页扫码登录（与开放平台网站应用登录分开）
+  // 使用已发布小程序码完成网页扫码登录
   getWechatMiniappLoginQr: () =>
     api.get('/auth/wechat-miniapp/login-qr', { suppressErrorMessage: true }),
   pollWechatMiniappLogin: (state) =>
