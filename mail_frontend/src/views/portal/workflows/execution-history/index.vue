@@ -274,11 +274,24 @@
                     </div>
                   </div>
                 </div>
-                <button @click="showLogsModal = false" class="rounded-xl p-2 text-slate-400 transition-colors hover:bg-white hover:text-slate-700">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+                <div class="flex items-center gap-2">
+                  <button
+                    v-if="executionLogs.length > 0"
+                    type="button"
+                    class="inline-flex h-10 items-center gap-2 rounded-xl border border-red-200 bg-white px-4 text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
+                    @click="showClearLogsConfirm = true"
+                  >
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    清除日志
+                  </button>
+                  <button @click="showLogsModal = false" class="rounded-xl p-2 text-slate-400 transition-colors hover:bg-white hover:text-slate-700">
+                    <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -389,6 +402,17 @@
           </div>
           </div>
         </div>
+
+        <ConfirmDialog
+          :visible="showClearLogsConfirm"
+          title="清除日志"
+          message="确定清除当前这次执行的全部详细日志吗？执行记录会保留，日志清除后无法恢复。"
+          type="danger"
+          confirm-text="清除"
+          :loading="clearingLogs"
+          @confirm="confirmClearLogs"
+          @cancel="showClearLogsConfirm = false"
+        />
     </div>
   </div>
 </template>
@@ -433,6 +457,8 @@ const showExecutionResult = ref(false)
 const showRefundConfirm = ref(false)
 const refunding = ref(false)
 const refundTarget = ref(null)
+const showClearLogsConfirm = ref(false)
+const clearingLogs = ref(false)
 const executionResultData = ref({
   result: null
 })
@@ -752,6 +778,39 @@ const viewExecutionLogs = async (execution) => {
     showMessage(t('executionHistory.loadLogsFailed'), 'error')
   } finally {
     loadingLogs.value = false
+  }
+}
+
+const confirmClearLogs = async () => {
+  const execution = selectedExecution.value
+  const workflowId = execution?.workflow_id || currentWorkflowId.value
+  const executionId = execution?.execution_id
+  if (!workflowId || !executionId) {
+    showMessage('没有找到要清除的执行日志', 'error')
+    showClearLogsConfirm.value = false
+    return
+  }
+
+  clearingLogs.value = true
+  try {
+    const response = await workflowApi.clearExecutionLogs(workflowId, executionId)
+    if (response.code === 0) {
+      executionLogs.value = []
+      if (selectedExecution.value) {
+        selectedExecution.value.error_message = ''
+        selectedExecution.value.failed_plugin = ''
+      }
+      showClearLogsConfirm.value = false
+      showMessage(response.message || '执行日志已清除', 'success')
+      await fetchExecutions()
+      return
+    }
+    showMessage(response.message || '清除日志失败', 'error')
+  } catch (error) {
+    console.error('清除执行日志失败:', error)
+    showMessage('清除日志失败', 'error')
+  } finally {
+    clearingLogs.value = false
   }
 }
 

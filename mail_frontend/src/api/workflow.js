@@ -71,6 +71,13 @@ export const workflowApi = {
     })
   },
 
+  // 清除一次执行的详细日志（保留执行记录）
+  clearExecutionLogs(workflowId, executionId) {
+    return api.delete(`/workflows/${workflowId}/logs`, {
+      params: { execution_id: executionId }
+    })
+  },
+
   // 重试工作流执行
   retryExecution(executionId) {
     return api.post(`/workflows/executions/${executionId}/retry`)
