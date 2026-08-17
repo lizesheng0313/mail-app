@@ -222,7 +222,11 @@
       :show-cancel="!domainModalDetail"
       :confirm-text="creatingDomain ? t('domainsPage.creating') : t('domainsPage.addDomain')"
       :confirm-loading="creatingDomain"
-      :confirm-disabled="creatingDomain || !createForm.domain_name.trim()"
+      :confirm-disabled="
+        creatingDomain ||
+        !createForm.domain_name.trim() ||
+        (createForm.admin_verification_enabled && !createForm.admin_password.trim())
+      "
       size="lg"
       @confirm="handleCreateDomain"
       @close="closeDomainModal"
@@ -236,6 +240,29 @@
           v-model="createForm.domain_name"
           :label="t('domainsPage.domain')"
           placeholder="example.com"
+        />
+        <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-primary-100 bg-primary-50/60 px-4 py-3">
+          <input
+            v-model="createForm.admin_verification_enabled"
+            type="checkbox"
+            class="mt-1 h-4 w-4 accent-primary-600"
+          />
+          <span class="min-w-0">
+            <span class="block text-sm font-medium text-gray-900">
+              {{ t('domainsPage.adminVerificationLabel') }}
+            </span>
+            <span class="mt-1 block text-xs leading-5 text-gray-600">
+              {{ t('domainsPage.adminVerificationHelp') }}
+            </span>
+          </span>
+        </label>
+        <BaseInput
+          v-if="createForm.admin_verification_enabled"
+          v-model="createForm.admin_password"
+          :label="t('domainsPage.adminVerificationPassword')"
+          :placeholder="t('domainsPage.adminVerificationPasswordPlaceholder')"
+          type="password"
+          autocomplete="current-password"
         />
         <BaseInput
           v-model="createForm.display_name"
@@ -315,6 +342,12 @@
               <span v-else>立即验证DNS</span>
             </button>
           </div>
+        </div>
+        <div
+          v-if="String(domainModalDetail.domain.verification_mode || '').toLowerCase() === 'mx'"
+          class="rounded-lg border border-primary-200 bg-primary-50 px-4 py-3 text-sm leading-6 text-primary-800"
+        >
+          {{ t('domainsPage.adminVerificationDetailHint') }}
         </div>
 
         <div>
@@ -578,7 +611,9 @@ const getDefaultCreateForm = () => ({
   display_name: '',
   expires_at: getNextYearTodayDateInput(),
   catch_all_enabled: true,
-  is_public: false
+  is_public: false,
+  admin_verification_enabled: false,
+  admin_password: ''
 })
 
 const createForm = ref({
@@ -595,7 +630,11 @@ const editForm = ref({
 })
 
 const domainModalTitle = computed(() =>
-  domainModalDetail.value ? 'DNS 验证' : t('domainsPage.addTitle')
+  domainModalDetail.value
+    ? String(domainModalDetail.value.domain?.verification_mode || '').toLowerCase() === 'mx'
+      ? t('domainsPage.mxDetailTitle')
+      : t('domainsPage.detailTitle')
+    : t('domainsPage.addTitle')
 )
 const isDomainTransferable = (domain: any) =>
   !isDomainDeleted(domain) &&
@@ -681,7 +720,10 @@ const handleCreateDomain = async () => {
         ? toEndOfDayMs(createForm.value.expires_at)
         : undefined,
       catch_all_enabled: createForm.value.catch_all_enabled,
-      is_public: createForm.value.is_public
+      is_public: createForm.value.is_public,
+      admin_password: createForm.value.admin_verification_enabled
+        ? createForm.value.admin_password.trim() || undefined
+        : undefined
     })
     if (response.code === 0) {
       showMessage(t('domainsPage.createSuccess'), 'success')
