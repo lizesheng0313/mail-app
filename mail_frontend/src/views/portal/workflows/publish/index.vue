@@ -1264,10 +1264,13 @@ const inferDeliveryMode = (wf) => {
 }
 
 const inferResourceType = (wf) => {
+  if (wf.resource_kind === 'product') return 'product'
+  if (wf.resource_kind === 'workflow') return 'workflow'
   const skus = Array.isArray(wf.skus) ? wf.skus : []
   const deliveryModes = skus.map((sku) => String(sku?.delivery_mode || sku?.fulfillment_type || '').toLowerCase())
   if (deliveryModes.some((mode) => ['third_party_api', 'api', 'inventory', 'account'].includes(mode))) return 'product'
-  if (wf.category === 'resource') return 'product'
+  if (deliveryModes.includes('workflow') || wf.category === 'automation' || wf.primary_category === 'automation_tool' || wf.secondary_category === 'workflow') return 'workflow'
+  if (wf.category === 'resource' && (skus.length || wf.inventory_enabled)) return 'product'
   return 'workflow'
 }
 

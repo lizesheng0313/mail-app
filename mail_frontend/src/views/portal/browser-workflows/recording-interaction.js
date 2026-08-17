@@ -1,11 +1,32 @@
-function segmentSelector(segment) {
+function segmentSelector(segment, { includeNth = true, stable = false } = {}) {
   const tag = String(segment?.tag || '').trim()
   const index = Number(segment?.nth_of_type || 0)
-  return tag && index > 0 ? `${tag}:nth-of-type(${index})` : ''
+  if (!stable) return tag && includeNth && index > 0 ? `${tag}:nth-of-type(${index})` : tag
+
+  const rawSelector = String(segment?.selector || '').trim()
+  const selector = rawSelector
+  if (!selector || selector === 'html' || selector === 'body') return ''
+
+  const sameTagCount = Number(segment?.same_tag_count || 0)
+  if (includeNth && sameTagCount > 1 && index > 0) return `${selector}:nth-of-type(${index})`
+  return selector
 }
 
-function structuralSelector(path) {
-  return (path || []).map(segmentSelector).filter(Boolean).join(' > ')
+function pathForStep(step) {
+  if (Array.isArray(step?.selector_path) && step.selector_path.length) return step.selector_path
+  return Array.isArray(step?.dom_path) ? step.dom_path : []
+}
+
+function usesStablePath(path) {
+  return (path || []).some(segment => String(segment?.selector || '').trim())
+}
+
+function structuralSelector(path, options = {}) {
+  const stable = options.stable ?? usesStablePath(path)
+  return (path || [])
+    .map(segment => segmentSelector(segment, { ...options, stable }))
+    .filter(Boolean)
+    .join(' > ')
 }
 
 const TECHNICAL_DESCRIPTION_PATTERN = /(?:nth-of-type|querySelector|query_selector|css\s*选择器|元素定位|定位器|selector|dom[_ -]?path|^\s*[a-z][a-z0-9-]*\s*:)/i
@@ -159,7 +180,7 @@ export function describeListScope(scope, steps = []) {
 }
 
 function relativeStep(step, scope) {
-  const path = step?.dom_path || []
+  const path = pathForStep(step)
   const itemIndex = Number(scope?.item_path_index)
   if (!Number.isInteger(itemIndex) || itemIndex < 0 || path.length <= itemIndex) return { ...step }
   const prefix = structuralSelector(path.slice(0, itemIndex))
@@ -173,9 +194,11 @@ function relativeStep(step, scope) {
 }
 
 export function inferListScopeFromRecording(steps = [], mode = 'current_page') {
-  const first = (steps || []).find(step => Array.isArray(step?.dom_path) && step.dom_path.length)
+  const first = (steps || []).find(step => pathForStep(step).length)
   if (!first) return { ok: false, reason: '没有识别到列表项目，请重新录制时先点击一个列表项目' }
-  const candidates = first.dom_path
+  const firstPath = pathForStep(first)
+  const stable = usesStablePath(firstPath)
+  const candidates = firstPath
     .map((segment, index) => ({
       index,
       count: Number(segment?.same_tag_count || 0),
@@ -185,7 +208,8 @@ export function inferListScopeFromRecording(steps = [], mode = 'current_page') {
     .sort((left, right) => right.count - left.count || right.index - left.index)
   const item = candidates[0]
   if (!item) return { ok: false, reason: '没有识别到同类列表项目，请重新录制时先点击一个列表项目' }
-  const containerSelector = structuralSelector(first.dom_path.slice(0, item.index))
+  const containerSelector = structuralSelector(firstPath.slice(0, item.index), { stable })
+  const itemSelector = segmentSelector(firstPath[item.index], { includeNth: false, stable }) || item.tag
   if (!containerSelector) return { ok: false, reason: '没有识别到列表范围，请重新录制时先点击一个列表项目' }
   const scope = {
     kind: 'list_item',
@@ -193,7 +217,7 @@ export function inferListScopeFromRecording(steps = [], mode = 'current_page') {
     label: mode === 'all_pages' ? '处理当前列表及后续页面' : '处理当前列表的每一项',
     reason: '用户已经确认按列表循环处理',
     container_selector: containerSelector,
-    item_selector: `${containerSelector} > ${item.tag}`,
+    item_selector: `${containerSelector} > ${itemSelector}`,
     item_tag: item.tag,
     item_path_index: item.index,
     sample_selectors: [first.selector],
@@ -240,13 +264,14 @@ export function normalizeRecordingFinishedPayload(payload = {}) {
 }
 
 export function resolveListScope(firstSteps, sampleSteps, mode) {
-  const first = (firstSteps || []).find(step => Array.isArray(step?.dom_path) && step.dom_path.length)
-  const second = (sampleSteps || []).find(step => Array.isArray(step?.dom_path) && step.dom_path.length)
+  const first = (firstSteps || []).find(step => pathForStep(step).length)
+  const second = (sampleSteps || []).find(step => pathForStep(step).length)
   if (!first || !second || first.page?.url !== second.page?.url) {
     return { ok: false, reason: '两个样本不在同一个页面，请回到原列表重新选择' }
   }
-  const firstPath = first.dom_path
-  const secondPath = second.dom_path
+  const firstPath = pathForStep(first)
+  const secondPath = pathForStep(second)
+  const stable = usesStablePath(firstPath) || usesStablePath(secondPath)
   const limit = Math.min(firstPath.length, secondPath.length)
   let itemIndex = -1
   for (let index = 0; index < limit; index += 1) {
@@ -261,18 +286,19 @@ export function resolveListScope(firstSteps, sampleSteps, mode) {
   if (itemIndex <= 1) {
     return { ok: false, reason: '两个样本没有形成明确的共同列表容器，请选择同组中的两个项目' }
   }
-  const containerSelector = structuralSelector(firstPath.slice(0, itemIndex))
+  const containerSelector = structuralSelector(firstPath.slice(0, itemIndex), { stable })
   const itemTag = String(firstPath[itemIndex]?.tag || '')
-  if (!containerSelector || !itemTag || itemTag !== secondPath[itemIndex]?.tag) {
+  const itemSelector = segmentSelector(firstPath[itemIndex], { includeNth: false, stable }) || itemTag
+  if (!containerSelector || !itemTag || !itemSelector || itemTag !== secondPath[itemIndex]?.tag) {
     return { ok: false, reason: '两个样本的项目结构不同，请重新选择同组项目' }
   }
   const scope = {
     kind: 'list_item',
     mode,
     label: '用户确认的重复项目',
-    reason: '由用户选择的两个真实样本计算，未使用 class、role 或文本猜测',
+    reason: '由用户选择的两个真实样本计算，优先使用录制到的稳定属性和 class',
     container_selector: containerSelector,
-    item_selector: `${containerSelector} > ${itemTag}`,
+    item_selector: `${containerSelector} > ${itemSelector}`,
     item_tag: itemTag,
     item_path_index: itemIndex,
     sample_selectors: [first.selector, second.selector],

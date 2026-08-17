@@ -46,6 +46,27 @@ describe('X6 workflow graph adapter', () => {
     expect(result.edges.map(edge => edge.id)).toEqual(['valid'])
   })
 
+  it('keeps one output edge for ordinary nodes but preserves separate branch ports', () => {
+    const result = sanitizeWorkflowGraphDocument({
+      nodes: [
+        { id: 'start', kind: 'start' },
+        { id: 'first', kind: 'click' },
+        { id: 'second', kind: 'click' },
+        { id: 'condition', kind: 'condition', config: { branches: [{ id: 'yes' }] } },
+        { id: 'yes', kind: 'click' },
+        { id: 'no', kind: 'click' },
+      ],
+      edges: [
+        { id: 'start-first', source: 'start', target: 'first' },
+        { id: 'start-second', source: 'start', target: 'second' },
+        { id: 'condition-yes', source: 'condition', target: 'yes', condition: { branch: 'yes' } },
+        { id: 'condition-no', source: 'condition', target: 'no', condition: { branch: 'default', default: true } },
+      ],
+    })
+
+    expect(result.edges.map(edge => edge.id)).toEqual(['start-first', 'condition-yes', 'condition-no'])
+  })
+
   it('mounts and synchronizes a real X6 graph', () => {
     document.elementFromPoint ||= () => null
     SVGElement.prototype.getCTM ||= () => ({
@@ -99,12 +120,13 @@ describe('X6 workflow graph adapter', () => {
     container.remove()
   })
 
-  it('keeps node dragging continuous instead of snapping to a 20px grid', () => {
+  it('shows a 20px dot grid without snapping node positions', () => {
     const container = document.createElement('div')
     document.body.appendChild(container)
     const graph = createWorkflowGraph(container, { width: 800, height: 600 })
 
-    expect(graph.getGridSize()).toBe(1)
+    expect(graph.getGridSize()).toBe(20)
+    expect(graph.options.grid.visible).toBe(true)
 
     disposeWorkflowGraph(graph)
     container.remove()

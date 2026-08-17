@@ -1,10 +1,56 @@
-import { Graph } from '@antv/x6'
+import { Graph, Path } from '@antv/x6'
 
 export const WORKFLOW_NODE_SHAPE = 'browser-workflow-node'
 export const WORKFLOW_LOOP_BODY_SHAPE = 'browser-workflow-loop-body'
 const DEFAULT_NODE_SIZE = { width: 224, height: 68 }
 const WORKFLOW_EDGE_TOOLS_NAME = 'workflow-edge-edit'
+const BRANCHING_NODE_KINDS = new Set(['condition', 'loop', 'pagination'])
 let shapeRegistered = false
+let connectorRegistered = false
+
+function registerWorkflowEdgeConnector() {
+  if (connectorRegistered) return
+  Graph.registerConnector('curveConnector', (sourcePoint, targetPoint, routePoints = []) => {
+    const path = new Path()
+    path.appendSegment(Path.createSegment('M', sourcePoint.x - 4, sourcePoint.y))
+    path.appendSegment(Path.createSegment('L', sourcePoint.x + 12, sourcePoint.y))
+
+    let controlPoint1
+    let controlPoint2
+    if (routePoints.length >= 2) {
+      [controlPoint1, controlPoint2] = routePoints
+    } else if (routePoints.length === 1) {
+      controlPoint1 = routePoints[0]
+      controlPoint2 = {
+        x: (routePoints[0].x + targetPoint.x) / 2,
+        y: (routePoints[0].y + targetPoint.y) / 2,
+      }
+    } else {
+      const hgap = Math.abs(targetPoint.x - sourcePoint.x)
+      controlPoint1 = {
+        x: sourcePoint.x < targetPoint.x ? sourcePoint.x + hgap / 2 : sourcePoint.x - hgap / 2,
+        y: sourcePoint.y,
+      }
+      controlPoint2 = {
+        x: sourcePoint.x < targetPoint.x ? targetPoint.x - hgap / 2 : targetPoint.x + hgap / 2,
+        y: targetPoint.y,
+      }
+    }
+
+    path.appendSegment(Path.createSegment(
+      'C',
+      controlPoint1.x,
+      controlPoint1.y,
+      controlPoint2.x,
+      controlPoint2.y,
+      targetPoint.x - 6,
+      targetPoint.y,
+    ))
+    path.appendSegment(Path.createSegment('L', targetPoint.x + 2, targetPoint.y))
+    return path.serialize()
+  }, true)
+  connectorRegistered = true
+}
 
 function branchPortId(edgeOrBranch = {}) {
   const branch = edgeOrBranch.condition?.branch || (edgeOrBranch.condition?.default ? 'default' : '')
@@ -30,10 +76,80 @@ function branchPorts(node) {
 }
 
 function edgeVertices(edge) {
-  return Array.isArray(edge?.vertices)
+  // Old Manhattan vertices are ignored; only explicit user adjustments persist.
+  return edge?.routing === 'manual' && Array.isArray(edge?.vertices)
     ? edge.vertices.filter(vertex => Number.isFinite(Number(vertex?.x)) && Number.isFinite(Number(vertex?.y)))
       .map(vertex => ({ x: Number(vertex.x), y: Number(vertex.y) }))
     : []
+}
+
+function horizontalEdgeVertices(sourcePoint, targetPoint) {
+  if (!sourcePoint || !targetPoint) return []
+  const sourceX = Number(sourcePoint.x)
+  const sourceY = Number(sourcePoint.y)
+  const targetX = Number(targetPoint.x)
+  const targetY = Number(targetPoint.y)
+  if (![sourceX, sourceY, targetX, targetY].every(Number.isFinite)) return []
+
+  const hgap = Math.abs(targetX - sourceX)
+  const direction = sourceX < targetX ? 1 : -1
+  return [
+    { x: sourceX + direction * (hgap / 3), y: sourceY },
+    { x: sourceX + direction * ((hgap * 2) / 3), y: targetY },
+  ]
+}
+
+function workflowPortPoint(node, portId, size, position) {
+  const ports = getWorkflowPortItems(node)
+  const port = ports.find(item => item.id === portId)
+  if (port?.group === 'loopBody') {
+    return { x: position.x + (size.width / 2), y: position.y + size.height }
+  }
+
+  const outputPorts = ports.filter(item => item.group === 'out')
+  const outputIndex = outputPorts.findIndex(item => item.id === portId)
+  const y = outputPorts.length <= 1 || outputIndex < 0
+    ? size.height / 2
+    : size.height * ((outputIndex + 1) / (outputPorts.length + 1))
+  return { x: position.x + size.width, y: position.y + y }
+}
+
+function automaticEdgeVertices(edge, options = {}) {
+  const sourceNode = options.nodeById?.get(edge.source)
+  const targetNode = options.nodeById?.get(edge.target)
+  if (!sourceNode?.position || !targetNode?.position) return []
+
+  const sourceSize = options.getNodeSize?.(sourceNode) || DEFAULT_NODE_SIZE
+  const targetSize = options.getNodeSize?.(targetNode) || DEFAULT_NODE_SIZE
+  const sourcePosition = {
+    x: Number(sourceNode.position.x || 0),
+    y: Number(sourceNode.position.y || 0),
+  }
+  const targetPosition = {
+    x: Number(targetNode.position.x || 0),
+    y: Number(targetNode.position.y || 0),
+  }
+  const sourcePoint = workflowPortPoint(sourceNode, branchPortId(edge), sourceSize, sourcePosition)
+  const targetPoint = {
+    x: targetPosition.x,
+    y: targetPosition.y + (targetSize.height / 2),
+  }
+  return horizontalEdgeVertices(sourcePoint, targetPoint)
+}
+
+function refreshAutomaticEdgeVertices(edge) {
+  const workflowEdge = edge?.getData?.()?.workflowEdge
+  if (!edge || workflowEdge?.routing === 'manual') return
+  const sourcePoint = edge.getSourcePoint?.()
+  const targetPoint = edge.getTargetPoint?.()
+  const vertices = horizontalEdgeVertices(sourcePoint, targetPoint)
+  if (vertices.length) edge.setVertices(vertices)
+  edge.setConnector('curveConnector')
+}
+
+function workflowEdgePortKey(edge, sourceNode) {
+  if (!BRANCHING_NODE_KINDS.has(sourceNode?.kind)) return 'output'
+  return edge.condition?.branch || (edge.condition?.default ? 'default' : 'output')
 }
 
 export function getWorkflowPortItems(node) {
@@ -90,20 +206,21 @@ export function buildWorkflowEdgeCell(edge, options = {}) {
   const sourceNode = options.nodeById?.get(edge.source)
   const targetNode = options.nodeById?.get(edge.target)
   const isLoopReturn = sourceNode?.kind === 'return_to_page' && targetNode?.kind === 'loop'
+  const vertices = edgeVertices(edge)
   return {
     id: edge.id,
     shape: 'edge',
     source: { cell: edge.source, port: branchPortId(edge) },
     target: { cell: edge.target, port: 'input' },
-    vertices: edgeVertices(edge),
-    router: { name: 'manhattan' },
-    connector: { name: 'rounded', args: { radius: 5 } },
+    vertices: vertices.length ? vertices : automaticEdgeVertices(edge, options),
+    router: { name: 'normal' },
+    connector: { name: 'curveConnector' },
     attrs: {
       line: {
         stroke: '#91a197',
-        strokeWidth: 1.6,
+        strokeWidth: 1.8,
         strokeLinecap: 'round',
-        targetMarker: { name: 'block', width: 6, height: 6 },
+        targetMarker: { name: 'classic', width: 8, height: 6 },
       },
     },
     labels: edge.label ? [{ position: 0.5, attrs: { label: { text: edge.label } } }] : [],
@@ -115,8 +232,16 @@ export function buildWorkflowEdgeCell(edge, options = {}) {
 export function sanitizeWorkflowGraphDocument(document = {}) {
   const nodes = Array.isArray(document.nodes) ? document.nodes : []
   const nodeIds = new Set(nodes.map(node => node.id))
-  const edges = (Array.isArray(document.edges) ? document.edges : [])
-    .filter(edge => edge?.id && nodeIds.has(edge.source) && nodeIds.has(edge.target) && edge.source !== edge.target)
+  const nodeById = new Map(nodes.map(node => [node.id, node]))
+  const usedOutputPorts = new Set()
+  const edges = []
+  for (const edge of Array.isArray(document.edges) ? document.edges : []) {
+    if (!edge?.id || !nodeIds.has(edge.source) || !nodeIds.has(edge.target) || edge.source === edge.target) continue
+    const outputPortKey = `${edge.source}:${workflowEdgePortKey(edge, nodeById.get(edge.source))}`
+    if (usedOutputPorts.has(outputPortKey)) continue
+    usedOutputPorts.add(outputPortKey)
+    edges.push(edge)
+  }
   return { nodes, edges }
 }
 
@@ -244,32 +369,33 @@ export function registerWorkflowNodeShape() {
 
 const htmlPositionSyncedViews = new WeakSet()
 
-function syncWorkflowHtmlPosition(view, position = view?.cell?.getPosition?.()) {
+function syncWorkflowHtmlPosition(view, graph, position = view?.cell?.getPosition?.()) {
   if (!view || !position) return
   const foreignObject = view?.selectors?.fo
   if (!foreignObject) return
-  const x = String(position.x)
-  const y = String(position.y)
+  const translation = graph?.translate?.() || { tx: 0, ty: 0 }
+  const x = String(Number(position.x || 0) + Number(translation.tx || 0))
+  const y = String(Number(position.y || 0) + Number(translation.ty || 0))
   if (foreignObject.getAttribute('x') !== x) foreignObject.setAttribute('x', x)
   if (foreignObject.getAttribute('y') !== y) foreignObject.setAttribute('y', y)
 }
 
-function installWorkflowHtmlPositionSync(view) {
+function installWorkflowHtmlPositionSync(view, graph) {
   if (!view || htmlPositionSyncedViews.has(view) || typeof view.translate !== 'function') return
   const translate = view.translate
   view.translate = function syncWorkflowNodeTranslation(...args) {
     translate.apply(this, args)
-    syncWorkflowHtmlPosition(this)
+    syncWorkflowHtmlPosition(this, graph)
   }
   htmlPositionSyncedViews.add(view)
-  syncWorkflowHtmlPosition(view)
+  syncWorkflowHtmlPosition(view, graph)
 }
 
 function syncWorkflowHtmlCellPosition(graph, cell, position) {
   const view = graph.findViewByCell(cell)
   if (!view) return
-  installWorkflowHtmlPositionSync(view)
-  syncWorkflowHtmlPosition(view, position)
+  installWorkflowHtmlPositionSync(view, graph)
+  syncWorkflowHtmlPosition(view, graph, position)
 }
 
 function hideWorkflowEdgeTools(graph) {
@@ -311,13 +437,14 @@ function showWorkflowEdgeTools(graph, edge, onVerticesChanged) {
 
 export function createWorkflowGraph(container, options = {}) {
   registerWorkflowNodeShape()
+  registerWorkflowEdgeConnector()
   const graph = new Graph({
     container,
     width: options.width || container.clientWidth || 1200,
     height: options.height || 3000,
-    background: { color: '#fbfdfb' },
-    grid: { size: 1, visible: false, type: 'dot', args: { color: '#d5e2d6', thickness: 1 } },
-    panning: false,
+    background: { color: '#f8faf8' },
+    grid: { size: 20, visible: true, type: 'dot', args: { color: '#d2ded4', thickness: 1 } },
+    panning: { enabled: true },
     mousewheel: { enabled: true, modifiers: ['ctrl', 'meta'] },
     selecting: { enabled: true, rubberband: false, showNodeSelectionBox: false },
     interacting: {
@@ -332,6 +459,8 @@ export function createWorkflowGraph(container, options = {}) {
     connecting: {
       allowBlank: false,
       allowLoop: false,
+      allowNode: false,
+      allowEdge: false,
       allowMulti: false,
       snap: true,
       highlight: true,
@@ -345,8 +474,23 @@ export function createWorkflowGraph(container, options = {}) {
       },
       sourceAnchor: 'right',
       targetAnchor: 'left',
-      router: { name: 'manhattan' },
-      connector: { name: 'rounded', args: { radius: 5 } },
+      connector: 'curveConnector',
+      createEdge(args) {
+        const vertices = horizontalEdgeVertices(args?.sourcePoint, args?.targetPoint)
+        return graph.createEdge({
+          shape: 'edge',
+          vertices: vertices.length ? vertices : undefined,
+          connector: 'curveConnector',
+          attrs: {
+            line: {
+              stroke: '#91a197',
+              strokeWidth: 1.8,
+              strokeLinecap: 'round',
+              targetMarker: { name: 'classic', width: 8, height: 6 },
+            },
+          },
+        })
+      },
     },
   })
   graph.on('node:click', (args) => {
@@ -364,11 +508,25 @@ export function createWorkflowGraph(container, options = {}) {
   })
   graph.on('view:mounted', ({ view }) => {
     if (![WORKFLOW_NODE_SHAPE, WORKFLOW_LOOP_BODY_SHAPE].includes(view?.cell?.shape)) return
-    installWorkflowHtmlPositionSync(view)
-    Promise.resolve().then(() => syncWorkflowHtmlPosition(view))
+    installWorkflowHtmlPositionSync(view, graph)
+    Promise.resolve().then(() => syncWorkflowHtmlPosition(view, graph))
   })
-  graph.on('node:moved', options.onNodeMoved)
-  graph.on('edge:connected', options.onEdgeConnected)
+  graph.on('translate', () => {
+    graph.getNodes().forEach(node => {
+      const view = graph.findViewByCell(node)
+      if (!view) return
+      installWorkflowHtmlPositionSync(view, graph)
+      syncWorkflowHtmlPosition(view, graph)
+    })
+  })
+  graph.on('node:moved', ({ node, ...args }) => {
+    options.onNodeMoved?.({ node, ...args })
+    graph.getConnectedEdges(node).forEach(refreshAutomaticEdgeVertices)
+  })
+  graph.on('edge:connected', ({ edge, ...args }) => {
+    options.onEdgeConnected?.({ edge, ...args })
+    refreshAutomaticEdgeVertices(edge)
+  })
   graph.on('edge:move', ({ edge, e, view }) => {
     if (!edge || edge.getVertices?.().length || !view?.getEventData || !e) return
     const dragStart = view.getEventData(e)
@@ -445,7 +603,7 @@ export function syncWorkflowGraph(graph, document, options = {}) {
     })
     edges.forEach(edge => {
       const cell = graph.getCellById(edge.id)
-      const next = buildWorkflowEdgeCell(edge, { nodeById })
+      const next = buildWorkflowEdgeCell(edge, { nodeById, getNodeSize: options.getNodeSize })
       if (cell) {
         cell.setSource(next.source)
         cell.setTarget(next.target)
@@ -461,6 +619,7 @@ export function syncWorkflowGraph(graph, document, options = {}) {
       }
     })
   })
+  graph.getEdges().forEach(refreshAutomaticEdgeVertices)
   return graph
 }
 

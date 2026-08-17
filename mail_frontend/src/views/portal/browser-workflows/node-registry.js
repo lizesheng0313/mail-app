@@ -50,11 +50,11 @@ const definitions = [
   },
   {
     kind: 'input', title: '填写内容', description: '输入变量或文本', icon: '✎', tone: 'blue',
-    category: 'browser_base', executionLayer: 'browser_core', runtime: 'browser.input', fields: [{ key: 'selector', label: '输入框定位', placeholder: '由录制生成或用户填写' }, missingElementField], defaults: { selector: '', value: '', content_source: 'fixed', material_id: '', missing_element_action: 'fail' },
+    category: 'browser_base', executionLayer: 'browser_core', runtime: 'browser.input', fields: [{ key: 'selector', label: '输入框定位', placeholder: '由浏览器助手生成或用户填写' }, missingElementField], defaults: { selector: '', value: '', content_source: 'fixed', material_id: '', local_source: { name: '', kind: 'data', mode: 'sequential', field: '' }, missing_element_action: 'fail' },
   },
   {
     kind: 'upload_file', title: '上传图片', description: '把本地图片素材上传到当前网站', icon: '图', tone: 'blue',
-    category: 'browser_base', executionLayer: 'browser_core', runtime: 'browser.upload_file', fields: [{ key: 'selector', label: '图片上传框定位', placeholder: '由录制自动识别' }, missingElementField], defaults: { selector: '', material_id: '', accept: 'image/*', multiple: false, missing_element_action: 'fail' },
+    category: 'browser_base', executionLayer: 'browser_core', runtime: 'browser.upload_file', fields: [{ key: 'selector', label: '图片上传框定位', placeholder: '由浏览器助手自动识别' }, missingElementField], defaults: { selector: '', content_source: 'local_source', material_id: '', local_source: { name: '', kind: 'images', mode: 'sequential' }, accept: 'image/*', multiple: false, missing_element_action: 'fail' },
   },
   {
     kind: 'credential_input', title: '填写凭据', description: '安全填写账号或密码', icon: '🔐', tone: 'red',
@@ -63,6 +63,36 @@ const definitions = [
       { key: 'field', label: '字段', placeholder: 'username 或 password' },
       { key: 'selector', label: '输入框定位', placeholder: 'CSS、label 或 XPath' },
     ], defaults: { credential_id: '', field: 'username', selector: '' },
+  },
+  {
+    kind: 'read_email_code', title: '读取邮箱验证码', description: '等待并读取邮箱中最新的验证码', icon: '码', tone: 'purple',
+    category: 'business', executionLayer: 'browser_core', runtime: 'mail.read_verification_code', fields: [
+      { key: 'mailbox_email', label: '收验证码的邮箱', placeholder: '先授权邮箱，再填写邮箱地址' },
+      { key: 'sender_filter', label: '发件人筛选（可选）', placeholder: '例如 aliexpress' },
+      { key: 'subject_filter', label: '主题筛选（可选）', placeholder: '例如 verification code' },
+      { key: 'timeout_seconds', label: '等待时间（秒）', type: 'number', placeholder: '120' },
+      { key: 'poll_interval_seconds', label: '检查间隔（秒）', type: 'number', placeholder: '3' },
+      { key: 'lookback_seconds', label: '邮件时间范围（秒）', type: 'number', placeholder: '180' },
+    ],
+    defaults: { mailbox_email: '', sender_filter: '', subject_filter: '', timeout_seconds: 120, poll_interval_seconds: 3, lookback_seconds: 180 },
+    defaultOutputs: [
+      { name: 'code', type: 'string', required: true, description: '邮件中的验证码', source_path: 'code', object_schema: {} },
+      { name: 'mailbox_email', type: 'string', required: true, description: '收到验证码的邮箱', source_path: 'mailbox_email', object_schema: {} },
+      { name: 'received_at_ms', type: 'number', required: false, description: '验证码邮件接收时间', source_path: 'received_at_ms', object_schema: {} },
+    ],
+    timeoutMs: 150000,
+  },
+  {
+    kind: 'fill_verification_code', title: '填写验证码', description: '把上一步读取的验证码填入当前页面', icon: '填', tone: 'blue',
+    category: 'browser_base', executionLayer: 'browser_core', runtime: 'browser.fill_verification_code', fields: [
+      { key: 'selector', label: '验证码输入框定位（可选）', placeholder: '留空时自动识别单个或分格输入框' },
+      { key: 'submit_after_fill', label: '填写后自动提交', type: 'checkbox' },
+      { key: 'submit_selector', label: '提交按钮定位（可选）', placeholder: '留空时自动识别验证按钮' },
+    ],
+    defaults: { selector: '', submit_after_fill: true, submit_selector: '' },
+    defaultInputs: [
+      { name: 'code', type: 'string', required: true, description: '要填写的验证码', source: 'node', value: '', variable: '', aggregation: 'latest' },
+    ],
   },
   {
     kind: 'extract', title: '提取数据', description: '保存结构化结果', icon: '↧', tone: 'purple',
@@ -320,7 +350,7 @@ export function createWorkflowNode(kind, position, id) {
     inputs: (definition.defaultInputs || []).map(item => ({ ...item })),
     outputs: (definition.defaultOutputs || []).map(item => ({ ...item })),
     success_criteria: [],
-    timeout_ms: 30000,
+    timeout_ms: Number(definition.timeoutMs || 30000),
     retry_limit: 1,
   }
 }

@@ -880,6 +880,18 @@ pub async fn start_browser_workflow_component(
         .await
         .ok_or_else(|| "浏览器组件安装信息损坏，请重新安装".to_string())?;
     let command = resolve_agent_command(&package_dir, &manifest).await?;
+    let mut agent_args = manifest.agent_args.clone();
+    if cfg!(debug_assertions) {
+        let workspace_extension = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../../browser_workflow_plugin/recorder_extension");
+        if workspace_extension.join("manifest.json").is_file() {
+            if let Some(index) = agent_args.iter().position(|item| item == "--recorder-extension") {
+                if let Some(value) = agent_args.get_mut(index + 1) {
+                    *value = workspace_extension.to_string_lossy().to_string();
+                }
+            }
+        }
+    }
 
     let mut process = state.agent_process.lock().await;
     if let Some(child) = process.as_mut() {
@@ -895,7 +907,7 @@ pub async fn start_browser_workflow_component(
     }
     if process.is_none() {
         let child = Command::new(&command)
-            .args(&manifest.agent_args)
+            .args(&agent_args)
             .current_dir(&package_dir)
             .env("FMM_BROWSER_COMPONENT_DIR", &component_root)
             .env("FMM_BROWSER_AGENT_PORT", "19201")

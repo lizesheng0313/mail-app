@@ -2,15 +2,30 @@
   <div class="workflow-list-page">
     <section class="filter-panel">
       <div class="filter-fields">
-        <label class="search-field"><span>⌕</span><input v-model="searchQuery" placeholder="搜索工作流名称或说明" /></label>
-        <select v-model="statusFilter"><option value="">全部状态</option><option value="draft">草稿</option><option value="published">已发布</option></select>
+        <div class="search-field">
+          <BaseInput
+            v-model="searchQuery"
+            placeholder="搜索工作流名称或说明"
+            size="sm"
+            class="w-full"
+            @enter="loadWorkflows"
+          >
+            <template #left-icon>
+              <svg class="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m21 21-4.35-4.35m1.35-5.15a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0Z" />
+              </svg>
+            </template>
+          </BaseInput>
+        </div>
+        <div class="status-filter">
+          <CustomSelect v-model="statusFilter" :options="statusOptions" placeholder="全部状态" size="sm" />
+        </div>
         <button class="search-button" @click="loadWorkflows">查询</button>
       </div>
       <div class="filter-actions">
         <input ref="importInput" class="hidden-file-input" type="file" accept="application/json,.json" @change="importWorkflow" />
         <button class="outline-button" @click="openImport">导入</button>
-        <button class="outline-button" @click="loadWorkflows">刷新</button>
-        <button class="primary-button" @click="createWorkflow">新建浏览器流程</button>
+        <button class="primary-button" @click="createWorkflow">新建</button>
       </div>
     </section>
 
@@ -25,7 +40,7 @@
           <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
             <div class="flex items-center justify-start gap-2">
               <ActionButton icon="edit" tooltip="打开编辑" variant="edit" @click="openWorkflow(item.workflow_id)" />
-              <button class="row-text-action" type="button" @click="exportWorkflow(item)">导出</button>
+              <ActionButton icon="download" tooltip="导出" variant="default" @click="exportWorkflow(item)" />
               <ActionButton icon="delete" tooltip="删除" variant="delete" @click="removeWorkflow(item)" />
             </div>
           </td>
@@ -43,6 +58,8 @@ import browserWorkflowApi from '@/api/browserWorkflow'
 import { showMessage } from '@/utils/message'
 import ActionButton from '@/components/ActionButton/index.vue'
 import AdminDataTable from '@/components/AdminDataTable/index.vue'
+import BaseInput from '@/components/BaseInput/index.vue'
+import CustomSelect from '@/components/CustomSelect/index.vue'
 
 const router = useRouter()
 const workflows = ref([])
@@ -50,6 +67,11 @@ const searchQuery = ref('')
 const statusFilter = ref('')
 const loading = ref(false)
 const importInput = ref(null)
+const statusOptions = [
+  { label: '全部状态', value: '' },
+  { label: '草稿', value: 'draft' },
+  { label: '已发布', value: 'published' }
+]
 
 const filteredWorkflows = computed(() => workflows.value.filter((item) => {
   const query = searchQuery.value.trim().toLowerCase()
@@ -121,6 +143,6 @@ onMounted(loadWorkflows)
 </script>
 
 <style scoped>
-.workflow-list-page { min-height: 100vh; padding: 20px 28px; color: #26362b; background: #f5f7f5; font: 13px ui-sans-serif, system-ui, sans-serif; }.filter-panel, .list-panel { max-width: 1280px; margin: 0 auto 14px; background: #fff; border: 1px solid #e2e8e3; border-radius: 10px; box-shadow: 0 3px 12px #2e5a3a08; }.filter-panel { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 16px; }.filter-fields, .filter-actions { display: flex; align-items: center; gap: 10px; }.hidden-file-input { display: none; }.search-field { display: flex; align-items: center; gap: 6px; width: 290px; padding: 8px 10px; color: #8b998e; background: #fbfcfb; border: 1px solid #dce5de; border-radius: 6px; }.search-field input { width: 100%; color: #334438; border: 0; outline: 0; background: transparent; font: inherit; }.filter-panel select { padding: 8px 28px 8px 10px; color: #526158; background: #fff; border: 1px solid #dce5de; border-radius: 6px; }.search-button, .outline-button, .primary-button { padding: 8px 14px; border-radius: 6px; cursor: pointer; font: inherit; }.search-button, .primary-button { color: #fff; background: #198754; border: 1px solid #198754; }.outline-button { color: #526158; background: #fff; border: 1px solid #dce5de; }.row-text-action { padding: 5px 8px; color: #34704c; background: #fff; border: 1px solid #dce5de; border-radius: 6px; cursor: pointer; font: inherit; font-size: 12px; }.row-text-action:hover { color: #198754; border-color: #91c49e; }.list-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 16px 18px; border-bottom: 1px solid #edf1ed; }.list-toolbar div { display: flex; gap: 10px; align-items: center; }.list-toolbar span, .toolbar-hint, .muted { color: #8b998e; font-size: 12px; }.table-head, .workflow-row { display: grid; grid-template-columns: minmax(300px, 2fr) 100px 90px 140px 190px; gap: 14px; align-items: center; padding: 12px 18px; }.table-head { color: #88958c; background: #fafcfa; border-bottom: 1px solid #edf1ed; font-size: 12px; }.workflow-row { min-height: 66px; border-bottom: 1px solid #f0f3f0; }.workflow-row:hover { background: #fbfdfb; }.workflow-name { display: flex; align-items: center; gap: 10px; min-width: 0; color: #2c4032; text-align: left; background: transparent; border: 0; cursor: pointer; }.workflow-name > span:last-child { display: grid; gap: 4px; min-width: 0; }.workflow-name strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.workflow-name small { overflow: hidden; color: #8b998e; text-overflow: ellipsis; white-space: nowrap; }.workflow-mark { display: grid; flex: 0 0 30px; width: 30px; height: 30px; place-items: center; color: #198754; background: #e7f5eb; border-radius: 7px; }.status-tag { display: inline-block; padding: 4px 8px; color: #98701b; background: #fff4d7; border-radius: 10px; font-size: 11px; font-weight: 500; }.status-tag.published { color: #198754; background: #e7f5eb; }.row-actions { display: flex; gap: 8px; }.row-actions button { padding: 4px 7px; color: #34704c; background: transparent; border: 0; cursor: pointer; font-size: 12px; }.row-actions button:disabled { color: #b6c0b8; cursor: not-allowed; }.row-actions .danger { color: #a45a55; }.empty-state { padding: 70px 20px; color: #8b998e; text-align: center; }
+.workflow-list-page { min-height: 100vh; padding: 20px 28px; color: #26362b; background: #f5f7f5; font: 13px ui-sans-serif, system-ui, sans-serif; }.filter-panel, .list-panel { max-width: 1280px; margin: 0 auto 14px; background: #fff; border: 1px solid #e2e8e3; border-radius: 10px; box-shadow: 0 3px 12px #2e5a3a08; }.filter-panel { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 16px; }.filter-fields, .filter-actions { display: flex; align-items: center; gap: 10px; }.hidden-file-input { display: none; }.search-field { width: 290px; }.status-filter { width: 150px; }.search-button, .outline-button, .primary-button { padding: 8px 14px; border-radius: 6px; cursor: pointer; font: inherit; }.search-button, .primary-button { color: #fff; background: #198754; border: 1px solid #198754; }.outline-button { color: #526158; background: #fff; border: 1px solid #dce5de; }.list-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 16px 18px; border-bottom: 1px solid #edf1ed; }.list-toolbar div { display: flex; gap: 10px; align-items: center; }.list-toolbar span, .toolbar-hint, .muted { color: #8b998e; font-size: 12px; }.table-head, .workflow-row { display: grid; grid-template-columns: minmax(300px, 2fr) 100px 90px 140px 190px; gap: 14px; align-items: center; padding: 12px 18px; }.table-head { color: #88958c; background: #fafcfa; border-bottom: 1px solid #edf1ed; font-size: 12px; }.workflow-row { min-height: 66px; border-bottom: 1px solid #f0f3f0; }.workflow-row:hover { background: #fbfdfb; }.workflow-name { display: flex; align-items: center; gap: 10px; min-width: 0; color: #2c4032; text-align: left; background: transparent; border: 0; cursor: pointer; }.workflow-name > span:last-child { display: grid; gap: 4px; min-width: 0; }.workflow-name strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.workflow-name small { overflow: hidden; color: #8b998e; text-overflow: ellipsis; white-space: nowrap; }.workflow-mark { display: grid; flex: 0 0 30px; width: 30px; height: 30px; place-items: center; color: #198754; background: #e7f5eb; border-radius: 7px; }.status-tag { display: inline-block; padding: 4px 8px; color: #98701b; background: #fff4d7; border-radius: 10px; font-size: 11px; font-weight: 500; }.status-tag.published { color: #198754; background: #e7f5eb; }.row-actions { display: flex; gap: 8px; }.row-actions button { padding: 4px 7px; color: #34704c; background: transparent; border: 0; cursor: pointer; font-size: 12px; }.row-actions button:disabled { color: #b6c0b8; cursor: not-allowed; }.row-actions .danger { color: #a45a55; }.empty-state { padding: 70px 20px; color: #8b998e; text-align: center; }
 @media (max-width: 900px) { .filter-panel { display: block; }.filter-actions { margin-top: 12px; }.table-head { display: none; }.workflow-row { grid-template-columns: 1fr auto; }.workflow-row > span:nth-child(2), .workflow-row > span:nth-child(3), .workflow-row > span:nth-child(4) { display: none; }.row-actions { grid-column: 2; grid-row: 1; }.toolbar-hint { display: none; } }
 </style>

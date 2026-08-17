@@ -271,7 +271,7 @@ const props = defineProps({
 const emit = defineEmits(['delete', 'publish', 'unpublish', 'republish', 'manage-inventory', 'execute', 'edit', 'edit-publish', 'share', 'export'])
 
 const isProductResource = (workflow) => {
-  return workflow.resource_kind === 'product' || workflow.category === 'resource'
+  return workflow.resource_kind === 'product'
 }
 
 const isPurchasedWorkflow = (workflow) => {

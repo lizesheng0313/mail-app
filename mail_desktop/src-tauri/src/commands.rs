@@ -1635,6 +1635,7 @@ fn sanitize_message_id(message_id: &str) -> String {
 }
 
 /// 保存邮件附件到本地磁盘
+#[allow(dead_code)]
 fn save_attachments_locally(emails: &[EmailData]) {
     let base_dir = get_attachments_dir();
 

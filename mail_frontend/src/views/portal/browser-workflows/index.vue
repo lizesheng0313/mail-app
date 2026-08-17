@@ -16,6 +16,12 @@
       @confirm="confirmBrowserRuntimeDialog"
       @cancel="cancelBrowserRuntimeDialog"
     />
+    <OAuth2AuthModal
+      :visible="oauthMailboxVisible"
+      :pending-accounts="oauthMailboxAccounts"
+      @close="oauthMailboxVisible = false"
+      @complete="finishOAuthMailboxAuthorization"
+    />
     <Transition name="workflow-starting">
       <div v-if="runStarting && !browserRuntimeDialogVisible" class="workflow-starting-toast" role="status" aria-live="polite">
         <span class="workflow-starting-spinner" aria-hidden="true" />
@@ -38,31 +44,10 @@
         <div class="browser-runtime-actions"><button class="secondary-button" :disabled="runStarting" @click="runInputVisible = false">取消</button><button class="primary-button" :disabled="runStarting" @click="executeRunDocument"><span v-if="runStarting" class="button-loading-spinner" aria-hidden="true" />{{ runStarting ? '正在启动…' : '开始试运行' }}</button></div>
       </div>
     </div>
-    <div v-if="recordingStartVisible" class="browser-runtime-dialog" @click.self="recordingStartVisible = false">
-      <div class="browser-runtime-card recording-start-card">
-        <header>
-          <div><strong>开始录制</strong><span>选择新录制步骤要插入到哪个节点之后。</span></div>
-          <button type="button" @click="recordingStartVisible = false">×</button>
-        </header>
-        <label>
-          <span>录制起点</span>
-          <CustomSelect
-            :model-value="recordingAnchorChoice"
-            :options="recordingAnchorOptions"
-            placeholder="选择一个节点"
-            @update:model-value="recordingAnchorChoice = $event"
-          />
-        </label>
-        <div class="browser-runtime-actions">
-          <button class="secondary-button" @click="recordingStartVisible = false">取消</button>
-          <button class="primary-button" :disabled="!recordingAnchorChoice" @click="confirmRecordingStart">连接浏览器并录制</button>
-        </div>
-      </div>
-    </div>
     <div v-if="materialsVisible" class="browser-runtime-dialog" @click.self="materialsVisible = false">
       <div class="browser-runtime-card materials-card">
         <header class="materials-heading">
-          <div><strong>素材</strong><span>当前工作流中的节点都可以使用这些文字和本地图片。</span></div>
+          <div><strong>全局素材库</strong><span>文本和图片素材可在当前桌面端的所有工作流中复用。</span></div>
           <button type="button" @click="materialsVisible = false">×</button>
         </header>
         <div class="materials-tabs">
@@ -101,7 +86,7 @@
         </template>
         <template v-else>
           <div class="materials-toolbar">
-            <span>图片只保存在当前电脑，运行时直接上传到对方网站。</span>
+            <span>图片保存在当前桌面端的全局素材目录，工作流只引用素材编号。</span>
             <button class="primary-button" type="button" :disabled="imageMaterialBusy" @click="addImageMaterial">{{ imageMaterialBusy ? '正在添加…' : '＋ 添加图片' }}</button>
           </div>
           <div class="image-material-grid">
@@ -118,6 +103,55 @@
         </template>
       </div>
     </div>
+    <div v-if="pluginCenterVisible" class="browser-runtime-dialog plugin-center-dialog" @click.self="pluginCenterVisible = false">
+      <div class="browser-runtime-card workflow-plugin-modal" @click.stop>
+        <header class="workflow-plugin-modal-heading">
+          <div>
+            <strong>浏览器插件</strong>
+            <small>插件节点会插入画布中的现有流程，不会单独漂浮。</small>
+          </div>
+          <button type="button" @click="pluginCenterVisible = false">×</button>
+        </header>
+        <div class="workflow-plugin-context">
+          <span v-if="selectedNode">当前插入位置：<strong>{{ selectedNode.title || selectedNode.id }}</strong> 之后</span>
+          <span v-else>请先选中一个节点，插件会插入到它后面；未选中时会放到画布空闲位置。</span>
+        </div>
+        <button type="button" class="workflow-plugin-builtin" @click="addBuiltinSliderPlugin">
+          <span class="node-icon tone-amber">✦</span>
+          <span class="workflow-plugin-copy">
+            <span><strong>自动滑块</strong><em>内置</em></span>
+            <small>按录制轨迹自动完成滑块拖动</small>
+          </span>
+          <b>{{ selectedNode ? '插入后面' : '添加节点' }}</b>
+        </button>
+        <div v-for="group in pluginMenuGroups" :key="group.key" v-show="group.plugins.length" class="workflow-plugin-group">
+          <div class="workflow-plugin-group-heading"><strong>{{ group.title }}</strong><small>{{ group.description }}</small></div>
+          <div v-for="plugin in group.plugins" :key="plugin.plugin_id" class="workflow-plugin-card">
+            <span class="node-icon tone-amber">✦</span>
+            <div class="workflow-plugin-card-main">
+              <div><strong>{{ plugin.name }}</strong><span :class="plugin.enabled ? 'plugin-enabled' : 'plugin-disabled'">{{ plugin.enabled ? '已启用' : (plugin.installed ? '已停用' : '未安装') }}</span></div>
+              <small>{{ plugin.vendor }} · {{ plugin.version }}</small>
+              <small>{{ (plugin.capabilities || []).map(item => item.title).join('、') || '未声明节点能力' }}</small>
+              <div v-if="(plugin.permissions || []).length" class="workflow-plugin-permissions"><code v-for="permission in plugin.permissions" :key="permission">{{ permission }}</code></div>
+              <div v-if="plugin.enabled && (plugin.capabilities || []).length" class="workflow-plugin-capabilities">
+                <button v-for="capability in plugin.capabilities" :key="capability.node_kind" type="button" @click="addPluginCapability(capability)">＋ {{ selectedNode ? '插入' : '添加' }} {{ capability.title }}</button>
+              </div>
+            </div>
+            <div class="workflow-plugin-actions">
+              <template v-if="!plugin.builtin">
+                <button v-if="!plugin.installed" :disabled="!plugin.available" @click="installPlugin(plugin)">{{ plugin.available ? '安装' : '待审核' }}</button>
+                <template v-else>
+                  <button v-if="plugin.update_available" @click="installPlugin(plugin)">升级</button>
+                  <button @click="togglePlugin(plugin)">{{ plugin.enabled ? '停用' : '启用' }}</button>
+                  <button class="danger-action" @click="uninstallPlugin(plugin)">卸载</button>
+                </template>
+              </template>
+              <span v-else>内置</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
     <main class="workflow-shell">
       <section class="canvas-panel panel" @dragover.prevent @drop="dropNode">
         <div ref="canvasRef" class="workflow-canvas">
@@ -130,7 +164,6 @@
             <button v-if="executionId || hasPendingRecordingReview" class="canvas-action" :class="{ 'status-action-active': executionPanelVisible || hasPendingRecordingReview, 'recording-review-pending-action': hasPendingRecordingReview }" @click.stop="toggleExecutionPanel">
               {{ hasPendingRecordingReview ? '录制结果待确认' : '执行状态' }}
             </button>
-            <button class="canvas-action" :class="{ 'status-action-active': materialsVisible }" @click.stop="openMaterials">素材</button>
             <div class="add-node-wrap">
               <button class="canvas-action" :class="{ 'status-action-active': showNodeMenu }" @click.stop="toggleNodeMenu">＋ 节点</button>
               <div v-if="showNodeMenu" class="node-menu">
@@ -142,55 +175,15 @@
             </div>
             <div class="add-node-wrap">
               <button class="canvas-action" :class="{ 'status-action-active': pluginCenterVisible }" @click.stop="openPluginCenter">＋ 插件</button>
-              <div v-if="pluginCenterVisible" class="workflow-plugin-popover" @click.stop>
-                <div class="workflow-plugin-heading">
-                  <strong>浏览器插件</strong>
-                  <small>添加基础节点之外的浏览器操作</small>
-                </div>
-                <button type="button" class="workflow-plugin-builtin" @click="addBuiltinSliderPlugin">
-                  <span class="node-icon tone-amber">✦</span>
-                  <span class="workflow-plugin-copy">
-                    <span><strong>自动滑块</strong><em>内置</em></span>
-                    <small>按录制轨迹自动完成滑块拖动</small>
-                  </span>
-                  <b>添加</b>
-                </button>
-                <div v-for="group in pluginMenuGroups" :key="group.key" v-show="group.plugins.length" class="workflow-plugin-group">
-                  <div class="workflow-plugin-group-heading"><strong>{{ group.title }}</strong><small>{{ group.description }}</small></div>
-                  <div v-for="plugin in group.plugins" :key="plugin.plugin_id" class="workflow-plugin-card">
-                    <span class="node-icon tone-amber">✦</span>
-                    <div class="workflow-plugin-card-main">
-                      <div><strong>{{ plugin.name }}</strong><span :class="plugin.enabled ? 'plugin-enabled' : 'plugin-disabled'">{{ plugin.enabled ? '已启用' : (plugin.installed ? '已停用' : '未安装') }}</span></div>
-                      <small>{{ plugin.vendor }} · {{ plugin.version }}</small>
-                      <small>{{ (plugin.capabilities || []).map(item => item.title).join('、') || '未声明节点能力' }}</small>
-                      <div v-if="(plugin.permissions || []).length" class="workflow-plugin-permissions"><code v-for="permission in plugin.permissions" :key="permission">{{ permission }}</code></div>
-                      <div v-if="plugin.enabled && (plugin.capabilities || []).length" class="workflow-plugin-capabilities">
-                        <button v-for="capability in plugin.capabilities" :key="capability.node_kind" type="button" @click="addPluginCapability(capability)">＋ {{ capability.title }}</button>
-                      </div>
-                    </div>
-                    <div class="workflow-plugin-actions">
-                      <template v-if="!plugin.builtin">
-                        <button v-if="!plugin.installed" :disabled="!plugin.available" @click="installPlugin(plugin)">{{ plugin.available ? '安装' : '待审核' }}</button>
-                        <template v-else>
-                          <button v-if="plugin.update_available" @click="installPlugin(plugin)">升级</button>
-                          <button @click="togglePlugin(plugin)">{{ plugin.enabled ? '停用' : '启用' }}</button>
-                          <button class="danger-action" @click="uninstallPlugin(plugin)">卸载</button>
-                        </template>
-                      </template>
-                      <span v-else>内置</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
             </div>
             <button class="canvas-action" :disabled="document.nodes.length < 2" @click.stop="autoLayout">✦ 整理</button>
             <button class="canvas-action" :disabled="!history.length" @click.stop="undo">↶</button>
             <button class="canvas-action" :disabled="!future.length" @click.stop="redo">↷</button>
             <div class="canvas-primary-actions">
-              <button class="canvas-action recording-action" :disabled="stepCaptureActive" @click.stop="openRecordingStart">
-                {{ stepCaptureActive ? '录制中' : '录制' }}
+              <button class="canvas-action recording-action" :disabled="browserRuntimeBusy" @click.stop="openBrowserAssistant">
+                {{ browserRuntimeBusy ? '正在打开…' : '浏览器助手' }}
               </button>
-              <button class="canvas-action trial-action" :disabled="runStarting" @click.stop="runDocument"><span v-if="runStarting" class="button-loading-spinner" aria-hidden="true" />{{ runStarting ? '正在启动…' : '试运行' }}</button>
+              <button class="canvas-action trial-action" :disabled="runStarting" @click.stop="runDocument">试运行</button>
               <button class="canvas-action primary-action" @click.stop="saveDocument">保存</button>
             </div>
           </div>
@@ -269,30 +262,33 @@
                   :options="contentSourceOptions"
                   @update:model-value="updateInputContentSource"
                 />
-                <textarea v-if="selectedNode.config.content_source !== 'material'" v-model="selectedNode.config.value" rows="4" placeholder="输入固定内容" />
+                <textarea v-if="selectedNode.config.content_source === 'fixed'" v-model="selectedNode.config.value" rows="4" placeholder="输入固定内容" />
                 <CustomSelect
-                  v-else
+                  v-else-if="selectedNode.config.content_source === 'material'"
                   size="sm"
                   :model-value="selectedNode.config.material_id"
                   :options="textMaterialOptions"
                   placeholder="选择文本素材"
                   @update:model-value="selectedNode.config.material_id = $event"
                 />
-                <button type="button" class="secondary-button full" @click="openMaterials('text')">管理文本素材</button>
+                <div v-else class="local-source-summary">
+                  <strong>{{ selectedNode.config.local_source?.name || '尚未绑定本地数据源' }}</strong>
+                  <small>{{ selectedNode.config.local_source?.mode === 'random' ? '随机取值' : '顺序取值' }}；文件内容只保存在浏览器组件中</small>
+                </div>
+                <button v-if="selectedNode.config.content_source === 'material'" type="button" class="secondary-button full" @click="openMaterials('text')">管理文本素材</button>
               </div>
               <div v-if="selectedNode.kind === 'upload_file'" class="material-node-box">
                 <div class="config-caption">上传到当前网站的图片</div>
-                <CustomSelect
-                  size="sm"
-                  :model-value="selectedNode.config.material_id"
-                  :options="imageMaterialOptions"
-                  placeholder="选择本地图片素材"
-                  @update:model-value="selectedNode.config.material_id = $event"
-                />
-                <small>图片保存在桌面端本地，不会上传到肥猫猫服务器。</small>
-                <button type="button" class="secondary-button full" @click="openMaterials('image')">管理图片素材</button>
+                <div class="local-source-summary">
+                  <strong>{{ selectedNode.config.local_source?.name || '尚未绑定本地图片库' }}</strong>
+                  <small>{{ selectedNode.config.local_source?.mode === 'random' ? '随机取图' : '顺序取图' }}</small>
+                </div>
+                <small>图片文件夹只保存在浏览器组件中，不会上传到肥猫猫服务器。</small>
               </div>
               <label v-for="field in (getNodeDefinition(selectedNode.kind).fields || [])" v-show="isNodeFieldVisible(field)" :key="field.key">{{ field.label }}<CustomSelect v-if="field.type === 'select'" class="node-field-select" size="sm" :model-value="selectedNode.config[field.key]" :options="field.options || []" @update:model-value="updateNodeSelectField(field, $event)" /><textarea v-else-if="field.type === 'textarea'" v-model="selectedNode.config[field.key]" rows="3" :placeholder="field.placeholder" /><input v-else-if="field.type !== 'checkbox'" v-model="selectedNode.config[field.key]" :type="field.type || 'text'" :placeholder="field.placeholder" /><input v-else v-model="selectedNode.config[field.key]" type="checkbox" /></label>
+              <button v-if="selectedNode.kind === 'read_email_code'" type="button" class="secondary-button full" @click="authorizeVerificationMailbox">
+                授权这个邮箱
+              </button>
               <div v-if="selectedNode.kind === 'credential_input'" class="credential-node-box"><div class="config-caption">保存当前凭据</div><input v-model="credentialForm.provider" placeholder="平台或服务名称" /><input v-model="credentialForm.username" autocomplete="username" placeholder="账号 / 邮箱" /><input v-model="credentialForm.password" autocomplete="current-password" type="password" placeholder="密码" /><button class="secondary-button full" @click="saveCredential">保存此凭据</button></div>
               <label>超时时间（秒）<input v-model.number="selectedNode.timeout_ms" type="number" min="1" /></label>
             </template>
@@ -377,12 +373,14 @@ import { useRoute, useRouter } from 'vue-router'
 import browserWorkflowApi from '@/api/browserWorkflow'
 import CustomSelect from '@/components/CustomSelect/index.vue'
 import BrowserRuntimeDialog from '@/components/BrowserRuntimeDialog/index.vue'
+import OAuth2AuthModal from '@/components/Mail/OAuth2AuthModal.vue'
+import { resolveOAuthProviderByEmail } from '@/utils/externalMailboxRules'
 import { showMessage } from '@/utils/message'
 import { NODE_MENU_GROUPS, createWorkflowNode, getBuiltinPluginManifests, getNodeDefinition, getNodeMenuGroups, registerPluginNodeDefinitions } from './node-registry'
 import { insertRecordedStepsIntoGraph } from './recording-graph'
-import { applyBackendRecordingState, beginListItemDemonstration, completeListItemDemonstration, completePaginationDemonstration, describeListScope, describeRecordedFlow, describeRecordedStep, getRecordingAnchorChoice, inferListScopeFromRecording, normalizeRecordingFinishedPayload, recordedStepTitle, resolveListScope } from './recording-interaction'
-import { calculateWorkflowLayout, getWorkflowExecutionOrder, resolveWorkflowCollisions } from './workflow-layout'
-import { createWorkflowGraph, disposeWorkflowGraph, readWorkflowPositions, syncWorkflowGraph, syncWorkflowGraphSelection } from './x6-workflow-graph'
+import { applyBackendRecordingState, beginListItemDemonstration, completeListItemDemonstration, completePaginationDemonstration, describeListScope, describeRecordedFlow, describeRecordedStep, inferListScopeFromRecording, normalizeRecordingFinishedPayload, recordedStepTitle, resolveListScope } from './recording-interaction'
+import { calculateWorkflowLayout, resolveWorkflowCollisions } from './workflow-layout'
+import { createWorkflowGraph, disposeWorkflowGraph, readWorkflowPositions, sanitizeWorkflowGraphDocument, syncWorkflowGraph, syncWorkflowGraphSelection } from './x6-workflow-graph'
 import { cancelBrowserWorkflowRuntimeDownload, disconnectBrowserWorkflowDesktopBridge, ensureBrowserWorkflowRuntime, listenBrowserWorkflowRuntimeProgress } from '@/services/browserWorkflowRuntime'
 import {
   chooseBrowserWorkflowImageMaterial,
@@ -393,6 +391,7 @@ import {
 
 const STORAGE_KEY = 'browser-workflow-draft'
 const RECORDING_REVIEW_STORAGE_KEY = 'browser-workflow-pending-review'
+const GLOBAL_MATERIALS_STORAGE_KEY = 'browser-workflow-global-materials-v1'
 const canvasRef = ref(null)
 const x6CanvasRef = ref(null)
 const workflowGraph = ref(null)
@@ -411,8 +410,6 @@ const nodeSpacing = { x: 48, y: 34 }
 const executionId = ref('')
 const runInputVisible = ref(false)
 const runInputValues = ref({})
-const recordingStartVisible = ref(false)
-const recordingAnchorChoice = ref('')
 const materialsVisible = ref(false)
 const materialTab = ref('text')
 const textMaterialDraft = ref({ id: '', name: '', content: '' })
@@ -509,6 +506,8 @@ let stopBrowserRuntimeProgress = () => {}
 let browserRuntimeApprovalResolver = null
 const workflowList = ref([])
 const credentialForm = ref({ provider: 'browser', username: '', password: '' })
+const oauthMailboxVisible = ref(false)
+const oauthMailboxAccounts = ref([])
 const history = ref([])
 const future = ref([])
 const dragState = ref(null)
@@ -535,6 +534,7 @@ const createDocument = () => ({
   metadata: { persisted: false },
 })
 const document = ref(loadDocument())
+ensureMaterialStore(document.value)
 const storedWorkflowId = ref(document.value.metadata?.persisted ? document.value.workflow_id : '')
 const selectedNode = computed(() => document.value.nodes.find(node => node.id === selectedNodeId.value) || null)
 const connectedEdgeIds = computed(() => {
@@ -545,9 +545,6 @@ const connectedEdgeIds = computed(() => {
     .map(edge => edge.id))
 })
 const workflowInputDefinitions = computed(() => document.value.nodes.find(node => node.kind === 'start')?.outputs || [])
-const recordingAnchorOptions = computed(() => getWorkflowExecutionOrder(document.value.nodes, document.value.edges)
-  .filter(node => node.kind !== 'end')
-  .map(node => ({ value: node.id, label: node.title || node.id })))
 const variableTypeOptions = [
   { value: 'any', label: '任意类型' },
   { value: 'string', label: '文本' },
@@ -637,7 +634,7 @@ const textMaterialOptions = computed(() => textMaterials.value.map(item => ({ va
 const imageMaterialOptions = computed(() => imageMaterials.value.map(item => ({ value: item.id, label: item.name })))
 const contentSourceOptions = [
   { value: 'fixed', label: '固定内容' },
-  { value: 'material', label: '文本素材' },
+  { value: 'local_source', label: '本地数据源' },
 ]
 const loopItemOptions = computed(() => {
   if (!selectedNode.value) return []
@@ -661,19 +658,59 @@ function loadDocument() {
     return createDocument()
   }
 }
+function normalizeMaterialStore(value) {
+  const store = value && typeof value === 'object' && !Array.isArray(value) ? value : {}
+  return {
+    texts: Array.isArray(store.texts) ? store.texts.filter(item => item && typeof item === 'object' && item.id) : [],
+    images: Array.isArray(store.images) ? store.images.filter(item => item && typeof item === 'object' && item.id) : [],
+  }
+}
+function readGlobalMaterialStore() {
+  try {
+    return normalizeMaterialStore(JSON.parse(localStorage.getItem(GLOBAL_MATERIALS_STORAGE_KEY) || 'null'))
+  } catch {
+    return { texts: [], images: [] }
+  }
+}
+function writeGlobalMaterialStore(store) {
+  const normalized = normalizeMaterialStore(store)
+  localStorage.setItem(GLOBAL_MATERIALS_STORAGE_KEY, JSON.stringify({
+    texts: normalized.texts,
+    images: normalized.images.filter(item => item.scope === 'global'),
+  }))
+}
+function mergeMaterialItems(...lists) {
+  const seen = new Set()
+  return lists.flat().filter((item) => {
+    const id = String(item?.id || '')
+    if (!id || seen.has(id)) return false
+    seen.add(id)
+    return true
+  })
+}
 function ensureMaterialStore(targetDocument = document.value) {
   if (!targetDocument.variables || typeof targetDocument.variables !== 'object' || Array.isArray(targetDocument.variables)) {
     targetDocument.variables = {}
   }
-  if (!targetDocument.variables.__materials || typeof targetDocument.variables.__materials !== 'object') {
-    targetDocument.variables.__materials = {}
+  const localStore = normalizeMaterialStore(targetDocument.variables.__materials)
+  const globalStore = readGlobalMaterialStore()
+  const globalTexts = mergeMaterialItems(globalStore.texts, localStore.texts)
+  const globalImages = mergeMaterialItems(
+    globalStore.images.filter(item => item.scope === 'global'),
+    localStore.images.filter(item => item.scope === 'global'),
+  )
+  const localImages = localStore.images.filter(item => item.scope !== 'global')
+  writeGlobalMaterialStore({ texts: globalTexts, images: globalImages })
+  targetDocument.variables.__materials = {
+    texts: globalTexts,
+    images: mergeMaterialItems(globalImages, localImages),
   }
   const store = targetDocument.variables.__materials
-  if (!Array.isArray(store.texts)) store.texts = []
-  if (!Array.isArray(store.images)) store.images = []
   return store
 }
 function persistMaterialChange() {
+  const store = normalizeMaterialStore(document.value.variables?.__materials)
+  writeGlobalMaterialStore({ texts: store.texts, images: store.images })
   markPersisted(false)
   localStorage.setItem(STORAGE_KEY, JSON.stringify(document.value))
 }
@@ -734,7 +771,7 @@ async function addImageMaterial() {
   if (imageMaterialBusy.value) return
   imageMaterialBusy.value = true
   try {
-    const result = await chooseBrowserWorkflowImageMaterial(document.value.workflow_id)
+    const result = await chooseBrowserWorkflowImageMaterial()
     if (!result) return
     const item = {
       id: result.materialId,
@@ -742,6 +779,7 @@ async function addImageMaterial() {
       fileName: result.fileName,
       mimeType: result.mimeType,
       size: result.size,
+      scope: 'global',
     }
     ensureMaterialStore().images.push(item)
     if (result.previewDataUrl) imageMaterialPreviews.value[item.id] = result.previewDataUrl
@@ -757,7 +795,7 @@ async function removeImageMaterial(item) {
   const usedNodes = document.value.nodes.filter(node => node.kind === 'upload_file' && node.config?.material_id === item.id)
   if (usedNodes.length && !window.confirm(`有 ${usedNodes.length} 个上传图片节点正在使用这张图片，删除后这些节点需要重新选择。确定删除吗？`)) return
   try {
-    await deleteBrowserWorkflowImageMaterial(document.value.workflow_id, item.fileName)
+    await deleteBrowserWorkflowImageMaterial(document.value.workflow_id, item.fileName, item.scope || 'workflow')
     const store = ensureMaterialStore()
     store.images = store.images.filter(image => image.id !== item.id)
     usedNodes.forEach(node => { node.config.material_id = '' })
@@ -772,7 +810,11 @@ async function loadImageMaterialPreviews() {
   await Promise.all(imageMaterials.value.map(async (item) => {
     if (imageMaterialPreviews.value[item.id]) return
     try {
-      imageMaterialPreviews.value[item.id] = await loadBrowserWorkflowImagePreview(document.value.workflow_id, item.fileName)
+      imageMaterialPreviews.value[item.id] = await loadBrowserWorkflowImagePreview(
+        document.value.workflow_id,
+        item.fileName,
+        item.scope || 'workflow',
+      )
     } catch {
       imageMaterialPreviews.value[item.id] = ''
     }
@@ -898,6 +940,26 @@ async function saveCredential() {
     // API layer displays the backend message.
   }
 }
+function authorizeVerificationMailbox() {
+  const email = String(selectedNode.value?.config?.mailbox_email || '').trim()
+  if (!email || !email.includes('@')) {
+    showMessage('先填写收验证码的邮箱地址', 'warning')
+    return
+  }
+  const provider = resolveOAuthProviderByEmail(email)
+  if (!provider) {
+    showMessage('这个邮箱暂不支持网页授权，请先在首页添加邮箱', 'warning')
+    return
+  }
+  oauthMailboxAccounts.value = [{ email, provider }]
+  oauthMailboxVisible.value = true
+}
+function finishOAuthMailboxAuthorization(result) {
+  oauthMailboxVisible.value = false
+  if (Number(result?.successCount || 0) > 0) {
+    showMessage('邮箱授权成功，验证码节点可以使用了', 'success')
+  }
+}
 function markPersisted(value) {
   if (!document.value.metadata || typeof document.value.metadata !== 'object') document.value.metadata = {}
   document.value.metadata.persisted = value
@@ -951,10 +1013,26 @@ function validateEditorDocument() {
       const materialExists = textMaterials.value.some(item => item.id === node.config?.material_id)
       if (!materialExists) failures.push({ node, message: '还没有选择文本素材' })
     }
+    if (node.kind === 'input' && node.config?.content_source === 'local_source' && !String(node.config?.local_source?.name || '').trim()) {
+      failures.push({ node, message: '还没有绑定本地数据源' })
+    }
     if (node.kind === 'upload_file') {
       if (!String(node.config?.selector || '').trim()) failures.push({ node, message: '还没有识别到上传按钮' })
-      const materialExists = imageMaterials.value.some(item => item.id === node.config?.material_id)
-      if (!materialExists) failures.push({ node, message: '还没有选择要上传的图片素材' })
+      if (node.config?.content_source === 'local_source') {
+        if (!String(node.config?.local_source?.name || '').trim()) failures.push({ node, message: '还没有绑定本地图片库' })
+      } else {
+        const materialExists = imageMaterials.value.some(item => item.id === node.config?.material_id)
+        if (!materialExists) failures.push({ node, message: '还没有选择要上传的图片素材' })
+      }
+    }
+    if (node.kind === 'read_email_code' && !String(node.config?.mailbox_email || '').trim()) {
+      failures.push({ node, message: '还没有填写收验证码的邮箱' })
+    }
+    if (node.kind === 'fill_verification_code') {
+      const codeInput = (node.inputs || []).find(item => item.name === 'code')
+      if (!codeInput || codeInput.source !== 'node' || !String(codeInput.variable || '').trim()) {
+        failures.push({ node, message: '还没有连接“读取邮箱验证码”的输出' })
+      }
     }
     if (node.kind !== 'condition') continue
     for (const branch of node.config?.branches || []) {
@@ -1076,6 +1154,9 @@ function updateInputContentSource(source) {
   if (!selectedNode.value || selectedNode.value.kind !== 'input') return
   selectedNode.value.config.content_source = source
   if (source !== 'material') selectedNode.value.config.material_id = ''
+  if (source === 'local_source' && !selectedNode.value.config.local_source) {
+    selectedNode.value.config.local_source = { name: '', kind: 'data', mode: 'sequential', field: '' }
+  }
 }
 function newConditionClause() {
   return {
@@ -1143,6 +1224,11 @@ function controlNodePorts(node) {
 }
 function newNode(kind, x = 120, y = 100) { return createWorkflowNode(kind, { x, y }) }
 function snapshot() { return JSON.parse(JSON.stringify(document.value)) }
+function serverDocument() {
+  const payload = snapshot()
+  if (payload.variables && typeof payload.variables === 'object') delete payload.variables.__materials
+  return payload
+}
 function recordHistory() { history.value.push(snapshot()); if (history.value.length > 50) history.value.shift(); future.value = [] }
 function restoreDocument(nextDocument) { normalizeDocument(nextDocument); document.value = nextDocument; selectedNodeId.value = ''; selectedEdgeId.value = ''; linkingFrom.value = ''; linkingBranch.value = null; clearLinkPreview() }
 function undo() { if (!history.value.length) return; future.value.push(snapshot()); restoreDocument(history.value.pop()) }
@@ -1176,10 +1262,14 @@ function normalizeDocument(targetDocument) {
     if (!Array.isArray(node.outputs)) node.outputs = []
     if (!node.config || typeof node.config !== 'object') node.config = {}
     if (node.kind === 'input') {
-      if (!['fixed', 'material'].includes(node.config.content_source)) node.config.content_source = 'fixed'
+      if (!['fixed', 'material', 'local_source'].includes(node.config.content_source)) node.config.content_source = 'fixed'
       if (typeof node.config.material_id !== 'string') node.config.material_id = ''
+      if (!node.config.local_source || typeof node.config.local_source !== 'object') node.config.local_source = { name: '', kind: 'data', mode: 'sequential', field: '' }
     }
-    if (node.kind === 'upload_file' && typeof node.config.material_id !== 'string') node.config.material_id = ''
+    if (node.kind === 'upload_file') {
+      if (typeof node.config.material_id !== 'string') node.config.material_id = ''
+      if (!node.config.local_source || typeof node.config.local_source !== 'object') node.config.local_source = { name: '', kind: 'images', mode: 'sequential' }
+    }
     if (['click', 'input', 'upload_file'].includes(node.kind) && !['fail', 'skip'].includes(node.config.missing_element_action)) {
       node.config.missing_element_action = 'fail'
     }
@@ -1214,6 +1304,13 @@ function normalizeDocument(targetDocument) {
       ? { x, y }
       : { x: 120, y: 100 }
   }
+  for (const edge of targetDocument?.edges || []) {
+    if (edge.routing !== 'manual') delete edge.vertices
+  }
+  const sanitizedGraph = sanitizeWorkflowGraphDocument(targetDocument)
+  if (sanitizedGraph.edges.length !== (targetDocument.edges || []).length) {
+    targetDocument.edges = sanitizedGraph.edges
+  }
 }
 function findFreePosition(preferred = { x: 120, y: 100 }, ignoreId = '') {
   const probeId = '__position_probe__'
@@ -1231,24 +1328,99 @@ function findFreePosition(preferred = { x: 120, y: 100 }, ignoreId = '') {
     canvasHeight: canvasSize.height,
   }).positions.get(probeId)
 }
-function addNode(kind, position = null) {
+function insertNodeAfter(source, node) {
+  const outgoing = document.value.edges.filter(edge => edge.source === source.id)
+  const branching = ['condition', 'loop', 'pagination'].includes(source.kind)
+  if (source.kind === 'end') return { connected: false, reason: '结束节点没有后续出口，不能在它后面自动插入。' }
+  if (branching && outgoing.length !== 1) {
+    return {
+      connected: false,
+      reason: outgoing.length ? '当前节点有多个分支出口，请从具体出口拖线插入。' : '当前分支节点还没有出口，请先连接一个分支。',
+    }
+  }
+  if (!branching && outgoing.length > 1) {
+    return { connected: false, reason: '当前节点存在多个出口，请先整理连接后再插入。' }
+  }
+
+  const existing = outgoing[0]
+  const branchMeta = existing
+    ? {
+        ...(existing.label ? { label: existing.label } : {}),
+        ...(existing.condition ? { condition: JSON.parse(JSON.stringify(existing.condition)) } : {}),
+      }
+    : {}
+  if (existing) {
+    existing.source = node.id
+    delete existing.label
+    delete existing.condition
+  }
+  document.value.edges.push({
+    id: 'edge-' + Date.now() + '-' + Math.random().toString(16).slice(2, 8),
+    source: source.id,
+    target: node.id,
+    ...branchMeta,
+  })
+  return { connected: true, branch: branchMeta.label || '' }
+}
+function addNode(kind, position = null, options = {}) {
+  const source = options.connectFrom ? nodeById(options.connectFrom) : null
+  if (source) {
+    const outgoing = document.value.edges.filter(edge => edge.source === source.id)
+    const branching = ['condition', 'loop', 'pagination'].includes(source.kind)
+    if (source.kind === 'end') {
+      showMessage('结束节点没有后续出口，不能在它后面插入插件。', 'warning')
+      return null
+    }
+    if ((branching && outgoing.length !== 1) || (!branching && outgoing.length > 1)) {
+      showMessage(
+        branching
+          ? (outgoing.length ? '当前节点有多个分支，请从具体出口拖线插入。' : '当前分支节点还没有出口，请先连接分支。')
+          : '当前节点存在多个出口，请先整理连接后再插入。',
+        'warning',
+      )
+      return null
+    }
+  }
   recordHistory()
-  const preferred = position || { x: 120 + document.value.nodes.length * 24, y: 100 + document.value.nodes.length * 24 }
+  const preferred = position || (source
+    ? { x: source.position.x + nodeSize.width + nodeSpacing.x, y: source.position.y }
+    : { x: 120 + document.value.nodes.length * 24, y: 100 + document.value.nodes.length * 24 })
   const nextPosition = findFreePosition(preferred)
   const node = newNode(kind, nextPosition.x, nextPosition.y)
   document.value.nodes.push(node)
+  if (source) insertNodeAfter(source, node)
+  markPersisted(false)
   selectedNodeId.value = node.id
+  syncWorkflowGraphFromDocument()
   nextTick(() => canvasRef.value?.scrollTo({ left: Math.max(0, node.position.x - 100), top: Math.max(0, node.position.y - 100), behavior: 'smooth' }))
   return node
 }
 function addNodeFromMenu(kind) {
-  addNode(kind)
+  const sourceNodeId = selectedNodeId.value
+  const node = addNode(kind, null, { connectFrom: sourceNodeId })
+  if (!node) return
+  if (kind === 'fill_verification_code') {
+    const reader = sourceNodeId ? nodeById(sourceNodeId) : null
+    const codeInput = (node.inputs || []).find(item => item.name === 'code')
+    if (reader?.kind === 'read_email_code' && codeInput) {
+      codeInput.source = 'node'
+      codeInput.variable = `${reader.id}.code`
+    }
+  }
   showNodeMenu.value = false
 }
 function addPluginCapability(capability) {
   if (!capability?.node_kind) return
-  addNode(capability.node_kind)
+  const sourceTitle = selectedNode.value?.title || ''
+  const node = addNode(capability.node_kind, null, { connectFrom: selectedNodeId.value })
+  if (!node) return
   pluginCenterVisible.value = false
+  showMessage(
+    sourceTitle
+      ? '已将“' + node.title + '”插入“' + sourceTitle + '”之后，并已选中该节点'
+      : '已添加“' + node.title + '”并已选中该节点',
+    'success',
+  )
 }
 function addBuiltinSliderPlugin() {
   addPluginCapability({ node_kind: 'drag_slider' })
@@ -1301,7 +1473,7 @@ function createEdge(sourceId, targetId, branch = null) {
   const branchPort = branch?.condition?.branch || ''
   const exists = ['condition', 'loop', 'pagination'].includes(source?.kind)
     ? document.value.edges.some(edge => edge.source === sourceId && edge.condition?.branch === branchPort)
-    : document.value.edges.some(edge => edge.source === sourceId && edge.target === targetId)
+    : document.value.edges.some(edge => edge.source === sourceId)
   if (exists) return
   recordHistory()
   document.value.edges.push({
@@ -1420,7 +1592,7 @@ async function saveDocument() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(document.value))
   try {
     if (storedWorkflowId.value === document.value.workflow_id) {
-      const response = await browserWorkflowApi.saveDraft(document.value.workflow_id, document.value, { suppressErrorMessage: 'silent' })
+      const response = await browserWorkflowApi.saveDraft(document.value.workflow_id, serverDocument(), { suppressErrorMessage: 'silent' })
       if (response?.code === 0) {
         markPersisted(true)
         localStorage.setItem(STORAGE_KEY, JSON.stringify(document.value))
@@ -1431,7 +1603,7 @@ async function saveDocument() {
         return false
       }
     } else {
-      const response = await browserWorkflowApi.create(document.value, { suppressErrorMessage: 'silent' })
+      const response = await browserWorkflowApi.create(serverDocument(), { suppressErrorMessage: 'silent' })
       if (response?.code === 0) {
         storedWorkflowId.value = response.data?.workflow_id || document.value.workflow_id
         markPersisted(true)
@@ -1583,7 +1755,7 @@ async function executeRunDocument() {
       ...desktopBrowserOptions.value,
       local_material_paths: localMaterialPaths,
     }
-    const response = await browserWorkflowApi.previewExecute(document.value, { options, variables }, { suppressErrorMessage: 'silent' })
+    const response = await browserWorkflowApi.previewExecute(serverDocument(), { options, variables }, { suppressErrorMessage: 'silent' })
     if (response?.code === 0) {
       runInputVisible.value = false
       executionId.value = response.data.execution_id
@@ -1671,25 +1843,23 @@ function acceptBackendRecordingState(payload) {
 }
 async function recoverBrowserExecutionSession() {
   if (!recordingAnchorNodeId.value || !nodeById(recordingAnchorNodeId.value)) {
-    showMessage('请先选择一个节点，再从该节点后开始录制', 'warning')
+    showMessage('请先选择一个节点，再打开浏览器助手', 'warning')
     return false
   }
   if (!await ensureBrowserRuntimeForAction()) return false
   let response
   try {
-    const localMaterialPaths = await resolveLocalMaterialPaths()
     const options = {
       ...runtimeOptions,
       headless: false,
       ...desktopBrowserOptions.value,
-      local_material_paths: localMaterialPaths,
     }
-    response = await browserWorkflowApi.startRecordingSession(document.value, {
+    response = await browserWorkflowApi.startRecordingSession(serverDocument(), {
       options,
       anchor_node_id: recordingAnchorNodeId.value,
     })
   } catch (error) {
-    showMessage(error?.message || String(error) || '读取本地图片素材失败', 'error')
+    showMessage(error?.message || String(error) || '打开浏览器助手失败', 'error')
     return false
   }
   if (response?.code !== 0 || !response.data?.execution_id) return false
@@ -1701,7 +1871,7 @@ async function recoverBrowserExecutionSession() {
   recordingSessionActive.value = true
   acceptBackendRecordingState(response.data)
   connectExecutionSocket()
-  showMessage('浏览器录制会话已重新建立，没有重新执行整张流程', 'success')
+  showMessage('浏览器助手已连接', 'success')
   return true
 }
 async function withBrowserExecutionRecovery(action) {
@@ -1848,6 +2018,21 @@ function handleExecutionMessage(payload) {
     recordingCaptureMode.value = 'step'
     executionPanelVisible.value = true
     showMessage(stepAnalysis.value.length ? '浏览器已完成当前步骤，AI分析结果已返回' : '当前步骤没有可分析的操作', stepAnalysis.value.length ? 'success' : 'warning')
+    return
+  }
+  if (payload?.type === 'assistant_nodes_added') {
+    if (payload.document && Array.isArray(payload.document.nodes) && Array.isArray(payload.document.edges)) {
+      recordHistory()
+      normalizeDocument(payload.document)
+      document.value = payload.document
+      repairDocumentCollisions(document.value)
+      recordingAnchorNodeId.value = payload.anchor_node_id || recordingAnchorNodeId.value
+      selectedNodeId.value = (payload.inserted_node_ids || []).at(-1) || recordingAnchorNodeId.value
+      markPersisted(false)
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(document.value))
+      nextTick(() => syncWorkflowGraphFromDocument())
+    }
+    showMessage(payload.message || '浏览器助手已更新工作流', 'success')
   }
 }
 function connectExecutionSocket() {
@@ -1906,19 +2091,23 @@ async function startStepCapture() {
     // API layer displays the backend message.
   }
 }
-function openRecordingStart() {
-  recordingAnchorChoice.value = getRecordingAnchorChoice(selectedNode.value)
-  recordingStartVisible.value = true
-}
-async function confirmRecordingStart() {
-  const anchor = nodeById(recordingAnchorChoice.value)
-  if (!anchor || anchor.kind === 'end') {
-    showMessage('请选择一个有效的录制起点', 'warning')
+async function openBrowserAssistant() {
+  if (!selectedNode.value || selectedNode.value.kind === 'end') {
+    showMessage('请先选择一个节点，助手生成的新节点会接在它后面', 'warning')
     return
   }
-  selectedNodeId.value = anchor.id
-  recordingStartVisible.value = false
-  await startStepCapture()
+  if (document.value.edges.filter(edge => edge.source === selectedNode.value.id).length > 1) {
+    showMessage('当前节点有多个分支，请先选择具体分支上的节点', 'warning')
+    return
+  }
+  recordingAnchorNodeId.value = selectedNode.value.id
+  try {
+    if (!await recoverBrowserExecutionSession()) return
+    executionPanelVisible.value = false
+    showMessage('浏览器助手已打开，请在浏览器右侧直接告诉它要做什么', 'success')
+  } catch {
+    // API layer displays the backend message.
+  }
 }
 async function retryStepCapture() {
   if (!executionId.value) return
@@ -2024,7 +2213,7 @@ async function testConfirmedStep() {
     const localMaterialPaths = await resolveLocalMaterialPaths()
     const response = await browserWorkflowApi.testStep(
       executionId.value,
-      document.value,
+      serverDocument(),
       confirmedStepNodeIds.value,
       recordingAnchorNodeId.value,
       { local_material_paths: localMaterialPaths },
@@ -2143,11 +2332,14 @@ function handleWorkflowGraphEdgeConnected({ edge }) {
   const existing = document.value.edges.find(item => item.id === edge.id)
   if (existing) {
     const sourceNode = nodeById(sourceId)
-    const branchPort = branch?.condition?.branch || ''
+    const branchPort = branch?.condition?.branch || (branch?.condition?.default ? 'default' : '')
     const duplicate = document.value.edges.some(item => {
       if (item.id === existing.id || item.source !== sourceId) return false
-      if (['condition', 'loop', 'pagination'].includes(sourceNode?.kind)) return item.condition?.branch === branchPort
-      return item.target === targetId
+      if (['condition', 'loop', 'pagination'].includes(sourceNode?.kind)) {
+        const itemBranchPort = item.condition?.branch || (item.condition?.default ? 'default' : '')
+        return itemBranchPort === branchPort
+      }
+      return true
     })
     if (duplicate) {
       syncWorkflowGraphFromDocument()
@@ -2174,10 +2366,16 @@ function persistWorkflowGraphEdgeVertices(edge) {
   if (!target) return
   const vertices = (edge.getVertices?.() || []).map(vertex => ({ x: Number(vertex.x), y: Number(vertex.y) }))
   const previous = JSON.stringify(target.vertices || [])
-  if (previous === JSON.stringify(vertices)) return
+  const next = JSON.stringify(vertices)
+  if (previous === next && (!vertices.length || target.routing === 'manual')) return
   recordHistory()
-  if (vertices.length) target.vertices = vertices
-  else delete target.vertices
+  if (vertices.length) {
+    target.vertices = vertices
+    target.routing = 'manual'
+  } else {
+    delete target.vertices
+    delete target.routing
+  }
   markPersisted(false)
 }
 function handleWorkflowGraphEdgeRemoved({ cell }) {
@@ -2227,6 +2425,7 @@ onMounted(async () => {
     await openWorkflow(route.params.workflowId)
   } else if (route.params.workflowId === 'new' || (!document.value.metadata?.persisted && !document.value.nodes.length)) {
     document.value = createDocument()
+    ensureMaterialStore(document.value)
     imageMaterialPreviews.value = {}
     startNewTextMaterial()
     storedWorkflowId.value = ''
@@ -2327,14 +2526,14 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleDeleteKey))
 .browser-runtime-card progress { width: 100%; accent-color: #258451; }
 .workflow-starting-toast { position: fixed; top: 22px; left: 50%; z-index: 40; display: flex; align-items: center; gap: 12px; min-width: 270px; padding: 13px 16px; color: #244d37; background: rgba(255, 255, 255, .97); border: 1px solid #cfe3d5; border-radius: 12px; box-shadow: 0 14px 36px #1c33252b; transform: translateX(-50%); }.workflow-starting-toast > div { display: grid; gap: 3px; }.workflow-starting-toast strong { font-size: 13px; }.workflow-starting-toast small { color: #718078; font-size: 11px; }.workflow-starting-spinner, .button-loading-spinner { display: inline-block; box-sizing: border-box; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: workflow-loading-spin .75s linear infinite; }.workflow-starting-spinner { flex: 0 0 22px; width: 22px; height: 22px; color: #287d4f; }.button-loading-spinner { width: 13px; height: 13px; }.workflow-starting-enter-active, .workflow-starting-leave-active { transition: opacity .16s ease, transform .16s ease; }.workflow-starting-enter-from, .workflow-starting-leave-to { opacity: 0; transform: translate(-50%, -8px); }@keyframes workflow-loading-spin { to { transform: rotate(360deg); } }
 .workflow-input-card { max-height: min(720px, calc(100vh - 48px)); overflow: auto; }.workflow-input-card > header { display: flex; align-items: flex-start; justify-content: space-between; }.workflow-input-card > header div strong, .workflow-input-card > header div span { display: block; }.workflow-input-card > header div span { margin-top: 4px; font-size: 12px; }.workflow-input-card > header button { color: #758078; background: transparent; font-size: 22px; }.workflow-input-card label { display: grid; gap: 5px; }.workflow-input-card label span { color: #405047; font-weight: 700; }.workflow-input-card label b { margin-left: 3px; color: #b24e49; }.workflow-input-card label small { color: #879288; }.workflow-input-card input:not([type="checkbox"]), .workflow-input-card textarea { width: 100%; padding: 10px; box-sizing: border-box; border: 1px solid #d8e3da; border-radius: 8px; outline: none; }.workflow-input-card input:focus, .workflow-input-card textarea:focus { border-color: #5c9c70; box-shadow: 0 0 0 3px #a8d4b34d; }.workflow-input-card input[type="checkbox"] { width: 18px; height: 18px; accent-color: #278453; }
-.recording-start-card { display: grid; gap: 18px; width: min(440px, calc(100vw - 40px)); }.recording-start-card > header { display: flex; align-items: flex-start; justify-content: space-between; }.recording-start-card > header div strong, .recording-start-card > header div span { display: block; }.recording-start-card > header div span { margin-top: 5px; color: #7b887f; font-size: 12px; }.recording-start-card > header button { color: #758078; background: transparent; font-size: 22px; }.recording-start-card label { display: grid; gap: 7px; margin: 0; }.recording-start-card label > span { color: #405047; font-weight: 700; }.recording-action { color: #326d9a; background: #eef6fb; border-color: #c6dce9; }
+.recording-action { color: #326d9a; background: #eef6fb; border-color: #c6dce9; }
 .materials-card { width: min(880px, calc(100vw - 40px)); max-height: min(720px, calc(100vh - 40px)); overflow: hidden; padding: 0; gap: 0; }
 .materials-heading { display: flex; align-items: flex-start; justify-content: space-between; padding: 22px 24px 18px; border-bottom: 1px solid #e5ece6; }.materials-heading div { display: grid; gap: 5px; }.materials-heading span { font-size: 12px; }.materials-heading button { color: #758078; background: transparent; font-size: 22px; }
 .materials-tabs { display: flex; gap: 8px; padding: 14px 24px 0; }.materials-tabs button { padding: 8px 13px; color: #66766c; background: #f4f7f4; border-radius: 8px; }.materials-tabs button.active { color: #fff; background: #287d4f; }
 .materials-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 24px; }.materials-toolbar > span { font-size: 12px; }.materials-toolbar .primary-button { flex: 0 0 auto; padding: 9px 13px; }
 .materials-layout { display: grid; grid-template-columns: 260px minmax(0, 1fr); min-height: 380px; max-height: 520px; border-top: 1px solid #edf1ed; }.material-list { overflow: auto; padding: 14px; border-right: 1px solid #edf1ed; background: #f8faf8; }.material-list-item { display: grid; width: 100%; gap: 5px; margin-bottom: 8px; padding: 11px 12px; color: #344439; text-align: left; background: #fff; border: 1px solid #e2e9e3; border-radius: 9px; }.material-list-item.selected { border-color: #5b9d70; box-shadow: 0 0 0 3px #9ad1aa33; }.material-list-item small { overflow: hidden; color: #87958a; text-overflow: ellipsis; white-space: nowrap; }.material-editor { display: grid; align-content: start; gap: 14px; overflow: auto; padding: 20px 24px 24px; }.material-editor label { display: grid; gap: 7px; margin: 0; color: #526258; font-size: 12px; font-weight: 700; }.material-editor input, .material-editor textarea { width: 100%; box-sizing: border-box; padding: 10px 12px; color: #344439; background: #fbfdfb; border: 1px solid #d8e3da; border-radius: 9px; outline: none; resize: vertical; }.material-editor input:focus, .material-editor textarea:focus { border-color: #5c9c70; box-shadow: 0 0 0 3px #a8d4b344; }.material-editor-actions { display: flex; justify-content: flex-end; gap: 9px; }.danger-button { padding: 10px 14px; color: #a54b48; background: #fff4f2; border: 1px solid #edcfcb; border-radius: 9px; }.material-empty { display: grid; min-height: 120px; place-items: center; color: #8b978f; font-size: 12px; }
 .image-material-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; max-height: 510px; overflow: auto; padding: 0 24px 24px; }.image-material-card { position: relative; overflow: hidden; background: #f8faf8; border: 1px solid #dfe8e1; border-radius: 11px; }.image-material-preview { display: grid; height: 126px; place-items: center; overflow: hidden; color: #8b978f; background: #eef3ef; font-size: 12px; }.image-material-preview img { width: 100%; height: 100%; object-fit: cover; }.image-material-copy { display: grid; gap: 3px; min-width: 0; padding: 11px 36px 12px 12px; }.image-material-copy strong, .image-material-copy small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.image-material-copy strong { color: #344439; font-size: 12px; }.image-material-copy small { color: #87958a; font-size: 10px; }.image-material-card > button { position: absolute; right: 8px; bottom: 9px; display: grid; width: 24px; height: 24px; place-items: center; color: #a54b48; background: #fff; border-radius: 7px; }.image-material-empty { grid-column: 1 / -1; }
-.material-node-box { display: grid; gap: 9px; margin: 14px 0; padding: 12px; background: #f5faf6; border: 1px solid #dce9df; border-radius: 10px; }.material-node-box textarea { margin-top: 0; }.material-node-box > small { color: #7b887f; font-size: 10px; line-height: 1.5; }
+.material-node-box { display: grid; gap: 9px; margin: 14px 0; padding: 12px; background: #f5faf6; border: 1px solid #dce9df; border-radius: 10px; }.material-node-box textarea { margin-top: 0; }.material-node-box > small { color: #7b887f; font-size: 10px; line-height: 1.5; }.local-source-summary { display: grid; gap: 3px; padding: 10px; background: #fff; border: 1px solid #d9e6dc; border-radius: 8px; }.local-source-summary strong { color: #345548; font-size: 12px; }.local-source-summary small { color: #7b887f; font-size: 10px; }
 .browser-runtime-actions { display: flex; justify-content: flex-end; }
 .workflow-picker { max-width: 1700px; margin: 0 auto 14px; padding: 14px 16px; font: 12px ui-sans-serif, system-ui; }
 .desktop-only-banner, .desktop-runtime-bar { display: flex; align-items: center; gap: 12px; max-width: 1700px; margin: 0 auto 14px; padding: 12px 16px; font: 12px ui-sans-serif, system-ui; }.desktop-only-banner { color: #8f4d36; background: #fff7ed; border-color: #f1d1bd; }.desktop-only-banner span, .desktop-runtime-bar span { color: #87958a; }.desktop-runtime-bar > div { display: grid; gap: 3px; margin-right: auto; }
@@ -2380,25 +2579,52 @@ button { border: 0; cursor: pointer; font: 600 13px ui-sans-serif, system-ui; }
 .recording-review-reminder span { font-size: 13px; font-weight: 700; }
 .recording-review-reminder small { color: #d9f0e1; font-size: 10px; }
 .recording-review-reminder:hover { background: #226c44; transform: translateY(-1px); }
-.workflow-plugin-popover {
-  position: absolute;
-  right: 0;
-  bottom: 44px;
-  z-index: 30;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  width: 380px;
-  max-height: min(460px, calc(100vh - 110px));
-  padding: 12px;
+.plugin-center-dialog { z-index: 50; }
+.workflow-plugin-modal {
+  width: min(620px, calc(100vw - 40px));
+  max-height: min(680px, calc(100vh - 48px));
   overflow-y: auto;
-  box-sizing: border-box;
-  color: #344439;
-  background: #fff;
-  border: 1px solid #dce7dd;
-  border-radius: 12px;
-  box-shadow: 0 12px 30px #36543b25;
-  font-family: ui-sans-serif, system-ui, sans-serif;
+  padding: 16px;
+}
+.workflow-plugin-modal-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.workflow-plugin-modal-heading > div {
+  display: grid;
+  gap: 4px;
+}
+.workflow-plugin-modal-heading strong { color: #344439; font-size: 18px; }
+.workflow-plugin-modal-heading small { color: #8b998e; font-size: 11px; line-height: 1.4; }
+.workflow-plugin-modal-heading button {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  color: #758078;
+  background: #f2f6f2;
+  border-radius: 7px;
+  font-size: 20px;
+}
+.workflow-plugin-modal-heading button:hover { color: #a14f4b; background: #f8e2e0; }
+.workflow-plugin-context {
+  padding: 9px 11px;
+  color: #647268;
+  background: #f5faf6;
+  border: 1px solid #dce9df;
+  border-radius: 8px;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.workflow-plugin-context strong { color: #287d4f; font-size: 11px; }
+.workflow-plugin-modal .workflow-plugin-group { gap: 8px; }
+.workflow-plugin-modal .workflow-plugin-capabilities button { font-size: 10px; }
+.workflow-plugin-modal .workflow-plugin-actions button { font-size: 10px; }
+.workflow-plugin-modal .workflow-plugin-builtin { margin-top: 1px; }
+.workflow-plugin-modal .workflow-plugin-builtin > b { font-size: 10px; }
+@media (max-width: 720px) {
+  .workflow-plugin-modal { width: calc(100vw - 24px); max-height: calc(100vh - 24px); padding: 13px; }
 }
 .workflow-plugin-heading,
 .workflow-plugin-group-heading {
@@ -2468,6 +2694,40 @@ button { border: 0; cursor: pointer; font: 600 13px ui-sans-serif, system-ui; }
 .x6-edge:hover .connection { stroke: #91a197 !important; stroke-width: 1.6px !important; }
 .x6-edge:hover .connection-wrap { opacity: 0 !important; stroke: transparent !important; }
 .x6-edge:hover .source-marker, .x6-edge:hover .target-marker { stroke: #000 !important; }
+</style>
+<style>
+.canvas-action.primary-action:hover,
+.canvas-action.primary-action:focus-visible {
+  color: #fff;
+  background: #226c44;
+  border-color: #226c44;
+}
+</style>
+<style>
+/* Keep the X6 surface visually distinct from the surrounding page. */
+.workflow-canvas {
+  background: #edf3ef !important;
+}
+
+.x6-canvas-host,
+.x6-graph,
+.x6-graph-svg,
+.x6-graph-background {
+  background-color: #f8faf8 !important;
+  background-image: radial-gradient(#d2ded4 1px, transparent 1px) !important;
+  background-size: 20px 20px !important;
+}
+
+.x6-edge .connection {
+  stroke: #7f9184;
+  stroke-width: 1.7px;
+  stroke-linecap: round;
+}
+
+.x6-edge .marker-target {
+  fill: #7f9184;
+  stroke: #7f9184;
+}
 </style>
 <style>
 .x6-workflow-node {

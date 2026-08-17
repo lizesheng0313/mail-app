@@ -18,7 +18,16 @@
 
     <div class="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
       <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-gray-200">
+        <table class="min-w-[1280px] w-full table-fixed divide-y divide-gray-200">
+          <colgroup>
+            <col class="w-[330px]" />
+            <col class="w-[270px]" />
+            <col class="w-[120px]" />
+            <col class="w-[130px]" />
+            <col class="w-[130px]" />
+            <col class="w-[180px]" />
+            <col class="w-[150px]" />
+          </colgroup>
           <thead class="bg-gray-50">
             <tr>
               <th class="px-5 py-3 text-left text-xs font-medium text-gray-500">购买内容</th>
@@ -44,12 +53,12 @@
                   {{ item.workflow_description || item.workflow_public_id || '-' }}
                 </div>
               </td>
-              <td class="px-5 py-4 text-sm text-gray-700">{{ item.order_no || '-' }}</td>
-              <td class="px-5 py-4 text-sm font-semibold text-primary-700">
+              <td class="whitespace-nowrap px-5 py-4 text-sm text-gray-700">{{ item.order_no || '-' }}</td>
+              <td class="whitespace-nowrap px-5 py-4 text-sm font-semibold text-primary-700">
                 {{ formatAmount(item.order_amount || item.purchase_amount) }} 奶片
               </td>
-              <td class="px-5 py-4 text-sm text-gray-700">{{ getOrderUsageText(item) }}</td>
-              <td class="px-5 py-4">
+              <td class="whitespace-nowrap px-5 py-4 text-sm text-gray-700">{{ getOrderUsageText(item) }}</td>
+              <td class="whitespace-nowrap px-5 py-4">
                 <span class="rounded-full px-2.5 py-1 text-xs font-medium" :class="getStatusClass(item.status)">
                   {{ getStatusText(item.status) }}
                 </span>
@@ -57,30 +66,25 @@
                   {{ getRefundText(item) }}
                 </div>
               </td>
-              <td class="px-5 py-4 text-sm text-gray-600">{{ formatTime(item.created_at) }}</td>
+              <td class="whitespace-nowrap px-5 py-4 text-sm text-gray-600">{{ formatTime(item.created_at) }}</td>
               <td class="px-5 py-4">
-                <button
-                  v-if="canRequestRefund(item)"
-                  class="mr-3 text-sm font-medium text-rose-600 hover:text-rose-700 disabled:text-gray-400"
-                  :disabled="item.refund_status === 'pending'"
-                  @click="requestRefund(item)"
-                >
-                  {{ item.refund_status === 'pending' ? '退款处理中' : '申请退款' }}
-                </button>
-                <button
-                  v-if="item.resource_kind === 'product'"
-                  class="mr-3 text-sm font-medium text-primary-700 hover:text-primary-800"
-                  @click="showDelivery(item)"
-                >
-                  查看结果
-                </button>
-                <button
-                  class="text-sm font-medium text-primary-700 hover:text-primary-800 disabled:text-gray-400"
-                  :disabled="!item.workflow_id"
-                  @click="viewMarket(item)"
-                >
-                  查看商品
-                </button>
+                <div class="flex items-center gap-1 whitespace-nowrap">
+                  <ActionButton
+                    v-if="canRequestRefund(item)"
+                    icon="refund"
+                    variant="danger"
+                    :tooltip="item.refund_status === 'pending' ? '退款处理中' : '申请退款'"
+                    :disabled="item.refund_status === 'pending'"
+                    @click="requestRefund(item)"
+                  />
+                  <ActionButton
+                    v-if="hasExecutionResult(item)"
+                    icon="check-circle"
+                    variant="success"
+                    tooltip="查看结果"
+                    @click="showDelivery(item)"
+                  />
+                </div>
               </td>
             </tr>
           </tbody>
@@ -97,6 +101,14 @@
     >
       <div class="space-y-4 text-sm text-gray-700">
         <div class="grid gap-3 rounded-lg bg-gray-50 p-4 sm:grid-cols-2">
+          <div>
+            <div class="text-xs text-gray-500">执行状态</div>
+            <div class="mt-1 font-medium text-gray-900">{{ getExecutionStatusText(selectedDelivery?.status) }}</div>
+          </div>
+          <div>
+            <div class="text-xs text-gray-500">执行时间</div>
+            <div class="mt-1 font-medium text-gray-900">{{ formatTime(selectedDelivery?.executed_at) }}</div>
+          </div>
           <div>
             <div class="text-xs text-gray-500">供货订单号</div>
             <div class="mt-1 break-all font-medium text-gray-900">{{ selectedDelivery?.provider_order_no || '-' }}</div>
@@ -121,6 +133,10 @@
             <div class="text-xs text-primary-700">取餐码 / 提货码</div>
             <div class="mt-1 break-all text-base font-semibold text-primary-900">{{ selectedDelivery.delivery.pickup_code }}</div>
           </div>
+          <div v-if="selectedDelivery?.inventory_account" class="rounded-lg border border-primary-100 bg-primary-50 p-4 sm:col-span-2">
+            <div class="text-xs text-primary-700">资源内容</div>
+            <pre class="mt-2 max-h-64 overflow-auto whitespace-pre-wrap break-all text-sm text-primary-900">{{ formatResultValue(selectedDelivery.inventory_account) }}</pre>
+          </div>
           <div v-for="(card, index) in selectedDelivery?.delivery?.cards || []" :key="`${card.cardNo || ''}-${index}`" class="rounded-lg border border-gray-200 p-4">
             <div class="font-medium text-gray-900">卡券 {{ index + 1 }}</div>
             <div v-if="card.cardNo" class="mt-2 break-all">卡号：{{ card.cardNo }}</div>
@@ -130,7 +146,7 @@
           </div>
         </template>
         <div v-else class="rounded-lg border border-amber-200 bg-amber-50 p-4 leading-6 text-amber-800">
-          {{ selectedDelivery?.provider_order_no ? '供货方暂未返回可打开的链接或提货信息，请用上方供货订单号处理。' : '该历史订单未保存供货返回内容，无法补回链接。' }}
+          订单已执行，但没有返回可展示的供货链接、提货码、卡券或资源内容。
         </div>
       </div>
     </BaseModal>
@@ -139,11 +155,10 @@
 
 <script setup>
 import { onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
 import { getMyPurchases, requestWorkflowRefund } from '@/api/workflowMarket'
+import ActionButton from '@/components/ActionButton/index.vue'
 import BaseModal from '@/components/BaseModal/index.vue'
 
-const router = useRouter()
 const loading = ref(false)
 const orders = ref([])
 const deliveryDialogVisible = ref(false)
@@ -231,8 +246,31 @@ const requestRefund = async (item) => {
   }
 }
 
-const viewMarket = (item) => {
-  router.push(`/market/workflow/${item.workflow_id}`)
+const hasExecutionResult = (item) => {
+  const result = item?.last_execution_result
+  if (!result) return false
+  const delivery = result.delivery || {}
+  return Boolean(
+    result.inventory_account
+    || result.provider_order_no
+    || result.out_trade_no
+    || result.provider_product_no
+    || delivery.jump_link
+    || delivery.delivery_link
+    || delivery.pickup_link
+    || delivery.order_link
+    || delivery.pickup_code
+    || delivery.cards?.length
+  )
+}
+
+const getExecutionStatusText = (status) => {
+  const map = {
+    success: '成功',
+    completed: '已完成',
+    failed: '失败'
+  }
+  return map[status] || status || '-'
 }
 
 const showDelivery = (item) => {
@@ -250,11 +288,25 @@ const getDeliveryLink = (delivery) => {
   return data.jump_link || data.delivery_link || data.pickup_link || data.order_link || ''
 }
 
+const formatResultValue = (value) => {
+  if (typeof value === 'string') return value
+  try {
+    return JSON.stringify(value, null, 2)
+  } catch {
+    return String(value)
+  }
+}
+
 const deliveryLink = () => getDeliveryLink(selectedDelivery.value)
 
 const hasDeliveryContent = () => {
   const delivery = selectedDelivery.value?.delivery || {}
-  return Boolean(getDeliveryLink(selectedDelivery.value) || delivery.pickup_code || delivery.cards?.length)
+  return Boolean(
+    getDeliveryLink(selectedDelivery.value)
+    || delivery.pickup_code
+    || delivery.cards?.length
+    || selectedDelivery.value?.inventory_account
+  )
 }
 
 onMounted(fetchOrders)
