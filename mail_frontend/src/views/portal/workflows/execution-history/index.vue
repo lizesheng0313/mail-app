@@ -173,9 +173,9 @@
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div class="flex items-center justify-end gap-2">
-                      <!-- 重试按钮 - 只在失败或取消状态显示 -->
+                      <!-- 执行结束后可以使用原触发数据重新执行 -->
                       <ActionButton
-                        v-if="execution.status === 'failed' || execution.status === 'cancelled'"
+                        v-if="canRerunExecution(execution)"
                         icon="refresh"
                         :tooltip="t('executionHistory.retryTooltip')"
                         variant="warning"
@@ -877,6 +877,12 @@ const formatTime = (timestamp) => {
 const retryExecution = (execution) => {
   retryingExecution.value = execution
   showRetryConfirm.value = true
+}
+
+const canRerunExecution = (execution) => {
+  return ['completed', 'success', 'failed', 'cancelled'].includes(
+    String(execution?.status || '').toLowerCase()
+  )
 }
 
 const confirmRetry = async () => {

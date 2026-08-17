@@ -106,7 +106,7 @@
               <td class="px-4 py-3 whitespace-nowrap text-right text-sm text-gray-600">
                 <div class="flex items-center justify-end gap-2">
                   <ActionButton
-                    v-if="execution.status === 'failed' || execution.status === 'cancelled'"
+                    v-if="canRerunExecution(execution)"
                     icon="refresh"
                     variant="warning"
                     size="sm"
@@ -276,6 +276,12 @@ const viewExecutionDetail = (execution) => {
   openAccountDialog(execution)
 }
 
+const canRerunExecution = (execution) => {
+  return ['completed', 'success', 'failed', 'cancelled'].includes(
+    String(execution?.status || '').toLowerCase()
+  )
+}
+
 const retryExecution = async (execution) => {
   try {
     const workflowDetail = await workflowApi.getWorkflow(props.workflowId)
@@ -305,9 +311,13 @@ const confirmRetry = async () => {
 const executeRetry = async (execution) => {
   retryLoading.value = true
   try {
-    await workflowApi.executeWorkflow(props.workflowId, execution.variables)
-    showMessage(t('executionHistory.executionSuccess'), 'success')
-    fetchExecutions()
+    const response = await workflowApi.retryExecution(execution.execution_id)
+    if (response.code === 0) {
+      showMessage(response.message || t('executionHistory.executionSuccess'), 'success')
+      await fetchExecutions()
+      return
+    }
+    showMessage(response.message || t('executionHistory.retryFailed'), 'error')
   } catch (error) {
     showMessage(t('executionHistory.retryFailed'), 'error')
   } finally {

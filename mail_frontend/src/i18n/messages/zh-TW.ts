@@ -1600,7 +1600,7 @@ const zhTW = {
     loadHistoryFailed: '載入執行記錄失敗',
     loadLogsFailed: '載入執行日誌失敗',
     executionSuccess: '工作流執行成功',
-    retryFailed: '重試工作流失敗',
+    retryFailed: '重新執行工作流失敗',
     accountCount: '共 {count} 個',
     viewAccount: '查看帳號',
     copyAccount: '複製帳號',

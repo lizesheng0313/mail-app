@@ -1600,7 +1600,7 @@ const zhCN = {
     loadHistoryFailed: '加载执行记录失败',
     loadLogsFailed: '加载执行日志失败',
     executionSuccess: '工作流执行成功',
-    retryFailed: '重试工作流失败',
+    retryFailed: '重新执行工作流失败',
     accountCount: '共 {count} 个',
     viewAccount: '查看账号',
     copyAccount: '复制账号',
