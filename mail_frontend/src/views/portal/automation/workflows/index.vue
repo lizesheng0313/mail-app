@@ -52,7 +52,8 @@
 
             <button
               @click="openImportDialog"
-              class="px-4 py-2 border border-primary-200 bg-primary-50 hover:bg-primary-100 text-primary-700 rounded-md text-sm"
+              :disabled="importing"
+              class="px-4 py-2 border border-primary-200 bg-primary-50 hover:bg-primary-100 text-primary-700 rounded-md text-sm disabled:cursor-not-allowed disabled:opacity-50"
             >
               {{ t('automationWorkflows.importWorkflow') }}
             </button>
@@ -224,6 +225,7 @@ const {
   handleUnpublish,
   handleWorkflowCreated,
   handleWorkflowUpdated,
+  importing,
   importInputRef,
   isWorkspaceView,
   loading,

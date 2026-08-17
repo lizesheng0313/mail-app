@@ -344,6 +344,11 @@ export function useWorkflowListPage() {
 
   const handleImportFile = async (event: Event) => {
     const input = event.target as HTMLInputElement
+    if (importing.value) {
+      input.value = ''
+      return
+    }
+
     const file = input.files?.[0]
     input.value = ''
 
@@ -353,7 +358,9 @@ export function useWorkflowListPage() {
     try {
       const text = await file.text()
       const content = JSON.parse(text)
-      const response = await workflowApi.importWorkflow(content)
+      const requestId = globalThis.crypto?.randomUUID?.()
+        || `${Date.now()}-${Math.random().toString(16).slice(2)}`
+      const response = await workflowApi.importWorkflow(content, requestId)
 
       if (response.code !== 0) {
         return

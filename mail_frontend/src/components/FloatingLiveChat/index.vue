@@ -1072,9 +1072,6 @@ const handleSocketPayload = async (payload: SocketPayload) => {
     }
     const shouldFollowNewMessage = isMessageNearBottom()
     upsertMessage(payload.message)
-    if (isAdmin.value) {
-      void loadConversations()
-    }
     if (visible.value) {
       if (shouldFollowNewMessage) {
         await scrollToBottom()
@@ -1086,6 +1083,9 @@ const handleSocketPayload = async (payload: SocketPayload) => {
       }
     } else if (!isSelf(payload.message)) {
       unreadCount.value += 1
+    }
+    if (isAdmin.value) {
+      await loadConversations()
     }
     return
   }

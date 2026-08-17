@@ -21,8 +21,8 @@ export const workflowApi = {
   },
 
   // 导入工作流
-  importWorkflow(content) {
-    return api.post('/workflows/import', { content })
+  importWorkflow(content, requestId) {
+    return api.post('/workflows/import', { content, request_id: requestId })
   },
 
   // 创建工作流
