@@ -1,5 +1,5 @@
 <template>
-  <div class="flex h-full min-h-0 flex-col gap-4">
+  <div class="flex h-full min-h-0 flex-col gap-3">
     <div
       v-if="!isDesktop"
       class="flex items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"
@@ -10,8 +10,8 @@
       <span>请在桌面端使用，网页端仅用于查看页面和入口。</span>
     </div>
 
-    <div class="flex min-h-0 gap-4">
-      <div class="w-[272px] flex-shrink-0 min-h-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div class="flex min-h-0 gap-3">
+      <div class="min-h-0 w-[292px] flex-shrink-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <ExternalMailboxList
           ref="externalMailboxListRef"
           :is-send-email-view="true"
@@ -21,7 +21,7 @@
         />
       </div>
 
-      <div class="min-w-0 flex-1 min-h-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div class="min-h-0 min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <SendEmailPanel ref="sendEmailPanelRef" :selected-mailbox-ids="selectedMailboxIds" :page-mode="true" />
       </div>
     </div>

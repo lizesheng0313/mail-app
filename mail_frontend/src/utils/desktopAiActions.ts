@@ -2,6 +2,11 @@ import batchLoginAPI from '@/api/batchLogin'
 import mailboxProxyApi from '@/api/mailboxProxy'
 import smtpAccountsAPI from '@/api/smtpAccounts'
 import { getServerUrl, isTauri } from '@/services/api'
+import {
+  createExternalMailboxFailure,
+  runExternalMailboxWithRelayFallback,
+  verifyExternalMailboxThroughRelay
+} from '@/utils/externalMailboxRelay'
 import { canDesktopSmtpSend, normalizeSmtpEmail } from '@/utils/smtpCapability'
 
 const DESKTOP_AI_TOOL_NAMES = new Set([
@@ -181,27 +186,40 @@ const executeDesktopExternalMailboxVerify = async (argumentsValue: Record<string
   const port = readNumber(argumentsValue.port)
   const verifySmtp = argumentsValue.verify_smtp !== false
 
-  const result: any = await tauriInvoke('add_external_mailbox', {
+  const { result } = await runExternalMailboxWithRelayFallback<any>({
     email,
-    password,
-    protocol,
-    host: host || null,
-    port: port || null,
-    verifySmtp
+    localAction: async () => {
+      const localResult: any = await tauriInvoke('add_external_mailbox', {
+        email,
+        password,
+        protocol,
+        host: host || null,
+        port: port || null,
+        verifySmtp
+      })
+      if (!localResult?.success) {
+        throw createExternalMailboxFailure(localResult || { message: '本地验证失败' })
+      }
+      return localResult
+    },
+    relayAction: () => verifyExternalMailboxThroughRelay({
+      email,
+      password,
+      protocol,
+      verifySmtp
+    })
   })
-
-  if (!result?.success) {
-    throw new Error(result?.message || '本地验证失败')
-  }
 
   return {
     email,
     protocol: readString(result?.protocol || protocol || 'auto'),
     host: readString(result?.host || host),
     port: readNumber(result?.port || port),
-    smtp_verified: Boolean(result?.smtp_verified),
+    smtp_checked: result?.smtp_checked !== false,
+    smtp_verified: result?.smtp_checked === false ? null : Boolean(result?.smtp_verified),
     smtp_host: readString(result?.smtp_host),
-    smtp_port: readNumber(result?.smtp_port)
+    smtp_port: readNumber(result?.smtp_port),
+    smtp_error: readString(result?.smtp_error)
   }
 }
 
@@ -269,19 +287,34 @@ const executeDesktopExternalMailboxFetch = async (argumentsValue: Record<string,
       throw new Error('这条第三方邮箱没有可用密码，无法本地收取')
     }
 
-    result = await tauriInvoke('fetch_emails', {
-      mailboxId: resolvedMailboxId,
+    const fetchResult = await runExternalMailboxWithRelayFallback<any>({
       email,
-      password,
-      protocol,
-      host: host || null,
-      port: port || null,
-      token,
-      serverUrl,
-      authType: 'password',
-      accessToken: null,
-      proxy: runtimeProxy
+      localAction: () => tauriInvoke('fetch_emails', {
+        mailboxId: resolvedMailboxId,
+        email,
+        password,
+        protocol,
+        host: host || null,
+        port: port || null,
+        token,
+        serverUrl,
+        authType: 'password',
+        accessToken: null,
+        proxy: runtimeProxy
+      }),
+      relayAction: async () => {
+        const response: any = await batchLoginAPI.fetchExternalMailboxOnline(resolvedMailboxId)
+        if (response.code !== 0) {
+          throw new Error(response.message || '国内线路收取失败')
+        }
+        return {
+          success: true,
+          count: Number(response.data?.new_email_count || 0),
+          message: response.message || '国内线路收取成功'
+        }
+      }
     })
+    result = fetchResult.result
   }
 
   if (result?.success) {

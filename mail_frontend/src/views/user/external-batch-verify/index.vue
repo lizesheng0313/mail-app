@@ -204,7 +204,7 @@
                     <span
                       v-if="resolveSmtpBadge(virtualRow.item)"
                       class="inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-medium"
-                      :class="virtualRow.item.smtp_verified ? 'border-primary-200 bg-primary-50 text-primary-700' : 'border-red-200 bg-red-50 text-red-700'"
+                      :class="resolveSmtpBadgeClass(virtualRow.item)"
                     >
                       {{ resolveSmtpBadge(virtualRow.item) }}
                     </span>
@@ -248,6 +248,11 @@ import {
   resolveOAuthProviderByDomain,
   runPasswordMailboxPool
 } from '@/utils/externalMailboxRules'
+import {
+  createExternalMailboxFailure,
+  runExternalMailboxWithRelayFallback,
+  verifyExternalMailboxThroughRelay
+} from '@/utils/externalMailboxRelay'
 import { showMessage } from '@/utils/message'
 import CustomSelect from '@/components/CustomSelect/index.vue'
 
@@ -287,6 +292,43 @@ const getTauriInvoke = async () => {
   } catch {
     return null
   }
+}
+
+const verifyPasswordMailboxWithRelay = async (options: {
+  tauriInvoke: any
+  email: string
+  password: string
+  protocol: string
+  host?: string | null
+  port?: number | null
+  verifySmtp: boolean
+  proxy?: any
+}) => {
+  const { result } = await runExternalMailboxWithRelayFallback<any>({
+    email: options.email,
+    localAction: async () => {
+      const localResult: any = await options.tauriInvoke('add_external_mailbox', {
+        email: options.email,
+        password: options.password,
+        protocol: options.protocol,
+        host: options.host || null,
+        port: options.port || null,
+        verifySmtp: options.verifySmtp,
+        proxy: options.proxy || null
+      })
+      if (!localResult?.success) {
+        throw createExternalMailboxFailure(localResult || { message: '本地验号失败' })
+      }
+      return localResult
+    },
+    relayAction: () => verifyExternalMailboxThroughRelay({
+      email: options.email,
+      password: options.password,
+      protocol: options.protocol,
+      verifySmtp: options.verifySmtp
+    })
+  })
+  return result
 }
 
 const proxySelectOptions = computed(() => {
@@ -606,12 +648,34 @@ const resolveProtocolBadgeClass = (item: any) => {
 }
 
 const resolveSmtpBadge = (item: any) => {
-  if (!verifySmtp.value) return ''
+  if (!isSmtpChecked(item)) return 'SMTP 未检测'
   if (item.smtp_verified === true) return 'SMTP 可发'
   if (item.smtp_verified === false) return 'SMTP 失败'
   if (String(item.message || '').includes('SMTP 可发')) return 'SMTP 可发'
   if (String(item.message || '').includes('SMTP 不可发')) return 'SMTP 失败'
   return ''
+}
+
+const isSmtpChecked = (item: any) => {
+  if (Object.prototype.hasOwnProperty.call(item || {}, 'smtp_checked')) {
+    return item?.smtp_checked === true
+  }
+  const smtpError = String(item?.smtp_error || '')
+  if (smtpError.includes('未检测 SMTP')) return false
+  return item?.smtp_verified === true || Boolean(smtpError)
+}
+
+const resolveSmtpBadgeClass = (item: any) => {
+  if (!isSmtpChecked(item)) return 'border-slate-200 bg-slate-50 text-slate-600'
+  return item.smtp_verified
+    ? 'border-primary-200 bg-primary-50 text-primary-700'
+    : 'border-red-200 bg-red-50 text-red-700'
+}
+
+const resolveVerifySuccessMessage = (item: any, prefix = '验号通过') => {
+  if (!isSmtpChecked(item)) return `${prefix}，SMTP 未检测`
+  if (item?.smtp_verified) return `${prefix}，SMTP 可发`
+  return `${prefix}，SMTP 不可发${item?.smtp_error ? `：${item.smtp_error}` : ''}`
 }
 
 const resolvePanelTooltip = (item: any) => {
@@ -640,14 +704,11 @@ const buildLiveResultItem = (item: any) => ({
   email: item.email,
   protocol: item.resolved_protocol || item.protocol || item.input_protocol || '',
   resolved_protocol: item.resolved_protocol || null,
-  smtp_verified: Boolean(item.smtp_verified),
+  smtp_checked: isSmtpChecked(item),
+  smtp_verified: item.smtp_verified === true,
   status: item.verify_status === 'success' ? 'success' : item.verify_status === 'failed' ? 'error' : 'pending',
   message: item.verify_status === 'success'
-    ? (item.smtp_verified
-      ? '验号通过，SMTP 可发'
-      : verifySmtp.value
-        ? `验号通过，SMTP 不可发${item.smtp_error ? `：${item.smtp_error}` : ''}`
-        : '验号通过')
+    ? resolveVerifySuccessMessage(item)
     : (item.error_message || item.verify_message || '等待验号')
 })
 
@@ -718,13 +779,14 @@ const exportExcel = async () => {
     IMAP: formatServerValue(item.imap_host, item.imap_port),
     POP3: formatServerValue(item.pop3_host, item.pop3_port),
     SMTP: formatServerValue(item.smtp_host, item.smtp_port),
+    SMTP状态: !isSmtpChecked(item) ? '未检测' : item.smtp_verified ? '可发' : '失败',
     验号状态: item.verify_status === 'success' ? '成功' : item.verify_status === 'failed' ? '失败' : '待验',
     失败原因: item.verify_status === 'failed' ? simplifyErrorMessage(item.error_message || item.verify_message || '') : ''
   }))
 
   const ws = XLSX.utils.json_to_sheet(rows)
   ws['!cols'] = [
-    { wch: 30 }, { wch: 22 }, { wch: 28 }, { wch: 28 }, { wch: 28 }, { wch: 12 }, { wch: 24 }
+    { wch: 30 }, { wch: 22 }, { wch: 28 }, { wch: 28 }, { wch: 28 }, { wch: 12 }, { wch: 12 }, { wch: 24 }
   ]
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, '批量验号结果')
@@ -798,6 +860,7 @@ const runImportedVerification = async (importedItems: any[], batchNo: string, pr
       email: item.email,
       protocol: item.input_protocol || item.protocol || '',
       resolved_protocol: null,
+      smtp_checked: false,
       smtp_verified: false,
       status: 'pending',
       message: '等待验号'
@@ -810,6 +873,7 @@ const runImportedVerification = async (importedItems: any[], batchNo: string, pr
       email: item.email,
       protocol: item.input_protocol || item.protocol || '',
       resolved_protocol: null,
+      smtp_checked: false,
       smtp_verified: false,
       status: 'pending',
       message: '等待验号'
@@ -852,12 +916,13 @@ const runImportedVerification = async (importedItems: any[], batchNo: string, pr
           const port = protocol === 'imap' ? item?.imap_port : protocol === 'pop3' ? item?.pop3_port : null
 
           try {
-            const result: any = await tauriInvoke('add_external_mailbox', {
+            const result: any = await verifyPasswordMailboxWithRelay({
+              tauriInvoke,
               email: item.email,
               password: item.password,
               protocol,
-              host: host || null,
-              port: port || null,
+              host,
+              port,
               verifySmtp: verifySmtp.value,
               proxy: selectedRuntimeProxy || item.runtime_proxy || null
             })
@@ -867,12 +932,10 @@ const runImportedVerification = async (importedItems: any[], batchNo: string, pr
                 currentLiveItem.status = 'success'
                 currentLiveItem.protocol = String(result?.protocol || protocol || 'auto').toLowerCase()
                 currentLiveItem.resolved_protocol = String(result?.protocol || protocol || 'auto').toLowerCase()
-                currentLiveItem.smtp_verified = Boolean(result?.smtp_verified)
-                currentLiveItem.message = result?.smtp_verified
-                  ? '验号通过，SMTP 可发'
-                  : verifySmtp.value
-                    ? `验号通过，SMTP 不可发${result?.smtp_error ? `：${result.smtp_error}` : ''}`
-                    : '验号通过'
+                currentLiveItem.smtp_checked = isSmtpChecked(result)
+                currentLiveItem.smtp_verified = result?.smtp_verified === true
+                currentLiveItem.smtp_error = result?.smtp_error || null
+                currentLiveItem.message = resolveVerifySuccessMessage(result)
               }
 
               return {
@@ -881,7 +944,8 @@ const runImportedVerification = async (importedItems: any[], batchNo: string, pr
                 protocol: String(result?.protocol || protocol || 'auto').toLowerCase(),
                 host: result?.host || null,
                 port: Number(result?.port || 0) || null,
-                smtp_verified: Boolean(result?.smtp_verified),
+                smtp_checked: isSmtpChecked(result),
+                smtp_verified: result?.smtp_verified === true,
                 smtp_host: result?.smtp_host || null,
                 smtp_port: Number(result?.smtp_port || 0) || null,
                 smtp_error: result?.smtp_error || null,
@@ -963,9 +1027,11 @@ const runImportedVerification = async (importedItems: any[], batchNo: string, pr
             currentLiveItem.resolved_protocol = result.success
               ? String(result?.protocol || item?.input_protocol || 'auto').toLowerCase()
               : null
-            currentLiveItem.smtp_verified = Boolean(result?.smtp_verified)
+            currentLiveItem.smtp_checked = isSmtpChecked(result)
+            currentLiveItem.smtp_verified = result?.smtp_verified === true
+            currentLiveItem.smtp_error = result?.smtp_error || null
             currentLiveItem.message = result.success
-              ? (result.smtp_verified ? 'OAuth 验号通过，SMTP 可发' : verifySmtp.value ? `OAuth 验号通过，SMTP 不可发${result.smtp_error ? `：${result.smtp_error}` : ''}` : 'OAuth 验号通过')
+              ? resolveVerifySuccessMessage(result, 'OAuth 验号通过')
               : (result.error_message || 'OAuth 验号失败')
           }
         } else if (currentLiveItem) {
@@ -1018,6 +1084,7 @@ const runDirectVerification = async (items: any[], selectedRuntimeProxy: any = n
     email: item.email,
     protocol: item.protocol || '',
     resolved_protocol: null,
+    smtp_checked: false,
     smtp_verified: false,
     status: String(item?.auth_type || 'password') === 'oauth2' ? 'error' : 'pending',
     message: String(item?.auth_type || 'password') === 'oauth2' ? 'OAuth 账号暂不支持直接验号' : '等待验号'
@@ -1059,7 +1126,8 @@ const runDirectVerification = async (items: any[], selectedRuntimeProxy: any = n
         }
 
         try {
-          const result: any = await tauriInvoke('add_external_mailbox', {
+          const result: any = await verifyPasswordMailboxWithRelay({
+            tauriInvoke,
             email: item.email,
             password: item.password,
             protocol,
@@ -1075,12 +1143,10 @@ const runDirectVerification = async (items: any[], selectedRuntimeProxy: any = n
               currentLiveItem.status = 'success'
               currentLiveItem.protocol = resolvedProtocol
               currentLiveItem.resolved_protocol = resolvedProtocol
-              currentLiveItem.smtp_verified = Boolean(result?.smtp_verified)
-              currentLiveItem.message = result?.smtp_verified
-                ? '验号通过，SMTP 可发'
-                : verifySmtp.value
-                  ? `验号通过，SMTP 不可发${result?.smtp_error ? `：${result.smtp_error}` : ''}`
-                  : '验号通过'
+              currentLiveItem.smtp_checked = isSmtpChecked(result)
+              currentLiveItem.smtp_verified = result?.smtp_verified === true
+              currentLiveItem.smtp_error = result?.smtp_error || null
+              currentLiveItem.message = resolveVerifySuccessMessage(result)
             }
             liveProgress.value.success += 1
             rows.push({
@@ -1095,7 +1161,8 @@ const runDirectVerification = async (items: any[], selectedRuntimeProxy: any = n
               pop3_port: resolvedProtocol === 'pop3' ? Number(result?.port || 0) || null : null,
               smtp_host: result?.smtp_host || null,
               smtp_port: Number(result?.smtp_port || 0) || null,
-              smtp_verified: Boolean(result?.smtp_verified),
+              smtp_checked: isSmtpChecked(result),
+              smtp_verified: result?.smtp_verified === true,
               smtp_error: result?.smtp_error || null,
               verify_status: 'success',
               verify_message: result?.message || '验号成功',

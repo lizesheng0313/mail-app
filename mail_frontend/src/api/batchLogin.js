@@ -9,6 +9,10 @@ export const batchLoginAPI = {
   addAccount: (accountData, requestConfig = {}) =>
     api.post('/unified-emails/external-mailboxes', accountData, requestConfig),
 
+  // 使用国内服务端线路验证 189 邮箱，不保存账号
+  verifyExternalMailboxOnline: (accountData, requestConfig = {}) =>
+    api.post('/unified-emails/external-mailboxes/verify-online', accountData, requestConfig),
+
   // 获取邮箱账号列表
   getAccounts: (page = 1, pageSize = 20, requestConfig = {}) => {
     const { search, ...restConfig } = requestConfig

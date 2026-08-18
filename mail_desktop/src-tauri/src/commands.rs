@@ -1,7 +1,10 @@
 use crate::mail;
 use crate::mail::discovery::{dedupe_candidates, extract_root_domain, query_primary_mx, query_srv_records};
 use crate::mail::provider_constants::{find_hosted_provider_by_mx, find_known_provider};
-use crate::mail::types::{get_server_config, EmailData, FetchResult, LoginResult, RuntimeProxy};
+use crate::mail::types::{
+    classify_external_mailbox_failure, get_server_config, EmailData, FetchResult, LoginResult,
+    RuntimeProxy,
+};
 use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -44,6 +47,29 @@ pub struct OAuth2TokenRefreshResult {
 }
 
 #[derive(Debug, Clone, Serialize)]
+pub struct ExternalMailboxCommandError {
+    message: String,
+    failure_kind: String,
+}
+
+impl From<String> for ExternalMailboxCommandError {
+    fn from(message: String) -> Self {
+        Self {
+            failure_kind: classify_external_mailbox_failure(&message),
+            message,
+        }
+    }
+}
+
+impl std::fmt::Display for ExternalMailboxCommandError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(&self.message)
+    }
+}
+
+impl std::error::Error for ExternalMailboxCommandError {}
+
+#[derive(Debug, Clone, Serialize)]
 struct ExternalVerifyProgressPayload {
     email: String,
     stage: String,
@@ -61,6 +87,24 @@ fn emit_external_verify_progress(app: Option<&AppHandle>, email: &str, stage: &s
             },
         );
     }
+}
+
+fn combine_login_failure_kind(results: &[&LoginResult]) -> String {
+    let kinds = results
+        .iter()
+        .filter_map(|result| result.failure_kind.as_deref())
+        .collect::<Vec<_>>();
+
+    if kinds.iter().any(|kind| *kind == "auth") {
+        return "auth".to_string();
+    }
+    if !kinds.is_empty() && kinds.iter().all(|kind| *kind == "network") {
+        return "network".to_string();
+    }
+    if kinds.iter().any(|kind| *kind == "mailbox") {
+        return "mailbox".to_string();
+    }
+    "unknown".to_string()
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -590,11 +634,13 @@ async fn add_external_mailbox_inner(
         Ok(LoginResult {
             success: false,
             message: format!("IMAP 和 POP3 均登录失败。IMAP: {}; POP3: {}", imap_result.message, pop3_result.message),
+            failure_kind: Some(combine_login_failure_kind(&[&imap_result, &pop3_result])),
             protocol: None,
             host: None,
             port: None,
             smtp_host: None,
             smtp_port: None,
+            smtp_checked: false,
             smtp_verified: false,
             smtp_error: None,
         })
@@ -623,11 +669,13 @@ async fn add_external_mailbox_inner(
         Ok(LoginResult {
             success: false,
             message: format!("IMAP 和 POP3 均登录失败。IMAP: {}; POP3: {}", imap_result.message, pop3_result.message),
+            failure_kind: Some(combine_login_failure_kind(&[&imap_result, &pop3_result])),
             protocol: None,
             host: None,
             port: None,
             smtp_host: None,
             smtp_port: None,
+            smtp_checked: false,
             smtp_verified: false,
             smtp_error: None,
         })
@@ -708,6 +756,7 @@ async fn try_smtp_verify(
     proxy: Option<&RuntimeProxy>,
 ) {
     info!("尝试 SMTP 验证: {}", email);
+    result.smtp_checked = true;
     match resolve_reachable_smtp_candidate(email, password, domain, proxy).await {
         Ok((smtp_host, smtp_port)) => {
             info!("SMTP 验证成功: {}:{}", smtp_host, smtp_port);
@@ -1139,7 +1188,7 @@ pub async fn fetch_emails(
     auth_type: Option<String>,
     access_token: Option<String>,
     proxy: Option<RuntimeProxy>,
-) -> Result<FetchResult, String> {
+) -> Result<FetchResult, ExternalMailboxCommandError> {
     run_fetch_with_timeout(
         fetch_emails_inner(
             mailbox_id,
@@ -1157,6 +1206,7 @@ pub async fn fetch_emails(
         FETCH_OPERATION_TIMEOUT,
     )
     .await
+    .map_err(ExternalMailboxCommandError::from)
 }
 
 async fn fetch_emails_inner(

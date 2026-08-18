@@ -200,6 +200,8 @@ pub struct EmailData {
 pub struct LoginResult {
     pub success: bool,
     pub message: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub failure_kind: Option<String>,
     pub protocol: Option<String>,
     pub host: Option<String>,
     pub port: Option<u16>,
@@ -208,9 +210,64 @@ pub struct LoginResult {
     #[serde(default)]
     pub smtp_port: Option<u16>,
     #[serde(default)]
+    pub smtp_checked: bool,
+    #[serde(default)]
     pub smtp_verified: bool,
     #[serde(default)]
     pub smtp_error: Option<String>,
+}
+
+pub fn classify_external_mailbox_failure(message: &str) -> String {
+    let normalized = message.to_lowercase();
+
+    let auth_markers = [
+        "邮箱或授权码错误",
+        "邮箱或密码错误",
+        "用户名错误",
+        "认证失败",
+        "authenticationfailed",
+        "authentication failed",
+        "invalid credentials",
+        "auth failed",
+        "login failed",
+    ];
+    if auth_markers.iter().any(|marker| normalized.contains(*marker)) {
+        return "auth".to_string();
+    }
+
+    let mailbox_markers = [
+        "登录成功但无法读取",
+        "无法读取邮箱文件夹",
+        "无法读取邮箱状态",
+        "select 返回",
+    ];
+    if mailbox_markers.iter().any(|marker| normalized.contains(*marker)) {
+        return "mailbox".to_string();
+    }
+
+    let network_markers = [
+        "连接失败",
+        "连接错误",
+        "连接超时",
+        "收取邮件超时",
+        "timed out",
+        "timeout",
+        "connection refused",
+        "connection reset",
+        "failed to lookup address",
+        "dns",
+        "tcp",
+        "tls",
+        "握手失败",
+        "代理连接",
+        "proxy",
+        "读取问候失败",
+    ];
+    if network_markers.iter().any(|marker| normalized.contains(*marker)) {
+        return "network".to_string();
+    }
+
+    "unknown".to_string()
 }
 
 /// 收取邮件结果

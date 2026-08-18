@@ -1,8 +1,8 @@
 <template>
   <MailboxList
     ref="mailboxListRef"
-    :title="isSendEmailView ? '请选择发件邮箱' : t('home.externalMailbox')"
-    :subtitle="isSendEmailView ? '以下账号循环发送' : ''"
+    :title="isSendEmailView ? t('sendEmail.fromMailbox') : t('home.externalMailbox')"
+    :subtitle="isSendEmailView ? sendViewSubtitle : ''"
     :mailboxes="displayAccounts"
     :selectedId="activeMailboxId ?? selectedId"
     :showPagination="true"
@@ -275,6 +275,7 @@ import { formatTimestamp } from '@/utils/timeUtils'
 import { isTauri, getServerUrl } from '@/services/api'
 import { runDesktopOAuthMailboxAction } from '@/services/desktopOAuthMailbox'
 import { canDesktopSmtpSend, normalizeSmtpEmail } from '@/utils/smtpCapability'
+import { runExternalMailboxWithRelayFallback } from '@/utils/externalMailboxRelay'
 
 const props = defineProps<{
   isSendEmailView?: boolean
@@ -288,6 +289,15 @@ const props = defineProps<{
 const { t } = useI18n()
 
 const isDesktop = isTauri()
+
+const sendViewSubtitle = computed(() => {
+  const selectedCount = (props.selectedSendIds || [])
+    .map((value) => Number(value))
+    .filter((value) => Number.isFinite(value) && value > 0).length
+  return selectedCount > 0
+    ? t('sendEmail.compose.selectedSenderCount', { count: selectedCount })
+    : t('sendEmail.compose.senderSelectionHint')
+})
 
 const historyFetchLabel = computed(() => {
   const progress = props.historyFetchProgress
@@ -390,7 +400,7 @@ const emit = defineEmits<{
   deleted: [ids: number[]]
 }>()
 
-const accounts = ref([])
+const accounts = ref<any[]>([])
 const showConfirm = ref(false)
 const deleting = ref(false)
 const isDeleting = ref({ batch: false, ids: [] as number[] })
@@ -847,16 +857,22 @@ const handleRefreshAction = (accountId: number) => {
   fetchSingleMailbox(accountId)
 }
 
+const fetchExternalMailboxThroughRelay = async (account: any) => {
+  const response: any = await batchLoginAPI.fetchExternalMailboxOnline(account.id)
+  if (response.code !== 0) {
+    throw new Error(response.message || t('externalMailbox.fetchFailed'))
+  }
+
+  return response
+}
+
 const handleOnlineFetchAction = async (accountId: number) => {
   closeActionMenu()
   if (mergedFetchingIds.value.includes(accountId)) return
   onlineFetchingIds.value.push(accountId)
   try {
-    const response = await batchLoginAPI.fetchExternalMailboxOnline(accountId)
-    if (response.code !== 0) {
-      showMessage(response.message || t('externalMailbox.fetchFailed'), 'error')
-      return
-    }
+    const account = accounts.value.find((item: any) => item.id === accountId) || { id: accountId }
+    const response = await fetchExternalMailboxThroughRelay(account)
     showMessage(response.message || t('externalMailbox.fetchSuccess'), 'success')
     await loadAccounts()
     selectedId.value = accountId
@@ -988,21 +1004,27 @@ const fetchSingleMailbox = async (accountId: number) => {
       }
     } else {
       try {
-        const { invoke } = await import('@tauri-apps/api/core')
-        const token = localStorage.getItem('token') || ''
-        const serverUrl = getServerUrl()
-        const host = account.protocol === 'imap' ? account.imap_host : account.pop3_host
-        const port = account.protocol === 'imap' ? account.imap_port : account.pop3_port
-
-        await invoke('fetch_emails', {
-          mailboxId: account.id,
+        await runExternalMailboxWithRelayFallback({
           email: account.email,
-          password: account.password,
-          protocol: account.protocol,
-          host: host || null,
-          port: port || null,
-          token,
-          serverUrl
+          localAction: async () => {
+            const { invoke } = await import('@tauri-apps/api/core')
+            const token = localStorage.getItem('token') || ''
+            const serverUrl = getServerUrl()
+            const host = account.protocol === 'imap' ? account.imap_host : account.pop3_host
+            const port = account.protocol === 'imap' ? account.imap_port : account.pop3_port
+
+            return invoke('fetch_emails', {
+              mailboxId: account.id,
+              email: account.email,
+              password: account.password,
+              protocol: account.protocol,
+              host: host || null,
+              port: port || null,
+              token,
+              serverUrl
+            })
+          },
+          relayAction: () => fetchExternalMailboxThroughRelay(account)
         })
         showMessage(t('externalMailbox.fetchSuccess'), 'success')
       } catch (e: any) {

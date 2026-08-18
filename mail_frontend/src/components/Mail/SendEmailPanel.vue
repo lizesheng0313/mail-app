@@ -34,8 +34,19 @@
       >
         <div :class="pageMode ? 'flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 pb-4' : 'border-b border-gray-100 px-5 py-4 sm:px-6'">
           <div class="flex flex-1 flex-wrap items-center justify-between gap-3">
-            <div v-if="!pageMode">
-              <p class="text-base font-semibold text-gray-900">{{ tc('panelTitle') }}</p>
+            <div>
+              <div class="flex flex-wrap items-center gap-2">
+                <p class="text-base font-semibold text-gray-900">
+                  {{ pageMode ? tc('bulkPanelTitle') : tc('panelTitle') }}
+                </p>
+                <span
+                  v-if="pageMode"
+                  class="rounded-full bg-primary-50 px-2.5 py-1 text-xs font-medium text-primary-700"
+                >
+                  {{ tc('selectedSenderCount', { count: selectedAccountIds.length }) }}
+                </span>
+              </div>
+              <p v-if="pageMode" class="mt-1 text-xs text-slate-500">{{ tc('panelDescription') }}</p>
             </div>
             <div class="flex w-full min-w-0 flex-wrap items-center justify-between gap-3">
               <div class="flex min-w-0 flex-wrap gap-2">
@@ -59,6 +70,22 @@
                 </button>
               </div>
               <div v-if="pageMode" class="ml-auto flex flex-shrink-0 items-center gap-2">
+                <button
+                  type="button"
+                  :aria-pressed="showAiPanel"
+                  @click="showAiPanel = !showAiPanel"
+                  :class="[
+                    'inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border px-3 text-sm font-medium transition-colors',
+                    showAiPanel
+                      ? 'border-primary-200 bg-primary-50 text-primary-700'
+                      : 'border-slate-200 bg-white text-slate-600 hover:border-primary-200 hover:bg-primary-50 hover:text-primary-700'
+                  ]"
+                >
+                  <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3l1.6 4.8L18 9.5l-4.4 1.7L12 16l-1.6-4.8L6 9.5l4.4-1.7L12 3zM19 14l.8 2.4L22 17l-2.2.6L19 20l-.8-2.4L16 17l2.2-.6L19 14z" />
+                  </svg>
+                  {{ showAiPanel ? tc('aiHide') : tc('aiShow') }}
+                </button>
                 <button
                   type="button"
                   @click="toggleComposeFullscreen"
@@ -94,9 +121,17 @@
           <div :class="pageMode ? 'flex min-h-0 min-w-0 flex-col gap-2.5 overflow-hidden' : 'min-w-0 space-y-6'">
             <div>
               <div class="mb-1.5 flex items-center justify-between">
-                <label class="block text-sm font-medium text-gray-700">
-                  {{ t('sendEmail.recipient') }} <span class="text-red-500">*</span>
-                </label>
+                <div class="flex items-center gap-2">
+                  <label class="block text-sm font-medium text-gray-700">
+                    {{ t('sendEmail.recipient') }} <span class="text-red-500">*</span>
+                  </label>
+                  <span
+                    v-if="recipientCount > 0"
+                    class="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500"
+                  >
+                    {{ tc('recipientCount', { count: recipientCount }) }}
+                  </span>
+                </div>
                 <span v-if="!isCompactAiPanel" class="text-xs text-gray-400">{{ tc('recipientHint') }}</span>
               </div>
               <div
@@ -472,7 +507,7 @@
           </div>
 
           <aside
-            v-if="pageMode"
+            v-if="pageMode && showAiPanel"
             :class="aiPanelClass"
           >
             <div class="border-b border-slate-100 bg-white p-4">
@@ -513,7 +548,7 @@
               <div :class="aiPromptCardClass">
                 <textarea
                   v-model="aiPrompt"
-                  :placeholder="isCompactAiPanel ? '' : (aiMode === 'compose' ? tc('aiComposePlaceholder') : tc('aiPolishPlaceholder'))"
+                  :placeholder="aiMode === 'compose' ? tc('aiComposePlaceholder') : tc('aiPolishPlaceholder')"
                   :class="aiPromptTextareaClass"
                 ></textarea>
 
@@ -715,10 +750,11 @@ const aiTone = ref<'formal' | 'friendly' | 'sales'>('formal')
 const aiLength = ref<'short' | 'medium' | 'long'>('medium')
 const aiGenerating = ref(false)
 const pageMode = computed(() => Boolean(props.pageMode))
+const showAiPanel = ref(false)
 const isComposeFullscreen = ref(false)
 const aiBusy = computed(() => aiGenerating.value || polishing.value)
 const useComposeOverlay = computed(() => pageMode.value && isComposeFullscreen.value)
-const isCompactAiPanel = computed(() => pageMode.value && !isComposeFullscreen.value)
+const isCompactAiPanel = computed(() => pageMode.value && showAiPanel.value && !isComposeFullscreen.value)
 const aiToneOptions = computed(() => [
   { value: 'formal', label: tc('toneFormal') },
   { value: 'friendly', label: tc('toneFriendly') },
@@ -797,10 +833,13 @@ const composeSectionClass = computed(() => {
     return 'compose-section fixed inset-4 z-[80] flex min-h-0 flex-col overflow-hidden rounded-[32px] border border-slate-200 bg-white px-5 py-5 shadow-2xl'
   }
 
-  return 'compose-section flex h-full min-h-0 flex-col overflow-hidden rounded-[28px] bg-white'
+  return 'compose-section flex h-full min-h-0 flex-col overflow-hidden bg-white'
 })
 const composeGridClass = computed(() => {
   if (!pageMode.value) return 'space-y-6 px-5 py-5 sm:px-6'
+  if (!showAiPanel.value) {
+    return 'grid min-h-0 flex-1 grid-cols-1 items-stretch overflow-hidden pt-4'
+  }
   if (useComposeOverlay.value) {
     return isDesktop.value
       ? 'grid min-h-0 flex-1 items-stretch gap-4 overflow-hidden pt-4 grid-cols-[minmax(0,1fr)_360px]'

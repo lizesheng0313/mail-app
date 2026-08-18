@@ -679,6 +679,12 @@ import {
   runPasswordMailboxPool
 } from '@/utils/externalMailboxRules'
 import {
+  isExternalMailboxNetworkFailure,
+  runExternalMailboxWithRelayFallback,
+  supportsExternalMailboxRelay,
+  verifyExternalMailboxThroughRelay
+} from '@/utils/externalMailboxRelay'
+import {
   AI_UI_SYNC_EVENT,
   extractMailboxType,
   extractToolIds,
@@ -1211,6 +1217,15 @@ const previewMailboxRuntimeProxy = async (email: string, oauthProvider: string |
   } catch {
     return null
   }
+}
+
+const fetchExternalMailboxThroughRelay = async (account: any) => {
+  const response: any = await batchLoginAPI.fetchExternalMailboxOnline(account.id)
+  if (response.code !== 0) {
+    throw new Error(response.message || t('home.fetchFailed'))
+  }
+
+  return Number(response.data?.new_email_count || 0)
 }
 
 const openOAuthReauthorizeModal = async (account: any) => {
@@ -2107,31 +2122,59 @@ const handleBatchAddAccounts = async (accounts: any[]) => {
             }
             const stopProgressHints = startBatchAddProgressHints(accountData, account, index)
 
-            let result: any
+            let result: any = null
+            let localVerifyError = ''
+            let localVerifyFailure: any = null
             try {
-              result = await tauriInvoke('add_external_mailbox', {
-                email: accountData.email,
-                password: accountData.password,
-                protocol: accountData.protocol,
-                host: accountData.protocol === 'imap'
-                  ? accountData.imap_host
-                  : accountData.protocol === 'pop3'
-                    ? accountData.pop3_host
-                    : null,
-                port: accountData.protocol === 'imap'
-                  ? accountData.imap_port
-                  : accountData.protocol === 'pop3'
-                    ? accountData.pop3_port
-                    : null,
-                verifySmtp: accountData.verify_smtp !== false,
-                proxy: previewRuntimeProxy
-              })
+              try {
+                result = await tauriInvoke('add_external_mailbox', {
+                  email: accountData.email,
+                  password: accountData.password,
+                  protocol: accountData.protocol,
+                  host: accountData.protocol === 'imap'
+                    ? accountData.imap_host
+                    : accountData.protocol === 'pop3'
+                      ? accountData.pop3_host
+                      : null,
+                  port: accountData.protocol === 'imap'
+                    ? accountData.imap_port
+                    : accountData.protocol === 'pop3'
+                      ? accountData.pop3_port
+                      : null,
+                  verifySmtp: accountData.verify_smtp !== false,
+                  proxy: previewRuntimeProxy
+                })
+              } catch (error: any) {
+                localVerifyFailure = error
+                localVerifyError = resolveErrorMessage(error)
+                if (
+                  !supportsExternalMailboxRelay(accountData.email) ||
+                  !isExternalMailboxNetworkFailure(error)
+                ) {
+                  throw error
+                }
+              }
             } finally {
               stopProgressHints()
             }
 
-            if (!result.success) {
-              throw new Error(result.message || t('home.mailboxVerifyFailed'))
+            const shouldUseRelay =
+              !result?.success &&
+              supportsExternalMailboxRelay(accountData.email) &&
+              isExternalMailboxNetworkFailure(result || localVerifyFailure)
+
+            if (shouldUseRelay) {
+              updatePendingForAccount(account, index, t('home.serverRelayVerifying'))
+              result = await verifyExternalMailboxThroughRelay({
+                email: accountData.email,
+                password: accountData.password,
+                protocol: accountData.protocol,
+                verifySmtp: accountData.verify_smtp !== false
+              })
+            }
+
+            if (!result?.success) {
+              throw new Error(result?.message || localVerifyError || t('home.mailboxVerifyFailed'))
             }
 
             const resolvedProtocol = String(result.protocol || '').toLowerCase()
@@ -3185,19 +3228,28 @@ const fetchExternalMailboxEmails = async () => {
       const serverUrl = getServerUrl()
 
       try {
-        const result = await tauriInvoke('fetch_emails', {
-          mailboxId: account.id,
+        const fetchResult = await runExternalMailboxWithRelayFallback<number>({
           email: account.email,
-          password: account.password,
-          protocol: account.protocol,
-          host: host || null,
-          port: port || null,
-          token,
-          serverUrl,
-          proxy: await loadMailboxRuntimeProxy(account.id)
+          localAction: async () => {
+            const result: any = await tauriInvoke('fetch_emails', {
+              mailboxId: account.id,
+              email: account.email,
+              password: account.password,
+              protocol: account.protocol,
+              host: host || null,
+              port: port || null,
+              token,
+              serverUrl,
+              proxy: await loadMailboxRuntimeProxy(account.id)
+            })
+            return Number(result?.count || 0)
+          },
+          relayAction: () => fetchExternalMailboxThroughRelay(account)
         })
-        newCount = Number(result?.count || 0)
-        await batchLoginAPI.updateMailboxStatus(mailboxId, 'active')
+        newCount = fetchResult.result
+        if (fetchResult.source === 'local') {
+          await batchLoginAPI.updateMailboxStatus(mailboxId, 'active')
+        }
       } catch (e: any) {
         const rawMsg = typeof e === 'string' ? e : e?.message || t('home.fetchFailed')
         await batchLoginAPI.updateMailboxStatus(mailboxId, 'failed', rawMsg)
@@ -3389,22 +3441,30 @@ const fetchAllExternalEmails = async () => {
             return { success: true, newCount }
           }
 
-          const host = account.protocol === 'imap' ? account.imap_host : account.pop3_host
-          const port = account.protocol === 'imap' ? account.imap_port : account.pop3_port
-
-          const result: any = await tauriInvoke('fetch_emails', {
-            mailboxId: account.id,
+          const { source, result: newCount } = await runExternalMailboxWithRelayFallback({
             email: account.email,
-            password: account.password,
-            protocol: account.protocol,
-            host: host || null,
-            port: port || null,
-            token,
-            serverUrl,
-            proxy: await loadMailboxRuntimeProxy(account.id)
+            localAction: async () => {
+              const host = account.protocol === 'imap' ? account.imap_host : account.pop3_host
+              const port = account.protocol === 'imap' ? account.imap_port : account.pop3_port
+              const result: any = await tauriInvoke('fetch_emails', {
+                mailboxId: account.id,
+                email: account.email,
+                password: account.password,
+                protocol: account.protocol,
+                host: host || null,
+                port: port || null,
+                token,
+                serverUrl,
+                proxy: await loadMailboxRuntimeProxy(account.id)
+              })
+              return Number(result.count || 0)
+            },
+            relayAction: () => fetchExternalMailboxThroughRelay(account)
           })
-          await batchLoginAPI.updateMailboxStatus(account.id, 'active')
-          return { success: true, newCount: Number(result.count || 0) }
+          if (source === 'local') {
+            await batchLoginAPI.updateMailboxStatus(account.id, 'active')
+          }
+          return { success: true, newCount }
         } catch (e: any) {
           console.error(`收取 ${account.email} 失败:`, e)
           const rawMsg = normalizeOAuthRecoveryErrorMessage(

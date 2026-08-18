@@ -1,5 +1,8 @@
 <template>
-  <div class="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+  <div
+    class="min-h-screen bg-gray-50 flex items-center justify-center px-4 sm:px-6 lg:px-8"
+    :class="isRegisterMode ? 'py-5 sm:py-6' : 'py-12'"
+  >
     <div class="fixed right-4 top-4 z-40">
       <LanguageSwitcher />
     </div>
@@ -125,58 +128,18 @@
       </div>
     </div>
     <div class="w-full max-w-4xl">
-      <div class="mb-8 text-center">
-        <h2 class="mt-6 text-3xl font-bold text-black">{{ t('pageHeader.siteName') }}</h2>
+      <div class="text-center" :class="isRegisterMode ? 'mb-5' : 'mb-8'">
+        <h2 class="text-3xl font-bold text-black" :class="isRegisterMode ? 'mt-0' : 'mt-6'">{{ t('pageHeader.siteName') }}</h2>
         <p class="mt-2 text-sm text-black">
           {{ isResetMode ? t('login.subtitleReset') : (isLoginMode ? t('login.subtitleLogin') : t('login.subtitleRegister')) }}
         </p>
       </div>
 
-      <div class="mx-auto max-w-md bg-white rounded-2xl shadow-lg border border-gray-200 p-8">
-        <!-- 登录和注册都提供快捷身份认证，避免用户在注册页看不到可用入口。 -->
-        <div
-          v-if="!isResetMode"
-          class="mb-6 rounded-2xl border border-primary-200 bg-primary-50/70 p-4 shadow-sm"
-        >
-          <div class="text-center">
-            <p class="text-base font-semibold text-gray-900">{{ t('login.socialAuthTitle') }}</p>
-            <p class="mt-1 text-xs leading-5 text-gray-600">{{ t('login.socialAuthDesc') }}</p>
-          </div>
-
-          <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <button
-              @click="loginWithWechat"
-              type="button"
-              :disabled="wechatLoading"
-              class="flex h-12 items-center justify-center rounded-xl border border-green-200 bg-green-50 px-4 text-sm font-semibold text-green-700 shadow-sm transition-colors hover:bg-green-100 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <svg class="mr-2 h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path fill="#07C160" d="M12.2 4C6.57 4 2 7.72 2 12.31c0 2.51 1.4 4.76 3.64 6.27L4.7 21.5l3.52-1.91c1.21.35 2.56.54 3.98.54 5.63 0 10.2-3.72 10.2-8.31S17.83 4 12.2 4Z"/>
-                <circle cx="8.5" cy="12" r="1" fill="white"/>
-                <circle cx="15.5" cy="12" r="1" fill="white"/>
-              </svg>
-              <span class="leading-5">{{ t('login.wechatAuthAction') }}</span>
-            </button>
-
-            <button
-              @click="loginWithGoogle"
-              type="button"
-              :disabled="googleLoading"
-              class="flex h-12 items-center justify-center rounded-xl border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 shadow-sm transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <svg class="mr-2 h-5 w-5 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
-                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-              </svg>
-              <span v-if="googleLoading" class="leading-5">{{ t('login.submittingLogin') }}</span>
-              <span v-else class="leading-5">{{ t('login.googleAuthAction') }}</span>
-            </button>
-          </div>
-        </div>
-
-        <form @submit.prevent="handleSubmit" class="space-y-6">
+      <div
+        class="mx-auto max-w-md rounded-2xl border border-gray-200 bg-white shadow-lg"
+        :class="isRegisterMode ? 'p-6' : 'p-8'"
+      >
+        <form @submit.prevent="handleSubmit" :class="isRegisterMode ? 'space-y-4' : 'space-y-6'">
           <div>
             <label for="email" class="block text-sm font-medium text-black mb-2">{{ t('login.emailLabel') }}</label>
             <BaseInput
@@ -222,7 +185,7 @@
           </div>
           
           <!-- 验证码输入 -->
-          <div v-if="((!isLoginMode && !isResetMode) || isResetMode) && userStore.verificationCodeSent">
+          <div v-if="(!isLoginMode && !isResetMode) || (isResetMode && userStore.verificationCodeSent)">
             <label for="verificationCode" class="block text-sm font-medium text-black mb-2">{{ t('login.verificationCode') }}</label>
             <BaseInput
               id="verificationCode"
@@ -235,6 +198,7 @@
             >
               <template #right-icon>
                 <button
+                  v-if="userStore.verificationCodeSent"
                   type="button"
                   @click="sendVerificationCode"
                   :disabled="userStore.loading"
@@ -244,7 +208,7 @@
                 </button>
               </template>
             </BaseInput>
-            <p class="mt-2 text-sm text-black">
+            <p v-if="userStore.verificationCodeSent" class="mt-2 text-sm text-black">
               {{ t('login.sentTo', { email: userStore.verificationEmail }) }}
             </p>
           </div>
@@ -376,8 +340,48 @@
             </a>
           </p>
         </form>
+
+        <div v-if="!isResetMode" :class="isRegisterMode ? 'mt-4' : 'mt-6'">
+          <div class="mb-3 flex items-center gap-3">
+            <span class="h-px flex-1 bg-gray-200"></span>
+            <span class="text-xs font-medium text-gray-400">{{ t('login.socialAuthTitle') }}</span>
+            <span class="h-px flex-1 bg-gray-200"></span>
+          </div>
+
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <button
+              @click="loginWithWechat"
+              type="button"
+              :disabled="wechatLoading"
+              class="flex h-12 items-center justify-center rounded-xl border border-gray-200 bg-white px-4 text-sm font-semibold text-gray-700 shadow-sm transition-colors hover:border-green-200 hover:bg-green-50 hover:text-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <svg class="mr-2 h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path fill="#07C160" d="M12.2 4C6.57 4 2 7.72 2 12.31c0 2.51 1.4 4.76 3.64 6.27L4.7 21.5l3.52-1.91c1.21.35 2.56.54 3.98.54 5.63 0 10.2-3.72 10.2-8.31S17.83 4 12.2 4Z"/>
+                <circle cx="8.5" cy="12" r="1" fill="white"/>
+                <circle cx="15.5" cy="12" r="1" fill="white"/>
+              </svg>
+              <span class="leading-5">{{ t('login.wechatAuthAction') }}</span>
+            </button>
+
+            <button
+              @click="loginWithGoogle"
+              type="button"
+              :disabled="googleLoading"
+              class="flex h-12 items-center justify-center rounded-xl border border-gray-200 bg-white px-4 text-sm font-semibold text-gray-700 shadow-sm transition-colors hover:border-gray-300 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <svg class="mr-2 h-5 w-5 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+              </svg>
+              <span v-if="googleLoading" class="leading-5">{{ t('login.submittingLogin') }}</span>
+              <span v-else class="leading-5">{{ t('login.googleAuthAction') }}</span>
+            </button>
+          </div>
+        </div>
         
-        <div class="mt-6 text-center space-y-3">
+        <div class="text-center space-y-3" :class="isRegisterMode ? 'mt-4' : 'mt-6'">
           <button
             v-if="!isResetMode"
             @click="toggleMode"
@@ -427,6 +431,7 @@ const userStore = useUserStore()
 
 const isLoginMode = ref(true)
 const isResetMode = ref(false)
+const isRegisterMode = computed(() => !isLoginMode.value && !isResetMode.value)
 const error = ref('')
 const showDomainHelp = ref(false)
 const showPassword = ref(false)

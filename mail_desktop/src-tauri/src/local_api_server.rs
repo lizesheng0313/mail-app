@@ -355,7 +355,7 @@ async fn handle_http_request(request: HttpRequest) -> HttpResponse {
                             200,
                             LocalApiResponse {
                                 code: 1,
-                                message: err,
+                                message: err.to_string(),
                                 data: json!(None::<String>),
                             },
                         ),

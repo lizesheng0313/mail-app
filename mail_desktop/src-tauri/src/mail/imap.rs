@@ -1,5 +1,8 @@
 use crate::mail::proxy;
-use crate::mail::types::{AttachmentData, EmailData, FetchResult, LoginResult, RuntimeProxy};
+use crate::mail::types::{
+    classify_external_mailbox_failure, AttachmentData, EmailData, FetchResult, LoginResult,
+    RuntimeProxy,
+};
 use chrono::Utc;
 use imap::{types::NameAttribute, Authenticator};
 use log::{error, info, warn};
@@ -332,22 +335,26 @@ fn imap_login_sync(
                 Ok(()) => Ok(LoginResult {
                     success: true,
                     message: "登录验证成功".to_string(),
+                    failure_kind: None,
                     protocol: Some("imap".to_string()),
                     host: Some(host.to_string()),
                     port: Some(actual_port),
                     smtp_host: None,
                     smtp_port: None,
+                    smtp_checked: false,
                     smtp_verified: false,
                     smtp_error: None,
                 }),
                 Err(message) => Ok(LoginResult {
                     success: false,
+                    failure_kind: Some("mailbox".to_string()),
                     message,
                     protocol: Some("imap".to_string()),
                     host: Some(host.to_string()),
                     port: Some(actual_port),
                     smtp_host: None,
                     smtp_port: None,
+                    smtp_checked: false,
                     smtp_verified: false,
                     smtp_error: None,
                 }),
@@ -355,12 +362,14 @@ fn imap_login_sync(
         }
         Err(msg) => Ok(LoginResult {
             success: false,
+            failure_kind: Some(classify_external_mailbox_failure(&msg)),
             message: msg,
             protocol: Some("imap".to_string()),
             host: Some(host.to_string()),
             port: Some(port),
             smtp_host: None,
             smtp_port: None,
+            smtp_checked: false,
             smtp_verified: false,
             smtp_error: None,
         }),
