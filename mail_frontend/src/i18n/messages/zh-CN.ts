@@ -61,7 +61,8 @@ const zhCN = {
     searchResults: '找到 {count} 条结果',
     footerServiceName: '服务名称：肥猫猫邮箱服务',
     tempMailboxFetchFailed: '获取临时邮箱失败',
-    mailboxApplyFailed: '申请邮箱失败'
+    mailboxApplyFailed: '申请邮箱失败',
+    guestMailboxQuota: '今日 {count}/{limit}'
   },
   pageHeader: {
     siteName: '肥猫猫邮箱服务',
@@ -166,7 +167,8 @@ const zhCN = {
     networkError: '网络错误，请稍后重试',
     supportWechatCopied: '客服微信已复制',
     copyFailed: '复制失败，请手动复制',
-    registerSuccess: '注册成功！请登录',
+    registerSuccess: '注册成功！',
+    saveGuestMailboxNotice: '登录或注册后，当前游客邮箱会自动保存到你的账号。',
     resetSuccess: '密码重置成功！请使用新密码登录'
   },
   home: {
@@ -180,6 +182,8 @@ const zhCN = {
     claiming: '获取中...',
     createMailbox: '生成邮箱',
     freeClaimMailbox: '免费获取',
+    createAnotherGuestMailbox: '再创建一个',
+    guestMailboxLimitReached: '今日已创建5个',
     freeGenerate: '免费生成',
     customGenerate: '指定生成',
     customGenerateTitle: '指定生成邮箱',
@@ -260,6 +264,10 @@ const zhCN = {
     guestPreviewEmailEmpty: '这里先不展示虚拟邮件，注册后显示真实邮件内容。',
     guestPreviewDetailHint:
       '当前展示的是预览内容，注册后才能查看真实邮件详情、批量操作和更多能力。',
+    guestSaveTitle: '保存这个邮箱',
+    guestSaveMessage: '登录或注册后可永久保存当前游客邮箱，换设备也能继续查看。',
+    guestSaveConfirm: '登录或注册保存',
+    guestMailboxesSaved: '已保存 {count} 个游客邮箱',
     workflowMarket: '资源市场',
     downloadDesktop: '下载桌面端',
     learnMore: '帮助中心',

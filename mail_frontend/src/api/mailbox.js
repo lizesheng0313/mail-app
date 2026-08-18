@@ -9,7 +9,17 @@ export const mailboxAPI = {
   getTempMailbox: () => api.post('/mailboxes/temp'),
 
   // 获取临时邮箱的邮件（无需登录）
-  getTempMailboxEmails: (mailboxId, params = {}) => api.get(`/mailboxes/temp/${mailboxId}/emails`, { params }),
+  getTempMailboxEmails: (mailboxId, params = {}, claimToken = '') =>
+    api.get(`/mailboxes/temp/${mailboxId}/emails`, {
+      params,
+      ...(claimToken
+        ? { headers: { 'X-Guest-Mailbox-Token': claimToken } }
+        : {})
+    }),
+
+  // 登录后保存当前浏览器创建的游客邮箱
+  claimGuestMailboxes: (claimTokens = []) =>
+    api.post('/mailboxes/guest/claim', { claim_tokens: claimTokens }),
 
   // 创建邮箱（注册用户）
   allocateMailbox: (data = {}) => api.post('/mailboxes/', data),

@@ -61,7 +61,8 @@ const zhTW = {
     searchResults: '找到 {count} 條結果',
     footerServiceName: '服務名稱：肥貓貓郵箱服務',
     tempMailboxFetchFailed: '取得臨時郵箱失敗',
-    mailboxApplyFailed: '申請郵箱失敗'
+    mailboxApplyFailed: '申請郵箱失敗',
+    guestMailboxQuota: '今日 {count}/{limit}'
   },
   pageHeader: {
     siteName: '肥貓貓郵箱服務',
@@ -166,7 +167,8 @@ const zhTW = {
     networkError: '網路錯誤，請稍後重試',
     supportWechatCopied: '客服微信已複製',
     copyFailed: '複製失敗，請手動複製',
-    registerSuccess: '註冊成功！請登入',
+    registerSuccess: '註冊成功！',
+    saveGuestMailboxNotice: '登入或註冊後，目前遊客郵箱會自動保存到你的帳號。',
     resetSuccess: '密碼重設成功！請使用新密碼登入'
   },
   home: {
@@ -180,6 +182,8 @@ const zhTW = {
     claiming: '獲取中...',
     createMailbox: '生成郵箱',
     freeClaimMailbox: '免費獲取',
+    createAnotherGuestMailbox: '再建立一個',
+    guestMailboxLimitReached: '今日已建立5個',
     freeGenerate: '免費生成',
     customGenerate: '指定生成',
     customGenerateTitle: '指定生成郵箱',
@@ -259,6 +263,10 @@ const zhTW = {
     guestPreviewEmailEmpty: '這裡先不展示虛擬郵件，註冊後顯示真實郵件內容。',
     guestPreviewDetailHint:
       '目前展示的是預覽內容，註冊後才能查看真實郵件詳情、批量操作和更多能力。',
+    guestSaveTitle: '保存這個郵箱',
+    guestSaveMessage: '登入或註冊後可永久保存目前遊客郵箱，換裝置也能繼續查看。',
+    guestSaveConfirm: '登入或註冊保存',
+    guestMailboxesSaved: '已保存 {count} 個遊客郵箱',
     workflowMarket: '工作流市場',
     downloadDesktop: '下載桌面端',
     learnMore: '幫助中心',

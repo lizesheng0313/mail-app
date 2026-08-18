@@ -1,15 +1,25 @@
-use crate::commands::{add_external_mailbox_without_events, fetch_emails, send_smtp_email, SendEmailAttachment};
+use crate::commands::{
+    add_external_mailbox_without_events, fetch_emails, send_smtp_email, SendEmailAttachment,
+};
 use crate::mail::types::RuntimeProxy;
 use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;
+use std::sync::Arc;
+use std::time::Duration;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::TcpListener,
+    sync::Semaphore,
+    time::timeout,
 };
 
 const LOCAL_API_ADDR: &str = "127.0.0.1:19199";
+const MAX_HEADER_BYTES: usize = 64 * 1024;
+const MAX_BODY_BYTES: usize = 32 * 1024 * 1024;
+const MAX_CONCURRENT_REQUESTS: usize = 16;
+const REQUEST_READ_TIMEOUT_SECONDS: u64 = 30;
 #[cfg(debug_assertions)]
 const OPEN_API_PROXY_ORIGIN: &str = "http://127.0.0.1:8088";
 #[cfg(not(debug_assertions))]
@@ -132,6 +142,7 @@ pub fn start_local_api_server() {
                 return;
             }
         };
+        let request_semaphore = Arc::new(Semaphore::new(MAX_CONCURRENT_REQUESTS));
 
         loop {
             let (mut stream, addr) = match listener.accept().await {
@@ -142,23 +153,66 @@ pub fn start_local_api_server() {
                 }
             };
 
+            let permit = match request_semaphore.clone().try_acquire_owned() {
+                Ok(permit) => permit,
+                Err(_) => {
+                    tauri::async_runtime::spawn(async move {
+                        let _ = write_http_response(
+                            &mut stream,
+                            HttpResponse::json(
+                                429,
+                                LocalApiResponse {
+                                    code: 1,
+                                    message: "本地接口请求过多，请稍后重试".to_string(),
+                                    data: json!(None::<String>),
+                                },
+                            ),
+                        )
+                        .await;
+                    });
+                    continue;
+                }
+            };
+
             tauri::async_runtime::spawn(async move {
-                match read_http_request(&mut stream).await {
-                    Ok(request) => {
+                let _permit = permit;
+                match timeout(
+                    Duration::from_secs(REQUEST_READ_TIMEOUT_SECONDS),
+                    read_http_request(&mut stream),
+                )
+                .await
+                {
+                    Ok(Ok(request)) => {
                         let response = handle_http_request(request).await;
                         if let Err(err) = write_http_response(&mut stream, response).await {
                             warn!("写入本地 HTTP 响应失败: {} ({})", addr, err);
                         }
                     }
-                    Err(err) => {
+                    Ok(Err(err)) => {
                         warn!("解析本地 HTTP 请求失败: {} ({})", addr, err);
+                        let status_code = if err == "请求体过大" { 413 } else { 400 };
                         let _ = write_http_response(
                             &mut stream,
                             HttpResponse::json(
-                                400,
+                                status_code,
                                 LocalApiResponse {
                                     code: 1,
                                     message: format!("请求格式错误: {}", err),
+                                    data: json!(None::<String>),
+                                },
+                            ),
+                        )
+                        .await;
+                    }
+                    Err(_) => {
+                        warn!("读取本地 HTTP 请求超时: {}", addr);
+                        let _ = write_http_response(
+                            &mut stream,
+                            HttpResponse::json(
+                                408,
+                                LocalApiResponse {
+                                    code: 1,
+                                    message: "请求读取超时".to_string(),
                                     data: json!(None::<String>),
                                 },
                             ),
@@ -187,13 +241,16 @@ struct HttpResponse {
 
 impl HttpResponse {
     fn json(status_code: u16, payload: LocalApiResponse) -> Self {
-        let body = serde_json::to_vec(&payload)
-            .unwrap_or_else(|_| "{\"code\":1,\"message\":\"响应序列化失败\",\"data\":null}".as_bytes().to_vec());
+        let body = serde_json::to_vec(&payload).unwrap_or_else(|_| {
+            "{\"code\":1,\"message\":\"响应序列化失败\",\"data\":null}"
+                .as_bytes()
+                .to_vec()
+        });
         Self {
             status_code,
             body,
             content_type: "application/json; charset=utf-8",
-            extra_headers: cors_headers(),
+            extra_headers: Vec::new(),
         }
     }
 
@@ -202,7 +259,7 @@ impl HttpResponse {
             status_code,
             body: Vec::new(),
             content_type: "text/plain; charset=utf-8",
-            extra_headers: cors_headers(),
+            extra_headers: Vec::new(),
         }
     }
 }
@@ -219,10 +276,13 @@ async fn read_http_request(stream: &mut tokio::net::TcpStream) -> Result<HttpReq
         }
         buffer.extend_from_slice(&chunk[..size]);
         if let Some(pos) = find_header_end(&buffer) {
+            if pos > MAX_HEADER_BYTES {
+                return Err("请求头过大".to_string());
+            }
             header_end = Some(pos);
             break;
         }
-        if buffer.len() > 1024 * 1024 {
+        if buffer.len() > MAX_HEADER_BYTES {
             return Err("请求头过大".to_string());
         }
     }
@@ -253,6 +313,9 @@ async fn read_http_request(stream: &mut tokio::net::TcpStream) -> Result<HttpReq
                 .map_err(|_| "Content-Length 非法".to_string())?;
         }
     }
+    if content_length > MAX_BODY_BYTES {
+        return Err("请求体过大".to_string());
+    }
 
     let mut body = buffer[(header_end + 4)..].to_vec();
     while body.len() < content_length {
@@ -264,7 +327,12 @@ async fn read_http_request(stream: &mut tokio::net::TcpStream) -> Result<HttpReq
     }
     body.truncate(content_length);
 
-    Ok(HttpRequest { method, path, headers, body })
+    Ok(HttpRequest {
+        method,
+        path,
+        headers,
+        body,
+    })
 }
 
 fn find_header_end(buffer: &[u8]) -> Option<usize> {
@@ -272,14 +340,38 @@ fn find_header_end(buffer: &[u8]) -> Option<usize> {
 }
 
 async fn handle_http_request(request: HttpRequest) -> HttpResponse {
+    let allowed_origin = allowed_browser_origin(&request.headers);
+    if request.headers.contains_key("origin") && allowed_origin.is_none() {
+        return HttpResponse::json(
+            403,
+            LocalApiResponse {
+                code: 1,
+                message: "不允许当前网页调用桌面本地接口".to_string(),
+                data: json!(None::<String>),
+            },
+        );
+    }
+
     if request.method == "OPTIONS" {
-        return HttpResponse::empty(200);
+        let mut response = HttpResponse::empty(200);
+        if let Some(origin) = allowed_origin {
+            response.extra_headers = cors_headers(origin);
+        }
+        return response;
     }
 
-    if request.path.starts_with("/open/v1/") {
-        return forward_open_request(request).await;
+    let mut response = if request.path.starts_with("/open/v1/") {
+        forward_open_request(request).await
+    } else {
+        route_local_request(request).await
+    };
+    if let Some(origin) = allowed_origin {
+        response.extra_headers = cors_headers(origin);
     }
+    response
+}
 
+async fn route_local_request(request: HttpRequest) -> HttpResponse {
     match (request.method.as_str(), request.path.as_str()) {
         ("GET", "/local-api/v1/health") => HttpResponse::json(
             200,
@@ -327,7 +419,8 @@ async fn handle_http_request(request: HttpRequest) -> HttpResponse {
         }
         ("POST", "/local-api/v1/external-mailboxes/fetch") => {
             match parse_json::<FetchMailboxRequest>(&request.body) {
-                Ok(payload) => match resolve_fetch_mailbox_request(&request.headers, payload).await {
+                Ok(payload) => match resolve_fetch_mailbox_request(&request.headers, payload).await
+                {
                     Ok(resolved) => match fetch_emails(
                         resolved.mailbox_id,
                         resolved.email,
@@ -372,52 +465,57 @@ async fn handle_http_request(request: HttpRequest) -> HttpResponse {
                 Err(err) => bad_request(err),
             }
         }
-        ("POST", "/local-api/v1/smtp/send") => match parse_json::<SendEmailRequest>(&request.body) {
-            Ok(payload) => match validate_local_send_api_key(&request.headers, &payload.from_email).await {
-                Ok(account) => match send_smtp_email(
-                    account.from_email,
-                    account.password,
-                    account.smtp_host,
-                    account.smtp_port,
-                    payload.to_email,
-                    payload.subject,
-                    payload.content,
-                    payload.content_html,
-                    payload.cc,
-                    payload.bcc,
-                    payload.attachments,
-                    payload.proxy,
-                )
-                .await
-                {
-                    Ok(result) => HttpResponse::json(
-                        200,
-                        LocalApiResponse {
-                            code: 0,
-                            message: "本地发信成功".to_string(),
-                            data: serde_json::to_value(result).unwrap_or(json!({"success": true})),
+        ("POST", "/local-api/v1/smtp/send") => {
+            match parse_json::<SendEmailRequest>(&request.body) {
+                Ok(payload) => {
+                    match validate_local_send_api_key(&request.headers, &payload.from_email).await {
+                        Ok(account) => match send_smtp_email(
+                            account.from_email,
+                            account.password,
+                            account.smtp_host,
+                            account.smtp_port,
+                            payload.to_email,
+                            payload.subject,
+                            payload.content,
+                            payload.content_html,
+                            payload.cc,
+                            payload.bcc,
+                            payload.attachments,
+                            payload.proxy,
+                        )
+                        .await
+                        {
+                            Ok(result) => HttpResponse::json(
+                                200,
+                                LocalApiResponse {
+                                    code: 0,
+                                    message: "本地发信成功".to_string(),
+                                    data: serde_json::to_value(result)
+                                        .unwrap_or(json!({"success": true})),
+                                },
+                            ),
+                            Err(err) => HttpResponse::json(
+                                200,
+                                LocalApiResponse {
+                                    code: 1,
+                                    message: err,
+                                    data: json!(None::<String>),
+                                },
+                            ),
                         },
-                    ),
-                    Err(err) => HttpResponse::json(
-                        200,
-                        LocalApiResponse {
-                            code: 1,
-                            message: err,
-                            data: json!(None::<String>),
-                        },
-                    ),
-                },
-                Err(err) => HttpResponse::json(
-                    200,
-                    LocalApiResponse {
-                        code: 1,
-                        message: err,
-                        data: json!(None::<String>),
-                    },
-                ),
-            },
-            Err(err) => bad_request(err),
-        },
+                        Err(err) => HttpResponse::json(
+                            200,
+                            LocalApiResponse {
+                                code: 1,
+                                message: err,
+                                data: json!(None::<String>),
+                            },
+                        ),
+                    }
+                }
+                Err(err) => bad_request(err),
+            }
+        }
         _ => HttpResponse::json(
             404,
             LocalApiResponse {
@@ -441,7 +539,10 @@ async fn validate_local_send_api_key(
 
     let client = reqwest::Client::new();
     let resp = client
-        .post(format!("{}/open/v1/desktop-local/smtp/send/authorize", OPEN_API_PROXY_ORIGIN))
+        .post(format!(
+            "{}/open/v1/desktop-local/smtp/send/authorize",
+            OPEN_API_PROXY_ORIGIN
+        ))
         .header("X-API-Key", api_key)
         .header("Accept-Language", "zh-CN")
         .json(&json!({ "from_email": from_email }))
@@ -491,7 +592,10 @@ async fn resolve_fetch_mailbox_request(
         });
     }
 
-    if payload.mailbox_id <= 0 || payload.token.trim().is_empty() || payload.server_url.trim().is_empty() {
+    if payload.mailbox_id <= 0
+        || payload.token.trim().is_empty()
+        || payload.server_url.trim().is_empty()
+    {
         return Err("请在请求头传 X-API-Key，或传完整的内部收信参数".to_string());
     }
 
@@ -516,7 +620,10 @@ async fn authorize_local_fetch_mailbox(
 ) -> Result<AuthorizedFetchMailbox, String> {
     let client = reqwest::Client::new();
     let resp = client
-        .post(format!("{}/open/v1/desktop-local/external-mailboxes/fetch/authorize", OPEN_API_PROXY_ORIGIN))
+        .post(format!(
+            "{}/open/v1/desktop-local/external-mailboxes/fetch/authorize",
+            OPEN_API_PROXY_ORIGIN
+        ))
         .header("X-API-Key", api_key)
         .header("Accept-Language", "zh-CN")
         .json(&json!({ "email": email }))
@@ -569,7 +676,9 @@ async fn forward_open_request(request: HttpRequest) -> HttpResponse {
         req = req.header("Accept-Language", lang);
     }
     if !request.body.is_empty() {
-        req = req.header("Content-Type", "application/json").body(request.body);
+        req = req
+            .header("Content-Type", "application/json")
+            .body(request.body);
     }
 
     match req.send().await {
@@ -592,7 +701,7 @@ async fn forward_open_request(request: HttpRequest) -> HttpResponse {
                 status_code,
                 body,
                 content_type: "application/json; charset=utf-8",
-                extra_headers: cors_headers(),
+                extra_headers: Vec::new(),
             }
         }
         Err(err) => HttpResponse::json(
@@ -621,11 +730,26 @@ fn bad_request(message: String) -> HttpResponse {
     )
 }
 
-fn cors_headers() -> Vec<(&'static str, &'static str)> {
+fn allowed_browser_origin(headers: &HashMap<String, String>) -> Option<&'static str> {
+    match headers.get("origin").map(|value| value.as_str()) {
+        Some("tauri://localhost") => Some("tauri://localhost"),
+        Some("http://tauri.localhost") => Some("http://tauri.localhost"),
+        Some("https://tauri.localhost") => Some("https://tauri.localhost"),
+        Some("http://localhost:9996") => Some("http://localhost:9996"),
+        Some("http://127.0.0.1:9996") => Some("http://127.0.0.1:9996"),
+        _ => None,
+    }
+}
+
+fn cors_headers(origin: &'static str) -> Vec<(&'static str, &'static str)> {
     vec![
-        ("Access-Control-Allow-Origin", "*"),
+        ("Access-Control-Allow-Origin", origin),
         ("Access-Control-Allow-Methods", "GET, POST, OPTIONS"),
-        ("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key"),
+        (
+            "Access-Control-Allow-Headers",
+            "Content-Type, Authorization, X-API-Key",
+        ),
+        ("Vary", "Origin"),
     ]
 }
 
@@ -636,6 +760,10 @@ async fn write_http_response(
     let status_text = match response.status_code {
         200 => "200 OK",
         400 => "400 Bad Request",
+        403 => "403 Forbidden",
+        408 => "408 Request Timeout",
+        413 => "413 Payload Too Large",
+        429 => "429 Too Many Requests",
         404 => "404 Not Found",
         _ => "500 Internal Server Error",
     };

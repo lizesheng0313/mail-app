@@ -1,7 +1,10 @@
 <template>
   <div class="h-full flex flex-col">
-    <div class="border-b border-gray-200 pb-4 mb-4">
+    <div class="mb-4 flex items-center justify-between border-b border-gray-200 pb-4">
       <h2 class="text-base font-semibold text-black">{{ t('mail.myMailbox') }}</h2>
+      <span class="text-xs text-gray-500">
+        {{ t('mail.guestMailboxQuota', { count: guestMailboxesCreatedToday, limit: GUEST_MAILBOX_DAILY_LIMIT }) }}
+      </span>
     </div>
 
     <div v-if="mailboxStore.loading" class="flex items-center justify-center py-8">
@@ -9,26 +12,40 @@
       <span class="ml-2 text-gray-600">{{ t('mail.loadingTempMailbox') }}</span>
     </div>
     
-    <div v-else-if="mailboxStore.tempMailbox" class="bg-primary-50 p-4 rounded-lg">
-      <h3 class="text-primary-800 font-medium mb-2">{{ t('mail.yourTempMailbox') }}</h3>
-      <div class="bg-primary-100 flex items-center justify-between px-3 py-2 rounded">
-        <code class="text-primary-800 text-sm break-all flex-1">{{ mailboxStore.tempMailbox.email }}</code>
-        <ActionButton 
-          icon="copy" 
-          variant="copy"
-          :tooltip="t('mail.copyMailboxAddress')"
-          @click="copy(mailboxStore.tempMailbox.email)" 
-        />
+    <div v-else-if="mailboxStore.guestMailboxes.length" class="space-y-2 overflow-y-auto">
+      <div
+        v-for="mailbox in mailboxStore.guestMailboxes"
+        :key="mailbox.id"
+        role="button"
+        tabindex="0"
+        :class="[
+          'w-full rounded-lg border p-3 text-left transition-colors',
+          Number(mailboxStore.tempMailbox?.id) === Number(mailbox.id)
+            ? 'border-primary-300 bg-primary-50'
+            : 'border-gray-200 bg-white hover:border-primary-200 hover:bg-primary-50/50'
+        ]"
+        @click="mailboxStore.selectGuestMailbox(mailbox)"
+        @keydown.enter="mailboxStore.selectGuestMailbox(mailbox)"
+      >
+        <div class="flex items-center justify-between gap-2">
+          <code class="min-w-0 flex-1 truncate text-sm text-gray-900">{{ mailbox.email }}</code>
+          <ActionButton
+            icon="copy"
+            variant="copy"
+            :tooltip="t('mail.copyMailboxAddress')"
+            @click.stop="copy(mailbox.email)"
+          />
+        </div>
+        <p class="mt-1 text-xs text-gray-500">
+          {{ t('mail.expiresAt', { date: formatDate(mailbox.expires_at) }) }}
+        </p>
       </div>
-      <p class="text-primary-700 text-xs mt-2">
-        {{ t('mail.expiresAt', { date: formatDate(mailboxStore.tempMailbox.expires_at) }) }}
-      </p>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { computed, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useMailboxStore } from '@/stores/auth'
 import { useMailStore } from '@/stores/mail'
@@ -36,28 +53,50 @@ import { mailboxAPI } from '@/api/mailbox'
 import ActionButton from '@/components/ActionButton/index.vue'
 import { showMessage } from '@/utils/message'
 import { formatTimestamp } from '@/utils/timeUtils'
+import {
+  countGuestMailboxesCreatedToday,
+  GUEST_MAILBOX_DAILY_LIMIT
+} from '@/utils/guestMailboxes'
 
 const { t } = useI18n()
 const mailboxStore = useMailboxStore()
 const mailStore = useMailStore()
+const guestMailboxesCreatedToday = computed(() =>
+  countGuestMailboxesCreatedToday(mailboxStore.guestMailboxes)
+)
 
-// 自动获取临时邮箱和邮件
+const loadCurrentMailboxEmails = async () => {
+  const mailbox = mailboxStore.tempMailbox as any
+  if (!mailbox?.id) return
+  const mailboxId = Number(mailbox.id)
+  try {
+    const res: any = await mailboxAPI.getTempMailboxEmails(
+      mailboxId,
+      {},
+      mailbox.claim_token || ''
+    )
+    if (Number(mailboxStore.tempMailbox?.id) === mailboxId && res.code === 0 && res.data) {
+      mailStore.emails = res.data.emails || []
+    }
+  } catch (e) {
+    console.error('获取邮件失败:', e)
+  }
+}
+
 onMounted(async () => {
   if (!mailboxStore.tempMailbox) {
-    const result = await mailboxStore.getTempMailbox()
-    if (result.success && mailboxStore.tempMailbox?.id) {
-      // 使用临时邮箱专用 API 获取邮件
-      try {
-        const res = await mailboxAPI.getTempMailboxEmails(mailboxStore.tempMailbox.id)
-        if (res.code === 0 && res.data) {
-          mailStore.emails = res.data.emails || []
-        }
-      } catch (e) {
-        console.error('获取邮件失败:', e)
-      }
-    }
+    await mailboxStore.getTempMailbox()
   }
 })
+
+watch(
+  () => mailboxStore.tempMailbox?.id,
+  () => {
+    mailStore.clearEmails()
+    void loadCurrentMailboxEmails()
+  },
+  { immediate: true }
+)
 
 const copy = async (text: string) => {
   try {

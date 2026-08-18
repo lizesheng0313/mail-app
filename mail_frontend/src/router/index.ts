@@ -21,6 +21,10 @@ const PaymentPage = () => import('@/views/portal/payment/index.vue')
 const AboutPage = () => import('@/views/portal/about/index.vue')
 const PrivacyPolicyPage = () => import('@/views/portal/legal/PrivacyPolicy.vue')
 const TermsOfServicePage = () => import('@/views/portal/legal/TermsOfService.vue')
+const MxCheckTool = () => import('@/views/tools/MxCheck.vue')
+const EmailSecurityCheckTool = () => import('@/views/tools/EmailSecurityCheck.vue')
+const EmailHeaderParserTool = () => import('@/views/tools/EmailHeaderParser.vue')
+const TotpGeneratorTool = () => import('@/views/tools/TotpGenerator.vue')
 // BatchLogin 已整合到首页，不再需要单独页面
 
 // 管理后台组件 - 只有管理员访问时才加载
@@ -263,6 +267,62 @@ const router = createRouter({
             '查看肥猫猫平台服务条款，了解账号使用规范、服务边界与责任说明。',
           keywords: '服务条款, 用户协议, 邮箱管理, 肥猫猫',
           canonicalPath: '/terms-of-service'
+        }
+      }
+    },
+    {
+      path: '/tools',
+      redirect: '/tools/2fa-code'
+    },
+    {
+      path: '/tools/mx-check',
+      name: 'mx-check-tool',
+      component: MxCheckTool,
+      meta: {
+        seo: {
+          title: 'MX 记录查询 - 免费域名收信检测工具',
+          description: '免费查询域名 MX 记录、邮件服务器和优先级，检查域名是否具备邮件接收条件。',
+          keywords: 'MX查询,MX记录查询,邮件服务器查询,域名收信检测',
+          canonicalPath: '/tools/mx-check'
+        }
+      }
+    },
+    {
+      path: '/tools/email-security-check',
+      name: 'email-security-check-tool',
+      component: EmailSecurityCheckTool,
+      meta: {
+        seo: {
+          title: 'SPF、DKIM、DMARC 检测 - 免费邮件安全工具',
+          description: '免费检测域名 SPF、DKIM、DMARC 邮件身份记录，排查邮件进垃圾箱和域名伪造风险。',
+          keywords: 'SPF检测,DKIM检测,DMARC检测,邮件安全检测',
+          canonicalPath: '/tools/email-security-check'
+        }
+      }
+    },
+    {
+      path: '/tools/email-header-parser',
+      name: 'email-header-parser-tool',
+      component: EmailHeaderParserTool,
+      meta: {
+        seo: {
+          title: '邮件头解析 - 免费投递路径与身份验证分析',
+          description: '在浏览器本地解析邮件头、投递路径以及 SPF、DKIM、DMARC 验证结果，内容不会上传。',
+          keywords: '邮件头解析,邮件来源分析,Received解析,Authentication-Results',
+          canonicalPath: '/tools/email-header-parser'
+        }
+      }
+    },
+    {
+      path: '/tools/2fa-code',
+      name: 'totp-generator-tool',
+      component: TotpGeneratorTool,
+      meta: {
+        seo: {
+          title: '2FA 验证码生成器 - 免费 TOTP 工具',
+          description: '在浏览器本地通过 Base32 密钥或 otpauth 链接生成 TOTP 两步验证码，密钥不会上传。',
+          keywords: '2FA验证码,TOTP验证码,动态验证码,Google Authenticator',
+          canonicalPath: '/tools/2fa-code'
         }
       }
     },

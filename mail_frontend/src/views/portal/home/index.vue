@@ -97,10 +97,10 @@
           <button
             v-if="mailboxType === 'system'"
             @click="handleSystemMailboxEntryAction"
-            :disabled="mailboxStore.loading"
+            :disabled="mailboxStore.loading || (!userStore.isAuthenticated && guestMailboxLimitReached)"
             class="px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {{ mailboxStore.loading ? t('home.claiming') : t('home.freeClaimMailbox') }}
+            {{ systemMailboxActionText }}
           </button>
 
           <button
@@ -493,8 +493,8 @@
           </div>
         </div>
         <EmailDetail
-          v-else-if="mailStore.selectedEmail"
-          :email="mailStore.selectedEmail"
+          v-else
+          :email="mailStore.selectedEmail || null"
           @expand="openEmailModal"
           @reply="handleReplyExternalEmail"
         />
@@ -512,16 +512,7 @@
     </template>
 
     <template #footer v-if="!userStore.isAuthenticated">
-      <div
-        class="flex flex-col gap-2 text-xs text-gray-500 sm:flex-row sm:items-center sm:justify-between"
-      >
-        <div>{{ t('mail.footerServiceName') }}</div>
-        <div class="flex items-center gap-3">
-          <a href="/privacy-policy" class="hover:text-primary-600">{{ t('legal.privacyTitle') }}</a>
-          <span class="text-gray-300">|</span>
-          <a href="/terms-of-service" class="hover:text-primary-600">{{ t('legal.termsTitle') }}</a>
-        </div>
-      </div>
+      <PageFooter embedded />
     </template>
   </ThreeColumnLayout>
 
@@ -606,6 +597,19 @@
     @cancel="showGuestRegisterDialog = false"
   />
 
+  <ConfirmDialog
+    :visible="showGuestSaveDialog"
+    :mask="false"
+    :title="t('home.guestSaveTitle')"
+    :message="t('home.guestSaveMessage')"
+    type="info"
+    :show-warning="false"
+    :confirm-text="t('home.guestSaveConfirm')"
+    :cancel-text="t('common.cancel')"
+    @confirm="handleGuestSaveConfirm"
+    @cancel="showGuestSaveDialog = false"
+  />
+
   <!-- 分享邮箱弹窗 -->
   <ShareMailboxModal
     :visible="showShareModal"
@@ -661,6 +665,7 @@ import { mailboxAPI } from '@/api/mailbox'
 import EmailDetail from '@/components/Mail/EmailDetail/EmailDetail.vue'
 import EmailContentModal from '@/components/Mail/EmailContentModal.vue'
 import Pagination from '@/components/Pagination/index.vue'
+import PageFooter from '@/components/PageFooter/index.vue'
 import BaseIcon from '@/components/BaseIcon/index.vue'
 import ConfirmDialog from '@/components/ConfirmDialog/index.vue'
 import { useAutoRefresh } from '@/composables/useAutoRefresh'
@@ -694,6 +699,11 @@ import { hostedDomainAPI } from '@/api/hostedDomain'
 import CustomGenerateModal from '@/components/Mail/SystemMailbox/CustomGenerateModal.vue'
 import { getCurrentLocale } from '@/i18n'
 import wxProgramImg from '@/assets/img/wx_program.jpg'
+import {
+  countGuestMailboxesCreatedToday,
+  GUEST_MAILBOX_DAILY_LIMIT
+} from '@/utils/guestMailboxes'
+import { trackProductEvent } from '@/services/productAnalytics'
 
 // 获取 Tauri invoke（按需加载，避免竞态）
 async function getTauriInvoke() {
@@ -743,6 +753,7 @@ const batchAddRunId = ref(0)
 const pendingOAuthAccounts = ref<Array<{ email: string; provider: string }>>([])
 const showDownloadDialog = ref(false)
 const showGuestRegisterDialog = ref(false)
+const showGuestSaveDialog = ref(false)
 const guestRegisterFeature = ref('')
 const downloadDialogTitle = ref(t('home.desktopRequiredTitle'))
 const downloadDialogMessage = ref(t('home.desktopRequiredMessage'))
@@ -891,6 +902,21 @@ const guestRegisterMessage = computed(() =>
     feature: guestRegisterFeature.value || guestPreviewFeatureLabel.value
   })
 )
+
+const guestMailboxesCreatedToday = computed(() =>
+  countGuestMailboxesCreatedToday(mailboxStore.guestMailboxes)
+)
+const guestMailboxLimitReached = computed(() =>
+  guestMailboxesCreatedToday.value >= GUEST_MAILBOX_DAILY_LIMIT
+)
+const systemMailboxActionText = computed(() => {
+  if (mailboxStore.loading) return t('home.claiming')
+  if (userStore.isAuthenticated) return t('home.freeClaimMailbox')
+  if (guestMailboxLimitReached.value) return t('home.guestMailboxLimitReached')
+  return mailboxStore.guestMailboxes.length
+    ? t('home.createAnotherGuestMailbox')
+    : t('home.freeClaimMailbox')
+})
 
 const syncMailboxAuthTypeMap = (items: any[]) => {
   for (const item of items || []) {
@@ -1049,7 +1075,7 @@ const loadTitleAlertEmailsByType = async (mailType: 'system' | 'hosted' | 'exter
     const response: any = await mailboxAPI.getTempMailboxEmails(tempMailboxId, {
       page: 1,
       page_size: 20
-    })
+    }, String((mailboxStore.tempMailbox as any)?.claim_token || ''))
     return response.code === 0 && response.data ? response.data.emails || [] : []
   }
 
@@ -1360,6 +1386,39 @@ const handleGuestRegisterConfirm = () => {
   router.push('/login?mode=register')
 }
 
+const handleGuestSaveConfirm = () => {
+  trackProductEvent('guest_save_prompt_confirmed')
+  showGuestSaveDialog.value = false
+  router.push({
+    path: '/login',
+    query: { mode: 'register', save_guest: '1', redirect: '/' }
+  })
+}
+
+const maybePromptGuestMailboxSave = (emails: any[] = []) => {
+  if (userStore.isAuthenticated || !emails.length) return
+  const mailboxId = Number(mailboxStore.tempMailbox?.id || 0)
+  if (!mailboxId) return
+  const firstEmailKey = `guest_mailbox_first_email_tracked_${mailboxId}`
+  if (localStorage.getItem(firstEmailKey) !== '1') {
+    localStorage.setItem(firstEmailKey, '1')
+    trackProductEvent('guest_first_email_received')
+  }
+  const verificationCodeKey = `guest_mailbox_code_tracked_${mailboxId}`
+  if (
+    localStorage.getItem(verificationCodeKey) !== '1'
+    && emails.some((email) => String(email?.verification_code || '').trim())
+  ) {
+    localStorage.setItem(verificationCodeKey, '1')
+    trackProductEvent('guest_verification_code_detected')
+  }
+  const promptKey = `guest_mailbox_save_prompted_${mailboxId}`
+  if (localStorage.getItem(promptKey) === '1') return
+  localStorage.setItem(promptKey, '1')
+  trackProductEvent('guest_save_prompt_shown')
+  showGuestSaveDialog.value = true
+}
+
 // 保存每个Tab的选中邮件
 const systemSelectedEmail = ref<any>(null)
 const hostedSelectedEmail = ref<any>(null)
@@ -1650,7 +1709,13 @@ const handleMailboxBatchStart = () => {
 
 const handleSystemMailboxEntryAction = async () => {
   if (!userStore.isAuthenticated) {
-    promptGuestRegister(t('home.temporaryMailbox'))
+    const result = await mailboxStore.getTempMailbox()
+    showMessage(
+      result.success
+        ? t('home.allocateMailboxSuccess')
+        : result.error || t('home.allocateMailboxFailed'),
+      result.success ? 'success' : 'error'
+    )
     return
   }
   await allocateMailbox()
@@ -2448,7 +2513,11 @@ const refreshSystemEmails = async (options?: { minSpinMs?: number }) => {
     } else if (mailboxStore.tempMailbox?.id) {
       // 临时用户：用临时邮箱接口刷新
       try {
-        const res = await mailboxAPI.getTempMailboxEmails(mailboxStore.tempMailbox.id)
+        const res: any = await mailboxAPI.getTempMailboxEmails(
+          mailboxStore.tempMailbox.id,
+          {},
+          String((mailboxStore.tempMailbox as any)?.claim_token || '')
+        )
         if (res.code === 0 && res.data) {
           mailStore.emails = res.data.emails || []
         }
@@ -2843,6 +2912,7 @@ watch(
   () => mailStore.emails,
   (emails) => {
     registerTitleAlertEmails('system', Array.isArray(emails) ? emails : [])
+    maybePromptGuestMailboxSave(Array.isArray(emails) ? emails : [])
   }
 )
 
@@ -2856,6 +2926,9 @@ watch(externalEmails, (emails) => {
 
 // 页面加载时获取数据并启动自动刷新
 onMounted(async () => {
+  if (!userStore.isAuthenticated) {
+    trackProductEvent('guest_home_view')
+  }
   window.addEventListener(
     'external-mailbox-recovered',
     handleRecoveredMailboxEvent as EventListener
@@ -2872,6 +2945,11 @@ onMounted(async () => {
   }
 
   if (userStore.isAuthenticated) {
+    const claimedCount = Number(sessionStorage.getItem('guest_mailboxes_claimed_count') || 0)
+    if (claimedCount > 0) {
+      sessionStorage.removeItem('guest_mailboxes_claimed_count')
+      showMessage(t('home.guestMailboxesSaved', { count: claimedCount }), 'success')
+    }
     // 加载邮箱列表
     await mailboxStore.fetchMailboxes()
     // 同时加载所有邮件（不选择特定邮箱）
@@ -4069,6 +4147,9 @@ const confirmDeleteEmails = async () => {
 // 复制验证码
 const copyVerificationCode = (code: string) => {
   navigator.clipboard.writeText(code)
+  if (!userStore.isAuthenticated) {
+    trackProductEvent('guest_verification_code_copied')
+  }
   showMessage(t('home.copyCodeSuccess'), 'success')
 }
 

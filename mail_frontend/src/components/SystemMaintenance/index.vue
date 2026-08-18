@@ -26,24 +26,12 @@
           </div>
           
           <h2 class="mb-3 text-center text-2xl font-bold text-gray-800">
-            系统维护中
+            程序正在升级中
           </h2>
           
           <p class="mb-6 text-center text-gray-600">
-            系统正在进行版本更新，请稍后再试
+            请1分钟后尝试刷新
           </p>
-          
-          <div class="mb-6 rounded-lg bg-primary-50 border border-primary-200 p-4">
-            <div class="flex items-start">
-              <svg class="mt-0.5 h-5 w-5 flex-shrink-0 text-primary-600" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
-              </svg>
-              <div class="ml-3 text-sm text-primary-800">
-                <p class="font-medium">预计维护时间：5-10分钟</p>
-                <p class="mt-1">如有紧急问题，请查看帮助中心页面</p>
-              </div>
-            </div>
-          </div>
           
           <div class="flex gap-3">
             <button

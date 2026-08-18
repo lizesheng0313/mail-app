@@ -1,4 +1,4 @@
-import { buildWebSocketURL, isTauri } from '@/services/api'
+import api, { buildWebSocketURL, isTauri } from '@/services/api'
 
 let activeBridge = null
 
@@ -48,12 +48,17 @@ export async function connectBrowserWorkflowDesktopBridge({ webSocketDebuggerUrl
   }
 
   await disconnectBrowserWorkflowDesktopBridge()
-  const token = String(localStorage.getItem('token') || '').trim()
-  if (!token) throw new Error('登录状态已失效，请重新登录桌面端')
 
   const tunnelId = createTunnelId()
+  const ticketResponse = await api.post(
+    `/browser-workflow-desktop/tunnels/${encodeURIComponent(tunnelId)}/ticket`,
+    {},
+    { suppressErrorMessage: true },
+  )
+  const ticket = String(ticketResponse?.data?.ticket || '').trim()
+  if (!ticket) throw new Error('桌面浏览器连接授权失败，请重新登录')
   const remoteUrl = buildWebSocketURL(
-    `/browser-workflow-desktop/tunnels/${encodeURIComponent(tunnelId)}/desktop?token=${encodeURIComponent(token)}`,
+    `/browser-workflow-desktop/tunnels/${encodeURIComponent(tunnelId)}/desktop?ticket=${encodeURIComponent(ticket)}`,
   )
   const remoteSocket = new WebSocket(remoteUrl)
   const browserSocket = new WebSocket(webSocketDebuggerUrl)

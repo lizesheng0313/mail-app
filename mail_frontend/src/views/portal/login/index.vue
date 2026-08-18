@@ -139,6 +139,12 @@
         class="mx-auto max-w-md rounded-2xl border border-gray-200 bg-white shadow-lg"
         :class="isRegisterMode ? 'p-6' : 'p-8'"
       >
+        <div
+          v-if="saveGuestMailboxMode"
+          class="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm leading-6 text-green-800"
+        >
+          {{ t('login.saveGuestMailboxNotice') }}
+        </div>
         <form @submit.prevent="handleSubmit" :class="isRegisterMode ? 'space-y-4' : 'space-y-6'">
           <div>
             <label for="email" class="block text-sm font-medium text-black mb-2">{{ t('login.emailLabel') }}</label>
@@ -432,6 +438,7 @@ const userStore = useUserStore()
 const isLoginMode = ref(true)
 const isResetMode = ref(false)
 const isRegisterMode = computed(() => !isLoginMode.value && !isResetMode.value)
+const saveGuestMailboxMode = computed(() => route.query.save_guest === '1')
 const error = ref('')
 const showDomainHelp = ref(false)
 const showPassword = ref(false)
@@ -606,20 +613,12 @@ const handleSubmit = async () => {
       showMessage(result.message || t('login.resetSuccess'), 'success')
       switchToLoginMode()
     } else {
-      // 注册成功，显示提示并跳转到登录
+      // 注册接口已返回登录令牌，直接进入首页并保存游客邮箱。
       showMessage(result.message || t('login.registerSuccess'), 'success')
-      isLoginMode.value = true
-      isResetMode.value = false
-      // 清空表单
-      form.value = {
-        email: '',
-        password: '',
-        confirmPassword: '',
-        verificationCode: ''
-      }
-      // 重置验证码状态
-      userStore.verificationCodeSent = false
-      userStore.verificationEmail = ''
+      const redirectPath = typeof route.query.redirect === 'string' && route.query.redirect.startsWith('/')
+        ? route.query.redirect
+        : '/'
+      router.push(redirectPath)
     }
   } else {
     error.value = result.error || t('login.networkError')
@@ -689,7 +688,7 @@ const completeWechatChoice = async (action: 'bind' | 'create') => {
       return
     }
 
-    const loginResult = await userStore.completeLogin(result.data.access_token)
+    const loginResult = await userStore.completeLogin(result.data.access_token, 'wechat')
     if (!loginResult.success) {
       wechatChoiceError.value = loginResult.error || t('login.wechatLoginFailed')
       return
@@ -754,7 +753,7 @@ const loginWithWechat = async () => {
 
         const accessToken = pollResult.data.access_token
         stopWechatLogin()
-        const loginResult = await userStore.completeLogin(accessToken)
+        const loginResult = await userStore.completeLogin(accessToken, 'wechat')
         if (loginResult.success) {
           const redirectPath = typeof route.query.redirect === 'string' && route.query.redirect.startsWith('/')
             ? route.query.redirect

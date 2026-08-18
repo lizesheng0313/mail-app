@@ -23,6 +23,14 @@ export const monitoringAPI = {
   // 记录页面访问
   recordPageView: (payload) => api.post('/monitoring/page-view', payload),
 
+  // 记录游客转化事件
+  recordProductEvent: (payload) =>
+    api.post('/monitoring/product-event', payload, { suppressErrorMessage: true }),
+
+  // 获取游客转化漏斗
+  getGuestConversionFunnel: (days = 7) =>
+    api.get('/monitoring/guest-conversion-funnel', { params: { days } }),
+
   // 进入在线会话
   enterOnlineSession: (payload) => api.post('/monitoring/online-session/enter', payload),
 

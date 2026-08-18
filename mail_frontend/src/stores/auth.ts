@@ -3,11 +3,18 @@ import { ref } from 'vue'
 import type { Mailbox } from '@/types'
 import { mailboxAPI } from '@/api/mailbox'
 import { i18n } from '@/i18n'
+import {
+  GUEST_MAILBOX_DAILY_LIMIT,
+  loadStoredGuestMailboxes,
+  upsertStoredGuestMailbox
+} from '@/utils/guestMailboxes'
+import { trackProductEvent } from '@/services/productAnalytics'
 
 export const useMailboxStore = defineStore('mailbox', () => {
   const mailboxes = ref<Mailbox[]>([])
   const loading = ref(false)
-  const tempMailbox = ref<Mailbox | null>(null)
+  const guestMailboxes = ref<any[]>(loadStoredGuestMailboxes())
+  const tempMailbox = ref<any | null>(guestMailboxes.value[0] || null)
 
   // 分页相关状态
   const totalMailboxes = ref(0)
@@ -123,6 +130,7 @@ export const useMailboxStore = defineStore('mailbox', () => {
   }
 
   const getTempMailbox = async () => {
+    const startedAt = Date.now()
     loading.value = true
     try {
       const response: any = await mailboxAPI.getTempMailbox()
@@ -133,12 +141,25 @@ export const useMailboxStore = defineStore('mailbox', () => {
           id: response.data.id,
           email: response.data.email, // 后端返回的是 'email' 字段
           created_at: response.data.created_at,
-          expires_at: response.data.expires_at
+          expires_at: response.data.expires_at,
+          claim_token: response.data.claim_token,
+          daily_limit: response.data.daily_limit || GUEST_MAILBOX_DAILY_LIMIT,
+          remaining_requests_today: response.data.remaining_requests_today
         }
+        guestMailboxes.value = upsertStoredGuestMailbox(tempMailbox.value)
+        trackProductEvent('guest_mailbox_created', {
+          duration_ms: Date.now() - startedAt
+        })
         return { success: true, data: tempMailbox.value }
       }
+      trackProductEvent('guest_mailbox_create_failed', {
+        duration_ms: Date.now() - startedAt
+      })
       return { success: false, error: response.message }
     } catch (error: any) {
+      trackProductEvent('guest_mailbox_create_failed', {
+        duration_ms: Date.now() - startedAt
+      })
       return {
         success: false,
         error: error.response?.data?.message || error.response?.data?.detail || i18n.global.t('mail.tempMailboxFetchFailed')
@@ -146,6 +167,21 @@ export const useMailboxStore = defineStore('mailbox', () => {
     } finally {
       loading.value = false
     }
+  }
+
+  const selectGuestMailbox = (mailbox: any) => {
+    const target = guestMailboxes.value.find((item) => Number(item.id) === Number(mailbox?.id))
+    if (target) tempMailbox.value = target
+  }
+
+  const restoreGuestMailboxes = () => {
+    guestMailboxes.value = loadStoredGuestMailboxes()
+    tempMailbox.value = guestMailboxes.value[0] || null
+  }
+
+  const clearGuestMailboxes = () => {
+    guestMailboxes.value = []
+    tempMailbox.value = null
   }
 
   const allocateMailbox = async (payload: Record<string, any> = {}) => {
@@ -213,6 +249,7 @@ export const useMailboxStore = defineStore('mailbox', () => {
   return {
     mailboxes,
     tempMailbox,
+    guestMailboxes,
     loading,
     totalMailboxes,
     currentPage,
@@ -221,6 +258,9 @@ export const useMailboxStore = defineStore('mailbox', () => {
     searchKeyword,
     fetchMailboxes,
     getTempMailbox,
+    selectGuestMailbox,
+    restoreGuestMailboxes,
+    clearGuestMailboxes,
     allocateMailbox,
     deleteMailbox,
     replaceMailboxes,

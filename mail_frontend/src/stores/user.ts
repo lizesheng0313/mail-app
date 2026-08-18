@@ -1,8 +1,15 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import type { User, ApiResponse, EmailDomain } from '@/types'
+import type { User, EmailDomain } from '@/types'
 import { authAPI } from '@/api/auth'
 import { userAPI } from '@/api/user'
+import { mailboxAPI } from '@/api/mailbox'
+import { useMailboxStore } from '@/stores/auth'
+import {
+  clearStoredGuestMailboxes,
+  getStoredGuestClaimTokens
+} from '@/utils/guestMailboxes'
+import { trackProductEvent } from '@/services/productAnalytics'
 
 export const useUserStore = defineStore('user', () => {
   const user = ref<User | null>(null)
@@ -11,6 +18,36 @@ export const useUserStore = defineStore('user', () => {
   const allowedDomains = ref<EmailDomain[]>([])
   const verificationCodeSent = ref(false)
   const verificationEmail = ref('')
+
+  const claimStoredGuestMailboxes = async (authProvider?: string) => {
+    const claimTokens = getStoredGuestClaimTokens()
+    if (!claimTokens.length) return { success: true, claimedCount: 0 }
+
+    if (authProvider) {
+      trackProductEvent('guest_auth_succeeded', { provider: authProvider })
+    }
+
+    try {
+      const response: any = await mailboxAPI.claimGuestMailboxes(claimTokens)
+      if (response.code !== 0) {
+        return { success: false, claimedCount: 0, error: response.message }
+      }
+      const claimedCount = Number(response.data?.claimed_count || 0)
+      clearStoredGuestMailboxes()
+      useMailboxStore().clearGuestMailboxes()
+      if (claimedCount > 0) {
+        sessionStorage.setItem('guest_mailboxes_claimed_count', String(claimedCount))
+        trackProductEvent('guest_mailboxes_claimed', { claimed_count: claimedCount })
+      }
+      return { success: true, claimedCount }
+    } catch (error: any) {
+      return {
+        success: false,
+        claimedCount: 0,
+        error: error.response?.data?.message || '保存游客邮箱失败'
+      }
+    }
+  }
 
   const sendVerificationCode = async (email: string, purpose: string = 'register') => {
     loading.value = true
@@ -51,6 +88,8 @@ export const useUserStore = defineStore('user', () => {
         localStorage.setItem('token', response.data.access_token)
         localStorage.setItem('isAuthenticated', 'true')
 
+        await claimStoredGuestMailboxes('password_login')
+
         return { success: true, message: response.message }
       } else {
         return { success: false, error: response.message }
@@ -65,7 +104,7 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
-  const completeLogin = async (accessToken: string) => {
+  const completeLogin = async (accessToken: string, provider = 'oauth') => {
     const token = String(accessToken || '').trim()
     if (!token) {
       return { success: false, error: '未获取到登录凭证' }
@@ -82,6 +121,7 @@ export const useUserStore = defineStore('user', () => {
         logout()
         return { success: false, error: profileResult.error || '获取用户信息失败' }
       }
+      await claimStoredGuestMailboxes(provider)
       return { success: true, message: '登录成功' }
     } catch (error: any) {
       logout()
@@ -109,6 +149,8 @@ export const useUserStore = defineStore('user', () => {
         // 只保存token和认证状态，用户数据实时获取
         localStorage.setItem('token', response.data.access_token)
         localStorage.setItem('isAuthenticated', 'true')
+
+        await claimStoredGuestMailboxes('email_register')
 
         return { success: true, message: response.message }
       } else {
@@ -173,6 +215,7 @@ export const useUserStore = defineStore('user', () => {
       try {
         const result = await updateUserProfile(true)
         if (result?.success) {
+          await claimStoredGuestMailboxes()
           return true
         }
         logout()
@@ -245,6 +288,7 @@ export const useUserStore = defineStore('user', () => {
     checkAuth,
     fetchAllowedDomains,
     updateUserProfile,
-    canAddMailbox
+    canAddMailbox,
+    claimStoredGuestMailboxes
   }
 })

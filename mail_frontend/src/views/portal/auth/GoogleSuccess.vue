@@ -30,18 +30,11 @@ onMounted(async () => {
   const token = route.query.token as string
   
   if (token) {
-    // 保存token和认证状态到localStorage（和login方法一致）
-    localStorage.setItem('token', token)
-    localStorage.setItem('isAuthenticated', 'true')
+    const result = await userStore.completeLogin(token, 'google')
 
-    const ok = await userStore.checkAuth()
-
-    if (ok) {
+    if (result.success) {
       console.log('Google登录成功，用户信息:', userStore.user)
-
-      setTimeout(() => {
-        router.push('/')
-      }, 1000)
+      router.push('/')
       return
     }
 

@@ -61,7 +61,8 @@ const en = {
     searchResults: '{count} results',
     footerServiceName: 'Service: FeiMao Mail',
     tempMailboxFetchFailed: 'Failed to get temporary mailbox',
-    mailboxApplyFailed: 'Failed to apply for mailbox'
+    mailboxApplyFailed: 'Failed to apply for mailbox',
+    guestMailboxQuota: 'Today {count}/{limit}'
   },
   pageHeader: {
     siteName: 'FeiMao Mail',
@@ -167,7 +168,8 @@ const en = {
     networkError: 'Network error. Please try again later.',
     supportWechatCopied: 'Support WeChat ID copied',
     copyFailed: 'Copy failed. Please copy it manually.',
-    registerSuccess: 'Account created successfully. Please sign in.',
+    registerSuccess: 'Account created successfully.',
+    saveGuestMailboxNotice: 'Sign in or create an account to save your current guest mailbox.',
     resetSuccess: 'Password reset successfully. Please sign in with your new password.'
   },
   home: {
@@ -184,6 +186,8 @@ const en = {
     claiming: 'Claiming...',
     createMailbox: 'Create mailbox',
     freeClaimMailbox: 'Free claim',
+    createAnotherGuestMailbox: 'Create another',
+    guestMailboxLimitReached: 'Daily limit reached',
     freeGenerate: 'Free generate',
     customGenerate: 'Custom generate',
     customGenerateTitle: 'Custom mailbox generation',
@@ -272,6 +276,10 @@ const en = {
     guestPreviewEmailEmpty: 'No sample emails are shown here. Sign up to view real email content.',
     guestPreviewDetailHint:
       'This is preview content only. Sign up to view real email details, batch actions, and more.',
+    guestSaveTitle: 'Save this mailbox',
+    guestSaveMessage: 'Sign in or create an account to keep this guest mailbox across devices.',
+    guestSaveConfirm: 'Sign in to save',
+    guestMailboxesSaved: '{count} guest mailboxes saved',
     workflowMarket: 'Workflow marketplace',
     downloadDesktop: 'Download desktop app',
     learnMore: 'Help Center',

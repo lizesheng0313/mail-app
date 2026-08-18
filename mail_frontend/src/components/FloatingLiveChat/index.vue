@@ -4,7 +4,7 @@
       <div
         v-if="visible"
         class="flex h-[min(78vh,760px)] flex-col overflow-hidden rounded-[28px] border border-primary-100 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.18)]"
-        :class="isAdmin ? 'w-[min(860px,calc(100vw-1rem))]' : 'w-[min(420px,calc(100vw-1rem))]'"
+        :class="isAdmin ? 'w-[min(720px,calc(100vw-1rem))]' : 'w-[min(420px,calc(100vw-1rem))]'"
       >
         <div class="border-b border-primary-200 bg-gradient-to-r from-primary-800 via-primary-700 to-primary-500 px-4 py-3 text-white">
           <div class="flex items-center justify-between gap-3">

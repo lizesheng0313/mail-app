@@ -3,10 +3,8 @@ import { buildWebSocketURL } from '@/services/api'
 
 // API for the independent browser workflow platform. It never calls legacy workflow endpoints.
 export const browserWorkflowApi = {
-  executionSocketUrl: (executionId) => {
-    const token = encodeURIComponent(localStorage.getItem('token') || '')
-    return buildWebSocketURL(`/browser-workflow-executions/${executionId}/ws?token=${token}`)
-  },
+  createExecutionSocketTicket: (executionId, config = {}) => api.post(`/browser-workflow-executions/${executionId}/ws-ticket`, {}, config),
+  executionSocketUrl: (executionId, ticket) => buildWebSocketURL(`/browser-workflow-executions/${executionId}/ws?ticket=${encodeURIComponent(ticket)}`),
   saveCredential: (credentialId, payload, config = {}) => api.put(`/browser-workflows/credentials/${credentialId}`, payload, config),
   list: (config = {}) => api.get('/browser-workflows', config),
   plugins: (config = {}) => api.get('/browser-workflows/plugins', config),

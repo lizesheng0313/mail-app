@@ -515,6 +515,7 @@ const panState = ref(null)
 const linkPreview = ref({ x: 0, y: 0, visible: false })
 const nodeWasDragged = ref(false)
 let executionSocket
+let executionSocketConnectVersion = 0
 const insertedRecordingGroupKeys = new Set()
 
 const nodeMenuGroups = ref(NODE_MENU_GROUPS)
@@ -2035,16 +2036,28 @@ function handleExecutionMessage(payload) {
     showMessage(payload.message || '浏览器助手已更新工作流', 'success')
   }
 }
-function connectExecutionSocket() {
+async function connectExecutionSocket() {
   closeExecutionSocket()
   if (!executionId.value) return
-  executionSocket = new WebSocket(browserWorkflowApi.executionSocketUrl(executionId.value))
+  const connectVersion = executionSocketConnectVersion
+  const targetExecutionId = executionId.value
+  try {
+    const response = await browserWorkflowApi.createExecutionSocketTicket(targetExecutionId, { suppressErrorMessage: true })
+    const ticket = String(response?.data?.ticket || '')
+    if (connectVersion !== executionSocketConnectVersion || executionId.value !== targetExecutionId) return
+    if (!ticket) throw new Error('未获取到连接票据')
+    executionSocket = new WebSocket(browserWorkflowApi.executionSocketUrl(targetExecutionId, ticket))
+  } catch {
+    showMessage('执行日志连接失败，浏览器操作不受影响', 'warning')
+    return
+  }
   executionSocket.onmessage = event => {
     try { handleExecutionMessage(JSON.parse(event.data)) } catch { /* ignore malformed push */ }
   }
   executionSocket.onerror = () => showMessage('执行日志连接中断，浏览器操作不受影响', 'warning')
 }
 function closeExecutionSocket() {
+  executionSocketConnectVersion += 1
   if (!executionSocket) return
   executionSocket.onclose = null
   executionSocket.close()

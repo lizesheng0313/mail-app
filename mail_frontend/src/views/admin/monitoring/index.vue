@@ -78,6 +78,47 @@
       </div>
 
       <div class="bg-white rounded-lg shadow-sm border p-6">
+        <div class="flex items-center justify-between mb-5">
+          <div>
+            <h3 class="text-lg font-semibold text-black">游客邮箱转化漏斗</h3>
+            <div class="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-500">
+              <span>自动创建失败 {{ guestConversionFunnel.mailbox_create_failures || 0 }} 次</span>
+              <span v-for="signal in guestConversionFunnel.signals || []" :key="signal.event_name">
+                {{ signal.label }} {{ signal.visitors || 0 }} 人
+              </span>
+            </div>
+          </div>
+          <CustomSelect
+            v-model="guestFunnelDays"
+            :options="[
+              { value: '7', label: '最近7天' },
+              { value: '14', label: '最近14天' },
+              { value: '30', label: '最近30天' }
+            ]"
+            @update:modelValue="loadGuestConversionFunnel"
+          />
+        </div>
+
+        <div v-if="guestConversionFunnel.stages?.length" class="overflow-x-auto pb-2">
+          <div class="flex min-w-max items-center gap-3">
+            <template v-for="(stage, index) in guestConversionFunnel.stages" :key="stage.event_name">
+              <div class="w-40 rounded-lg border border-gray-200 bg-gray-50 p-4">
+                <p class="truncate text-xs text-gray-500">{{ stage.label }}</p>
+                <p class="mt-2 text-2xl font-bold text-black">{{ stage.visitors || 0 }}</p>
+                <p class="mt-1 text-xs text-black">
+                  {{ index === 0 ? '起始访客' : `上一步 ${stage.conversion_rate || 0}%` }}
+                </p>
+              </div>
+              <span v-if="index < guestConversionFunnel.stages.length - 1" class="text-gray-300">→</span>
+            </template>
+          </div>
+        </div>
+        <div v-else class="rounded-lg border border-dashed border-gray-200 bg-gray-50 px-4 py-8 text-center text-sm text-gray-500">
+          暂无游客转化数据
+        </div>
+      </div>
+
+      <div class="bg-white rounded-lg shadow-sm border p-6">
         <div class="flex items-center justify-between mb-4">
           <h3 class="text-lg font-semibold text-black">业务监控</h3>
           <CustomSelect
@@ -447,6 +488,7 @@ const emailActivity = ref<any>({})
 const pageAnalytics = ref<any>({})
 const geoDistribution = ref<any>({})  // 新增地理分布数据
 const businessStats = ref<any>({ summary: {}, trend: [] })
+const guestConversionFunnel = ref<any>({ stages: [], signals: [], mailbox_create_failures: 0 })
 
 // 图表参数
 const userStatsDays = ref('7')
@@ -454,6 +496,7 @@ const emailStatsDays = ref('7')
 const pageAnalyticsDays = ref('7')
 const geoMode = ref('china')  // 默认显示中国地图
 const businessStatsDays = ref('7')
+const guestFunnelDays = ref('7')
 
 // 图表实例
 const userTrendChart = ref<HTMLDivElement>()
@@ -581,6 +624,21 @@ const loadBusinessStats = async () => {
   }
 }
 
+const loadGuestConversionFunnel = async () => {
+  try {
+    const response: any = await monitoringAPI.getGuestConversionFunnel(
+      parseInt(guestFunnelDays.value)
+    )
+    if (response.code === 0) {
+      guestConversionFunnel.value = response.data
+    } else {
+      showMessage(response.message || '获取游客转化漏斗失败', 'error')
+    }
+  } catch (error) {
+    console.error('加载游客转化漏斗失败:', error)
+  }
+}
+
 const refreshOnlineCount = async () => {
   try {
     const response: any = await monitoringAPI.getOnlineCount()
@@ -681,6 +739,7 @@ const loadAllData = async () => {
       loadEmailActivity(),
       loadPageAnalytics(),
       loadBusinessStats(),
+      loadGuestConversionFunnel(),
       loadGeoDistribution(),
       preloadWorldMapData() // 预加载世界地图数据，提高切换速度
     ])
