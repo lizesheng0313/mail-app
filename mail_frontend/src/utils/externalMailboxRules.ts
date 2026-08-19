@@ -8,7 +8,7 @@ const PASSWORD_MAILBOX_CONCURRENCY_RULES = [
     key: 'ct-189',
     suffixes: ['189.cn', '21cn.com'],
     batchLoginConcurrency: 4,
-    verifyConcurrency: 4
+    verifyConcurrency: 256
   }
 ] as const
 
