@@ -20,9 +20,7 @@ use tauri::{AppHandle, Emitter};
 use tauri_plugin_updater::UpdaterExt;
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 
-const INITIAL_HISTORY_FETCH_LIMIT: usize = 2000;
-const INCREMENTAL_FETCH_LIMIT: usize = 200;
-const HISTORY_BACKFILL_THRESHOLD: usize = 100;
+const LATEST_FETCH_LIMIT: usize = 20;
 const AUTO_RECOVERY_MAX_FAILURES: u32 = 3;
 const AUTO_RECOVERY_WINDOW_MS: i64 = 30 * 60 * 1000;
 const AUTO_RECOVERY_LIMIT_MARKER: &str = "__AUTO_RECOVERY_LIMIT__::";
@@ -773,87 +771,6 @@ async fn try_smtp_verify(
     }
 }
 
-/// 根据服务端已同步数量决定本次收取窗口：
-/// - 首次/数据很少：历史回补窗口（2000）
-/// - 否则：增量窗口（200）
-async fn resolve_fetch_policy(server_url: &str, token: &str, mailbox_id: i64) -> (usize, bool) {
-    let client = match reqwest::Client::builder()
-        .timeout(Duration::from_secs(10))
-        .build()
-    {
-        Ok(client) => client,
-        Err(error) => {
-            info!("创建同步策略查询客户端失败，使用增量窗口: {}", error);
-            return (INCREMENTAL_FETCH_LIMIT, false);
-        }
-    };
-    let url = format!(
-        "{}/unified-emails/external-emails",
-        server_url.trim_end_matches('/')
-    );
-    let mailbox_id_str = mailbox_id.to_string();
-
-    let response = match client
-        .get(&url)
-        .header("Authorization", format!("Bearer {}", token))
-        .query(&[
-            ("page", "1"),
-            ("page_size", "1"),
-            ("mailbox_id", mailbox_id_str.as_str()),
-        ])
-        .send()
-        .await
-    {
-        Ok(resp) => resp,
-        Err(e) => {
-            info!("获取历史同步数量失败，使用增量窗口: {}", e);
-            return (INCREMENTAL_FETCH_LIMIT, false);
-        }
-    };
-
-    if !response.status().is_success() {
-        info!(
-            "查询历史同步数量失败(status={})，使用增量窗口",
-            response.status()
-        );
-        return (INCREMENTAL_FETCH_LIMIT, false);
-    }
-
-    let body: serde_json::Value = match response.json().await {
-        Ok(v) => v,
-        Err(e) => {
-            info!("解析历史同步数量响应失败，使用增量窗口: {}", e);
-            return (INCREMENTAL_FETCH_LIMIT, false);
-        }
-    };
-
-    if body.get("code").and_then(|v| v.as_i64()) != Some(0) {
-        info!("历史同步数量接口返回失败，使用增量窗口: {}", body);
-        return (INCREMENTAL_FETCH_LIMIT, false);
-    }
-
-    let total = body
-        .get("data")
-        .and_then(|v| v.get("pagination"))
-        .and_then(|v| v.get("total"))
-        .and_then(|v| v.as_u64())
-        .unwrap_or(0) as usize;
-
-    if total <= HISTORY_BACKFILL_THRESHOLD {
-        info!(
-            "启用历史回补策略: mailbox_id={}, total={}, limit={}, oldest_first=true",
-            mailbox_id, total, INITIAL_HISTORY_FETCH_LIMIT
-        );
-        (INITIAL_HISTORY_FETCH_LIMIT, true)
-    } else {
-        info!(
-            "启用增量策略: mailbox_id={}, total={}, limit={}, oldest_first=false",
-            mailbox_id, total, INCREMENTAL_FETCH_LIMIT
-        );
-        (INCREMENTAL_FETCH_LIMIT, false)
-    }
-}
-
 async fn load_mailbox_relogin_config(
     server_url: &str,
     token: &str,
@@ -1136,7 +1053,8 @@ pub async fn recover_and_fetch_external_mailbox(
     token: String,
     server_url: String,
 ) -> Result<FetchResult, String> {
-    let (fetch_limit, fetch_oldest) = resolve_fetch_policy(&server_url, &token, mailbox_id).await;
+    let fetch_limit = LATEST_FETCH_LIMIT;
+    let fetch_oldest = false;
     let result =
         fetch_mailbox_via_relogin_config(&server_url, &token, mailbox_id, fetch_limit, fetch_oldest)
             .await?;
@@ -1248,7 +1166,8 @@ async fn fetch_emails_inner(
     info!("收到收取邮件请求: {} ({}{}) -> {}:{}", email, final_protocol, if is_oauth2 { " XOAUTH2" } else { "" }, final_host, final_port);
     info!("密码长度: {}, token长度: {}, serverUrl: {}", password.len(), token.len(), server_url);
 
-    let (fetch_limit, fetch_oldest) = resolve_fetch_policy(&server_url, &token, mailbox_id).await;
+    let fetch_limit = LATEST_FETCH_LIMIT;
+    let fetch_oldest = false;
     let sync_cursor = load_sync_cursor(&server_url, &token, mailbox_id).await;
     info!(
         "本次本地收取策略: mailbox_id={}, limit={}, oldest_first={}",

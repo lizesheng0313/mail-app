@@ -275,7 +275,10 @@ import { formatTimestamp } from '@/utils/timeUtils'
 import { isTauri, getServerUrl } from '@/services/api'
 import { runDesktopOAuthMailboxAction } from '@/services/desktopOAuthMailbox'
 import { canDesktopSmtpSend, normalizeSmtpEmail } from '@/utils/smtpCapability'
-import { runExternalMailboxWithRelayFallback } from '@/utils/externalMailboxRelay'
+import {
+  runExternalMailboxWithRelayFallback,
+  runSerializedExternalMailboxRelayFetch
+} from '@/utils/externalMailboxRelay'
 
 const props = defineProps<{
   isSendEmailView?: boolean
@@ -858,7 +861,9 @@ const handleRefreshAction = (accountId: number) => {
 }
 
 const fetchExternalMailboxThroughRelay = async (account: any) => {
-  const response: any = await batchLoginAPI.fetchExternalMailboxOnline(account.id)
+  const response: any = await runSerializedExternalMailboxRelayFetch(account.id, () =>
+    batchLoginAPI.fetchExternalMailboxOnline(account.id)
+  )
   if (response.code !== 0) {
     throw new Error(response.message || t('externalMailbox.fetchFailed'))
   }
@@ -1004,8 +1009,9 @@ const fetchSingleMailbox = async (accountId: number) => {
       }
     } else {
       try {
-        await runExternalMailboxWithRelayFallback({
+        const fetchResult = await runExternalMailboxWithRelayFallback({
           email: account.email,
+          preferRelay: account?.relay_fetch_enabled === true,
           localAction: async () => {
             const { invoke } = await import('@tauri-apps/api/core')
             const token = localStorage.getItem('token') || ''
@@ -1026,6 +1032,12 @@ const fetchSingleMailbox = async (accountId: number) => {
           },
           relayAction: () => fetchExternalMailboxThroughRelay(account)
         })
+        if (fetchResult.source === 'relay' && account?.relay_fetch_enabled !== true) {
+          try {
+            const response: any = await batchLoginAPI.updateExternalMailboxRelayFetchMode(account.id, true)
+            if (response.code === 0) account.relay_fetch_enabled = true
+          } catch {}
+        }
         showMessage(t('externalMailbox.fetchSuccess'), 'success')
       } catch (e: any) {
         showMessage(typeof e === 'string' ? e : e.message || t('externalMailbox.fetchFailed'), 'error')

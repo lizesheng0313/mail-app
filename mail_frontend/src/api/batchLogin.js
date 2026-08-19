@@ -94,8 +94,16 @@ export const batchLoginAPI = {
     api.get('/unified-emails/external-mailboxes/fetch-all/status'),
 
   // 服务端在线收取单个外部邮箱
-  fetchExternalMailboxOnline: (mailboxId) =>
-    api.post(`/unified-emails/external-mailboxes/${mailboxId}/fetch`),
+  fetchExternalMailboxOnline: (mailboxId, requestConfig = {}) =>
+    api.post(`/unified-emails/external-mailboxes/${mailboxId}/fetch`, {}, requestConfig),
+
+  // 记录桌面端账号是否固定使用国内服务端收信
+  updateExternalMailboxRelayFetchMode: (mailboxId, enabled) =>
+    api.post(
+      `/unified-emails/external-mailboxes/${mailboxId}/relay-fetch-mode`,
+      { enabled },
+      { suppressErrorMessage: true }
+    ),
 
   // 获取统计信息
   getStats: () =>

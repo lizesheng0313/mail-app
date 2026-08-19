@@ -5,6 +5,7 @@ import { getServerUrl, isTauri } from '@/services/api'
 import {
   createExternalMailboxFailure,
   runExternalMailboxWithRelayFallback,
+  runSerializedExternalMailboxRelayFetch,
   verifyExternalMailboxThroughRelay
 } from '@/utils/externalMailboxRelay'
 import { canDesktopSmtpSend, normalizeSmtpEmail } from '@/utils/smtpCapability'
@@ -289,6 +290,7 @@ const executeDesktopExternalMailboxFetch = async (argumentsValue: Record<string,
 
     const fetchResult = await runExternalMailboxWithRelayFallback<any>({
       email,
+      preferRelay: account?.relay_fetch_enabled === true,
       localAction: () => tauriInvoke('fetch_emails', {
         mailboxId: resolvedMailboxId,
         email,
@@ -303,7 +305,10 @@ const executeDesktopExternalMailboxFetch = async (argumentsValue: Record<string,
         proxy: runtimeProxy
       }),
       relayAction: async () => {
-        const response: any = await batchLoginAPI.fetchExternalMailboxOnline(resolvedMailboxId)
+        const response: any = await runSerializedExternalMailboxRelayFetch(
+          resolvedMailboxId,
+          () => batchLoginAPI.fetchExternalMailboxOnline(resolvedMailboxId)
+        )
         if (response.code !== 0) {
           throw new Error(response.message || '国内线路收取失败')
         }
@@ -314,6 +319,11 @@ const executeDesktopExternalMailboxFetch = async (argumentsValue: Record<string,
         }
       }
     })
+    if (fetchResult.source === 'relay' && account?.relay_fetch_enabled !== true) {
+      try {
+        await batchLoginAPI.updateExternalMailboxRelayFetchMode(resolvedMailboxId, true)
+      } catch {}
+    }
     result = fetchResult.result
   }
 

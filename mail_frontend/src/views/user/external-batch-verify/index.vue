@@ -304,7 +304,7 @@ const verifyPasswordMailboxWithRelay = async (options: {
   verifySmtp: boolean
   proxy?: any
 }) => {
-  const { result } = await runExternalMailboxWithRelayFallback<any>({
+  const { source, result } = await runExternalMailboxWithRelayFallback<any>({
     email: options.email,
     localAction: async () => {
       const localResult: any = await options.tauriInvoke('add_external_mailbox', {
@@ -328,7 +328,10 @@ const verifyPasswordMailboxWithRelay = async (options: {
       verifySmtp: options.verifySmtp
     })
   })
-  return result
+  return {
+    ...result,
+    relay_fetch_enabled: isDesktop && source === 'relay'
+  }
 }
 
 const proxySelectOptions = computed(() => {
@@ -704,6 +707,7 @@ const buildLiveResultItem = (item: any) => ({
   email: item.email,
   protocol: item.resolved_protocol || item.protocol || item.input_protocol || '',
   resolved_protocol: item.resolved_protocol || null,
+  relay_fetch_enabled: item.relay_fetch_enabled === true,
   smtp_checked: isSmtpChecked(item),
   smtp_verified: item.smtp_verified === true,
   status: item.verify_status === 'success' ? 'success' : item.verify_status === 'failed' ? 'error' : 'pending',
@@ -932,6 +936,7 @@ const runImportedVerification = async (importedItems: any[], batchNo: string, pr
                 currentLiveItem.status = 'success'
                 currentLiveItem.protocol = String(result?.protocol || protocol || 'auto').toLowerCase()
                 currentLiveItem.resolved_protocol = String(result?.protocol || protocol || 'auto').toLowerCase()
+                currentLiveItem.relay_fetch_enabled = result?.relay_fetch_enabled === true
                 currentLiveItem.smtp_checked = isSmtpChecked(result)
                 currentLiveItem.smtp_verified = result?.smtp_verified === true
                 currentLiveItem.smtp_error = result?.smtp_error || null
@@ -949,6 +954,7 @@ const runImportedVerification = async (importedItems: any[], batchNo: string, pr
                 smtp_host: result?.smtp_host || null,
                 smtp_port: Number(result?.smtp_port || 0) || null,
                 smtp_error: result?.smtp_error || null,
+                relay_fetch_enabled: result?.relay_fetch_enabled === true,
                 verify_message: result?.message || '验号成功'
               }
             }
@@ -1143,6 +1149,7 @@ const runDirectVerification = async (items: any[], selectedRuntimeProxy: any = n
               currentLiveItem.status = 'success'
               currentLiveItem.protocol = resolvedProtocol
               currentLiveItem.resolved_protocol = resolvedProtocol
+              currentLiveItem.relay_fetch_enabled = result?.relay_fetch_enabled === true
               currentLiveItem.smtp_checked = isSmtpChecked(result)
               currentLiveItem.smtp_verified = result?.smtp_verified === true
               currentLiveItem.smtp_error = result?.smtp_error || null
@@ -1163,6 +1170,7 @@ const runDirectVerification = async (items: any[], selectedRuntimeProxy: any = n
               smtp_port: Number(result?.smtp_port || 0) || null,
               smtp_checked: isSmtpChecked(result),
               smtp_verified: result?.smtp_verified === true,
+              relay_fetch_enabled: result?.relay_fetch_enabled === true,
               smtp_error: result?.smtp_error || null,
               verify_status: 'success',
               verify_message: result?.message || '验号成功',

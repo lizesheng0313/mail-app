@@ -380,7 +380,11 @@ fn pop3_fetch_sync(
                 indices.into_iter().rev().take(limit).collect()
             }
         } else {
-            select_new_uidls(uidls, &previous_uidls)
+            let mut indices = select_new_uidls(uidls, &previous_uidls);
+            if !fetch_oldest {
+                indices.reverse();
+            }
+            indices
         }
     } else if total == 0 {
         Vec::new()
@@ -393,7 +397,7 @@ fn pop3_fetch_sync(
         (1..=total).collect()
     };
 
-    // 增量按最小序号开始，达到单次上限时下次继续，不跳过中间 UIDL。
+    // 每次只取当前未同步邮件中的最新一批，剩余 UIDL 留到后续继续收取。
     if !previous_uidls.is_empty() && requested_indices.len() > limit {
         requested_indices.truncate(limit);
     }
