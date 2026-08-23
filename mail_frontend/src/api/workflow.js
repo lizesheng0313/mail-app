@@ -49,6 +49,9 @@ export const workflowApi = {
     if (options.count && options.count > 1) {
       payload.count = options.count
     }
+    if (options.shareToken) {
+      payload.share_token = options.shareToken
+    }
     return api.post(`/workflows/${workflowId}/execute`, payload)
   },
 

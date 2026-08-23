@@ -60,6 +60,11 @@ const zhTW = {
     searchEmailsPlaceholder: '搜尋主旨、寄件人、內容...',
     searchResults: '找到 {count} 條結果',
     footerServiceName: '服務名稱：肥貓貓郵箱服務',
+    footerTools: '工具',
+    footerTool2fa: '2FA 驗證碼',
+    footerToolMx: 'MX 查詢',
+    footerToolSecurity: '郵件安全檢測',
+    footerToolHeader: '郵件標頭解析',
     tempMailboxFetchFailed: '取得臨時郵箱失敗',
     mailboxApplyFailed: '申請郵箱失敗',
     guestMailboxQuota: '今日 {count}/{limit}'

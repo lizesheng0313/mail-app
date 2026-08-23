@@ -809,6 +809,7 @@ const mailboxStore = useMailboxStore()
 const { t, te } = useI18n()
 
 const workflowId = computed(() => parseInt(route.params.id))
+const shareToken = computed(() => String(route.query.share_token || ''))
 const workflow = ref(null)
 const loading = ref(true)
 const canReview = ref(false)
@@ -1885,7 +1886,7 @@ const loadWorkflowDetail = async (showLoading = true) => {
   }
 
   try {
-    const res = await getWorkflowDetail(workflowId.value)
+    const res = await getWorkflowDetail(workflowId.value, shareToken.value ? { share_token: shareToken.value } : {})
 
     if (res.code === 0) {
       workflow.value = res.data
@@ -2061,7 +2062,8 @@ const executeNow = async () => {
           const purchaseResponse = await purchaseWorkflow(
             workflow.value.id,
             executionCount,
-            selectedSku.value.id
+            selectedSku.value.id,
+            shareToken.value
           )
           if (purchaseResponse.code !== 0) {
             showMessage(purchaseResponse.message || '购买失败', 'error')
@@ -2074,7 +2076,7 @@ const executeNow = async () => {
         const response = await workflowApi.executeWorkflow(
           currentWorkflowId,
           buildExecutionVariables(),
-          { count: executionCount }
+          { count: executionCount, shareToken: shareToken.value }
         )
 
         confirmDialog.value.visible = false

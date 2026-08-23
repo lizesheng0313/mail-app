@@ -60,6 +60,11 @@ const zhCN = {
     searchEmailsPlaceholder: '搜索主题、发件人、内容...',
     searchResults: '找到 {count} 条结果',
     footerServiceName: '服务名称：肥猫猫邮箱服务',
+    footerTools: '工具',
+    footerTool2fa: '2FA 验证码',
+    footerToolMx: 'MX 查询',
+    footerToolSecurity: '邮件安全检测',
+    footerToolHeader: '邮件头解析',
     tempMailboxFetchFailed: '获取临时邮箱失败',
     mailboxApplyFailed: '申请邮箱失败',
     guestMailboxQuota: '今日 {count}/{limit}'

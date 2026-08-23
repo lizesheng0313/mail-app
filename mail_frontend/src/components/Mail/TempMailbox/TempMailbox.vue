@@ -40,25 +40,52 @@
           {{ t('mail.expiresAt', { date: formatDate(mailbox.expires_at) }) }}
         </p>
       </div>
+
+      <div class="rounded-lg border border-primary-100 bg-primary-50 p-3">
+        <p class="text-sm font-medium text-primary-900">{{ t('home.guestSaveTitle') }}</p>
+        <p class="mt-1 text-xs leading-5 text-primary-800">{{ t('home.guestSaveMessage') }}</p>
+        <button
+          type="button"
+          class="mt-3 rounded-md bg-primary-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-primary-700"
+          @click="saveGuestMailbox"
+        >
+          {{ t('home.guestSaveConfirm') }}
+        </button>
+      </div>
+    </div>
+
+    <div v-else class="flex flex-1 flex-col items-center justify-center px-5 text-center">
+      <p class="text-sm text-gray-500">{{ t('mail.noMailbox') }}</p>
+      <button
+        type="button"
+        class="mt-3 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
+        :disabled="mailboxStore.loading"
+        @click="createGuestMailbox"
+      >
+        {{ mailboxStore.loading ? t('mail.loadingTempMailbox') : t('mail.createMailbox') }}
+      </button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, watch } from 'vue'
+import { computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRouter } from 'vue-router'
 import { useMailboxStore } from '@/stores/auth'
 import { useMailStore } from '@/stores/mail'
 import { mailboxAPI } from '@/api/mailbox'
 import ActionButton from '@/components/ActionButton/index.vue'
 import { showMessage } from '@/utils/message'
 import { formatTimestamp } from '@/utils/timeUtils'
+import { trackProductEvent } from '@/services/productAnalytics'
 import {
   countGuestMailboxesCreatedToday,
   GUEST_MAILBOX_DAILY_LIMIT
 } from '@/utils/guestMailboxes'
 
 const { t } = useI18n()
+const router = useRouter()
 const mailboxStore = useMailboxStore()
 const mailStore = useMailStore()
 const guestMailboxesCreatedToday = computed(() =>
@@ -83,20 +110,36 @@ const loadCurrentMailboxEmails = async () => {
   }
 }
 
-onMounted(async () => {
-  if (!mailboxStore.tempMailbox) {
-    await mailboxStore.getTempMailbox()
-  }
-})
-
 watch(
   () => mailboxStore.tempMailbox?.id,
-  () => {
+  (mailboxId) => {
     mailStore.clearEmails()
     void loadCurrentMailboxEmails()
+    if (!mailboxId) return
+
+    const promptKey = `guest_mailbox_save_entry_shown_${mailboxId}`
+    if (localStorage.getItem(promptKey) === '1') return
+    localStorage.setItem(promptKey, '1')
+    trackProductEvent('guest_save_prompt_shown')
   },
   { immediate: true }
 )
+
+const createGuestMailbox = async () => {
+  const result = await mailboxStore.getTempMailbox()
+  showMessage(
+    result.success ? t('home.allocateMailboxSuccess') : result.error || t('home.allocateMailboxFailed'),
+    result.success ? 'success' : 'error'
+  )
+}
+
+const saveGuestMailbox = () => {
+  trackProductEvent('guest_save_prompt_confirmed')
+  router.push({
+    path: '/login',
+    query: { mode: 'register', save_guest: '1', redirect: '/' }
+  })
+}
 
 const copy = async (text: string) => {
   try {

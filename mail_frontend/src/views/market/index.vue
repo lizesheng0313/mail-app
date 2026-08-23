@@ -36,7 +36,7 @@
 
     <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
       <div class="mb-5 flex items-center justify-between">
-        <h2 class="text-xl font-bold text-slate-950">{{ activeCategoryTitle }}</h2>
+        <h2 class="text-xl font-bold text-slate-950">{{ sharedStoreName ? `${sharedStoreName}的店铺` : activeCategoryTitle }}</h2>
         <div class="hidden text-sm text-slate-500 sm:block">
           {{ total || workflows.length }} 个结果
         </div>
@@ -141,11 +141,13 @@
 
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
-import { getMarketWorkflows } from '@/api/workflowMarket'
+import { useRoute, useRouter } from 'vue-router'
+import { getMarketShare, getMarketWorkflows } from '@/api/workflowMarket'
 import PageHeader from '@/components/PageHeader/index.vue'
 
 const router = useRouter()
+const route = useRoute()
+const shareToken = computed(() => String(route.query.share_token || ''))
 
 const categoryTree = [
   {
@@ -305,6 +307,7 @@ const loading = ref(false)
 const page = ref(1)
 const pageSize = ref(18)
 const total = ref(0)
+const sharedStoreName = ref('')
 
 const primaryCategories = computed(() => categoryTree)
 
@@ -469,6 +472,18 @@ const loadWorkflows = async () => {
   loading.value = true
 
   try {
+    if (shareToken.value) {
+      const shareResponse = await getMarketShare(shareToken.value)
+      if (shareResponse.code !== 0) throw new Error(shareResponse.message || '分享链接无效')
+      const shareData = shareResponse.data || {}
+      sharedStoreName.value = shareData.store_name || ''
+      workflows.value = shareData.share_type === 'product'
+        ? (shareData.workflow ? [shareData.workflow] : [])
+        : (shareData.items || [])
+      total.value = shareData.total || workflows.value.length
+      return
+    }
+    sharedStoreName.value = ''
     let minPrice = null
     let maxPrice = null
     if (filters.value.priceRange) {
@@ -545,7 +560,8 @@ const changePage = (newPage) => {
 }
 
 const viewResource = (resource) => {
-  router.push(resource.detail_path || `/market/workflow/${resource.id}`)
+  const target = resource.detail_path || `/market/workflow/${resource.id}`
+  router.push(shareToken.value ? `${target}${target.includes('?') ? '&' : '?'}share_token=${encodeURIComponent(shareToken.value)}` : target)
 }
 
 const handleCardImageError = (event) => {

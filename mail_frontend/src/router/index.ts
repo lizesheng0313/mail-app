@@ -519,11 +519,12 @@ const router = createRouter({
         component: UserEmailReachUnsubscribes
       },
       {
-          path: 'external-batch-verify',
-          name: 'user-external-batch-verify',
-          component: UserExternalBatchVerify
-        },
-        {
+        path: 'external-batch-verify',
+        name: 'user-external-batch-verify',
+        component: UserExternalBatchVerify,
+        meta: { keepAlive: true }
+      },
+      {
           path: 'external-bulk-send',
           name: 'user-external-bulk-send',
           component: UserExternalBulkSend

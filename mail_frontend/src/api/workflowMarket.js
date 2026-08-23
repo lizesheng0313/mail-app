@@ -13,8 +13,8 @@ export function getMarketWorkflows(params) {
 /**
  * 获取工作流详情 (从token自动获取user_id)
  */
-export function getWorkflowDetail(workflowId) {
-  return api.get(`/workflow-market/workflows/${workflowId}`)
+export function getWorkflowDetail(workflowId, params = {}) {
+  return api.get(`/workflow-market/workflows/${workflowId}`, { params })
 }
 
 export function getWorkflowAdminPriceTable(workflowId, params = {}) {
@@ -78,12 +78,25 @@ export function republishWorkflow(workflowId) {
 /**
  * 购买工作流 (从token自动获取user_id)
  */
-export function purchaseWorkflow(workflowId, quantity = 1, selectedSkuId = '') {
+export function purchaseWorkflow(workflowId, quantity = 1, selectedSkuId = '', shareToken = '') {
   const params = {
     quantity,
-    ...(selectedSkuId ? { selected_sku_id: selectedSkuId } : {})
+    ...(selectedSkuId ? { selected_sku_id: selectedSkuId } : {}),
+    ...(shareToken ? { share_token: shareToken } : {})
   }
   return api.post(`/workflow-market/workflows/${workflowId}/purchase`, null, { params })
+}
+
+export function createWorkflowShare(workflowId) {
+  return api.post(`/workflow-market/workflows/${workflowId}/share`)
+}
+
+export function createStoreShare() {
+  return api.post('/workflow-market/my/store/share')
+}
+
+export function getMarketShare(shareToken) {
+  return api.get(`/workflow-market/shares/${encodeURIComponent(shareToken)}`)
 }
 
 /**

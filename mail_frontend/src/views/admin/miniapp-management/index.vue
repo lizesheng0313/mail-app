@@ -106,6 +106,16 @@
           </div>
 
           <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">激励视频广告位 ID</label>
+            <BaseInput
+              v-model="formData.rewarded_video_ad_unit_id"
+              type="text"
+              placeholder="adunit-xxxxxxxxxxxxxxxx"
+            />
+            <p class="text-xs text-gray-500 mt-1">在微信公众平台流量主的广告位管理中创建激励视频广告后填写</p>
+          </div>
+
+          <div>
             <label class="block text-sm font-medium text-gray-700 mb-2">描述</label>
             <BaseTextarea
               v-model="formData.description"
@@ -169,6 +179,7 @@ interface Miniapp {
   id: number
   title: string
   appid: string
+  rewarded_video_ad_unit_id: string
   description: string
   enabled: boolean
   created_at: number
@@ -183,6 +194,7 @@ const formData = ref({
   title: '',
   appid: '',
   secret: '',
+  rewarded_video_ad_unit_id: '',
   description: '',
   enabled: true
 })
@@ -212,6 +224,7 @@ const openAddModal = () => {
     title: '',
     appid: '',
     secret: '',
+    rewarded_video_ad_unit_id: '',
     description: '',
     enabled: true
   }
@@ -225,6 +238,7 @@ const openEditModal = (item: Miniapp) => {
     title: item.title,
     appid: item.appid,
     secret: '',
+    rewarded_video_ad_unit_id: item.rewarded_video_ad_unit_id || '',
     description: item.description,
     enabled: item.enabled
   }
@@ -251,6 +265,7 @@ const saveItem = async () => {
     const payload: any = {
       title: formData.value.title,
       appid: formData.value.appid,
+      rewarded_video_ad_unit_id: formData.value.rewarded_video_ad_unit_id,
       description: formData.value.description,
       enabled: formData.value.enabled
     }

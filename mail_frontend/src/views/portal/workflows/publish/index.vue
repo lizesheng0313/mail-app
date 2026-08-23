@@ -82,6 +82,24 @@
             </div>
 
             <div>
+              <label class="mb-2 block text-sm font-semibold text-gray-900">展示方式 <span class="text-red-500">*</span></label>
+              <div class="grid gap-2 md:grid-cols-2">
+                <label
+                  v-for="option in marketVisibilityOptions"
+                  :key="option.value"
+                  class="flex cursor-pointer items-start rounded-lg border p-3 transition hover:bg-gray-50"
+                  :class="formData.marketVisibility === option.value ? 'border-primary-500 bg-primary-50' : 'border-gray-200'"
+                >
+                  <input v-model="formData.marketVisibility" type="radio" :value="option.value" class="mt-1 text-primary-600 focus:ring-primary-500" />
+                  <div class="ml-3">
+                    <div class="text-sm font-medium text-gray-900">{{ option.label }}</div>
+                    <p class="mt-0.5 text-xs text-gray-500">{{ option.desc }}</p>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            <div>
               <label class="mb-2 block text-sm font-semibold text-gray-900">标题 <span class="text-red-500">*</span></label>
               <input
                 v-model="formData.name"
@@ -825,6 +843,7 @@ const inferSkuPrimarySpec = (sku) => {
 // 表单数据
 const formData = ref({
   resourceType: 'workflow',
+  marketVisibility: 'public',
   name: workflowName.value || '',
   description: '',
   category: '',
@@ -843,6 +862,11 @@ const formData = ref({
   skus: [createSku()],
   longDescription: ''
 })
+
+const marketVisibilityOptions = [
+  { value: 'public', label: '公开到资源市场', desc: '所有用户都能在资源市场搜索到。' },
+  { value: 'share_only', label: '仅通过分享链接', desc: '不进入公共市场，只能通过你的商品或店铺链接打开。' }
+]
 
 const groupedSkus = computed(() => {
   const groups = new Map()
@@ -1489,6 +1513,7 @@ const handleSubmit = async () => {
   try {
     const data = {
       resource_type: formData.value.resourceType,
+      market_visibility: formData.value.marketVisibility,
       name: formData.value.name.trim(),
       description: formData.value.description.trim(),
       category: legacyCategory.value,
@@ -1630,6 +1655,7 @@ const loadWorkflowInfo = async () => {
       // 回显表单数据
       formData.value = {
         resourceType: inferResourceType(wf),
+        marketVisibility: wf.market_visibility || 'public',
         name: wf.name || workflowName.value || '',
         description: wf.description || '',
         category: wf.category || '',

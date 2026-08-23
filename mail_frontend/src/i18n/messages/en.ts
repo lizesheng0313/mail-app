@@ -60,6 +60,11 @@ const en = {
     searchEmailsPlaceholder: 'Search subjects, senders, content...',
     searchResults: '{count} results',
     footerServiceName: 'Service: FeiMao Mail',
+    footerTools: 'Tools',
+    footerTool2fa: '2FA Code',
+    footerToolMx: 'MX Lookup',
+    footerToolSecurity: 'Email Security Check',
+    footerToolHeader: 'Email Header Parser',
     tempMailboxFetchFailed: 'Failed to get temporary mailbox',
     mailboxApplyFailed: 'Failed to apply for mailbox',
     guestMailboxQuota: 'Today {count}/{limit}'

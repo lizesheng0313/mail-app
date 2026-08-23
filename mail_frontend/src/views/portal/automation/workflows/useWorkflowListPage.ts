@@ -2,7 +2,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { workflowApi } from '@/api/workflow'
-import { republishWorkflow, unpublishWorkflow } from '@/api/workflowMarket'
+import { createStoreShare, createWorkflowShare, republishWorkflow, unpublishWorkflow } from '@/api/workflowMarket'
 import { showMessage } from '@/utils/message'
 
 type WorkflowItem = Record<string, any>
@@ -248,9 +248,14 @@ export function useWorkflowListPage() {
     }
 
     try {
+      const shareResponse = await createWorkflowShare(workflow.id)
+      if (shareResponse.code !== 0 || !shareResponse.data?.share_token) {
+        throw new Error(shareResponse.message || '分享链接创建失败')
+      }
       const routeLocation = router.resolve({
         name: 'workflow-detail',
-        params: { id: workflow.id }
+        params: { id: workflow.id },
+        query: { share_token: shareResponse.data.share_token }
       })
       const shareUrl = new URL(routeLocation.href, window.location.origin).toString()
       await copyText(shareUrl)
@@ -258,6 +263,24 @@ export function useWorkflowListPage() {
     } catch (error) {
       console.error('复制资源分享链接失败:', error)
       showMessage(t('workflowList.shareCopyFailed'), 'error')
+    }
+  }
+
+  const handleShareStore = async () => {
+    try {
+      const response = await createStoreShare()
+      if (response.code !== 0 || !response.data?.share_token) {
+        throw new Error(response.message || '店铺链接创建失败')
+      }
+      const routeLocation = router.resolve({
+        name: 'workflow-market',
+        query: { share_token: response.data.share_token }
+      })
+      await copyText(new URL(routeLocation.href, window.location.origin).toString())
+      showMessage('店铺分享链接已复制', 'success')
+    } catch (error) {
+      console.error('复制店铺分享链接失败:', error)
+      showMessage(error instanceof Error ? error.message : '店铺分享链接创建失败', 'error')
     }
   }
 
@@ -449,6 +472,7 @@ export function useWorkflowListPage() {
     handlePublish,
     handleRepublish,
     handleShareWorkflow,
+    handleShareStore,
     handleUnpublish,
     handleWorkflowCreated,
     handleWorkflowUpdated,

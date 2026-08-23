@@ -6,7 +6,7 @@
         <div class="flex justify-between items-center">
           <div>
             <h2 class="text-xl font-semibold text-gray-900">视频激励配置</h2>
-            <p class="text-sm text-gray-600 mt-1">配置小程序工作流和视频奖励规则</p>
+            <p class="text-sm text-gray-600 mt-1">为已发布的资源单独开启“看视频获取”</p>
           </div>
           <button
             @click="openAddModal"
@@ -29,8 +29,8 @@
           <tr>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">小程序</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">工作流</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">奖励类型</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">奖励资源</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">奖励规格</th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">所需视频数</th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">奖励数量</th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
@@ -45,11 +45,7 @@
               <div>{{ item.workflow_name }}</div>
               <div class="text-xs text-gray-500">ID: {{ item.workflow_id }}</div>
             </td>
-            <td class="px-6 py-4 whitespace-nowrap">
-              <span :class="getRewardTypeClass(item.reward_type)" class="px-2 py-1 text-xs rounded-full">
-                {{ getRewardTypeName(item.reward_type) }}
-              </span>
-            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{{ item.selected_sku_name || '默认规格' }}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ item.videos_required }}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ item.reward_amount }}</td>
             <td class="px-6 py-4 whitespace-nowrap">
@@ -98,26 +94,23 @@
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">选择工作流 *</label>
+          <label class="block text-sm font-medium text-gray-700 mb-2">选择奖励资源 *</label>
           <CustomSelect
             v-model="formData.workflow_id"
             :options="workflowOptions"
             placeholder="请选择"
           />
+          <p class="text-xs text-gray-500 mt-1">这里只显示已发布且支持视频奖励交付的资源</p>
         </div>
 
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">奖励类型 *</label>
+        <div v-if="skuOptions.length > 0">
+          <label class="block text-sm font-medium text-gray-700 mb-2">奖励规格</label>
           <CustomSelect
-            v-model="formData.reward_type"
-            :options="rewardTypeOptions"
-            placeholder="请选择"
+            v-model="formData.selected_sku_id"
+            :options="skuOptions"
+            placeholder="默认规格"
           />
-          <p class="text-xs text-gray-500 mt-1">
-            <span v-if="formData.reward_type === 'quota'">用户可用于创建临时邮箱的配额</span>
-            <span v-if="formData.reward_type === 'mailbox'">直接兑换工作流生成的邮箱账号</span>
-            <span v-if="formData.reward_type === 'milk_coin'">平台虚拟货币</span>
-          </p>
+          <p class="text-xs text-gray-500 mt-1">用户看完要求次数后，只会获得这里指定的规格</p>
         </div>
 
         <div class="grid grid-cols-2 gap-4">
@@ -140,11 +133,7 @@
               min="1"
               placeholder="例如：1"
             />
-            <p class="text-xs text-gray-500 mt-1">
-              <span v-if="formData.reward_type === 'quota'">获得的配额数量</span>
-              <span v-if="formData.reward_type === 'mailbox'">获得的邮箱数量</span>
-              <span v-if="formData.reward_type === 'milk_coin'">获得的奶片数量</span>
-            </p>
+            <p class="text-xs text-gray-500 mt-1">达到要求后加入账号的资源数量</p>
           </div>
         </div>
 
@@ -198,7 +187,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { showMessage } from '@/utils/message'
 import api from '@/services/api'
 import AdminDataTable from '@/components/AdminDataTable/index.vue'
@@ -215,7 +204,8 @@ interface RewardConfig {
   miniapp_name: string
   workflow_id: number
   workflow_name: string
-  reward_type: string
+  selected_sku_id: string
+  selected_sku_name: string
   videos_required: number
   reward_amount: number
   description: string
@@ -235,18 +225,12 @@ const formData = ref({
   id: 0,
   miniapp_id: '',
   workflow_id: '',
-  reward_type: 'quota',
+  selected_sku_id: '',
   videos_required: 1,
   reward_amount: 1,
   description: '',
   enabled: true
 })
-
-const rewardTypeOptions = [
-  { value: 'quota', label: '邮箱配额' },
-  { value: 'mailbox', label: '邮箱账号' },
-  { value: 'milk_coin', label: '奶片' }
-]
 
 const miniappOptions = computed(() => 
   miniapps.value.map(app => ({ value: app.id.toString(), label: app.title }))
@@ -256,14 +240,30 @@ const workflowOptions = computed(() =>
   workflows.value.map(wf => ({ value: wf.id.toString(), label: `${wf.name} (ID: ${wf.id})` }))
 )
 
+const selectedWorkflow = computed(() =>
+  workflows.value.find((workflow) => workflow.id.toString() === formData.value.workflow_id)
+)
+
+const skuOptions = computed<Array<{ value: string; label: string }>>(() =>
+  (selectedWorkflow.value?.skus || []).map((sku: any) => ({
+    value: String(sku.id),
+    label: sku.name
+  }))
+)
+
+watch([() => formData.value.workflow_id, skuOptions], ([, options]) => {
+  if (!options.length) {
+    formData.value.selected_sku_id = ''
+    return
+  }
+  if (!options.some((option) => option.value === formData.value.selected_sku_id)) {
+    formData.value.selected_sku_id = options[0].value
+  }
+}, { flush: 'post' })
+
 onMounted(() => {
   fetchList()
-  fetchMiniapps()
-  
-  // 延迟加载工作流列表
-  setTimeout(() => {
-    fetchWorkflows()
-  }, 500)
+  fetchOptions()
 })
 
 const fetchList = async () => {
@@ -280,29 +280,19 @@ const fetchList = async () => {
   }
 }
 
-const fetchMiniapps = async () => {
+const fetchOptions = async () => {
   try {
-    const response = await api.get('/admin/miniapp/list')
+    const response = await api.get('/admin/miniapp-reward/options')
     if (response.code === 0) {
-      miniapps.value = (response.data || []).filter((item: any) => item.enabled)
-    } else {
-      showMessage(response.message || '获取小程序列表失败', 'error')
-    }
-  } catch (error: any) {
-    console.error('获取小程序列表失败:', error)
-    showMessage(error.response?.data?.message || '获取小程序列表失败', 'error')
-  }
-}
-
-const fetchWorkflows = async () => {
-  try {
-    const response = await api.get('/workflows/', { params: { all: true } })
-    if (response.code === 0) {
+      miniapps.value = response.data?.miniapps || []
       workflows.value = response.data?.workflows || []
+    } else {
+      showMessage(response.message || '获取配置选项失败', 'error')
     }
   } catch (error: any) {
-    // 静默失败，不影响页面
+    console.error('获取配置选项失败:', error)
     workflows.value = []
+    showMessage(error.response?.data?.message || '获取配置选项失败', 'error')
   }
 }
 
@@ -312,7 +302,7 @@ const openAddModal = () => {
     id: 0,
     miniapp_id: '',
     workflow_id: '',
-    reward_type: 'quota',
+    selected_sku_id: '',
     videos_required: 1,
     reward_amount: 1,
     description: '',
@@ -327,7 +317,7 @@ const openEditModal = (item: RewardConfig) => {
     id: item.id,
     miniapp_id: item.miniapp_id.toString(),
     workflow_id: item.workflow_id.toString(),
-    reward_type: item.reward_type,
+    selected_sku_id: item.selected_sku_id || '',
     videos_required: item.videos_required,
     reward_amount: item.reward_amount,
     description: item.description,
@@ -356,7 +346,7 @@ const saveItem = async () => {
     const payload = {
       miniapp_id: parseInt(formData.value.miniapp_id),
       workflow_id: parseInt(formData.value.workflow_id),
-      reward_type: formData.value.reward_type,
+      selected_sku_id: formData.value.selected_sku_id,
       videos_required: formData.value.videos_required,
       reward_amount: formData.value.reward_amount,
       description: formData.value.description,
@@ -427,21 +417,4 @@ const handleDelete = async () => {
   }
 }
 
-const getRewardTypeName = (type: string) => {
-  const names: Record<string, string> = {
-    quota: '邮箱配额',
-    mailbox: '邮箱账号',
-    milk_coin: '奶片'
-  }
-  return names[type] || type
-}
-
-const getRewardTypeClass = (type: string) => {
-  const classes: Record<string, string> = {
-    quota: 'bg-blue-100 text-blue-800',
-    mailbox: 'bg-green-100 text-green-800',
-    milk_coin: 'bg-purple-100 text-purple-800'
-  }
-  return classes[type] || 'bg-gray-100 text-gray-800'
-}
 </script>
