@@ -31,6 +31,8 @@ const baseStyles = `
     font-size: 14px;
     line-height: 1.6;
     overflow-wrap: anywhere;
+    -webkit-user-select: text;
+    user-select: text;
   }
 
   *, *::before, *::after {

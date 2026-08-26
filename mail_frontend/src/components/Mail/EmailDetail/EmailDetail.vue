@@ -25,7 +25,7 @@
     </div>
 
     <!-- 邮件详情内容 -->
-    <div class="flex-1 overflow-y-auto">
+    <div class="email-copy-region flex-1 overflow-y-auto">
       <div v-if="!email" class="flex items-center justify-center h-full text-gray-400">
         <div class="text-center">
           <svg class="w-16 h-16 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

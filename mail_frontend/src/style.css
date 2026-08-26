@@ -2,18 +2,18 @@
 @tailwind components;
 @tailwind utilities;
 
-/* 桌面端禁止文本选中（更接近原生应用体验） */
+/* 桌面端界面保持原生应用体验，避免按钮、侧栏等文字被误选中 */
 body.is-tauri {
   -webkit-user-select: none;
   -moz-user-select: none;
   user-select: none;
 }
 
-/* 桌面端允许选中的区域：输入框、文本域、邮件内容 */
+/* 仅允许输入区域、邮件详情和更新说明中的文本被选中 */
 body.is-tauri input,
 body.is-tauri textarea,
 body.is-tauri [contenteditable="true"],
-body.is-tauri .email-content,
+body.is-tauri .email-copy-region,
 body.is-tauri .update-notes-body {
   -webkit-user-select: text;
   -moz-user-select: text;
