@@ -14,6 +14,10 @@ export const monitoringAPI = {
   // 获取业务监控统计
   getBusinessStats: (days = 7) => api.get('/monitoring/business-stats', { params: { days } }),
 
+  // 获取第三方邮箱每日成功接入数和邮箱公司分布
+  getExternalMailboxLogins: (days = 30) =>
+    api.get('/monitoring/external-mailbox-logins', { params: { days } }),
+
   // 获取在线人数
   getOnlineCount: () => api.get('/monitoring/online-count'),
 

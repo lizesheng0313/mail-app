@@ -4,10 +4,10 @@
     <div class="flex-1 overflow-y-auto space-y-6">
       
       <!-- 爬虫监控组件 -->
-      <CrawlerMonitor ref="crawlerMonitorRef" />
+      <CrawlerMonitor v-if="monitoringSection === 'overview'" ref="crawlerMonitorRef" />
 
       <!-- 概览卡片 -->
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div v-if="monitoringSection === 'overview'" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <!-- 今日收到邮件 -->
         <div class="bg-white rounded-lg shadow-sm border p-6">
           <div class="flex items-center justify-between">
@@ -77,6 +77,7 @@
         </div>
       </div>
 
+      <template v-if="monitoringSection === 'business'">
       <div class="bg-white rounded-lg shadow-sm border p-6">
         <div class="flex items-center justify-between mb-5">
           <div>
@@ -284,8 +285,10 @@
           </table>
         </div>
       </div>
+      </template>
 
       <!-- 图表区域 -->
+      <template v-if="monitoringSection === 'overview'">
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
         <!-- 用户趋势图 -->
@@ -434,6 +437,7 @@
           暂无地理分布数据
         </div>
       </div>
+      </template>
 
     </div>
 
@@ -453,9 +457,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick, onUnmounted } from 'vue'
+import { computed, ref, onMounted, nextTick, onUnmounted, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { monitoringAPI } from '@/api/monitoring'
-import { workflowApi } from '@/api/workflow'
 import * as echarts from 'echarts'
 
 import CustomSelect from '@/components/CustomSelect/index.vue'
@@ -478,6 +482,8 @@ declare global {
 
 
 // 响应式数据
+const route = useRoute()
+const monitoringSection = computed(() => String(route.meta.monitoringSection || 'overview'))
 const loading = ref(false)
 const crawlerMonitorRef = ref()
 
@@ -729,25 +735,51 @@ const updatePvUvChart = () => {
   pvUvChart = updatePvUvTrendChart(pvUvTrendChart.value, pageAnalytics.value, pvUvChart)
 }
 
-// 加载所有数据
-const loadAllData = async () => {
+// 按子页面加载数据；运行概览同时包含访问趋势和地理分布。
+const loadCurrentSectionData = async () => {
   loading.value = true
   try {
-    await Promise.all([
-      loadOverview(),
-      loadUserStats(),
-      loadEmailActivity(),
-      loadPageAnalytics(),
-      loadBusinessStats(),
-      loadGuestConversionFunnel(),
-      loadGeoDistribution(),
-      preloadWorldMapData() // 预加载世界地图数据，提高切换速度
-    ])
+    if (monitoringSection.value === 'business') {
+      await Promise.all([loadBusinessStats(), loadGuestConversionFunnel()])
+    } else {
+      await Promise.all([
+        loadOverview(),
+        loadUserStats(),
+        loadPageAnalytics(),
+        loadGeoDistribution(),
+        preloadWorldMapData()
+      ])
+    }
   } catch (error) {
     console.error('加载数据失败:', error)
   } finally {
     loading.value = false
   }
+}
+
+const stopOnlineRefresh = () => {
+  if (onlineRefreshTimer) {
+    window.clearInterval(onlineRefreshTimer)
+    onlineRefreshTimer = null
+  }
+}
+
+const configureOnlineRefresh = () => {
+  stopOnlineRefresh()
+  if (monitoringSection.value === 'business') {
+    onlineRefreshTimer = window.setInterval(refreshOnlineCount, 15000)
+  }
+}
+
+const disposeTrafficCharts = () => {
+  userChart?.dispose()
+  mailboxChart?.dispose()
+  pvUvChart?.dispose()
+  mapChart?.dispose()
+  userChart = null
+  mailboxChart = null
+  pvUvChart = null
+  mapChart = null
 }
 
 
@@ -774,12 +806,19 @@ const handleResize = () => {
 onMounted(async () => {
   // 等待DOM完全渲染
   await nextTick()
-  await loadAllData()
-  onlineRefreshTimer = window.setInterval(() => {
-    refreshOnlineCount()
-  }, 15000)
+  await loadCurrentSectionData()
+  configureOnlineRefresh()
   // 监听窗口大小变化
   window.addEventListener('resize', handleResize)
+})
+
+watch(monitoringSection, async (_section, previousSection) => {
+  if (previousSection === 'overview') {
+    disposeTrafficCharts()
+  }
+  await nextTick()
+  await loadCurrentSectionData()
+  configureOnlineRefresh()
 })
 
 // 页面卸载时清理
@@ -787,21 +826,7 @@ onUnmounted(() => {
   // 移除窗口大小变化监听器
   window.removeEventListener('resize', handleResize)
 
-  if (userChart) {
-    userChart.dispose()
-  }
-  if (mailboxChart) {
-    mailboxChart.dispose()
-  }
-  if (pvUvChart) {
-    pvUvChart.dispose()
-  }
-  if (mapChart) {
-    mapChart.dispose()
-  }
-  if (onlineRefreshTimer) {
-    window.clearInterval(onlineRefreshTimer)
-    onlineRefreshTimer = null
-  }
+  disposeTrafficCharts()
+  stopOnlineRefresh()
 })
 </script>

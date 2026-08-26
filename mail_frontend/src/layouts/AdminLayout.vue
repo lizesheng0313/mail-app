@@ -259,16 +259,45 @@
 
           <!-- 一级菜单：系统监控 -->
           <div class="mb-2">
-            <router-link
-              to="/admin/monitoring"
-              class="flex items-center px-3 py-2 text-sm font-medium rounded-md hover:bg-gray-50 transition-colors"
-              :class="$route.path === '/admin/monitoring' ? 'bg-primary-50 text-primary-700' : 'text-gray-700 hover:text-gray-900'"
+            <button
+              @click="toggleMenu('monitoring')"
+              class="w-full flex items-center justify-between px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
+              :class="$route.path.startsWith('/admin/monitoring') ? 'bg-primary-50 text-primary-700' : ''"
             >
-              <svg class="mr-3 h-5 w-5" :class="$route.path === '/admin/monitoring' ? 'text-primary-500' : 'text-gray-400'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              <div class="flex items-center">
+                <svg class="mr-3 h-5 w-5" :class="$route.path.startsWith('/admin/monitoring') ? 'text-primary-500' : 'text-gray-400'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+                <span>系统监控</span>
+              </div>
+              <svg class="h-4 w-4 transition-transform" :class="{ 'rotate-90': expandedMenus.monitoring }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
               </svg>
-              系统监控
-            </router-link>
+            </button>
+
+            <div v-show="expandedMenus.monitoring" class="ml-8 mt-1 space-y-1">
+              <router-link
+                to="/admin/monitoring"
+                class="block px-3 py-2 text-sm rounded-md hover:bg-gray-50 transition-colors"
+                :class="$route.path === '/admin/monitoring' ? 'bg-primary-50 text-primary-700 font-medium' : 'text-gray-600 hover:text-gray-900'"
+              >
+                运行概览
+              </router-link>
+              <router-link
+                to="/admin/monitoring/business"
+                class="block px-3 py-2 text-sm rounded-md hover:bg-gray-50 transition-colors"
+                :class="$route.path === '/admin/monitoring/business' ? 'bg-primary-50 text-primary-700 font-medium' : 'text-gray-600 hover:text-gray-900'"
+              >
+                业务监控
+              </router-link>
+              <router-link
+                to="/admin/monitoring/external-mailboxes"
+                class="block px-3 py-2 text-sm rounded-md hover:bg-gray-50 transition-colors"
+                :class="$route.path === '/admin/monitoring/external-mailboxes' ? 'bg-primary-50 text-primary-700 font-medium' : 'text-gray-600 hover:text-gray-900'"
+              >
+                第三方邮箱登录
+              </router-link>
+            </div>
           </div>
         </div>
 
@@ -352,7 +381,8 @@ const expandedMenus = reactive({
   workflow: false,
   finance: false,
   miniapp: false,
-  emailReach: false
+  emailReach: false,
+  monitoring: false
 })
 
 // 切换菜单展开/收起
@@ -383,6 +413,8 @@ const autoExpandMenu = () => {
     '/admin/email-reach-settings'
   ].includes(path)) {
     expandedMenus.emailReach = true
+  } else if (path.startsWith('/admin/monitoring')) {
+    expandedMenus.monitoring = true
   }
 }
 
@@ -401,6 +433,8 @@ const pageTitle = computed(() => {
   const titles: Record<string, string> = {
     '/admin/domains': '域名管理',
     '/admin/monitoring': '系统监控',
+    '/admin/monitoring/business': '业务监控',
+    '/admin/monitoring/external-mailboxes': '第三方邮箱登录',
     '/admin/proxy': '代理管理',
     '/admin/users': '用户列表',
     '/admin/workflow-review': '工作流审核',
@@ -424,7 +458,9 @@ const pageTitle = computed(() => {
 const pageDescription = computed(() => {
   const descriptions: Record<string, string> = {
     '/admin/domains': '管理邮箱域名配置',
-    '/admin/monitoring': '实时监控系统运行状态和性能指标',
+    '/admin/monitoring': '查看系统运行状态、用户趋势、访问量和地理分布',
+    '/admin/monitoring/business': '查看业务使用、收件、分享和游客转化情况',
+    '/admin/monitoring/external-mailboxes': '查看每天成功接入的第三方邮箱和邮箱公司分布',
     '/admin/proxy': '管理付费代理配置和使用监控',
     '/admin/users': '查看和管理用户账户及代理权限',
     '/admin/workflow-review': '审核和管理工作流市场的所有工作流',

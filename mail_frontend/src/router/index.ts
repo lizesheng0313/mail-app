@@ -31,6 +31,7 @@ const TotpGeneratorTool = () => import('@/views/tools/TotpGenerator.vue')
 const AdminLayout = () => import('@/layouts/AdminLayout.vue')
 const DomainManage = () => import('@/views/admin/domain/index.vue')
 const MonitoringDashboard = () => import('@/views/admin/monitoring/index.vue')
+const ExternalMailboxMonitoring = () => import('@/views/admin/monitoring/external-mailboxes.vue')
 const AdminProxyManagement = () => import('@/views/admin/proxy-management/index.vue')
 const AdminUserManagement = () => import('@/views/admin/user-management/index.vue')
 const WorkflowReview = () => import('@/views/admin/workflow-review/index.vue')
@@ -589,7 +590,24 @@ const router = createRouter({
         {
           path: 'monitoring',
           name: 'admin-monitoring',
-          component: MonitoringDashboard
+          component: MonitoringDashboard,
+          meta: { monitoringSection: 'overview' }
+        },
+        {
+          path: 'monitoring/business',
+          name: 'admin-monitoring-business',
+          component: MonitoringDashboard,
+          meta: { monitoringSection: 'business' }
+        },
+        {
+          path: 'monitoring/external-mailboxes',
+          name: 'admin-monitoring-external-mailboxes',
+          component: ExternalMailboxMonitoring
+        },
+        {
+          path: 'monitoring/traffic',
+          name: 'admin-monitoring-traffic',
+          redirect: '/admin/monitoring'
         },
         {
           path: 'proxy',

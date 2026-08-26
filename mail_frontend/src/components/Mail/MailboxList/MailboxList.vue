@@ -59,7 +59,10 @@
       ></slot>
       
       <!-- 空状态 -->
-      <div v-if="mailboxes.length === 0" class="p-8 text-center text-gray-400">
+      <div
+        v-if="mailboxes.length === 0"
+        class="flex h-full flex-col items-center justify-center p-8 text-center text-gray-400"
+      >
         <slot name="empty">
           <svg class="w-16 h-16 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
