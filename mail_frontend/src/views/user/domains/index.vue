@@ -225,7 +225,7 @@
       :confirm-disabled="
         creatingDomain ||
         !createForm.domain_name.trim() ||
-        (createForm.admin_verification_enabled && !createForm.admin_password.trim())
+        (createForm.admin_verification_enabled && !adminQuickBindSessionToken.trim())
       "
       size="lg"
       @confirm="handleCreateDomain"
@@ -477,7 +477,8 @@
       :show-footer="true"
       :show-confirm="true"
       :show-cancel="true"
-      :confirm-disabled="!adminQuickBindPassword.trim()"
+      :confirm-loading="authorizingAdminQuickBind"
+      :confirm-disabled="authorizingAdminQuickBind || !adminQuickBindPassword.trim()"
       size="sm"
       @confirm="confirmAdminQuickBind"
       @close="closeAdminQuickBindModal"
@@ -578,6 +579,13 @@ const creatingDomain = ref(false)
 const savingEdit = ref(false)
 const refreshingDomainId = ref<number | null>(null)
 const transferringDomains = ref(false)
+const authorizingAdminQuickBind = ref(false)
+
+const ADMIN_QUICK_BIND_SESSION_KEY = 'hosted-domain-admin-quick-bind-token'
+const getStoredAdminQuickBindToken = () => {
+  if (typeof window === 'undefined') return ''
+  return window.sessionStorage.getItem(ADMIN_QUICK_BIND_SESSION_KEY) || ''
+}
 
 const searchQuery = ref('')
 const domains = ref<any[]>([])
@@ -597,7 +605,7 @@ const domainModalDetail = ref<any | null>(null)
 const selectedTransferDomainIds = ref<number[]>([])
 const transferAdminPassword = ref('')
 const adminQuickBindPassword = ref('')
-const adminQuickBindSessionPassword = ref('')
+const adminQuickBindSessionToken = ref(getStoredAdminQuickBindToken())
 
 const getNextYearTodayDateInput = () => {
   const nextYearToday = new Date()
@@ -609,15 +617,14 @@ const getNextYearTodayDateInput = () => {
 }
 
 const getDefaultCreateForm = () => {
-  const adminPassword = adminQuickBindSessionPassword.value.trim()
+  const adminSessionToken = adminQuickBindSessionToken.value.trim()
   return {
     domain_name: '',
     display_name: '',
     expires_at: getNextYearTodayDateInput(),
     catch_all_enabled: true,
     is_public: false,
-    admin_verification_enabled: Boolean(adminPassword),
-    admin_password: adminPassword
+    admin_verification_enabled: Boolean(adminSessionToken)
   }
 }
 
@@ -723,15 +730,27 @@ const closeAdminQuickBindModal = () => {
   adminQuickBindPassword.value = ''
 }
 
-const confirmAdminQuickBind = () => {
+const confirmAdminQuickBind = async () => {
   const password = adminQuickBindPassword.value.trim()
   if (!password) return
-  adminQuickBindSessionPassword.value = password
-  createForm.value = getDefaultCreateForm()
-  domainModalDetail.value = null
-  showAdminQuickBindModal.value = false
-  adminQuickBindPassword.value = ''
-  showDomainModal.value = true
+  authorizingAdminQuickBind.value = true
+  try {
+    const response: any = await hostedDomainAPI.createAdminQuickBindSession({
+      admin_password: password
+    })
+    const token = String(response.data?.token || '').trim()
+    if (response.code === 0 && token) {
+      adminQuickBindSessionToken.value = token
+      window.sessionStorage.setItem(ADMIN_QUICK_BIND_SESSION_KEY, token)
+      createForm.value = getDefaultCreateForm()
+      domainModalDetail.value = null
+      showAdminQuickBindModal.value = false
+      adminQuickBindPassword.value = ''
+      showDomainModal.value = true
+    }
+  } finally {
+    authorizingAdminQuickBind.value = false
+  }
 }
 
 const handleCreateDomain = async () => {
@@ -747,8 +766,8 @@ const handleCreateDomain = async () => {
         : undefined,
       catch_all_enabled: createForm.value.catch_all_enabled,
       is_public: createForm.value.is_public,
-      admin_password: createForm.value.admin_verification_enabled
-        ? createForm.value.admin_password.trim() || undefined
+      admin_session_token: createForm.value.admin_verification_enabled
+        ? adminQuickBindSessionToken.value.trim() || undefined
         : undefined
     })
     if (response.code === 0) {
@@ -1033,7 +1052,6 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
-  adminQuickBindSessionPassword.value = ''
   if ((window as any).feimaomao === openTransferModal) {
     delete (window as any).feimaomao
   }

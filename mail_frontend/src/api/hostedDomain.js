@@ -3,6 +3,7 @@ import api from '@/services/api'
 export const hostedDomainAPI = {
   listDomains: (params = {}) => api.get('/hosted-domains', { params }),
   getDomainDetail: (domainId) => api.get(`/hosted-domains/${domainId}`),
+  createAdminQuickBindSession: (data) => api.post('/hosted-domains/admin-quick-bind-session', data),
   createDomain: (data) => api.post('/hosted-domains', data),
   updateDomain: (domainId, data) => api.put(`/hosted-domains/${domainId}`, data),
   deleteDomain: (domainId) => api.delete(`/hosted-domains/${domainId}`),
