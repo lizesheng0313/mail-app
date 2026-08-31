@@ -597,6 +597,7 @@ const domainModalDetail = ref<any | null>(null)
 const selectedTransferDomainIds = ref<number[]>([])
 const transferAdminPassword = ref('')
 const adminQuickBindPassword = ref('')
+const adminQuickBindSessionPassword = ref('')
 
 const getNextYearTodayDateInput = () => {
   const nextYearToday = new Date()
@@ -607,15 +608,18 @@ const getNextYearTodayDateInput = () => {
   return `${year}-${month}-${day}`
 }
 
-const getDefaultCreateForm = () => ({
-  domain_name: '',
-  display_name: '',
-  expires_at: getNextYearTodayDateInput(),
-  catch_all_enabled: true,
-  is_public: false,
-  admin_verification_enabled: false,
-  admin_password: ''
-})
+const getDefaultCreateForm = () => {
+  const adminPassword = adminQuickBindSessionPassword.value.trim()
+  return {
+    domain_name: '',
+    display_name: '',
+    expires_at: getNextYearTodayDateInput(),
+    catch_all_enabled: true,
+    is_public: false,
+    admin_verification_enabled: Boolean(adminPassword),
+    admin_password: adminPassword
+  }
+}
 
 const createForm = ref({
   ...getDefaultCreateForm()
@@ -722,11 +726,8 @@ const closeAdminQuickBindModal = () => {
 const confirmAdminQuickBind = () => {
   const password = adminQuickBindPassword.value.trim()
   if (!password) return
-  createForm.value = {
-    ...getDefaultCreateForm(),
-    admin_verification_enabled: true,
-    admin_password: password
-  }
+  adminQuickBindSessionPassword.value = password
+  createForm.value = getDefaultCreateForm()
   domainModalDetail.value = null
   showAdminQuickBindModal.value = false
   adminQuickBindPassword.value = ''
@@ -751,7 +752,6 @@ const handleCreateDomain = async () => {
         : undefined
     })
     if (response.code === 0) {
-      createForm.value.admin_password = ''
       showMessage(t('domainsPage.createSuccess'), 'success')
       applyDomainDetailToModal(response.data, true)
       await loadDomains(1)
@@ -1033,6 +1033,7 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  adminQuickBindSessionPassword.value = ''
   if ((window as any).feimaomao === openTransferModal) {
     delete (window as any).feimaomao
   }
