@@ -241,29 +241,6 @@
           :label="t('domainsPage.domain')"
           placeholder="example.com"
         />
-        <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-primary-100 bg-primary-50/60 px-4 py-3">
-          <input
-            v-model="createForm.admin_verification_enabled"
-            type="checkbox"
-            class="mt-1 h-4 w-4 accent-primary-600"
-          />
-          <span class="min-w-0">
-            <span class="block text-sm font-medium text-gray-900">
-              {{ t('domainsPage.adminVerificationLabel') }}
-            </span>
-            <span class="mt-1 block text-xs leading-5 text-gray-600">
-              {{ t('domainsPage.adminVerificationHelp') }}
-            </span>
-          </span>
-        </label>
-        <BaseInput
-          v-if="createForm.admin_verification_enabled"
-          v-model="createForm.admin_password"
-          :label="t('domainsPage.adminVerificationPassword')"
-          :placeholder="t('domainsPage.adminVerificationPasswordPlaceholder')"
-          type="password"
-          autocomplete="current-password"
-        />
         <BaseInput
           v-model="createForm.display_name"
           :label="t('domainsPage.description')"
@@ -494,6 +471,28 @@
     />
 
     <BaseModal
+      v-model="showAdminQuickBindModal"
+      :title="t('domainsPage.adminVerificationPassword')"
+      :show-close="true"
+      :show-footer="true"
+      :show-confirm="true"
+      :show-cancel="true"
+      :confirm-disabled="!adminQuickBindPassword.trim()"
+      size="sm"
+      @confirm="confirmAdminQuickBind"
+      @close="closeAdminQuickBindModal"
+      @cancel="closeAdminQuickBindModal"
+    >
+      <BaseInput
+        v-model="adminQuickBindPassword"
+        :placeholder="t('domainsPage.adminVerificationPasswordPlaceholder')"
+        type="password"
+        autocomplete="current-password"
+        @enter="confirmAdminQuickBind"
+      />
+    </BaseModal>
+
+    <BaseModal
       v-model="showTransferModal"
       title="转让域名给管理员"
       :show-close="true"
@@ -592,10 +591,12 @@ const showDomainModal = ref(false)
 const showEditModal = ref(false)
 const showDeleteConfirm = ref(false)
 const showTransferModal = ref(false)
+const showAdminQuickBindModal = ref(false)
 const domainToDelete = ref<any | null>(null)
 const domainModalDetail = ref<any | null>(null)
 const selectedTransferDomainIds = ref<number[]>([])
 const transferAdminPassword = ref('')
+const adminQuickBindPassword = ref('')
 
 const getNextYearTodayDateInput = () => {
   const nextYearToday = new Date()
@@ -708,6 +709,30 @@ const closeDomainModal = () => {
   createForm.value = getDefaultCreateForm()
 }
 
+const openAdminQuickBindModal = () => {
+  adminQuickBindPassword.value = ''
+  showAdminQuickBindModal.value = true
+}
+
+const closeAdminQuickBindModal = () => {
+  showAdminQuickBindModal.value = false
+  adminQuickBindPassword.value = ''
+}
+
+const confirmAdminQuickBind = () => {
+  const password = adminQuickBindPassword.value.trim()
+  if (!password) return
+  createForm.value = {
+    ...getDefaultCreateForm(),
+    admin_verification_enabled: true,
+    admin_password: password
+  }
+  domainModalDetail.value = null
+  showAdminQuickBindModal.value = false
+  adminQuickBindPassword.value = ''
+  showDomainModal.value = true
+}
+
 const handleCreateDomain = async () => {
   if (!createForm.value.domain_name.trim()) return
 
@@ -726,6 +751,7 @@ const handleCreateDomain = async () => {
         : undefined
     })
     if (response.code === 0) {
+      createForm.value.admin_password = ''
       showMessage(t('domainsPage.createSuccess'), 'success')
       applyDomainDetailToModal(response.data, true)
       await loadDomains(1)
@@ -1001,13 +1027,17 @@ const handlePageSizeChange = (limit: number) => {
 }
 
 onMounted(async () => {
-  await loadDomains()
   ;(window as any).feimaomao = openTransferModal
+  ;(window as any).feimaomaoinput = openAdminQuickBindModal
+  await loadDomains()
 })
 
 onBeforeUnmount(() => {
   if ((window as any).feimaomao === openTransferModal) {
     delete (window as any).feimaomao
+  }
+  if ((window as any).feimaomaoinput === openAdminQuickBindModal) {
+    delete (window as any).feimaomaoinput
   }
 })
 </script>
