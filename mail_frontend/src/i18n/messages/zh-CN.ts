@@ -785,7 +785,6 @@ const zhCN = {
     adminVerificationHelp: '输入正确的管理员密码后，跳过 TXT 所有权验证，只检查 MX 是否指向当前收件服务器。普通用户不勾选时仍按 TXT + MX 验证。',
     adminVerificationPassword: '管理员密码',
     adminVerificationPasswordPlaceholder: '请输入管理员密码',
-    adminVerificationDetailHint: '该域名使用管理员快速绑定，不需要配置 TXT 记录，只需将 MX 指向当前收件服务器。',
     save: '保存',
     deleteTitle: '删除域名',
     deleteMessage: '确定要删除域名【{name}】吗？',

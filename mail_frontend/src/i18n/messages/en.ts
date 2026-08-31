@@ -819,7 +819,6 @@ const en = {
     adminVerificationHelp: 'With a valid admin password, TXT ownership verification is skipped and only the MX record is checked. Leave it unchecked for the normal TXT + MX flow.',
     adminVerificationPassword: 'Admin password',
     adminVerificationPasswordPlaceholder: 'Enter the admin password',
-    adminVerificationDetailHint: 'This domain uses admin fast binding. No TXT record is required; point the MX record to the current receiving server.',
     save: 'Save',
     deleteTitle: 'Delete Domain',
     deleteMessage: 'Delete domain [{name}]?',

@@ -320,13 +320,6 @@
             </button>
           </div>
         </div>
-        <div
-          v-if="String(domainModalDetail.domain.verification_mode || '').toLowerCase() === 'mx'"
-          class="rounded-lg border border-primary-200 bg-primary-50 px-4 py-3 text-sm leading-6 text-primary-800"
-        >
-          {{ t('domainsPage.adminVerificationDetailHint') }}
-        </div>
-
         <div>
           <h3 class="text-sm font-semibold text-black mb-3">DNS 配置</h3>
           <div class="overflow-x-auto">

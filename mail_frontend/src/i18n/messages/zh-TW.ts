@@ -784,7 +784,6 @@ const zhTW = {
     adminVerificationHelp: '輸入正確的管理員密碼後，跳過 TXT 所有權驗證，只檢查 MX 是否指向目前收件伺服器。不勾選時仍按 TXT + MX 驗證。',
     adminVerificationPassword: '管理員密碼',
     adminVerificationPasswordPlaceholder: '請輸入管理員密碼',
-    adminVerificationDetailHint: '此網域使用管理員快速綁定，不需要配置 TXT 記錄，只需將 MX 指向目前收件伺服器。',
     save: '保存',
     deleteTitle: '刪除網域',
     deleteMessage: '確定要刪除網域【{name}】嗎？',
