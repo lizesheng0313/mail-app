@@ -1700,6 +1700,7 @@ const zhTW = {
     emptyDesc: '建立您的第一個工作流來開始自動化',
     info: '工作流資訊',
     status: '狀態',
+    inventory: '庫存',
     triggers: '觸發器',
     steps: '步驟',
     actions: '操作',

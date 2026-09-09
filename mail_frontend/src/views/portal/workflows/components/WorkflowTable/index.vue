@@ -1,5 +1,5 @@
 <template>
-  <AdminDataTable :title="t('workflowList.title')" :loading="loading" :column-count="5" :scrollable="false">
+  <AdminDataTable :title="t('workflowList.title')" :loading="loading" :column-count="6" :scrollable="false">
     <template #thead>
           <tr>
             <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
@@ -7,6 +7,9 @@
             </th>
             <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
               {{ t('workflowList.status') }}
+            </th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
+              {{ t('workflowList.inventory') }}
             </th>
             <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
               {{ t('workflowList.triggers') }}
@@ -101,6 +104,24 @@
               <span v-else :class="getStatusClass(workflow.status)" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium">
                 {{ getStatusLabel(workflow.status) }}
               </span>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-black">
+              <button
+                v-if="workflow.inventory_enabled && (workflow.is_owner === 1 || workflow.is_owner === true)"
+                type="button"
+                class="inline-flex items-center gap-1.5 rounded-md border border-primary-200 bg-primary-50 px-2.5 py-1 text-primary-700 hover:bg-primary-100"
+                :title="getInventoryTooltip(workflow)"
+                @click="$emit('manage-inventory', workflow)"
+              >
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7c0 1.657 3.582 3 8 3s8-1.343 8-3m-16 0c0-1.657 3.582-3 8-3s8 1.343 8 3m-16 0v5c0 1.657 3.582 3 8 3s8-1.343 8-3V7m-16 5v5c0 1.657 3.582 3 8 3s8-1.343 8-3v-5" />
+                </svg>
+                {{ getInventoryCount(workflow) }}
+              </button>
+              <span v-else-if="workflow.inventory_enabled">
+                {{ getInventoryCount(workflow) }}
+              </span>
+              <span v-else class="text-gray-400">—</span>
             </td>
             <td class="px-6 py-4 whitespace-nowrap">
               <div class="text-sm text-black">
@@ -218,7 +239,7 @@
                   @click="$emit('export', workflow)"
                 />
                 <ActionButton
-                  v-else-if="!isProductResource(workflow)"
+                  v-else-if="workflow.inventory_enabled"
                   icon="database"
                   :tooltip="getInventoryTooltip(workflow)"
                   variant="default"
@@ -235,7 +256,7 @@
           </tr>
 
           <tr v-if="!workflows.length">
-            <td colspan="5" class="px-6 py-12 text-center text-black">
+            <td colspan="6" class="px-6 py-12 text-center text-black">
               {{ t('workflowList.emptyDesc') }}
             </td>
           </tr>
@@ -363,10 +384,15 @@ const getMarketStatusLabel = (status) => {
 }
 
 const getInventoryTooltip = (workflow) => {
-  if (!workflow.inventory_count || workflow.inventory_count <= 0) {
+  if (getInventoryCount(workflow) <= 0) {
     return t('workflowList.addInventory')
   }
-  return t('workflowList.remainingInventory', { count: workflow.inventory_count })
+  return t('workflowList.remainingInventory', { count: getInventoryCount(workflow) })
+}
+
+const getInventoryCount = (workflow) => {
+  const count = Number(workflow.inventory_count)
+  return Number.isFinite(count) ? Math.max(0, Math.trunc(count)) : 0
 }
 
 const getTriggerTypeLabel = (type) => {

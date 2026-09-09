@@ -1700,6 +1700,7 @@ const zhCN = {
     emptyDesc: '新建第一个自动化资源来开始使用',
     info: '资源信息',
     status: '状态',
+    inventory: '库存',
     triggers: '触发器',
     steps: '步骤',
     actions: '操作',

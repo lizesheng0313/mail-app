@@ -1765,6 +1765,7 @@ const en = {
     emptyDesc: 'Create your first workflow to start automating',
     info: 'Workflow',
     status: 'Status',
+    inventory: 'Inventory',
     triggers: 'Triggers',
     steps: 'Steps',
     actions: 'Actions',

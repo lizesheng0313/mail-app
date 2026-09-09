@@ -7,7 +7,7 @@
         @click.self="closeModal"
       >
         <div
-          class="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col"
+          class="email-copy-region bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col"
           @click.stop
         >
           <!-- 头部 -->
