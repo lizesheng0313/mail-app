@@ -67,7 +67,7 @@ const zhCN = {
     guestMailboxQuota: '今日 {count}/{limit}'
   },
   pageHeader: {
-    siteName: '肥猫猫邮箱服务',
+    siteName: '肥猫猫邮箱',
     temporaryMailbox: '临时邮箱',
     myAssets: '我的资源',
     resourceMarket: '资源市场',

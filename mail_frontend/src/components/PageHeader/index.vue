@@ -2,14 +2,14 @@
   <div>
     <!-- 顶部导航 -->
     <nav class="fixed inset-x-0 top-0 z-[70] bg-white shadow-sm border-b border-gray-200 mobile-nav">
-      <div class="page-header-shell">
+      <div class="page-header-shell site-header-inline-padding">
         <div class="flex h-[54px] items-center justify-between">
           <div class="flex shrink-0 items-center">
             <router-link
               to="/"
               class="flex items-center hover:opacity-80 transition-opacity"
             >
-              <h1 class="text-base sm:text-xl font-semibold text-black">{{ t('pageHeader.siteName') }}</h1>
+              <h1 class="text-base font-semibold text-black">{{ t('pageHeader.siteName') }}</h1>
             </router-link>
           </div>
           <div class="flex min-w-0 flex-1 items-center justify-end gap-3 sm:gap-6">
@@ -52,8 +52,6 @@ const userStore = useUserStore()
 .page-header-shell {
   max-width: none;
   margin: 0 auto;
-  padding-left: 1rem;
-  padding-right: 1rem;
   width: 100%;
 }
 
@@ -63,34 +61,6 @@ const userStore = useUserStore()
 
 .header-public-navigation::-webkit-scrollbar {
   display: none;
-}
-
-@media (min-width: 640px) {
-  .page-header-shell {
-    padding-left: 1.5rem;
-    padding-right: 1.5rem;
-  }
-}
-
-@media (min-width: 1024px) {
-  .page-header-shell {
-    padding-left: 2rem;
-    padding-right: 2rem;
-  }
-}
-
-@media (min-width: 1440px) {
-  .page-header-shell {
-    padding-left: 2.5rem;
-    padding-right: 2.5rem;
-  }
-}
-
-@media (min-width: 1920px) {
-  .page-header-shell {
-    padding-left: clamp(2rem, 2.5vw, 3.25rem);
-    padding-right: clamp(2rem, 2.5vw, 3.25rem);
-  }
 }
 
 .line-clamp-2 {

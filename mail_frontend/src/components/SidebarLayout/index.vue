@@ -9,8 +9,11 @@
     >
       <!-- 头部Logo -->
       <div
-        class="flex items-center border-b border-gray-200 px-4 transition-colors"
-        :class="sidebarCollapsed && hideBrandIcon ? 'justify-start' : 'justify-between'"
+        class="flex items-center border-b border-gray-200 transition-colors"
+        :class="[
+          sidebarCollapsed ? 'px-4' : 'site-header-inline-padding',
+          sidebarCollapsed && hideBrandIcon ? 'justify-start' : 'justify-between'
+        ]"
         style="height: 54px;"
       >
         <router-link
@@ -37,7 +40,7 @@
           </div>
           <h1
             v-if="!sidebarCollapsed && title"
-            class="truncate text-lg font-semibold text-gray-900"
+            class="truncate text-base font-semibold text-black"
             :class="hideBrandIcon ? '' : 'ml-3'"
           >
             {{ title }}

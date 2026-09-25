@@ -2,6 +2,35 @@
 @tailwind components;
 @tailwind utilities;
 
+/* 首页导航与工作台品牌共用左侧起点，切换页面时不横向跳动。 */
+.site-header-inline-padding {
+  padding-inline: 1rem;
+}
+
+@media (min-width: 640px) {
+  .site-header-inline-padding {
+    padding-inline: 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .site-header-inline-padding {
+    padding-inline: 2rem;
+  }
+}
+
+@media (min-width: 1440px) {
+  .site-header-inline-padding {
+    padding-inline: 2.5rem;
+  }
+}
+
+@media (min-width: 1920px) {
+  .site-header-inline-padding {
+    padding-inline: clamp(2rem, 2.5vw, 3.25rem);
+  }
+}
+
 /* 桌面端界面保持原生应用体验，避免按钮、侧栏等文字被误选中 */
 body.is-tauri {
   -webkit-user-select: none;

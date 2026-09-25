@@ -67,7 +67,7 @@ const zhTW = {
     guestMailboxQuota: '今日 {count}/{limit}'
   },
   pageHeader: {
-    siteName: '肥貓貓郵箱服務',
+    siteName: '肥貓貓郵箱',
     temporaryMailbox: '臨時郵箱',
     myAssets: '我的資源',
     resourceMarket: '資源市場',

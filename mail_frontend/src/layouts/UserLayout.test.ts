@@ -65,8 +65,12 @@ describe('User workspace navigation', () => {
   it('shows the brand as the home link without a duplicate mailbox title', async () => {
     const { wrapper } = await createWorkbench('/user/mailboxes/external')
     expect(wrapper.get('header').attributes('style')).toContain('height: 54px')
-    expect(wrapper.get('a[href="/"] h1').text()).toBe('workspace.brandName')
-    expect(wrapper.get('a[href="/"]').attributes('aria-label')).toBe('workspace.brandName')
+    expect(wrapper.get('a[href="/"] h1').text()).toBe('pageHeader.siteName')
+    expect(wrapper.get('a[href="/"]').element.parentElement?.classList.contains('site-header-inline-padding')).toBe(true)
+    expect(wrapper.get('a[href="/"]').attributes('aria-label')).toBe('pageHeader.siteName')
+    expect(wrapper.get('a[href="/"] h1').classes()).toEqual(
+      expect.arrayContaining(['text-base', 'font-semibold', 'text-black'])
+    )
     expect(wrapper.find('header h1').exists()).toBe(false)
     await wrapper.get('button[aria-label="收起菜单"]').trigger('click')
     const expandButton = wrapper.get('button[aria-label="展开菜单"]')

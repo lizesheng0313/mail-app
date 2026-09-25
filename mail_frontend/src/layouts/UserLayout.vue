@@ -1,6 +1,6 @@
 <template>
   <SidebarLayout
-    :title="t('workspace.brandName')"
+    :title="t('pageHeader.siteName')"
     :logo-icon="UserIcon"
     :hide-brand-icon="true"
     :menu-sections="menuSections"

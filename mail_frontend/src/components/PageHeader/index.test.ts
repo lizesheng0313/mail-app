@@ -35,7 +35,11 @@ describe('public page workbench entry', () => {
   it('stays visible on public pages and opens the guest mailbox for visitors', async () => {
     const { router, wrapper } = await mountHeader()
     expect(wrapper.get('.page-header-shell > div').classes()).toContain('h-[54px]')
+    expect(wrapper.get('.page-header-shell').classes()).toContain('site-header-inline-padding')
     expect(wrapper.findAll('.h-\\[54px\\]')).toHaveLength(2)
+    expect(wrapper.get('nav h1').classes()).toEqual(
+      expect.arrayContaining(['text-base', 'font-semibold', 'text-black'])
+    )
     const workbench = wrapper.get('a[href="/"][class*="whitespace-nowrap"]')
     expect(workbench.text()).toBe('pageHeader.workspace')
     expect(wrapper.findAll('a[href="/"]')).toHaveLength(2)
