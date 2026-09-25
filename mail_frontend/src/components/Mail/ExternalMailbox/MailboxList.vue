@@ -16,8 +16,9 @@
     @batch-mode-start="$emit('batch-mode-start')"
     @search="handleSearch"
   >
-    <template v-if="!isSendEmailView" #header-actions>
-      <div class="relative">
+    <template #header-actions>
+      <slot name="header-actions"></slot>
+      <div v-if="!isSendEmailView" class="relative">
         <button
           type="button"
           class="inline-flex h-7 items-center justify-center gap-1 rounded-md bg-transparent px-2 text-xs font-medium text-primary-600 transition-colors hover:bg-primary-50 hover:text-primary-700"

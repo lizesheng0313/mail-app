@@ -1,8 +1,8 @@
 <template>
-  <div class="flex min-h-screen flex-col bg-gray-50 text-gray-900">
-    <PageHeader />
+  <div :class="['flex flex-col bg-gray-50 text-gray-900', embedded ? '' : 'min-h-screen']">
+    <PageHeader v-if="!embedded" />
 
-    <main class="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:px-8">
+    <main :class="['w-full flex-1', embedded ? '' : 'mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8']">
       <section class="rounded-2xl bg-white px-5 py-5 shadow-sm ring-1 ring-gray-200 sm:px-7 sm:py-6">
         <div class="flex items-start gap-4">
           <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-50 text-primary-600">
@@ -25,7 +25,7 @@
       </section>
     </main>
 
-    <PageFooter />
+    <PageFooter v-if="!embedded" />
   </div>
 </template>
 
@@ -36,5 +36,6 @@ import PageHeader from '@/components/PageHeader/index.vue'
 defineProps<{
   title: string
   description: string
+  embedded?: boolean
 }>()
 </script>

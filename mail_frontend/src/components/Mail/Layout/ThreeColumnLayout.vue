@@ -1,7 +1,7 @@
 <template>
-  <div :class="[pageScrollable ? 'min-h-screen' : 'h-screen', 'bg-gray-50 flex flex-col']">
+  <div :class="[embedded ? 'h-full min-h-0 mail-layout--embedded' : (pageScrollable ? 'min-h-screen' : 'h-screen'), 'bg-gray-50 flex flex-col']">
     <!-- 顶部header -->
-    <slot name="header">
+    <slot v-if="!embedded" name="header">
       <PageHeader />
     </slot>
 
@@ -9,24 +9,25 @@
     <div
       :class="[
         'w-full py-3 flex-1 flex flex-col',
-        compactPanels ? 'overflow-hidden' : (pageScrollable ? 'overflow-y-visible' : 'overflow-y-auto md:overflow-hidden')
+        pageScrollable ? '' : 'min-h-0',
+        compactPanels ? 'overflow-hidden' : (pageScrollable ? 'overflow-y-visible' : 'overflow-y-auto lg:overflow-hidden')
       ]"
     >
       <!-- 顶部工具栏 -->
-      <div :class="['mail-layout-safe mb-3', workspaceMode ? 'mail-layout-safe--workspace' : '']">
+      <div v-if="$slots.toolbar" :class="['mail-layout-safe mb-3 shrink-0', workspaceMode ? 'mail-layout-safe--workspace' : '']">
         <slot name="toolbar"></slot>
       </div>
 
       <!-- 三栏布局 -->
-      <div :class="['mail-layout-grid-shell w-full flex-1 flex flex-col', workspaceMode ? 'mail-layout-grid-shell--workspace' : '']">
+      <div :class="['mail-layout-grid-shell w-full flex-1 flex flex-col', pageScrollable ? '' : 'min-h-0', workspaceMode ? 'mail-layout-grid-shell--workspace' : '']">
         <template v-if="resizablePanels && !compactPanels">
           <div
             v-if="useMain && $slots.main"
             ref="resizableMainRef"
-            :class="['mail-resizable-grid mail-resizable-grid--main flex-1', (pageScrollable || compactPanels) ? '' : 'md:overflow-hidden']"
+            :class="['mail-resizable-grid mail-resizable-grid--main flex-1', pageScrollable ? '' : 'min-h-0', (pageScrollable || compactPanels) ? '' : 'lg:overflow-hidden']"
             :style="mainGridStyle"
           >
-            <div class="min-w-0 relative z-0">
+            <div class="min-h-0 min-w-0 relative z-0">
               <div :class="panelContainerClasses">
                 <slot name="left"></slot>
               </div>
@@ -41,7 +42,7 @@
               <span class="mail-resize-handle__line"></span>
             </button>
 
-            <div class="min-w-0">
+            <div class="min-h-0 min-w-0">
               <div :class="[...panelContainerClasses, pageScrollable ? '' : 'h-full']">
                 <slot name="main"></slot>
               </div>
@@ -50,10 +51,10 @@
           <div
             v-else
             ref="resizableGridRef"
-            :class="['mail-resizable-grid mail-resizable-grid--triple flex-1', (pageScrollable || compactPanels) ? '' : 'md:overflow-hidden']"
+            :class="['mail-resizable-grid mail-resizable-grid--triple flex-1', pageScrollable ? '' : 'min-h-0', (pageScrollable || compactPanels) ? '' : 'lg:overflow-hidden']"
             :style="tripleGridStyle"
           >
-            <div class="min-w-0 relative z-0">
+            <div class="min-h-0 min-w-0 relative z-0">
               <div :class="panelContainerClasses">
                 <slot name="left"></slot>
               </div>
@@ -68,7 +69,7 @@
               <span class="mail-resize-handle__line"></span>
             </button>
 
-            <div class="min-w-0">
+            <div class="min-h-0 min-w-0">
               <div :class="panelContainerClasses">
                 <slot name="middle"></slot>
               </div>
@@ -83,7 +84,7 @@
               <span class="mail-resize-handle__line"></span>
             </button>
 
-            <div class="min-w-0">
+            <div class="min-h-0 min-w-0">
               <div :class="panelContainerClasses">
                 <slot name="right"></slot>
               </div>
@@ -96,7 +97,7 @@
           :class="[
             'mail-three-column-grid grid grid-cols-1 gap-6 flex-1',
             workspaceMode ? 'mail-three-column-grid--workspace' : '',
-            (pageScrollable || compactPanels) ? '' : 'md:overflow-hidden'
+            (pageScrollable || compactPanels) ? '' : 'lg:overflow-hidden'
           ]"
         >
           <!-- 左栏 -->
@@ -132,7 +133,7 @@
       </div>
     </div>
 
-    <div v-if="$slots.footer" class="border-t border-gray-100 bg-white">
+    <div v-if="$slots.footer" class="shrink-0 border-t border-gray-100 bg-white">
       <div :class="['mail-layout-safe w-full py-4', workspaceMode ? 'mail-layout-safe--workspace' : '']">
         <slot name="footer"></slot>
       </div>
@@ -162,6 +163,7 @@ const props = withDefaults(
     useMain?: boolean
     workspaceMode?: boolean
     resizablePanels?: boolean
+    embedded?: boolean
   }>(),
   {
     pageScrollable: false,
@@ -169,6 +171,7 @@ const props = withDefaults(
     useMain: false,
     workspaceMode: false,
     resizablePanels: false,
+    embedded: false,
   }
 )
 
@@ -193,7 +196,7 @@ const tripleGridStyle = computed(() => {
     return undefined
   }
   return {
-    gridTemplateColumns: `${leftWidth.value}px ${HANDLE_SIZE}px ${middleWidth.value}px ${HANDLE_SIZE}px minmax(${RIGHT_MIN}px, 1fr)`,
+    gridTemplateColumns: `${leftWidth.value}px ${HANDLE_SIZE}px ${middleWidth.value}px ${HANDLE_SIZE}px minmax(${getTripleMinWidths(resizableGridRef.value?.clientWidth || 0).rightMin}px, 1fr)`,
   }
 })
 
@@ -289,6 +292,8 @@ const updateDesktopState = () => {
   nextTick(syncDesktopWidths)
 }
 
+let panelResizeObserver: ResizeObserver | undefined
+
 const stopResize = () => {
   if (!activeResizeMode.value) return
   activeResizeMode.value = null
@@ -337,6 +342,11 @@ watch(
 
 onMounted(() => {
   updateDesktopState()
+  if (typeof ResizeObserver !== 'undefined') {
+    panelResizeObserver = new ResizeObserver(() => syncDesktopWidths())
+    if (resizableGridRef.value) panelResizeObserver.observe(resizableGridRef.value)
+    if (resizableMainRef.value) panelResizeObserver.observe(resizableMainRef.value)
+  }
   window.addEventListener('resize', updateDesktopState)
   window.addEventListener('pointermove', handlePointerMove)
   window.addEventListener('pointerup', stopResize)
@@ -344,6 +354,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  panelResizeObserver?.disconnect()
   window.removeEventListener('resize', updateDesktopState)
   window.removeEventListener('pointermove', handlePointerMove)
   window.removeEventListener('pointerup', stopResize)
@@ -377,15 +388,27 @@ onBeforeUnmount(() => {
 
 .panel-container--workspace {
   border-radius: 0.5rem;
-  padding: 1rem 1.125rem;
+  padding: 0.75rem;
   background: #ffffff;
   border: 1px solid #eef2f7;
   box-shadow: 0 1px 2px rgb(15 23 42 / 0.05);
 }
 
+.panel-container--workspace:not(.panel-container--scroll) {
+  height: 100%;
+  min-height: 0;
+}
+
+@media (max-width: 1023px) {
+  .panel-container:not(.panel-container--compact) {
+    height: auto;
+    min-height: 32rem;
+  }
+}
+
 .mail-layout-safe,
 .mail-layout-grid-shell {
-  margin: 0 auto;
+  margin-inline: auto;
   padding-left: 1rem;
   padding-right: 1rem;
   width: 100%;
@@ -587,4 +610,25 @@ onBeforeUnmount(() => {
   }
 }
 
+.mail-layout--embedded > div {
+  min-height: 0;
+  padding-top: 0;
+}
+
+.mail-layout--embedded .mail-layout-safe,
+.mail-layout--embedded .mail-layout-grid-shell {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.mail-layout--embedded .mail-resizable-grid,
+.mail-layout--embedded .mail-resizable-grid > div {
+  min-height: 0;
+}
+
+@media (max-width: 1023px) {
+  .mail-layout--embedded .mail-resizable-grid > div {
+    min-height: 28rem;
+  }
+}
 </style>

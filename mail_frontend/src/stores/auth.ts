@@ -13,6 +13,7 @@ import { trackProductEvent } from '@/services/productAnalytics'
 export const useMailboxStore = defineStore('mailbox', () => {
   const mailboxes = ref<Mailbox[]>([])
   const loading = ref(false)
+  const claimingMailbox = ref(false)
   const guestMailboxes = ref<any[]>(loadStoredGuestMailboxes())
   const tempMailbox = ref<any | null>(guestMailboxes.value[0] || null)
 
@@ -132,6 +133,7 @@ export const useMailboxStore = defineStore('mailbox', () => {
   const getTempMailbox = async () => {
     const startedAt = Date.now()
     loading.value = true
+    claimingMailbox.value = true
     try {
       const response: any = await mailboxAPI.getTempMailbox()
       // 处理后端返回的 {code: 0, message: "", data: {}} 格式
@@ -166,7 +168,22 @@ export const useMailboxStore = defineStore('mailbox', () => {
       }
     } finally {
       loading.value = false
+      claimingMailbox.value = false
     }
+  }
+
+  const ensureInitialGuestMailbox = async (): Promise<{
+    success: boolean
+    data?: any
+    error?: string
+    skipped?: boolean
+  }> => {
+    if (guestMailboxes.value.length > 0) {
+      if (!tempMailbox.value) tempMailbox.value = guestMailboxes.value[0]
+      return { success: true, data: tempMailbox.value }
+    }
+    if (claimingMailbox.value) return { success: true, skipped: true }
+    return getTempMailbox()
   }
 
   const selectGuestMailbox = (mailbox: any) => {
@@ -186,6 +203,7 @@ export const useMailboxStore = defineStore('mailbox', () => {
 
   const allocateMailbox = async (payload: Record<string, any> = {}) => {
     loading.value = true
+    claimingMailbox.value = true
     try {
       const response: any = await mailboxAPI.allocateMailbox(payload)
       if (response.code === 0 && response.data) {
@@ -203,6 +221,7 @@ export const useMailboxStore = defineStore('mailbox', () => {
       }
     } finally {
       loading.value = false
+      claimingMailbox.value = false
     }
   }
 
@@ -251,6 +270,7 @@ export const useMailboxStore = defineStore('mailbox', () => {
     tempMailbox,
     guestMailboxes,
     loading,
+    claimingMailbox,
     totalMailboxes,
     currentPage,
     pageSize,
@@ -258,6 +278,7 @@ export const useMailboxStore = defineStore('mailbox', () => {
     searchKeyword,
     fetchMailboxes,
     getTempMailbox,
+    ensureInitialGuestMailbox,
     selectGuestMailbox,
     restoreGuestMailboxes,
     clearGuestMailboxes,

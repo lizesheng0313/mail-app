@@ -1,12 +1,12 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useUserStore } from '@/stores/user'
+import { getWorkspaceHome } from '@/config/workspaceNavigation'
 
 // 普通用户页面组件 - 懒加载
 const Dashboard = () => import('@/views/portal/home/index.vue')
 const Login = () => import('@/views/portal/login/index.vue')
 const GoogleSuccess = () => import('@/views/portal/auth/GoogleSuccess.vue')
 const GoogleChoose = () => import('@/views/portal/auth/GoogleChoose.vue')
-const Profile = () => import('@/views/portal/profile/index.vue')
 const OpenPlatformPage = () => import('@/views/portal/open-platform/index.vue')
 const PluginManagement = () => import('@/views/portal/plugins/index.vue')
 const PluginStore = () => import('@/views/portal/plugin-store/index.vue')
@@ -21,9 +21,6 @@ const PaymentPage = () => import('@/views/portal/payment/index.vue')
 const AboutPage = () => import('@/views/portal/about/index.vue')
 const PrivacyPolicyPage = () => import('@/views/portal/legal/PrivacyPolicy.vue')
 const TermsOfServicePage = () => import('@/views/portal/legal/TermsOfService.vue')
-const MxCheckTool = () => import('@/views/tools/MxCheck.vue')
-const EmailSecurityCheckTool = () => import('@/views/tools/EmailSecurityCheck.vue')
-const EmailHeaderParserTool = () => import('@/views/tools/EmailHeaderParser.vue')
 const TotpGeneratorTool = () => import('@/views/tools/TotpGenerator.vue')
 // BatchLogin 已整合到首页，不再需要单独页面
 
@@ -114,25 +111,31 @@ const router = createRouter({
     },
     {
       path: '/',
-      name: 'dashboard',
-      component: Dashboard,
-      meta: {
-        seo: {
-          title: '肥猫猫 - 邮箱管理、第三方邮箱接入与邮件自动化平台',
-          description:
-            '肥猫猫提供邮箱管理、第三方邮箱接入、批量收发、工作流市场和邮件自动化工具，帮助个人和团队更高效地处理多邮箱任务。',
-          keywords:
-            '邮箱管理,第三方邮箱,邮件自动化,多邮箱管理,邮件工具,工作流市场,workflow marketplace',
-          canonicalPath: '/'
+      component: UserLayout,
+      children: [
+        {
+          path: '',
+          name: 'dashboard',
+          component: Dashboard,
+          props: { initialMailboxType: 'system' },
+          meta: {
+            mailboxType: 'system',
+            seo: {
+              title: '肥猫猫 - 邮箱管理、第三方邮箱接入与邮件自动化平台',
+              description:
+                '肥猫猫提供邮箱管理、第三方邮箱接入、批量收发、工作流市场和邮件自动化工具，帮助个人和团队更高效地处理多邮箱任务。',
+              keywords:
+                '邮箱管理,第三方邮箱,邮件自动化,多邮箱管理,邮件工具,工作流市场,workflow marketplace',
+              canonicalPath: '/'
+            }
+          }
         }
-      }
+      ]
     },
-    // 个人中心 - 包含Google账号绑定
+    // 兼容旧资料链接及 Google 绑定回调，查询参数会保留到个人设置。
     {
       path: '/profile',
-      name: 'profile',
-      component: Profile,
-      meta: { requiresAuth: true }
+      redirect: '/user/settings'
     },
     {
       path: '/open-platform/:section?',
@@ -276,45 +279,6 @@ const router = createRouter({
       redirect: '/tools/2fa-code'
     },
     {
-      path: '/tools/mx-check',
-      name: 'mx-check-tool',
-      component: MxCheckTool,
-      meta: {
-        seo: {
-          title: 'MX 记录查询 - 免费域名收信检测工具',
-          description: '免费查询域名 MX 记录、邮件服务器和优先级，检查域名是否具备邮件接收条件。',
-          keywords: 'MX查询,MX记录查询,邮件服务器查询,域名收信检测',
-          canonicalPath: '/tools/mx-check'
-        }
-      }
-    },
-    {
-      path: '/tools/email-security-check',
-      name: 'email-security-check-tool',
-      component: EmailSecurityCheckTool,
-      meta: {
-        seo: {
-          title: 'SPF、DKIM、DMARC 检测 - 免费邮件安全工具',
-          description: '免费检测域名 SPF、DKIM、DMARC 邮件身份记录，排查邮件进垃圾箱和域名伪造风险。',
-          keywords: 'SPF检测,DKIM检测,DMARC检测,邮件安全检测',
-          canonicalPath: '/tools/email-security-check'
-        }
-      }
-    },
-    {
-      path: '/tools/email-header-parser',
-      name: 'email-header-parser-tool',
-      component: EmailHeaderParserTool,
-      meta: {
-        seo: {
-          title: '邮件头解析 - 免费投递路径与身份验证分析',
-          description: '在浏览器本地解析邮件头、投递路径以及 SPF、DKIM、DMARC 验证结果，内容不会上传。',
-          keywords: '邮件头解析,邮件来源分析,Received解析,Authentication-Results',
-          canonicalPath: '/tools/email-header-parser'
-        }
-      }
-    },
-    {
       path: '/tools/2fa-code',
       name: 'totp-generator-tool',
       component: TotpGeneratorTool,
@@ -381,9 +345,16 @@ const router = createRouter({
     {
       path: '/user',
       component: UserLayout,
-      redirect: '/user/automation/triggers',
+      redirect: () => getWorkspaceHome(),
       meta: { requiresAuth: true },
       children: [
+        ...(['system', 'hosted', 'external'] as const).map(mailboxType => ({
+          path: `mailboxes/${mailboxType}`,
+          name: `user-mailboxes-${mailboxType}`,
+          component: Dashboard,
+          props: { initialMailboxType: mailboxType },
+          meta: { mailboxType }
+        })),
         {
           path: 'automation',
           name: 'user-automation',
@@ -556,6 +527,12 @@ const router = createRouter({
           component: UserSettings
         },
         {
+          path: 'tools/2fa-code',
+          name: 'user-totp-generator',
+          component: TotpGeneratorTool,
+          props: { embedded: true }
+        },
+        {
           path: 'announcements',
           name: 'user-announcements',
           component: UserAnnouncements
@@ -718,8 +695,28 @@ router.beforeEach(async (to, _from, next) => {
   if (to.path === '/login' && userStore.isAuthenticated) {
     const redirectPath = typeof to.query.redirect === 'string' && to.query.redirect.startsWith('/')
       ? to.query.redirect
-      : '/'
+      : '/user'
     next(redirectPath)
+    return
+  }
+
+  if (to.path === '/' && ['system', 'hosted', 'external'].includes(String(to.query.mailbox))) {
+    const mailboxType = String(to.query.mailbox)
+    const query = { ...to.query, mailbox: undefined }
+    next({
+      path: mailboxType === 'system' && !userStore.isAuthenticated
+        ? '/'
+        : `/user/mailboxes/${mailboxType}`,
+      query,
+      hash: to.hash,
+      replace: true
+    })
+    return
+  }
+
+  // 临时邮箱的游客入口统一回到公开首页；域名和第三方邮箱仍须登录。
+  if (to.path === '/user/mailboxes/system' && !userStore.isAuthenticated) {
+    next({ path: '/', query: to.query, hash: to.hash, replace: true })
     return
   }
 

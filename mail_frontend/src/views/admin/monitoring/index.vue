@@ -225,7 +225,27 @@
       <div class="bg-white rounded-lg shadow-sm border p-6">
         <div class="flex items-center justify-between mb-4">
           <h3 class="text-lg font-semibold text-black">邮箱分享监控</h3>
-          <span class="text-sm text-gray-500">按天统计</span>
+          <span class="text-sm text-gray-500">最近 {{ businessStatsDays }} 天（含今天）</span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          <div class="rounded-lg bg-teal-50 border border-teal-100 p-4">
+            <p class="text-sm text-black">有分享记录的用户</p>
+            <p class="mt-2 text-2xl font-bold text-black">{{ businessStats.summary?.share_users_total || 0 }}</p>
+            <p class="mt-1 text-xs text-black">当前保留的分享记录，按账号去重</p>
+          </div>
+
+          <div class="rounded-lg bg-sky-50 border border-sky-100 p-4">
+            <p class="text-sm text-black">最近 {{ businessStatsDays }} 天使用用户</p>
+            <p class="mt-2 text-2xl font-bold text-black">{{ businessStats.summary?.share_users_period || 0 }}</p>
+            <p class="mt-1 text-xs text-black">整个区间按账号去重</p>
+          </div>
+
+          <div class="rounded-lg bg-orange-50 border border-orange-100 p-4">
+            <p class="text-sm text-black">其中跨天重复使用</p>
+            <p class="mt-2 text-2xl font-bold text-black">{{ businessStats.summary?.share_repeat_users_period || 0 }}</p>
+            <p class="mt-1 text-xs text-black">区间内至少 2 天创建过分享</p>
+          </div>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
@@ -266,6 +286,8 @@
               <tr>
                 <th class="px-4 py-3 text-left font-medium text-black">日期</th>
                 <th class="px-4 py-3 text-left font-medium text-black">创建用户</th>
+                <th class="px-4 py-3 text-left font-medium text-black">区间首次</th>
+                <th class="px-4 py-3 text-left font-medium text-black">区间再次</th>
                 <th class="px-4 py-3 text-left font-medium text-black">创建链接</th>
                 <th class="px-4 py-3 text-left font-medium text-black">打开链接</th>
                 <th class="px-4 py-3 text-left font-medium text-black">访问次数</th>
@@ -276,6 +298,8 @@
               <tr v-for="item in businessStats.trend || []" :key="`share-${item.date}`">
                 <td class="px-4 py-3 text-black">{{ item.date }}</td>
                 <td class="px-4 py-3 text-black">{{ item.share_users || 0 }}</td>
+                <td class="px-4 py-3 text-black">{{ item.share_first_users_in_period || 0 }}</td>
+                <td class="px-4 py-3 text-black">{{ item.share_returning_users_in_period || 0 }}</td>
                 <td class="px-4 py-3 text-black">{{ item.share_links_created || 0 }}</td>
                 <td class="px-4 py-3 text-black">{{ item.share_links_opened || 0 }}</td>
                 <td class="px-4 py-3 text-black">{{ item.share_visits || 0 }}</td>
@@ -283,6 +307,7 @@
               </tr>
             </tbody>
           </table>
+          <p class="mt-2 text-xs text-gray-500">区间首次：在所选时间段内第一次创建分享；区间再次：此前某天已创建过分享。每天的创建用户 = 区间首次 + 区间再次。已删除的分享记录不计入。</p>
         </div>
       </div>
       </template>

@@ -1,7 +1,7 @@
 <template>
   <div id="app">
     <RouterView />
-    <FloatingLiveChat v-if="showGlobalLiveChat" />
+    <FloatingLiveChat v-if="showFloatingTools" />
     <SystemMaintenance ref="maintenanceRef" />
     <AppUpdater ref="updaterRef" />
   </div>
@@ -27,9 +27,7 @@ const maintenanceRef = ref<InstanceType<typeof SystemMaintenance>>()
 const updaterRef = ref<InstanceType<typeof AppUpdater>>()
 let unlistenOAuthCallback: null | (() => void) = null
 const desktopOAuthKeepAlive = useDesktopOAuthKeepAlive()
-const showGlobalLiveChat = computed(() => (
-  !route.path.startsWith('/user') && !route.path.startsWith('/browser-workflows')
-))
+const showFloatingTools = computed(() => !route.path.startsWith('/browser-workflows'))
 
 // 启用页面访问统计
 usePageTracking()

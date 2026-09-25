@@ -4,18 +4,23 @@
       type="button"
       :aria-label="t('common.language')"
       :aria-expanded="isOpen"
-      class="group inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white/95 px-2.5 py-1.5 text-sm font-medium text-gray-700 shadow-sm transition-all hover:border-gray-300 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+      class="group inline-flex items-center gap-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 hover:text-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+      :class="compact ? 'h-10 min-w-10 justify-center rounded-md px-2' : 'rounded-full border border-gray-200 bg-white px-2.5 py-1.5 shadow-sm'"
       @click="toggleMenu"
     >
-      <span class="flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 text-gray-500 transition-colors group-hover:bg-gray-200">
+      <span
+        class="flex items-center justify-center text-gray-500 transition-colors group-hover:text-primary-700"
+        :class="compact ? 'h-5 w-5' : 'h-7 w-7 rounded-full bg-gray-100 group-hover:bg-primary-100'"
+      >
         <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 3c4.97 0 9 4.03 9 9s-4.03 9-9 9-9-4.03-9-9 4.03-9 9-9zm0 0c2.38 2.45 3.75 5.76 3.75 9S14.38 18.55 12 21m0-18C9.62 5.45 8.25 8.76 8.25 12S9.62 18.55 12 21m-8.55-6h17.1M3.45 9h17.1" />
         </svg>
       </span>
-      <span class="min-w-[4.5rem] text-left leading-none">{{ currentOption.label }}</span>
+      <span v-if="!compact" class="min-w-[4.5rem] text-left leading-none">{{ currentOption.label }}</span>
+      <span v-else class="hidden whitespace-nowrap leading-none xl:inline">{{ currentOption.shortLabel }}</span>
       <svg
-        class="h-4 w-4 text-gray-400 transition-transform duration-200"
-        :class="{ 'rotate-180': isOpen }"
+        class="text-gray-400 transition-transform duration-200"
+        :class="[compact ? 'hidden h-3.5 w-3.5 xl:block' : 'h-4 w-4', { 'rotate-180': isOpen }]"
         fill="none"
         stroke="currentColor"
         viewBox="0 0 24 24"
@@ -66,6 +71,7 @@
 </template>
 
 <script setup lang="ts">
+withDefaults(defineProps<{ compact?: boolean }>(), { compact: false })
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -78,18 +84,21 @@ const localeStore = useLocaleStore()
 const switcherRef = ref<HTMLElement | null>(null)
 const isOpen = ref(false)
 
-const localeOptions: ReadonlyArray<{ value: SupportedLocale; label: string }> = [
+const localeOptions: ReadonlyArray<{ value: SupportedLocale; label: string; shortLabel: string }> = [
   {
     value: 'zh-CN',
-    label: '简体中文'
+    label: '简体中文',
+    shortLabel: '简中'
   },
   {
     value: 'zh-TW',
-    label: '繁體中文'
+    label: '繁體中文',
+    shortLabel: '繁中'
   },
   {
     value: 'en',
-    label: 'English'
+    label: 'English',
+    shortLabel: 'EN'
   }
 ]
 

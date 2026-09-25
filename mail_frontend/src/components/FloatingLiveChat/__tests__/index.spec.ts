@@ -129,6 +129,7 @@ describe('FloatingLiveChat admin conversation layout', () => {
   let wrapper: ReturnType<typeof mount> | null = null
 
   beforeEach(() => {
+    localStorage.clear()
     mocks.userStore.user = {
       id: 1,
       display_name: '管理员',
@@ -294,6 +295,32 @@ describe('FloatingLiveChat admin conversation layout', () => {
     await flushPromises()
 
     expect(wrapper.get('[data-testid="chat-launcher-unread"]').text()).toBe('1')
+  })
+
+  it('keeps the launcher available and lets the user drag it', async () => {
+    wrapper = mount(FloatingLiveChat)
+    await flushPromises()
+
+    expect(wrapper.find('[aria-label="隐藏在线客服入口"]').exists()).toBe(false)
+    const launcher = wrapper.get('[data-testid="chat-launcher"]')
+    launcher.element.dispatchEvent(new MouseEvent('pointerdown', {
+      bubbles: true,
+      button: 0,
+      clientX: 900,
+      clientY: 700
+    }))
+    window.dispatchEvent(new MouseEvent('pointermove', {
+      clientX: 820,
+      clientY: 620
+    }))
+    window.dispatchEvent(new MouseEvent('pointerup', {
+      clientX: 820,
+      clientY: 620
+    }))
+    await flushPromises()
+
+    expect(launcher.attributes('style')).toContain('translate3d(-80px, -80px, 0)')
+    expect(localStorage.getItem('live_chat_launcher_position')).toContain('-80')
   })
 
   it('keeps the message panel scrollable without jumping when the user is reading older messages', async () => {

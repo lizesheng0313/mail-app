@@ -1,13 +1,13 @@
 <template>
-  <div class="flex h-full flex-col">
+  <div class="flex h-full min-h-0 flex-col">
     <!-- 标题栏 -->
-    <div class="border-b border-gray-200 pb-4 mb-4">
+    <div class="mail-list-header shrink-0 border-b border-gray-200 pb-3 mb-3">
       <div class="flex min-h-8 justify-between items-center">
-        <div>
-          <h2 class="text-base font-semibold text-black">{{ resolvedTitle }}</h2>
+        <div class="min-w-0">
+          <h2 class="truncate text-base font-semibold text-black">{{ resolvedTitle }}</h2>
           <p v-if="subtitle" class="mt-1 text-xs text-gray-500">{{ subtitle }}</p>
         </div>
-        <div class="flex min-h-8 min-w-8 items-center justify-end gap-2">
+        <div class="flex min-h-8 min-w-8 shrink-0 items-center justify-end gap-2">
           <slot name="header-actions"></slot>
 
           <button
@@ -21,7 +21,7 @@
       </div>
     </div>
 
-    <div v-if="searchable" class="pb-3 mb-1">
+    <div v-if="searchable" class="shrink-0 pb-2">
       <div class="relative flex items-center">
         <svg class="absolute left-2.5 w-3.5 h-3.5 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
@@ -47,7 +47,7 @@
     </div>
     
     <!-- 邮箱列表 -->
-    <div class="flex-1 overflow-y-auto scrollbar-stable space-y-2">
+    <div class="min-h-0 flex-1 overflow-y-auto scrollbar-stable space-y-2">
       <slot
         name="content"
         :mailboxes="mailboxes"
@@ -75,7 +75,7 @@
     <!-- 分页 -->
     <div
       v-if="showPagination"
-      class="mt-4"
+      class="mail-list-pagination shrink-0 mt-4"
     >
       <slot name="pagination"></slot>
     </div>
@@ -259,3 +259,9 @@ defineExpose({
   toggleSelection: batchSelection.toggleSelection
 })
 </script>
+
+<style scoped>
+.mail-list-header {
+  container: mailbox-header / inline-size;
+}
+</style>

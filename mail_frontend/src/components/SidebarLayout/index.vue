@@ -4,19 +4,24 @@
     <div
       :class="[
         'flex h-full flex-shrink-0 flex-col bg-white shadow-lg transition-all duration-200',
-        sidebarCollapsed ? 'w-20' : 'w-64'
+        sidebarCollapsed ? 'w-16 sm:w-20' : 'w-64'
       ]"
     >
       <!-- 头部Logo -->
       <div
-        class="flex items-center justify-between border-b border-gray-200 px-4 transition-colors"
-        style="height: 64px;"
+        class="flex items-center border-b border-gray-200 px-4 transition-colors"
+        :class="sidebarCollapsed && hideBrandIcon ? 'justify-start' : 'justify-between'"
+        style="height: 54px;"
       >
         <router-link
+          v-if="!sidebarCollapsed || !hideBrandIcon"
           to="/"
           class="flex min-w-0 items-center transition-colors hover:opacity-80"
           :class="sidebarCollapsed ? 'justify-center' : ''"
+          :aria-label="title || '返回首页'"
+          :title="title || '返回首页'"
         >
+          <HomeIcon v-if="!title && hideBrandIcon" class="h-5 w-5 text-gray-500" aria-hidden="true" />
           <div
             v-if="!hideBrandIcon"
             class="h-8 w-8 flex-shrink-0 overflow-hidden rounded-lg flex items-center justify-center"
@@ -31,7 +36,7 @@
             <component v-else :is="logoIcon" class="h-5 w-5 text-white" />
           </div>
           <h1
-            v-if="!sidebarCollapsed"
+            v-if="!sidebarCollapsed && title"
             class="truncate text-lg font-semibold text-gray-900"
             :class="hideBrandIcon ? '' : 'ml-3'"
           >
@@ -40,8 +45,11 @@
         </router-link>
         <button
           type="button"
-          class="ml-2 inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
+          class="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
+          :class="sidebarCollapsed && hideBrandIcon ? 'ml-0' : 'ml-2'"
           :title="sidebarCollapsed ? '展开菜单' : '收起菜单'"
+          :aria-label="sidebarCollapsed ? '展开菜单' : '收起菜单'"
+          :aria-expanded="!sidebarCollapsed"
           @click="toggleSidebar"
         >
           <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -120,9 +128,19 @@
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
                 </svg>
               </button>
+              <button
+                v-else-if="item.action"
+                type="button"
+                class="group mb-1 ml-2 flex w-[calc(100%-0.5rem)] items-center rounded-md px-3 py-2 text-left text-sm font-medium text-gray-700 hover:bg-gray-50"
+                @click="handleMenuAction(item.action)"
+              >
+                <component :is="item.icon" class="mr-3 h-5 w-5 shrink-0 text-gray-400" />
+                <span class="truncate">{{ item.label }}</span>
+              </button>
               <router-link
                 v-else
                 :to="item.path"
+                @click="closeMobileSidebar"
                 class="group mb-1 ml-2 flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-gray-50"
                 :class="itemActive(item) ? 'bg-primary-50 text-primary-700 border-r-2 border-primary-700' : 'text-gray-700 hover:text-gray-900'"
               >
@@ -144,6 +162,7 @@
                   v-for="child in item.children"
                   :key="child.path"
                   :to="child.path"
+                  @click="closeMobileSidebar"
                   class="mb-1 flex items-center rounded-md px-3 py-1.5 text-sm transition-colors"
                   :class="$route.path === child.path ? 'bg-primary-50 text-primary-700 font-medium' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'"
                 >
@@ -165,12 +184,15 @@
     <!-- 右侧内容区域 -->
     <div class="flex min-w-0 flex-1 flex-col overflow-hidden">
       <!-- 顶部导航栏 -->
-      <header class="bg-white shadow-sm border-b border-gray-200 flex-shrink-0" style="height: 64px;">
-        <div class="px-6 h-full flex items-center justify-between">
-            <div class="min-w-0">
+      <header class="bg-white shadow-sm border-b border-gray-200 flex-shrink-0" style="height: 54px;">
+        <div
+          class="px-3 sm:px-6 h-full flex items-center gap-2"
+          :class="pageTitle ? 'justify-between' : 'justify-end'"
+        >
+            <div v-if="pageTitle" class="min-w-0">
               <h1 class="truncate text-lg font-semibold text-gray-900">{{ pageTitle }}</h1>
             </div>
-            <div class="flex items-center space-x-4">
+            <div class="flex shrink-0 items-center gap-3">
               <slot name="header-actions"></slot>
             </div>
         </div>
@@ -178,7 +200,7 @@
 
       <!-- 主要内容区域 -->
       <main class="min-h-0 flex-1 bg-gray-50 overflow-hidden">
-        <div class="h-full min-h-0 px-6 pt-6 pb-0 overflow-y-auto">
+        <div class="h-full min-h-0 px-2 pt-2 pb-0 sm:px-3 sm:pt-3 overflow-y-auto">
           <slot></slot>
         </div>
       </main>
@@ -187,7 +209,9 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
+import { HomeIcon } from '@heroicons/vue/24/outline'
+import { isMenuItemActive } from '@/config/workspaceNavigation'
 import { useRoute } from 'vue-router'
 
 const props = defineProps({
@@ -196,7 +220,7 @@ const props = defineProps({
     required: true
   },
   logoIcon: {
-    type: Object,
+    type: [Object, Function],
     required: true
   },
   logoSrc: {
@@ -233,12 +257,20 @@ const props = defineProps({
   }
 })
 
+const emit = defineEmits(['menu-action'])
 const route = useRoute()
-const sidebarCollapsed = ref(false)
+const closeMobileSidebar = () => {
+  if (window.matchMedia?.('(max-width: 767px)').matches) sidebarCollapsed.value = true
+}
+const handleMenuAction = (action) => {
+  closeMobileSidebar()
+  emit('menu-action', action)
+}
+const sidebarCollapsed = ref(window.matchMedia?.('(max-width: 767px)').matches ?? false)
 const openSections = ref({})
 const openMenuItems = ref({})
 
-const itemActive = (item) => item.path === route.path || (item.children || []).some((child) => child.path === route.path)
+const itemActive = (item) => isMenuItemActive(item, route.path)
 
 const sectionActive = (section) => section.items.some((item) => itemActive(item))
 
@@ -285,6 +317,17 @@ const toggleMenuItem = (item) => {
     [key]: !isMenuItemOpen(item)
   }
 }
+
+watch(() => route.path, () => {
+  for (const section of props.menuSections) {
+    if (sectionActive(section)) {
+      openSections.value[section.name] = true
+      for (const item of section.items) {
+        if (item.children?.length && itemActive(item)) openMenuItems.value[getMenuItemKey(item)] = true
+      }
+    }
+  }
+})
 
 const toggleSidebar = () => {
   sidebarCollapsed.value = !sidebarCollapsed.value

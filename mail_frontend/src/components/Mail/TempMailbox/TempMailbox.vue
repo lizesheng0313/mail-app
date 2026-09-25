@@ -1,10 +1,11 @@
 <template>
   <div v-if="mailboxStore.loading" class="flex h-full flex-col">
-    <div class="mb-4 flex items-center justify-between border-b border-gray-200 pb-4">
-      <h2 class="text-base font-semibold text-black">{{ t('mail.myMailbox') }}</h2>
-      <span class="text-xs text-gray-500">
-        {{ t('mail.guestMailboxQuota', { count: guestMailboxesCreatedToday, limit: GUEST_MAILBOX_DAILY_LIMIT }) }}
-      </span>
+    <div class="guest-mailbox-loading-header mb-3 flex items-center justify-between border-b border-gray-200 pb-3">
+      <div>
+        <h2 class="text-base font-semibold text-black">{{ t('home.temporaryMailbox') }}</h2>
+        <p class="mt-1 text-xs text-gray-500">{{ guestMailboxQuotaText }}</p>
+      </div>
+      <slot name="header-actions"></slot>
     </div>
     <div class="flex items-center justify-center py-8">
       <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
@@ -14,56 +15,36 @@
 
   <MailboxList
     v-else
+    :title="t('home.temporaryMailbox')"
+    :subtitle="guestMailboxQuotaText"
     :mailboxes="mailboxStore.guestMailboxes"
     :selected-id="mailboxStore.tempMailbox?.id || null"
     :hide-default-batch-action="true"
   >
     <template #header-actions>
-      <span class="text-xs text-gray-500">
-        {{ t('mail.guestMailboxQuota', { count: guestMailboxesCreatedToday, limit: GUEST_MAILBOX_DAILY_LIMIT }) }}
-      </span>
+      <slot name="header-actions"></slot>
     </template>
 
     <template #content="{ mailboxes }">
-      <div
+      <MailboxCard
         v-for="mailbox in mailboxes"
         :key="mailbox.id"
-        role="button"
-        tabindex="0"
-        :class="[
-          'w-full rounded-lg border p-3 text-left transition-colors',
+        :card-class="[
+          'cursor-pointer transition-colors',
           Number(mailboxStore.tempMailbox?.id) === Number(mailbox.id)
-            ? 'border-primary-300 bg-primary-50'
-            : 'border-gray-200 bg-white hover:border-primary-200 hover:bg-primary-50/50'
+            ? 'bg-primary-100 border-primary-200'
+            : 'bg-gray-50 hover:bg-primary-100'
         ]"
-        @click="mailboxStore.selectGuestMailbox(mailbox)"
-        @keydown.enter="mailboxStore.selectGuestMailbox(mailbox)"
-      >
-        <div class="flex items-center justify-between gap-2">
-          <code class="min-w-0 flex-1 truncate text-sm text-gray-900">{{ mailbox.email }}</code>
-          <ActionButton
-            icon="copy"
-            variant="copy"
-            :tooltip="t('mail.copyMailboxAddress')"
-            @click.stop="copy(mailbox.email)"
-          />
-        </div>
-        <p class="mt-1 text-xs text-gray-500">
-          {{ t('mail.expiresAt', { date: formatDate(mailbox.expires_at) }) }}
-        </p>
-      </div>
-
-      <div v-if="mailboxes.length" class="rounded-lg border border-primary-100 bg-primary-50 p-3">
-        <p class="text-sm font-medium text-primary-900">{{ t('home.guestSaveTitle') }}</p>
-        <p class="mt-1 text-xs leading-5 text-primary-800">{{ t('home.guestSaveMessage') }}</p>
-        <button
-          type="button"
-          class="mt-3 rounded-md bg-primary-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-primary-700"
-          @click="saveGuestMailbox"
-        >
-          {{ t('home.guestSaveConfirm') }}
-        </button>
-      </div>
+        :address="mailbox.email"
+        :created-label="t('common.createdAt')"
+        :created-text="mailbox.created_at ? formatDate(mailbox.created_at) : ''"
+        :expires-label="t('common.expiresAtLabel')"
+        :expires-text="formatDate(mailbox.expires_at)"
+        :action-menu-title="t('systemMailbox.moreActions')"
+        :actions="mailboxActions"
+        @click="selectMailbox(mailbox)"
+        @action="handleMailboxAction($event, mailbox)"
+      />
     </template>
   </MailboxList>
 </template>
@@ -71,27 +52,40 @@
 <script setup lang="ts">
 import { computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRouter } from 'vue-router'
 import { useMailboxStore } from '@/stores/auth'
 import { useMailStore } from '@/stores/mail'
 import { mailboxAPI } from '@/api/mailbox'
-import ActionButton from '@/components/ActionButton/index.vue'
 import MailboxList from '@/components/Mail/MailboxList/MailboxList.vue'
+import MailboxCard from '@/components/Mail/MailboxList/MailboxCard.vue'
 import { showMessage } from '@/utils/message'
 import { formatTimestamp } from '@/utils/timeUtils'
-import { trackProductEvent } from '@/services/productAnalytics'
 import {
   countGuestMailboxesCreatedToday,
   GUEST_MAILBOX_DAILY_LIMIT
 } from '@/utils/guestMailboxes'
 
 const { t } = useI18n()
-const router = useRouter()
+const emit = defineEmits<{ select: [] }>()
 const mailboxStore = useMailboxStore()
 const mailStore = useMailStore()
 const guestMailboxesCreatedToday = computed(() =>
   countGuestMailboxesCreatedToday(mailboxStore.guestMailboxes)
 )
+const guestMailboxQuotaText = computed(() =>
+  t('mail.guestMailboxQuota', { count: guestMailboxesCreatedToday.value, limit: GUEST_MAILBOX_DAILY_LIMIT })
+)
+const mailboxActions = computed(() => [
+  {
+    id: 'copy',
+    label: t('systemMailbox.copyMailbox'),
+    icon: 'copy'
+  }
+])
+
+const selectMailbox = (mailbox: any) => {
+  mailboxStore.selectGuestMailbox(mailbox)
+  emit('select')
+}
 
 const loadCurrentMailboxEmails = async () => {
   const mailbox = mailboxStore.tempMailbox as any
@@ -113,26 +107,12 @@ const loadCurrentMailboxEmails = async () => {
 
 watch(
   () => mailboxStore.tempMailbox?.id,
-  (mailboxId) => {
+  () => {
     mailStore.clearEmails()
     void loadCurrentMailboxEmails()
-    if (!mailboxId) return
-
-    const promptKey = `guest_mailbox_save_entry_shown_${mailboxId}`
-    if (localStorage.getItem(promptKey) === '1') return
-    localStorage.setItem(promptKey, '1')
-    trackProductEvent('guest_save_prompt_shown')
   },
   { immediate: true }
 )
-
-const saveGuestMailbox = () => {
-  trackProductEvent('guest_save_prompt_confirmed')
-  router.push({
-    path: '/login',
-    query: { mode: 'register', save_guest: '1', redirect: '/' }
-  })
-}
 
 const copy = async (text: string) => {
   try {
@@ -143,6 +123,10 @@ const copy = async (text: string) => {
   }
 }
 
+const handleMailboxAction = (actionId: string, mailbox: any) => {
+  if (actionId === 'copy') void copy(mailbox.email)
+}
+
 const formatDate = (date: string | number) => {
   const timestamp = typeof date === 'number' ? date : new Date(date).getTime()
   return formatTimestamp(timestamp, 'date')
@@ -150,6 +134,10 @@ const formatDate = (date: string | number) => {
 </script>
 
 <style scoped>
+.guest-mailbox-loading-header {
+  container: mailbox-header / inline-size;
+}
+
 .btn-primary {
   @apply bg-primary-600 hover:bg-primary-700 text-white rounded;
 }

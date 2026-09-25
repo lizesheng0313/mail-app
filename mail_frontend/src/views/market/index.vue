@@ -4,39 +4,24 @@
 
     <div class="border-b border-primary-100 bg-white">
       <div class="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
-        <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div class="relative lg:w-[420px]">
-            <input
-              v-model="searchKeyword"
-              type="text"
-              placeholder="搜索资源"
-              class="h-11 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-4 text-sm text-slate-900 outline-none transition focus:border-primary-500 focus:ring-4 focus:ring-primary-100"
-              @keyup.enter="searchWorkflows"
-            />
-            <svg class="absolute left-3.5 top-3 h-5 w-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-          </div>
-
-          <div class="flex gap-2 overflow-x-auto pb-1 lg:pb-0">
-            <button
-              v-for="category in primaryCategories"
-              :key="category.value"
-              type="button"
-              class="shrink-0 rounded-full px-4 py-2 text-sm font-medium transition"
-              :class="selectedPrimaryCategory === category.value ? 'bg-primary-600 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-primary-50 hover:text-primary-700'"
-              @click="selectPrimaryCategory(category.value)"
-            >
-              {{ category.label }}
-            </button>
-          </div>
+        <div class="relative lg:w-[420px]">
+          <input
+            v-model="searchKeyword"
+            type="text"
+            placeholder="搜索资源"
+            class="h-11 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-4 text-sm text-slate-900 outline-none transition focus:border-primary-500 focus:ring-4 focus:ring-primary-100"
+            @keyup.enter="searchWorkflows"
+          />
+          <svg class="absolute left-3.5 top-3 h-5 w-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
         </div>
       </div>
     </div>
 
     <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
       <div class="mb-5 flex items-center justify-between">
-        <h2 class="text-xl font-bold text-slate-950">{{ sharedStoreName ? `${sharedStoreName}的店铺` : activeCategoryTitle }}</h2>
+        <h2 class="text-xl font-bold text-slate-950">{{ sharedStoreName ? `${sharedStoreName}的店铺` : '全部资源' }}</h2>
         <div class="hidden text-sm text-slate-500 sm:block">
           {{ total || workflows.length }} 个结果
         </div>
@@ -102,7 +87,7 @@
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V7a2 2 0 00-2-2h-3.5a2 2 0 01-1.6-.8l-.8-1.1A2 2 0 0010.5 2H6a2 2 0 00-2 2v9m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0H4" />
         </svg>
         <h3 class="mt-3 text-sm font-semibold text-slate-900">没有找到资源</h3>
-        <p class="mt-1 text-sm text-slate-500">换个分类或关键词试试。</p>
+        <p class="mt-1 text-sm text-slate-500">换个关键词试试。</p>
       </div>
 
       <div v-if="total > pageSize" class="mt-8 flex justify-center">
@@ -294,8 +279,6 @@ const sortOptions = [
 ]
 
 const searchKeyword = ref('')
-const selectedPrimaryCategory = ref('')
-const selectedSubCategory = ref('')
 const filters = ref({
   resourceType: '',
   priceRange: '',
@@ -309,8 +292,6 @@ const pageSize = ref(18)
 const total = ref(0)
 const sharedStoreName = ref('')
 
-const primaryCategories = computed(() => categoryTree)
-
 const primaryCategoryLabels = categoryTree.reduce((acc, category) => {
   acc[category.value] = category.label
   return acc
@@ -322,20 +303,6 @@ const secondaryCategoryLabels = categoryTree.reduce((acc, category) => {
   })
   return acc
 }, {})
-
-const activePrimary = computed(
-  () => categoryTree.find((item) => item.value === selectedPrimaryCategory.value) || categoryTree[0]
-)
-
-const activeSubCategories = computed(() => activePrimary.value.children || [])
-
-const activeCategoryTitle = computed(() => {
-  const subCategory = activeSubCategories.value.find((item) => item.value === selectedSubCategory.value)
-  if (subCategory?.value) {
-    return subCategory.label
-  }
-  return activePrimary.value.label || '全部资源'
-})
 
 const totalPages = computed(() => Math.ceil(total.value / pageSize.value))
 
@@ -354,16 +321,6 @@ const visiblePages = computed(() => {
   }
   return pages
 })
-
-const hasActiveFilters = computed(
-  () =>
-    selectedPrimaryCategory.value ||
-    selectedSubCategory.value ||
-    filters.value.resourceType ||
-    filters.value.priceRange ||
-    filters.value.stockStatus ||
-    searchKeyword.value
-)
 
 const getCategoryMeta = (item) => {
   if (item.primary_category && item.secondary_category) {
@@ -493,10 +450,7 @@ const loadWorkflows = async () => {
     }
 
     const params = {
-      category: activePrimary.value.legacyCategory || selectedPrimaryCategory.value || null,
-      primary_category: selectedPrimaryCategory.value || null,
       resource_type: filters.value.resourceType || null,
-      secondary_category: selectedSubCategory.value || null,
       min_price: minPrice,
       max_price: maxPrice,
       stock_status: filters.value.stockStatus || null,
@@ -520,19 +474,6 @@ const loadWorkflows = async () => {
   }
 }
 
-const selectPrimaryCategory = (value) => {
-  selectedPrimaryCategory.value = value
-  selectedSubCategory.value = ''
-  page.value = 1
-  loadWorkflows()
-}
-
-const selectSubCategory = (value) => {
-  selectedSubCategory.value = value
-  page.value = 1
-  loadWorkflows()
-}
-
 const searchWorkflows = () => {
   page.value = 1
   loadWorkflows()
@@ -540,8 +481,6 @@ const searchWorkflows = () => {
 
 const clearFilters = () => {
   searchKeyword.value = ''
-  selectedPrimaryCategory.value = ''
-  selectedSubCategory.value = ''
   filters.value = {
     resourceType: '',
     priceRange: '',

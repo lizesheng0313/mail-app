@@ -1,5 +1,6 @@
 <template>
   <ToolLayout
+    :embedded="embedded"
     title="2FA 动态验证码"
     description="输入 Base32 密钥或 otpauth:// 链接，在当前浏览器生成 TOTP 验证码。密钥不会上传或保存。"
   >
@@ -71,6 +72,8 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import BaseInput from '@/components/BaseInput/index.vue'
 import ToolLayout from './ToolLayout.vue'
+
+withDefaults(defineProps<{ embedded?: boolean }>(), { embedded: false })
 
 type TotpConfig = {
   secret: string

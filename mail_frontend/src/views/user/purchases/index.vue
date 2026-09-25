@@ -1,5 +1,6 @@
 <template>
   <div>
+    <MilkAccountTabs />
     <!-- Tab 切换 -->
     <div class="bg-white rounded-lg shadow-sm p-1 inline-flex mb-4">
       <button
@@ -36,6 +37,7 @@
         {{ t('purchasesPage.expenseRecords') }}
       </button>
       <button
+        v-if="showSellerTabs"
         @click="activeTab = 'income'"
         :class="[
           'px-5 py-2 rounded-md font-medium text-sm transition-all',
@@ -47,6 +49,7 @@
         {{ t('purchasesPage.incomeRecords') }}
       </button>
       <button
+        v-if="showSellerTabs"
         @click="activeTab = 'refunds'"
         :class="[
           'px-5 py-2 rounded-md font-medium text-sm transition-all',
@@ -367,17 +370,34 @@
 <script setup>
 import { ref, reactive, onMounted, watch, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import MilkAccountTabs from '@/components/MilkAccountTabs.vue'
 import { showMessage } from '@/utils/message'
 import { showConfirm, showPrompt } from '@/utils/dialog'
 import api from '@/services/api'
 import ActionButton from '@/components/ActionButton/index.vue'
 import { getCurrentLocale } from '@/i18n'
 import { useUserStore } from '@/stores/user'
-import { getSellerRefunds, approveWorkflowRefund, rejectWorkflowRefund, adminGetWorkflowRefunds, adminForceWorkflowRefund } from '@/api/workflowMarket'
+import { getMyOrders, getSellerRefunds, approveWorkflowRefund, rejectWorkflowRefund, adminGetWorkflowRefunds, adminForceWorkflowRefund } from '@/api/workflowMarket'
 
 const { t } = useI18n()
 const userStore = useUserStore()
 const isAdminView = computed(() => Boolean(userStore.user?.is_admin))
+const showSellerTabs = ref(isAdminView.value)
+
+const loadSellerTabVisibility = async () => {
+  if (isAdminView.value) return
+  try {
+    const response = await getMyOrders({ page: 1, page_size: 1 })
+    // 无销售订单的买家不需要卖家收益和退款审核入口。
+    // 查询失败时不误判卖家身份，保留入口以免隐藏原有功能。
+    showSellerTabs.value = response?.code === 0 || response?.success
+      ? Number(response.data?.total || 0) > 0
+      : true
+  } catch (error) {
+    console.warn('无法确认销售记录，保留卖家流水入口:', error)
+    showSellerTabs.value = true
+  }
+}
 
 // 数据
 const transactions = ref([])
@@ -586,5 +606,6 @@ watch(activeTab, () => {
 
 onMounted(() => {
   loadData()
+  loadSellerTabVisibility()
 })
 </script>

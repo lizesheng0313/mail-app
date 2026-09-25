@@ -20,18 +20,8 @@
       </div>
 
       <nav class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-gray-400" :aria-label="t('mail.footerTools')">
-        <span class="font-medium text-gray-500">{{ t('mail.footerTools') }}</span>
         <RouterLink to="/tools/2fa-code" class="transition-colors hover:text-primary-600">
           {{ t('mail.footerTool2fa') }}
-        </RouterLink>
-        <RouterLink to="/tools/mx-check" class="transition-colors hover:text-primary-600">
-          {{ t('mail.footerToolMx') }}
-        </RouterLink>
-        <RouterLink to="/tools/email-security-check" class="transition-colors hover:text-primary-600">
-          {{ t('mail.footerToolSecurity') }}
-        </RouterLink>
-        <RouterLink to="/tools/email-header-parser" class="transition-colors hover:text-primary-600">
-          {{ t('mail.footerToolHeader') }}
         </RouterLink>
       </nav>
     </div>

@@ -14,6 +14,10 @@
     @batch-mode-start="$emit('batch-mode-start')"
     @search="handleSearch"
   >
+    <template #header-actions>
+      <slot name="header-actions"></slot>
+    </template>
+
     <template #content="{ mailboxes, selectedId, batchMode, selectedIds, toggleSelection, onSelect }">
       <MailboxCard
         v-for="mailbox in mailboxes"
@@ -25,16 +29,25 @@
             ? 'bg-primary-100 border-primary-200'
             : 'bg-gray-50 hover:bg-primary-100 cursor-pointer'
         ]"
+        :address="mailbox.email"
+        :address-class="isUnavailable(mailbox) ? 'text-red-600 line-through' : 'text-black'"
+        :created-label="t('common.createdAt')"
+        :created-text="formatDate(mailbox.created_at)"
+        :expires-label="t('common.expiresAtLabel')"
+        :expires-text="shouldShowExpiresAt(mailbox) && !isPermanentMailbox(mailbox) ? formatDate(getDisplayExpiresAt(mailbox)) : ''"
+        :expires-class="getDisplayExpiresAt(mailbox) && isExpired(mailbox) ? 'text-red-600 font-medium' : ''"
+        :permanent-text="shouldShowExpiresAt(mailbox) && isPermanentMailbox(mailbox) ? t('common.permanent') : ''"
+        :action-menu-title="t('systemMailbox.moreActions')"
+        :actions="getMailboxActions(mailbox)"
         @click="handleMailboxClick(mailbox, batchMode, toggleSelection, onSelect)"
+        @action="handleMailboxAction($event, mailbox)"
       >
-        <div class="flex items-center gap-2 flex-nowrap">
+        <template #address-leading>
           <svg v-if="isUnavailable(mailbox)" class="w-3 h-3 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
           </svg>
-          <code
-            :class="isUnavailable(mailbox) ? 'text-red-600 line-through' : 'text-black'"
-            class="text-sm truncate flex-shrink"
-          >{{ mailbox.email }}</code>
+        </template>
+        <template #badges>
           <HoverTooltip
             v-if="props.mailboxType === 'system' && mailbox.is_public_domain"
             :text="getPublicDomainTooltip(mailbox)"
@@ -72,86 +85,17 @@
           </span>
           <span v-if="isDeletedHostedDomain(mailbox)" class="px-1 py-0.5 text-xs bg-red-100 text-red-800 rounded whitespace-nowrap flex-shrink-0">{{ t('systemMailbox.domainDeleted') }}</span>
           <span v-else-if="isExpired(mailbox)" class="px-1 py-0.5 text-xs bg-red-100 text-red-800 rounded whitespace-nowrap flex-shrink-0">{{ t('systemMailbox.expired') }}</span>
-        </div>
-        <div class="mt-1 flex items-center justify-between text-xs text-gray-600">
-          <span>{{ t('common.createdAt') }}：{{ formatDate(mailbox.created_at) }}</span>
-          <span
-            v-if="shouldShowExpiresAt(mailbox)"
-            :class="getDisplayExpiresAt(mailbox) && isExpired(mailbox) ? 'text-red-600 font-medium' : ''"
-            class="inline-flex items-center gap-1"
-          >
-            <template v-if="isPermanentMailbox(mailbox)">
-              {{ t('common.expiresAtLabel') }}：
-              <span class="rounded-full bg-amber-100 px-1.5 py-0.5 text-[11px] leading-none text-amber-800">
-                {{ t('common.permanent') }}
-              </span>
-            </template>
-            <template v-else>
-              {{ t('common.expiresAtLabel') }}：{{ formatDate(getDisplayExpiresAt(mailbox)) }}
-            </template>
-          </span>
-        </div>
-        <MailboxTags
-          v-if="mailbox.id in tagsData"
-          :mailbox-id="mailbox.id"
-          :mailbox-type="mailboxType"
-          :editable="true"
-          :max-display="3"
-          :initial-sites="tagsData[mailbox.id]?.sites || []"
-          :initial-tags="tagsData[mailbox.id]?.tags || []"
-        />
-        <template #actions>
-          <div
-            class="relative"
-            @mouseenter="handleActionMenuEnter(mailbox.id, $event)"
-            @mouseleave="handleActionMenuLeave(mailbox.id)"
-          >
-            <button
-              type="button"
-              class="flex h-8 w-8 items-center justify-center rounded-full text-gray-500 transition-colors hover:bg-white hover:text-gray-700"
-              :title="t('systemMailbox.moreActions')"
-              @click.stop="openActionMenu(mailbox.id, $event)"
-            >
-              <BaseIcon name="more" size="sm" />
-            </button>
-            <div
-              v-if="openMenuId === mailbox.id"
-              :class="[
-                'absolute right-0 z-20 min-w-[128px] overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg',
-                openMenuPlacement === 'up' ? 'bottom-full' : 'top-full'
-              ]"
-              @click.stop
-            >
-              <button
-                type="button"
-                class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-50"
-                @click.stop="handleCopyEmail(mailbox.email)"
-              >
-                <BaseIcon name="copy" size="sm" />
-                {{ t('systemMailbox.copyMailbox') }}
-              </button>
-              <button
-                type="button"
-                class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-50"
-                @click.stop="handleShareAction(mailbox)"
-              >
-                <BaseIcon name="share" size="sm" />
-                {{ t('systemMailbox.shareMailbox') }}
-              </button>
-              <button
-                type="button"
-                :disabled="isProtectedMailbox(mailbox)"
-                :title="getDeleteTooltip(mailbox)"
-                :class="isProtectedMailbox(mailbox)
-                  ? 'flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-400 cursor-not-allowed'
-                  : 'flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 transition-colors hover:bg-red-50'"
-                @click.stop="handleDeleteAction(mailbox.id)"
-              >
-                <BaseIcon name="delete" size="sm" />
-                {{ t('systemMailbox.deleteMailbox') }}
-              </button>
-            </div>
-          </div>
+        </template>
+        <template #details>
+          <MailboxTags
+            v-if="mailbox.id in tagsData"
+            :mailbox-id="mailbox.id"
+            :mailbox-type="mailboxType"
+            :editable="true"
+            :max-display="3"
+            :initial-sites="tagsData[mailbox.id]?.sites || []"
+            :initial-tags="tagsData[mailbox.id]?.tags || []"
+          />
         </template>
       </MailboxCard>
     </template>
@@ -178,14 +122,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useMailboxStore } from '@/stores/auth'
 import MailboxList from '@/components/Mail/MailboxList/MailboxList.vue'
 import MailboxCard from '@/components/Mail/MailboxList/MailboxCard.vue'
 import Pagination from '@/components/Pagination/index.vue'
 import ConfirmDialog from '@/components/ConfirmDialog/index.vue'
-import BaseIcon from '@/components/BaseIcon/index.vue'
 import MailboxTags from '@/components/MailboxTags/index.vue'
 import HoverTooltip from '@/components/HoverTooltip/index.vue'
 import { showMessage } from '@/utils/message'
@@ -227,9 +170,6 @@ const deleting = ref(false)
 const isDeleting = ref({ batch: false, ids: [] as number[] })
 const selectedId = ref<number | null>(null)
 const tagsData = ref<Record<number, { sites: any[], tags: any[] }>>({})
-const openMenuId = ref<number | null>(null)
-const openMenuPlacement = ref<'up' | 'down'>('down')
-let closeMenuTimer: ReturnType<typeof setTimeout> | null = null
 const resolvedMailboxes = computed(() => props.mailboxes || mailboxStore.mailboxes)
 const resolvedSearchKeyword = computed(() =>
   props.searchKeyword !== null && props.searchKeyword !== undefined
@@ -300,6 +240,27 @@ const getDeleteTooltip = (mailbox: any) => {
   return t('systemMailbox.deleteMailbox')
 }
 
+const getMailboxActions = (mailbox: any) => [
+  {
+    id: 'copy',
+    label: t('systemMailbox.copyMailbox'),
+    icon: 'copy'
+  },
+  {
+    id: 'share',
+    label: t('systemMailbox.shareMailbox'),
+    icon: 'share'
+  },
+  {
+    id: 'delete',
+    label: t('systemMailbox.deleteMailbox'),
+    icon: 'delete',
+    tone: 'danger' as const,
+    disabled: isProtectedMailbox(mailbox),
+    title: getDeleteTooltip(mailbox)
+  }
+]
+
 const getPublicDomainTooltip = (mailbox: any) => {
   const providerName = String(mailbox?.public_domain_provider_name || '').trim()
   if (providerName) {
@@ -368,81 +329,18 @@ const normalizeIds = (ids: unknown): number[] => {
   )
 }
 
-const closeActionMenu = () => {
-  if (closeMenuTimer) {
-    clearTimeout(closeMenuTimer)
-    closeMenuTimer = null
-  }
-  openMenuId.value = null
-}
-
-const resolveMenuPlacement = (event: Event) => {
-  const target = event.currentTarget as HTMLElement | null
-  if (!target) return 'down' as const
-
-  const triggerRect = target.getBoundingClientRect()
-  const scrollContainer = target.closest('.scrollbar-stable') as HTMLElement | null
-  const containerTop = scrollContainer
-    ? Math.max(scrollContainer.getBoundingClientRect().top, 0)
-    : 0
-  const containerBottom = scrollContainer
-    ? Math.min(scrollContainer.getBoundingClientRect().bottom, window.innerHeight)
-    : window.innerHeight
-  const menuHeight = 160
-  const spaceAbove = triggerRect.top - containerTop
-  const spaceBelow = containerBottom - triggerRect.bottom
-
-  if (spaceBelow >= menuHeight) return 'down'
-  if (spaceAbove >= menuHeight) return 'up'
-  return spaceBelow >= spaceAbove ? 'down' : 'up'
-}
-
-const openActionMenu = (mailboxId: number, event: Event) => {
-  if (closeMenuTimer) {
-    clearTimeout(closeMenuTimer)
-    closeMenuTimer = null
-  }
-  openMenuId.value = mailboxId
-  openMenuPlacement.value = resolveMenuPlacement(event)
-}
-
-const handleActionMenuEnter = (mailboxId: number, event: Event) => {
-  openActionMenu(mailboxId, event)
-}
-
-const handleActionMenuLeave = (mailboxId: number) => {
-  if (openMenuId.value === mailboxId) {
-    closeMenuTimer = setTimeout(() => {
-      if (openMenuId.value === mailboxId) {
-        openMenuId.value = null
-      }
-      closeMenuTimer = null
-    }, 160)
-  }
-}
-
-const handleShare = (mailbox: any) => {
-  emit('share', [mailbox])
-}
-
-const handleCopyEmail = (text: string) => {
-  closeActionMenu()
-  copy(text)
-}
-
-const handleShareAction = (mailbox: any) => {
-  closeActionMenu()
-  handleShare(mailbox)
-}
-
-const handleDeleteAction = (id: number) => {
-  const targetMailbox = resolvedMailboxes.value.find((item: any) => Number(item.id) === Number(id))
-  if (targetMailbox && isProtectedMailbox(targetMailbox)) {
-    closeActionMenu()
+const handleMailboxAction = (actionId: string, mailbox: any) => {
+  if (actionId === 'copy') {
+    void copy(mailbox.email)
     return
   }
-  closeActionMenu()
-  handleDelete(id)
+  if (actionId === 'share') {
+    emit('share', [mailbox])
+    return
+  }
+  if (actionId === 'delete' && !isProtectedMailbox(mailbox)) {
+    handleDelete(mailbox.id)
+  }
 }
 
 const handleBatchDelete = (ids: number[]) => {
@@ -512,17 +410,11 @@ const handleSearch = async (keyword: string) => {
 // 处理邮箱点击
 const handleMailboxClick = (mailbox: any, batchMode: boolean, toggleSelection: Function, onSelect: Function) => {
   if (batchMode) {
-    closeActionMenu()
     toggleSelection(mailbox.id)
   } else {
-    closeActionMenu()
     selectedId.value = mailbox.id
     onSelect(mailbox)
   }
-}
-
-const handleWindowClick = () => {
-  closeActionMenu()
 }
 
 const confirmDelete = async () => {
@@ -584,15 +476,4 @@ defineExpose({
   }
 })
 
-onMounted(() => {
-  window.addEventListener('click', handleWindowClick)
-})
-
-onBeforeUnmount(() => {
-  if (closeMenuTimer) {
-    clearTimeout(closeMenuTimer)
-    closeMenuTimer = null
-  }
-  window.removeEventListener('click', handleWindowClick)
-})
 </script>

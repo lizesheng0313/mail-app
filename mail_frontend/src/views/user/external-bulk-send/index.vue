@@ -10,8 +10,8 @@
       <span>请在桌面端使用，网页端仅用于查看页面和入口。</span>
     </div>
 
-    <div class="flex min-h-0 gap-3">
-      <div class="min-h-0 w-[292px] flex-shrink-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div class="flex min-h-0 flex-col gap-3 xl:flex-row">
+      <div class="h-80 min-h-0 w-full flex-shrink-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm xl:h-auto xl:w-[292px]">
         <ExternalMailboxList
           ref="externalMailboxListRef"
           :is-send-email-view="true"

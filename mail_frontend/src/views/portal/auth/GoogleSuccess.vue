@@ -19,6 +19,7 @@ import { onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useUserStore } from '@/stores/user'
+import { takeLoginRedirect } from '@/utils/loginRedirect'
 
 const router = useRouter()
 const route = useRoute()
@@ -34,7 +35,7 @@ onMounted(async () => {
 
     if (result.success) {
       console.log('Google登录成功，用户信息:', userStore.user)
-      router.push('/')
+      router.replace(takeLoginRedirect() || '/user')
       return
     }
 

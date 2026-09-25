@@ -1,0 +1,559 @@
+<template>
+  <div class="flex shrink-0 items-center gap-2 sm:gap-4">
+    <LanguageSwitcher compact />
+
+    <!-- 用户信息 -->
+    <div v-if="userStore.isAuthenticated" class="flex items-center space-x-4">
+      <!-- 公告按钮 -->
+      <div class="relative" ref="announcementRef">
+        <button
+          @click="toggleAnnouncements"
+          class="relative p-2 text-gray-600 hover:text-primary-600 hover:bg-gray-100 rounded-lg transition-colors focus:outline-none"
+          :title="t('pageHeader.notices')"
+        >
+          <BaseIcon name="bell" size="md" />
+          <!-- 未读数量徽章 -->
+          <span
+            v-if="unreadCount > 0"
+            class="absolute top-0 right-0 inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-red-500 rounded-full"
+          >
+            {{ unreadCount > 99 ? '99+' : unreadCount }}
+          </span>
+        </button>
+
+        <!-- 通知下拉面板 -->
+        <div
+          v-if="showAnnouncements"
+          class="fixed right-4 top-[54px] mt-2 w-96 max-w-[calc(100vw-2rem)] bg-white rounded-lg shadow-xl border border-gray-200 z-[80] sm:absolute sm:right-0 sm:top-full"
+        >
+          <div class="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+            <h3 class="text-sm font-semibold text-gray-900">通知</h3>
+            <div class="flex items-center gap-3">
+              <button
+                v-if="hasUnreadInPanel"
+                type="button"
+                class="text-xs font-medium text-primary-600 hover:text-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
+                :disabled="markAllReadLoading"
+                @click.stop="handleMarkAllRead"
+              >
+                {{ markAllReadLoading ? '处理中...' : '一键已读' }}
+              </button>
+              <span class="text-xs text-gray-500">共 {{ notificationPanelTotal }} 条</span>
+            </div>
+          </div>
+
+          <div class="max-h-96 overflow-y-auto">
+            <div v-if="announcementsLoading" class="p-8 text-center">
+              <div
+                class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"
+              ></div>
+              <p class="mt-2 text-sm text-gray-500">{{ t('common.loading') }}</p>
+            </div>
+
+            <div
+              v-else-if="personalNotifications.length === 0 && announcements.length === 0"
+              class="p-8 text-center"
+            >
+              <svg
+                class="mx-auto h-12 w-12 text-gray-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"
+                />
+              </svg>
+              <p class="mt-2 text-sm text-gray-500">暂无通知</p>
+            </div>
+
+            <div v-else>
+              <div
+                v-for="notification in personalNotifications"
+                :key="`notification-${notification.id}`"
+                @click="goToNotification(notification)"
+                class="px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 transition-colors"
+                :class="{ 'bg-green-50': !notification.is_read }"
+              >
+                <div class="flex items-start">
+                  <div class="flex-shrink-0 mt-0.5">
+                    <div
+                      class="w-8 h-8 rounded-full flex items-center justify-center bg-green-100 text-green-600"
+                    >
+                      <BaseIcon name="bell" size="sm" />
+                    </div>
+                  </div>
+
+                  <div class="ml-3 flex-1 min-w-0">
+                    <div class="flex items-center justify-between">
+                      <p class="text-sm font-medium text-gray-900 truncate">
+                        {{ notification.title }}
+                      </p>
+                      <span
+                        v-if="!notification.is_read"
+                        class="ml-2 w-2 h-2 bg-green-500 rounded-full flex-shrink-0"
+                      ></span>
+                    </div>
+                    <p class="mt-1 text-xs text-gray-600 line-clamp-2">
+                      {{ notification.content }}
+                    </p>
+                    <p class="mt-1 text-xs text-gray-400">
+                      {{ formatTime(notification.created_at) }}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div
+                v-for="announcement in announcements"
+                :key="`announcement-${announcement.id}`"
+                @click="goToAnnouncement(announcement.id)"
+                class="px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0 transition-colors"
+                :class="{ 'bg-blue-50': !announcement.is_read }"
+              >
+                <div class="flex items-start">
+                  <!-- 类型图标 -->
+                  <div class="flex-shrink-0 mt-0.5">
+                    <div
+                      :class="{
+                        'bg-blue-100 text-blue-600': announcement.type === 'info',
+                        'bg-yellow-100 text-yellow-600': announcement.type === 'warning',
+                        'bg-green-100 text-green-600': announcement.type === 'success',
+                        'bg-red-100 text-red-600': announcement.type === 'error'
+                      }"
+                      class="w-8 h-8 rounded-full flex items-center justify-center"
+                    >
+                      <BaseIcon
+                        :name="
+                          announcement.type === 'info'
+                            ? 'info'
+                            : announcement.type === 'warning'
+                              ? 'warning'
+                              : announcement.type === 'success'
+                                ? 'success'
+                                : 'error'
+                        "
+                        size="sm"
+                      />
+                    </div>
+                  </div>
+
+                  <!-- 内容 -->
+                  <div class="ml-3 flex-1">
+                    <div class="flex items-center justify-between">
+                      <p class="text-sm font-medium text-gray-900">{{ announcement.title }}</p>
+                      <span
+                        v-if="!announcement.is_read"
+                        class="ml-2 w-2 h-2 bg-blue-500 rounded-full"
+                      ></span>
+                    </div>
+                    <p class="mt-1 text-xs text-gray-600 line-clamp-2">
+                      {{ announcement.content }}
+                    </p>
+                    <p class="mt-1 text-xs text-gray-400">
+                      {{ formatTime(announcement.created_at) }}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="px-4 py-3 border-t border-gray-200 text-center">
+            <router-link
+              to="/user/notifications?tab=personal"
+              @click="showAnnouncements = false"
+              class="text-xs text-primary-600 hover:text-primary-700 font-medium"
+            >
+              个人通知
+            </router-link>
+            <span class="mx-2 text-gray-300">|</span>
+            <router-link
+              to="/user/announcements"
+              @click="showAnnouncements = false"
+              class="text-xs text-primary-600 hover:text-primary-700 font-medium"
+            >
+              系统公告
+            </router-link>
+          </div>
+        </div>
+      </div>
+
+      <!-- 用户下拉菜单 -->
+      <div class="relative" ref="userMenuRef">
+        <button
+          :aria-label="t('workspace.accountMenu')"
+          :aria-expanded="showUserMenu"
+          @click="toggleUserMenu"
+          class="flex items-center space-x-2 text-sm text-black hover:text-black focus:outline-none"
+        >
+          <span class="max-w-24 truncate sm:max-w-44">{{ displayUserName }}</span>
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M19 9l-7 7-7-7"
+            ></path>
+          </svg>
+        </button>
+
+        <!-- 下拉菜单 -->
+        <div
+          v-if="showUserMenu"
+          class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-[80]"
+        >
+          <div class="py-1">
+            <!-- 管理员入口 -->
+            <router-link
+              v-if="userStore.user && (userStore.user as any).is_admin"
+              to="/admin/domains"
+              @click="showUserMenu = false"
+              class="block px-4 py-2 text-sm text-black hover:bg-gray-100 transition-colors"
+            >
+              <div class="flex items-center space-x-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+                  />
+                </svg>
+                <span>{{ t('pageHeader.admin') }}</span>
+              </div>
+            </router-link>
+
+            <!-- 分隔线 -->
+            <div
+              v-if="userStore.user && (userStore.user as any).is_admin"
+              class="border-t border-gray-100 my-1"
+            ></div>
+
+            <!-- 退出登录 -->
+            <button
+              @click="handleLogout"
+              class="block w-full text-left px-4 py-2 text-sm text-black hover:bg-gray-100 transition-colors"
+            >
+              <div class="flex items-center space-x-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                  />
+                </svg>
+                <span>{{ t('pageHeader.logout') }}</span>
+              </div>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div v-else class="flex items-center gap-2">
+      <router-link
+        to="/login"
+        class="inline-flex h-10 items-center justify-center rounded-md border border-gray-200 bg-white px-3 text-sm font-medium text-gray-800 transition-colors hover:border-primary-300 hover:bg-primary-50 hover:text-primary-700 sm:px-4"
+      >
+        {{ t('pageHeader.login') }}
+      </router-link>
+      <router-link
+        to="/login?mode=register"
+        class="inline-flex h-10 items-center justify-center rounded-md bg-primary-600 px-3 text-sm font-medium text-white transition-colors hover:bg-primary-700 sm:px-4"
+      >
+        {{ t('workspace.register') }}
+      </router-link>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { useRouter } from 'vue-router'
+import { useUserStore } from '@/stores/user'
+import BaseIcon from '@/components/BaseIcon/index.vue'
+import LanguageSwitcher from '@/components/LanguageSwitcher/index.vue'
+import { showMessage } from '@/utils/message'
+import api from '@/services/api'
+import {
+  getNotifications,
+  getUnreadCount as getNotificationUnreadCount,
+  markAsRead as markNotificationAsRead,
+  markAllAsRead as markAllNotificationsAsRead
+} from '@/api/notification'
+import { markAllAnnouncementsAsRead } from '@/api/announcement'
+
+const { t, locale } = useI18n()
+const router = useRouter()
+const userStore = useUserStore()
+const displayUserName = computed(() => {
+  const user = userStore.user as any
+  return (
+    user?.nickname || user?.display_name || user?.nick_name || user?.username || user?.email || ''
+  )
+})
+
+// 用户菜单相关
+const showUserMenu = ref(false)
+const userMenuRef = ref<HTMLElement | null>(null)
+
+// 公告相关
+const showAnnouncements = ref(false)
+const announcementRef = ref<HTMLElement | null>(null)
+const announcements = ref<any[]>([])
+const personalNotifications = ref<any[]>([])
+const announcementsLoading = ref(false)
+const markAllReadLoading = ref(false)
+const unreadCount = ref(0)
+const notificationPanelTotal = computed(
+  () => personalNotifications.value.length + announcements.value.length
+)
+const hasUnreadInPanel = computed(() => unreadCount.value > 0)
+
+const normalizeAnnouncementScene = (scene?: string | null) => {
+  return (scene || '').trim().toLowerCase() || 'general'
+}
+
+const filterVisibleAnnouncements = (items: any[]) => {
+  return (items || []).filter(
+    (item: any) => normalizeAnnouncementScene(item?.scene) !== 'release_note'
+  )
+}
+
+// 跳转到公告详情页
+const goToAnnouncement = async (announcementId: number) => {
+  console.log('点击公告，ID:', announcementId)
+  console.log('当前路由:', router.currentRoute.value.path)
+  console.log('用户认证状态:', userStore.isAuthenticated)
+  showAnnouncements.value = false
+  try {
+    await router.push(`/user/notifications?tab=announcements&id=${announcementId}`)
+    console.log('路由跳转完成')
+  } catch (error) {
+    console.error('路由跳转失败:', error)
+  }
+}
+
+const goToNotification = async (notification: any) => {
+  if (!notification) return
+
+  if (!notification.is_read) {
+    try {
+      const result: any = await markNotificationAsRead(notification.id)
+      if (result.code === 0) {
+        notification.is_read = true
+        await loadUnreadCount()
+      }
+    } catch (error) {
+      console.error('标记个人通知已读失败:', error)
+    }
+  }
+
+  showAnnouncements.value = false
+  // 货源巡检通知需要先打开通知详情，不能直接跳到工作流页面。
+  if (notification.notification_type === 'resource_market') {
+    await router.push(`/user/notifications?tab=personal&id=${notification.id}`)
+    return
+  }
+
+  if (notification.link_url) {
+    await router.push(notification.link_url)
+  } else {
+    await router.push('/user/notifications')
+  }
+}
+
+// 切换用户菜单
+const toggleUserMenu = () => {
+  showUserMenu.value = !showUserMenu.value
+  // 关闭公告面板
+  if (showUserMenu.value) {
+    showAnnouncements.value = false
+  }
+}
+
+// 切换公告面板
+const toggleAnnouncements = async () => {
+  showAnnouncements.value = !showAnnouncements.value
+  // 关闭用户菜单
+  if (showAnnouncements.value) {
+    showUserMenu.value = false
+    await loadAnnouncements()
+  }
+}
+
+// 加载公告列表
+const loadAnnouncements = async () => {
+  if (!userStore.isAuthenticated) return
+
+  announcementsLoading.value = true
+  try {
+    const [result]: any[] = await Promise.all([
+      api.get('/announcements/', { params: { page: 1, page_size: 10 } }),
+      loadPersonalNotifications()
+    ])
+    if (result.code === 0) {
+      announcements.value = filterVisibleAnnouncements(result.data.items || [])
+      // 更新未读数量
+      await loadUnreadCount()
+    }
+  } catch (error) {
+    console.error('加载公告失败:', error)
+  } finally {
+    announcementsLoading.value = false
+  }
+}
+
+const loadPersonalNotifications = async () => {
+  if (!userStore.isAuthenticated) return
+
+  try {
+    const result: any = await getNotifications({ page: 1, page_size: 10 })
+    if (result.code === 0) {
+      personalNotifications.value = result.data.items || []
+    }
+  } catch (error) {
+    console.error('加载个人通知失败:', error)
+  }
+}
+
+// 加载未读数量
+const loadUnreadCount = async () => {
+  if (!userStore.isAuthenticated) return
+
+  let nextUnreadCount = 0
+
+  try {
+    const result: any = await api.get('/announcements/unread/count')
+    if (result.code === 0) {
+      const announcementUnreadCount = result.data.count || 0
+
+      if (announcementUnreadCount > 0) {
+        const listResult: any = await api.get('/announcements/', {
+          params: { page: 1, page_size: 10 },
+          suppressErrorMessage: true
+        } as any)
+
+        if (listResult.code === 0) {
+          const visibleAnnouncements = filterVisibleAnnouncements(listResult.data.items || [])
+          if (visibleAnnouncements.length > 0) {
+            nextUnreadCount += announcementUnreadCount
+          } else if (!showAnnouncements.value) {
+            announcements.value = []
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.error('加载公告未读数量失败:', error)
+  }
+
+  try {
+    const result: any = await getNotificationUnreadCount()
+    if (result.code === 0) {
+      nextUnreadCount += result.data.count || 0
+    }
+  } catch (error) {
+    console.error('加载个人通知未读数量失败:', error)
+  }
+
+  unreadCount.value = nextUnreadCount
+}
+
+// 标记全部为已读
+const handleMarkAllRead = async () => {
+  if (markAllReadLoading.value) return
+
+  markAllReadLoading.value = true
+  try {
+    const tasks: Promise<any>[] = []
+
+    if (personalNotifications.value.some((item) => !item.is_read)) {
+      tasks.push(markAllNotificationsAsRead())
+    }
+
+    if (announcements.value.some((item) => !item.is_read)) {
+      tasks.push(markAllAnnouncementsAsRead())
+    }
+
+    if (tasks.length > 0) {
+      await Promise.all(tasks)
+    }
+
+    personalNotifications.value = personalNotifications.value.map((item) => ({
+      ...item,
+      is_read: true
+    }))
+    announcements.value = announcements.value.map((item) => ({ ...item, is_read: true }))
+    await loadUnreadCount()
+    showMessage(t('pageHeader.markedAllRead'), 'success')
+  } catch (error) {
+    console.error('一键已读失败:', error)
+    showMessage('一键已读失败', 'error')
+  } finally {
+    markAllReadLoading.value = false
+  }
+}
+
+// 格式化时间
+const formatTime = (timestamp: number) => {
+  if (!timestamp) return ''
+  const date = new Date(timestamp)
+  const now = new Date()
+  const diff = now.getTime() - date.getTime()
+  const seconds = Math.floor(diff / 1000)
+  const minutes = Math.floor(seconds / 60)
+  const hours = Math.floor(minutes / 60)
+  const days = Math.floor(hours / 24)
+
+  if (seconds < 60) return t('common.justNow')
+  if (minutes < 60) return t('common.minutesAgo', { count: minutes })
+  if (hours < 24) return t('common.hoursAgo', { count: hours })
+  if (days < 7) return t('common.daysAgo', { count: days })
+
+  return date.toLocaleDateString(locale.value)
+}
+
+// 处理退出登录
+const handleLogout = () => {
+  showUserMenu.value = false
+  userStore.logout()
+  // 直接跳转到登录页
+  window.location.href = '/login'
+}
+
+// 点击外部关闭菜单
+const handleClickOutside = (event: MouseEvent) => {
+  if (userMenuRef.value && !userMenuRef.value.contains(event.target as Node)) {
+    showUserMenu.value = false
+  }
+  if (announcementRef.value && !announcementRef.value.contains(event.target as Node)) {
+    showAnnouncements.value = false
+  }
+}
+
+let unreadTimer: ReturnType<typeof setInterval> | undefined
+
+onMounted(() => {
+  document.addEventListener('click', handleClickOutside)
+  // 初始加载未读数量
+  loadUnreadCount()
+  // 每5分钟刷新一次未读数量
+  unreadTimer = setInterval(
+    () => {
+      loadUnreadCount()
+    },
+    5 * 60 * 1000
+  )
+})
+
+onUnmounted(() => {
+  if (unreadTimer) clearInterval(unreadTimer)
+  document.removeEventListener('click', handleClickOutside)
+})
+</script>

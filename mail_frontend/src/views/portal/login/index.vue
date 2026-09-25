@@ -429,6 +429,7 @@ import LanguageSwitcher from '@/components/LanguageSwitcher/index.vue'
 import { showMessage } from '@/utils/message'
 import { isTauri } from '@/services/api'
 import { openExternalAuthUrl } from '@/utils/openExternalAuthUrl'
+import { rememberLoginRedirect } from '@/utils/loginRedirect'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -606,7 +607,7 @@ const handleSubmit = async () => {
     if (isLoginMode.value) {
       const redirectPath = typeof route.query.redirect === 'string' && route.query.redirect.startsWith('/')
         ? route.query.redirect
-        : '/'
+        : '/user'
       router.push(redirectPath)
     } else if (isResetMode.value) {
       // 密码重置成功，显示提示并跳转到登录
@@ -617,7 +618,7 @@ const handleSubmit = async () => {
       showMessage(result.message || t('login.registerSuccess'), 'success')
       const redirectPath = typeof route.query.redirect === 'string' && route.query.redirect.startsWith('/')
         ? route.query.redirect
-        : '/'
+        : '/user'
       router.push(redirectPath)
     }
   } else {
@@ -635,6 +636,7 @@ const loginWithGoogle = async () => {
     const result = await authAPI.getGoogleLoginUrl({ is_desktop: isTauri() })
     
     if (result.code === 0) {
+      rememberLoginRedirect(route.query.redirect)
       await openExternalAuthUrl(result.data.auth_url)
     } else {
       error.value = result.message || t('login.getAuthLinkFailed')
@@ -697,7 +699,7 @@ const completeWechatChoice = async (action: 'bind' | 'create') => {
     closeWechatChoice()
     const redirectPath = typeof route.query.redirect === 'string' && route.query.redirect.startsWith('/')
       ? route.query.redirect
-      : '/'
+      : '/user'
     router.push(redirectPath)
   } catch (err: any) {
     wechatChoiceError.value = err.response?.data?.message || t('login.wechatLoginFailed')
@@ -757,7 +759,7 @@ const loginWithWechat = async () => {
         if (loginResult.success) {
           const redirectPath = typeof route.query.redirect === 'string' && route.query.redirect.startsWith('/')
             ? route.query.redirect
-            : '/'
+            : '/user'
           router.push(redirectPath)
         } else {
           error.value = loginResult.error || t('login.wechatLoginFailed')

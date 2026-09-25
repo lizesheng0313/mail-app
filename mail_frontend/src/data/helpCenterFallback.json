@@ -1,0 +1,490 @@
+[
+  {
+    "article_key": "help_category_mailboxes",
+    "parent_key": "",
+    "title": "邮箱",
+    "content_html": "<p>临时邮箱、域名邮箱、第三方邮箱的创建、收件、复制地址和分享方法。</p>",
+    "sort_order": 10,
+    "enabled": true
+  },
+  {
+    "article_key": "help_category_account",
+    "parent_key": "",
+    "title": "个人中心",
+    "content_html": "<p>新用户先看“快速开始”。购买订单记录买了什么，财务中心记录奶片余额和收支流水。</p>",
+    "sort_order": 20,
+    "enabled": true
+  },
+  {
+    "article_key": "help_category_developer",
+    "parent_key": "",
+    "title": "开发者",
+    "content_html": "<p>访问密钥用于程序调用已授权的接口；完整密钥只显示一次，创建后请立即保存。</p>",
+    "sort_order": 30,
+    "enabled": true
+  },
+  {
+    "article_key": "help_category_automation",
+    "parent_key": "",
+    "title": "自动化",
+    "content_html": "<p>在资源库创建、编辑和测试工作流；购买订单只记录交易，不是编辑工作流的地方。</p>",
+    "sort_order": 40,
+    "enabled": true
+  },
+  {
+    "article_key": "help_category_reach",
+    "parent_key": "",
+    "title": "邮件触达",
+    "content_html": "<p>模板写邮件内容，会员列表管理收件人，发送任务执行投递，行为明细看结果；发送前排除退订名单。</p>",
+    "sort_order": 50,
+    "enabled": true
+  },
+  {
+    "article_key": "help_category_tools",
+    "parent_key": "",
+    "title": "工具",
+    "content_html": "<p>下载桌面客户端、打开小程序，或在浏览器中生成两步验证码。</p>",
+    "sort_order": 60,
+    "enabled": true
+  },
+  {
+    "article_key": "product",
+    "parent_key": "help_category_account",
+    "title": "快速开始",
+    "content_html": "<p>先选择需要的邮箱类型：临时邮箱适合临时收信；域名邮箱使用您已验证的自有域名；第三方邮箱用于集中管理您已拥有的邮箱。</p><ol><li>只想马上收信：进入<a href=\"/\">我的工作台</a>，选择“临时邮箱”，点击“随机获取”。</li><li>需要长期管理、分享邮箱或添加自己的域名、第三方邮箱：先登录或注册。</li><li>创建邮箱后，复制地址给发件人；在工作台左侧选中邮箱，中间查看来信，右侧查看正文。</li></ol><p>请勿将临时邮箱用于重要账户的长期找回邮箱。</p>",
+    "sort_order": 10,
+    "enabled": true
+  },
+  {
+    "article_key": "help_start_account",
+    "parent_key": "product",
+    "title": "登录与账号",
+    "content_html": "<p>登录后可以在同一工作台管理临时邮箱、已验证域名下的邮箱和第三方邮箱，并使用分享链接、购买记录等账户功能。访客也能直接体验临时邮箱，但访客邮箱保存在当前浏览器中，清除浏览器数据或更换设备可能无法继续访问。</p><ol><li>点击页面右上角“登录”或“注册”。</li><li>登录成功后回到“我的工作台”，从邮箱类型入口切换。</li><li>如果此前在同一浏览器创建过访客临时邮箱，系统会尝试将其认领到当前账号；请在邮箱列表确认是否出现。</li></ol><p><img src=\"/help-center/login-entry.webp\" width=\"590\" alt=\"页面顶部登录入口\"></p>",
+    "sort_order": 10,
+    "enabled": true
+  },
+  {
+    "article_key": "help_start_choose",
+    "parent_key": "product",
+    "title": "选择邮箱类型",
+    "content_html": "<ul><li><strong>临时邮箱：</strong>不用先准备域名或现有邮箱，适合临时接收邮件和验证码。</li><li><strong>域名邮箱：</strong>您拥有域名并能修改 DNS 时使用；先添加并验证域名，再创建该域名下的地址。</li><li><strong>第三方邮箱：</strong>您已经有其他服务商的邮箱，想在这里集中收取或通过其 SMTP 发信时使用；需取得该邮箱的授权码或完成 OAuth 授权。</li></ul><p><img src=\"/help-center/mail-types.webp\" width=\"905\" alt=\"页面上的临时邮箱、域名邮箱和第三方邮箱介绍\"></p>",
+    "sort_order": 20,
+    "enabled": true
+  },
+  {
+    "article_key": "help_account_register",
+    "parent_key": "product",
+    "title": "注册账号",
+    "content_html": "<ol><li>打开<a href=\"/login\">登录页面</a>，点击“注册”。</li><li>填写您能正常收信的邮箱，点击“发送验证码”，去该邮箱查看验证邮件。</li><li>填入验证码、密码和确认密码，阅读服务条款与隐私政策后提交。</li><li>注册成功后回到工作台，确认左侧邮箱列表和账号状态。</li></ol><p><img src=\"/help-center/register-entry.webp\" width=\"156\" alt=\"页面顶部的注册入口\"></p><p>收不到验证码时，先核对地址和垃圾邮件文件夹，再按页面提示重新发送；验证码和密码不要转发给他人。</p>",
+    "sort_order": 30,
+    "enabled": true
+  },
+  {
+    "article_key": "help_account_social_login",
+    "parent_key": "product",
+    "title": "微信和 Google 登录",
+    "content_html": "<p>这是<strong>登录本站账号</strong>，不是把微信、Gmail 或 Outlook 邮箱添加到收件箱。要添加已有邮箱，请看<a href=\"/about?help=help_external_add\">添加第三方邮箱</a>。</p><ol><li>打开<a href=\"/login\">登录页面</a>，选择“微信登录”或“Google 登录”。</li><li>微信：按页面展示的小程序二维码完成扫码和确认；首次使用时，选择创建新账号或输入已有本站账号的邮箱、密码完成绑定。</li><li>Google：在 Google 页面选择自己的账号并确认；首次使用时，在返回页面选择创建新账号或绑定已有本站账号。</li><li>回到本站后检查右上角是否显示已登录账号。</li></ol><p>如果您已有本站账号，首次授权时应选择“绑定已有账号”，避免创建两个独立账号。只在官方授权页面输入第三方账号凭据；无法打开授权页时，检查浏览器弹窗拦截和网络。</p>",
+    "sort_order": 40,
+    "enabled": true
+  },
+  {
+    "article_key": "help_account_reset",
+    "parent_key": "product",
+    "title": "忘记密码",
+    "content_html": "<ol><li>打开<a href=\"/login\">登录页面</a>，点击“忘记密码”。</li><li>填写注册邮箱，点击“发送验证码”。</li><li>在注册邮箱中查收验证码，填入新密码和确认密码后提交。</li><li>重置完成后，用新密码重新登录。</li></ol><p>若无法收取注册邮箱的邮件，请通过站内客服咨询账号恢复方式；不要把验证码或新密码发给客服。</p>",
+    "sort_order": 50,
+    "enabled": true
+  },
+  {
+    "article_key": "feature",
+    "parent_key": "help_category_mailboxes",
+    "title": "邮箱功能",
+    "content_html": "<p>工作台支持<a href=\"/about?help=feature1_1\">临时邮箱</a>、<a href=\"/about?help=feature_1_2\">域名邮箱</a>和<a href=\"/about?help=help_external\">第三方邮箱</a>。选中邮箱后可以查看来信；需要给别人使用时，可复制地址或按权限<a href=\"/about?help=help_mail\">分享邮箱</a>。</p><p>部分操作需要先登录。第三方邮箱的收发能力还取决于服务商授权和协议设置，域名邮箱收件取决于 DNS 是否配置正确。</p>",
+    "sort_order": 20,
+    "enabled": true
+  },
+  {
+    "article_key": "feature1_1",
+    "parent_key": "help_category_mailboxes",
+    "title": "临时邮箱",
+    "content_html": "<p>临时邮箱可以快速生成地址并接收邮件。访客可在工作台直接随机获取；登录后还可使用自定义创建等账户功能。创建后可在左侧查看地址与有效期，选中邮箱查看来信。</p><p>从下面的指南开始：创建邮箱 → 复制地址 → 查看来信和验证码。临时邮箱不适合存放敏感信息，也不建议用于长期依赖的账号。</p>",
+    "sort_order": 30,
+    "enabled": true
+  },
+  {
+    "article_key": "help_temp_create",
+    "parent_key": "feature1_1",
+    "title": "随机创建邮箱",
+    "content_html": "<ol><li>打开<a href=\"/\">我的工作台</a>，切换到“临时邮箱”。</li><li>点击“随机获取”，系统会生成一个邮箱地址并加入左侧列表。</li><li>选中这个邮箱，等待对方发送邮件；新邮件会显示在收件箱中。</li></ol><p><img src=\"/help-center/get-mailbox.webp\" width=\"810\" alt=\"随机获取按钮和临时邮箱列表\"></p><p>访客页面会显示“今日已用/额度”，达到当日额度后需等待额度恢复或登录后查看可用方式。</p>",
+    "sort_order": 10,
+    "enabled": true
+  },
+  {
+    "article_key": "help_temp_custom",
+    "parent_key": "feature1_1",
+    "title": "指定生成邮箱",
+    "content_html": "<ol><li>登录账号，在工作台选择“临时邮箱”，点击“自定义创建”。</li><li>在弹窗左侧选择一个可用域名，右侧“生成规则”选择“指定生成”。</li><li>在“指定邮箱名”中只填写 @ 前面的名称，例如 hello；指定生成一次只能选一个域名、创建一个地址。</li><li>核对页面显示的完整地址和价格，确认后再提交；成功后在左侧列表选中邮箱。</li></ol><p><img src=\"/help-center/custom-mailbox.webp\" width=\"810\" alt=\"自定义创建邮箱入口\"></p><p>域名邮箱也可以从“域名邮箱”页的“自定义创建”进入同一规则。若未登录请先登录；地址被占用可更换名称，域名不可用时换域名，余额不足时先充值。</p>",
+    "sort_order": 20,
+    "enabled": true
+  },
+  {
+    "article_key": "help_temp_copy",
+    "parent_key": "feature1_1",
+    "title": "复制邮箱地址",
+    "content_html": "<ol><li>在工作台左侧找到邮箱卡片，将鼠标移到右侧“···”。</li><li>打开菜单，点击“复制邮箱”。</li><li>到目标网站的邮箱输入框粘贴完整地址。</li></ol><p><img src=\"/help-center/copy-mailbox-hover.gif\" width=\"392\" alt=\"悬停邮箱卡片的省略号后显示复制邮箱菜单\"></p>",
+    "sort_order": 30,
+    "enabled": true
+  },
+  {
+    "article_key": "help_temp_read",
+    "parent_key": "feature1_1",
+    "title": "查看邮件和验证码",
+    "content_html": "<ol><li>在左侧选中收件地址，中间收件箱会显示该邮箱的邮件。</li><li>点击邮件，右侧查看正文、发件人和附件信息。</li><li>如果列表识别出验证码，可点击验证码旁的复制按钮；请仍以邮件正文核对。</li><li>暂未看到来信时，点击收件箱刷新按钮，并检查发件地址是否填对。</li></ol><p><img src=\"/help-center/inbox-search-refresh.webp\" width=\"400\" alt=\"收件箱的搜索框和刷新按钮\"></p><p>邮件送达速度还受发件方和网络影响，切换邮箱时要确认当前选中的是正确地址。</p>",
+    "sort_order": 40,
+    "enabled": true
+  },
+  {
+    "article_key": "help_temp_keep",
+    "parent_key": "feature1_1",
+    "title": "保存访客邮箱",
+    "content_html": "<p>访客邮箱与当前浏览器保存的访问凭据有关。不要清理浏览器站点数据，也不要只凭邮箱地址期待在另一台设备恢复收件箱。</p><ol><li>在创建访客邮箱的同一浏览器登录或注册。</li><li>登录后返回工作台，确认邮箱已出现在账户的临时邮箱列表中。</li><li>如未出现，请不要继续用该地址接收重要邮件，并联系站内客服核实。</li></ol>",
+    "sort_order": 50,
+    "enabled": true
+  },
+  {
+    "article_key": "feature_1_2",
+    "parent_key": "help_category_mailboxes",
+    "title": "域名邮箱",
+    "content_html": "<p>拥有自己的域名、并能在域名服务商处修改 DNS 的用户，可以先绑定和验证域名，再创建该域名下的邮箱。仅在本网站输入域名名称，不会自动替您修改域名解析。</p><p>请按“添加域名 → 配置 DNS → 验证 → 创建邮箱”的顺序操作。</p>",
+    "sort_order": 40,
+    "enabled": true
+  },
+  {
+    "article_key": "help_domain_add",
+    "parent_key": "feature_1_2",
+    "title": "添加自己的域名",
+    "content_html": "<ol><li>登录后打开<a href=\"/user/domains\">我的域名</a>，点击右上角“添加域名”。</li><li>在“域名”框只填域名本身，例如 example.com，不要填 https://、网址路径或邮箱地址。“描述”可不填；“过期时间”默认是一年后，可按需要调整。</li><li>“未匹配邮箱代收”默认开启：发往尚未创建的地址也会进入 admin@该域名；只想收已创建地址的邮件就关闭，详情见<a href=\"/about?help=help_domain_catchall\">未匹配邮箱代收</a>。“是否公益”会允许其他用户用这个域名生成临时邮箱，私人或公司域名通常不要勾选。</li><li>点击“添加域名”。成功后弹窗会直接切换成该域名的详情，显示系统为这次绑定生成的“DNS 配置”表；不用自己猜 TXT 或 MX 的主机记录和值。</li><li>如果关闭了弹窗，在域名列表找到“待验证”的域名，点击操作列的眼睛图标“详情”，可以重新查看记录。</li></ol><figure><a href=\"/help-center/domain-add-local-demo.png\" target=\"_blank\" rel=\"noopener noreferrer\"><img src=\"/help-center/domain-add-local-demo.png\" alt=\"添加域名表单截图，域名框填写 example.com，下面是描述、过期时间、未匹配邮箱代收及是否公益\" width=\"896\" loading=\"lazy\"></a><figcaption>本站添加域名表单截图；example.com 是本地演示域名。</figcaption></figure><p>添加成功只表示域名已登记，还不能保证收信；继续按<a href=\"/about?help=help_domain_dns\">配置并验证 DNS</a>逐行设置。只有您能管理该域名的实际 DNS 解析时才可完成绑定。</p>",
+    "sort_order": 10,
+    "enabled": true
+  },
+  {
+    "article_key": "help_domain_dns_provider",
+    "parent_key": "feature_1_2",
+    "title": "先找到 DNS 管理平台",
+    "content_html": "<p>域名在哪个平台购买，与解析记录在哪个平台修改，不一定是一回事。应去<strong>当前负责该域名解析的 DNS 平台</strong>添加记录。</p><ol><li>先登录域名购买平台，在域名详情查看“DNS 服务器”“Nameserver”或“NS”设置。</li><li>如果 DNS 服务器指向阿里云、腾讯云 DNSPod 或 Cloudflare，就去对应平台的 DNS 记录页面；若使用其他托管商，就去那个托管商。</li><li>找到域名的“解析设置”“记录管理”或“DNS Records”，再对照本站<a href=\"/user/domains\">域名详情</a>逐条填写。</li></ol><p>不要为了添加一条 TXT 或 MX 记录而随意更换 NS。更换 NS 会影响整个域名的现有网站和邮箱解析。</p>",
+    "sort_order": 15,
+    "enabled": true
+  },
+  {
+    "article_key": "help_domain_dns",
+    "parent_key": "feature_1_2",
+    "title": "配置并验证 DNS",
+    "content_html": "<ol><li>打开<a href=\"/user/domains\">我的域名</a>。新添加域名会直接显示详情；以后可点待验证域名操作列的“详情”眼睛图标，找到“DNS 配置”表。</li><li>表里<strong>每一行都是一条要单独保存的 DNS 记录</strong>。普通绑定显示证明域名归属的 TXT 行和负责收信的 MX 行；只按自己页面实际显示的行添加，不要照搬别人截图中的记录值。</li><li>确认域名实际使用哪家 DNS 平台，在该平台选择同一个域名，进入“添加记录”。照下表逐列填写，保存一行后再添加下一行。</li><li>等待解析生效，回本站详情点击“立即验证DNS”。逐行看“状态”和检查说明；通过后确认域名显示“已验证”，再去创建邮箱并试收一封邮件。</li></ol><figure><a href=\"/help-center/domain-dns-local-demo.png\" target=\"_blank\" rel=\"noopener noreferrer\"><img src=\"/help-center/domain-dns-local-demo.png\" alt=\"域名详情 DNS 配置表截图，显示 TXT 和 MX 两行，每行含主机记录、记录类型、值、优先级、状态\" width=\"896\" loading=\"lazy\"></a><figcaption>本站 DNS 配置表截图；记录值为本地演示占位，请复制您自己页面中的实际值。</figcaption></figure><h3>本站这一列，填到外站哪里</h3><div class=\"help-table-wrap\"><table><thead><tr><th>本站 DNS 配置表</th><th>阿里云／DNSPod</th><th>Cloudflare</th><th>填写方法</th></tr></thead><tbody><tr><td>主机记录</td><td>主机记录</td><td>Name</td><td>点本站这一格旁的复制按钮，填到名称栏；@ 表示当前解析域名本身。</td></tr><tr><td>记录类型</td><td>记录类型</td><td>Type</td><td>本站显示 TXT 就选 TXT，显示 MX 就选 MX。</td></tr><tr><td>值</td><td>记录值；DNSPod 的 MX 弹窗也可能叫邮件服务器</td><td>TXT 用 Content；MX 用 Mail server</td><td>点本站“值”旁的复制按钮，原样粘贴，不要把主机记录或优先级拼进这里。</td></tr><tr><td>优先级</td><td>MX 优先级／优先级</td><td>Priority</td><td>仅 MX 行填写本站显示的数字；TXT 行显示“-”就不用填。</td></tr><tr><td>状态</td><td>不填写</td><td>不填写</td><td>只用于回本站查看验证结果。</td></tr></tbody></table></div><p><strong>主机记录特别注意：</strong>DNS 平台通常会自动补上当前管理域名的后缀。管理 example.com 时，@ 指 example.com，mail 指 mail.example.com；如果本站绑定的是子域名，主机记录可能是 mail 或 _fm_verify.mail，不要一律改成 @，也不要重复输入完整域名。若子域名有独立委托的 DNS 区域，应先核对外站预览的最终完整名称是否与本站记录对应。</p><p>TXT 值用于证明域名归属，MX 值指向收件服务器；<strong>值和优先级只以您当前域名详情为准</strong>。修改已有 MX 可能中断原邮箱收信；有旧邮箱业务时先确认迁移方案。</p>",
+    "sort_order": 20,
+    "enabled": true
+  },
+  {
+    "article_key": "help_domain_dns_aliyun",
+    "parent_key": "feature_1_2",
+    "title": "阿里云添加 DNS 记录",
+    "content_html": "<ol><li>先按<a href=\"/about?help=help_domain_dns_provider\">先找到 DNS 管理平台</a>确认阿里云确实在解析这个域名，再进入阿里云“云解析 DNS → 公网权威解析”。选中域名，打开“解析设置”，点击“添加记录”。</li><li>如果本站“DNS 配置”表有 TXT 行，就新建一条 TXT：把本站“主机记录”填到阿里云“主机记录”，把本站“值”填到“记录值集合 → 记录值”；“解析请求来源”保持“默认／默认”。TXT 不填优先级。</li><li>如果本站还有 MX 行，再点击一次“添加记录”，类型选 MX。本站“主机记录”仍填同名字段；本站“值”填到“记录值集合 → 记录值”，本站“优先级”数字填到旁边的“优先级”。截图里的 1 不是本站给出的值，不能照抄；也不要把优先级拼进邮件服务器地址。</li><li>每条记录分别点击“确定”保存，在解析列表确认都已启用，再回本站域名详情点击“立即验证DNS”。</li></ol><figure><a href=\"/help-center/aliyun-dns-records.png\" target=\"_blank\" rel=\"noopener noreferrer\"><img src=\"/help-center/aliyun-dns-records.png\" width=\"905\" loading=\"lazy\" alt=\"阿里云解析设置页中的添加记录按钮\"></a><figcaption>阿里云解析设置页：从“添加记录”进入。</figcaption></figure><figure><a href=\"/help-center/aliyun-dns-txt-form.png\" target=\"_blank\" rel=\"noopener noreferrer\"><img src=\"/help-center/aliyun-dns-txt-form.png\" width=\"765\" loading=\"lazy\" alt=\"阿里云 TXT 记录表单，显示主机记录、解析请求来源和记录值集合\"></a><figcaption>TXT 表单：域名已遮挡，记录值要复制本站当前域名详情里的实际值。</figcaption></figure><figure><a href=\"/help-center/aliyun-dns-mx-form.png\" target=\"_blank\" rel=\"noopener noreferrer\"><img src=\"/help-center/aliyun-dns-mx-form.png\" width=\"765\" loading=\"lazy\" alt=\"阿里云 MX 记录表单，记录值集合内分别填写记录值和优先级\"></a><figcaption>MX 表单：优先级请填本站给出的数字，不要沿用截图里的 1。</figcaption></figure><p>阿里云会自动拼接解析区后缀；主域名通常用 @，子域名不要一律用 @。本站要求的记录以<strong>您自己的域名详情</strong>为准。若旧邮箱正在使用 MX，先确认迁移影响。界面变化时可参考<a href=\"https://help.aliyun.com/zh/dns/pubz-add-parsing-record\" target=\"_blank\" rel=\"noopener noreferrer\">阿里云官方添加解析记录指南</a>。</p>",
+    "sort_order": 21,
+    "enabled": true
+  },
+  {
+    "article_key": "help_domain_dns_tencent",
+    "parent_key": "feature_1_2",
+    "title": "腾讯云 DNSPod 添加记录",
+    "content_html": "<ol><li>确认域名当前使用腾讯云 DNSPod 解析，进入“云解析 DNS → 权威解析”，选中实际托管解析的域名，打开“记录管理 → 添加记录”。</li><li>先添加本站 DNS 表的 TXT 行：DNSPod“记录类型”选 TXT；本站“主机记录”填入 DNSPod“主机记录”；本站“值”填入“记录值”。“线路类型”选“默认”，其他项无特殊要求时保持默认。</li><li>再单独添加本站 MX 行：类型选 MX，主机记录照抄；本站“值”填 DNSPod 的“记录值”或“邮件服务器”，本站“优先级”数字填“MX 优先级”，不要拼进邮件服务器地址。</li><li>保存后确认两条记录都已启用，回本站域名详情点击“立即验证DNS”。</li></ol><p>DNSPod 的 @ 表示当前解析区本身，子域名的主机记录不能无条件填 @；请核对它最终拼出的完整域名与本站记录一致。腾讯云提供带控制台截图的<a href=\"https://cloud.tencent.com/document/product/302/3451\" target=\"_blank\" rel=\"noopener noreferrer\">官方 MX 记录操作页</a>及<a href=\"https://cloud.tencent.com/document/product/302/3468\" target=\"_blank\" rel=\"noopener noreferrer\">主机记录说明</a>。域名不使用 DNSPod 解析时，在这里添加不会生效。</p>",
+    "sort_order": 22,
+    "enabled": true
+  },
+  {
+    "article_key": "help_domain_dns_cloudflare",
+    "parent_key": "feature_1_2",
+    "title": "Cloudflare 添加 DNS 记录",
+    "content_html": "<ol><li>确认域名的 Nameserver 指向 Cloudflare，在 Cloudflare 控制台选中该域名，进入“DNS → Records → Add record”。</li><li>添加本站 DNS 表的 TXT 行：Type 选 TXT，本站“主机记录”填 Name，本站“值”填 Content，点击 Save。</li><li>再点 Add record 添加 MX 行：Type 选 MX，主机记录填 Name，本站“值”填 Mail server，本站“优先级”数字填 Priority，再点击 Save。TXT 和 MX 是两条独立记录，不要合并。</li><li>核对记录列表中最终的完整 Name、值及 MX 优先级，回本站点“立即验证DNS”。</li></ol><p>Cloudflare 会按当前 DNS 区域补全 Name；主域名可用 @，子域名须按本站记录核对。TXT 和 MX 无代理开关；不要借用 Cloudflare Email Routing 生成的 MX。若已使用其他邮箱或 Email Routing，先确认迁移影响，不要直接删除正在使用的 MX。详见<a href=\"https://developers.cloudflare.com/dns/manage-dns-records/how-to/create-dns-records/\" target=\"_blank\" rel=\"noopener noreferrer\">Cloudflare 官方记录操作指南</a>和<a href=\"https://developers.cloudflare.com/dns/troubleshooting/email-issues/\" target=\"_blank\" rel=\"noopener noreferrer\">邮件解析冲突说明</a>。</p>",
+    "sort_order": 23,
+    "enabled": true
+  },
+  {
+    "article_key": "help_domain_dns_trouble",
+    "parent_key": "feature_1_2",
+    "title": "DNS 验证失败怎么办",
+    "content_html": "<ol><li>确认记录加在实际生效的 DNS 平台，而不只是域名购买平台；核对该域名当前的 Nameserver。</li><li>核对每条记录的类型、主机记录、值和 MX 优先级，尤其注意外站是否自动补全域名后缀。</li><li>确认记录已保存且启用，等待缓存更新后重新点击“立即验证DNS”。</li><li>若 TXT 已通过但仍收不到信，单独检查 MX 是否指向本站要求的服务；若原有邮箱仍在使用，不要贸然覆盖旧 MX。</li></ol><p>域名在本站显示“已添加”不等于“已验证”，验证成功也不等于 MX 已正确收信。仍失败时可提供域名和公开 DNS 查询结果给客服，但不要发送域名平台密码或管理令牌。</p>",
+    "sort_order": 24,
+    "enabled": true
+  },
+  {
+    "article_key": "help_domain_create",
+    "parent_key": "feature_1_2",
+    "title": "创建域名邮箱",
+    "content_html": "<ol><li>先在<a href=\"/user/domains\">我的域名</a>确认域名显示“已验证”。</li><li>返回<a href=\"/\">我的工作台</a>，切换到“域名邮箱”。</li><li>点击“随机获取”生成地址；若要自己定邮箱名，点击“自定义创建”，按<a href=\"/about?help=help_temp_custom\">指定生成邮箱</a>的步骤选域名和填写名称。</li><li>在左侧列表选中新邮箱，复制完整地址并开始收信。</li></ol><p>如果无法生成，先检查域名状态；生成成功却收不到信，再检查该域名的 MX 记录。</p>",
+    "sort_order": 30,
+    "enabled": true
+  },
+  {
+    "article_key": "help_domain_catchall",
+    "parent_key": "feature_1_2",
+    "title": "未匹配邮箱代收",
+    "content_html": "<p>“未匹配邮箱代收”在添加域名时默认开启，也可在“我的域名”编辑域名时调整。域名验证通过后，发往该域名下<strong>未单独创建</strong>地址的邮件会统一进入 admin@该域名；关闭后不代收。这不是为每个地址创建独立收件箱。</p><p>只想接收已创建地址的邮件，就关闭此开关。开启后可能收到更多垃圾邮件；子域名能否代收还取决于相应 MX 是否指向本站。</p>",
+    "sort_order": 40,
+    "enabled": true
+  },
+  {
+    "article_key": "help_domain_public",
+    "parent_key": "feature_1_2",
+    "title": "公益域名开关",
+    "content_html": "<p>添加或编辑域名时有“是否公益”选项。开启后，该域名会共享给其他用户，其他用户也可以使用它生成临时邮箱。</p><p>如果这是公司、品牌或私人域名，不想供其他用户使用，就不要勾选。开启前请确认自己有权开放该域名，并了解可能增加的收信量和管理责任。</p>",
+    "sort_order": 50,
+    "enabled": true
+  },
+  {
+    "article_key": "help_external",
+    "parent_key": "help_category_mailboxes",
+    "title": "第三方邮箱",
+    "content_html": "<p>第三方邮箱用于管理您在其他服务商已有的邮箱。添加前请确认您有该账户的使用授权，并按服务商要求开启 IMAP/POP3、取得邮箱授权码或完成 OAuth 授权。</p><p>登录本站后，在工作台切换到“第三方邮箱”即可开始添加。</p>",
+    "sort_order": 50,
+    "enabled": true
+  },
+  {
+    "article_key": "help_external_prepare",
+    "parent_key": "help_external",
+    "title": "添加前准备什么",
+    "content_html": "<ol><li>先在邮箱服务商的网站确认这个账号能正常收信，且您有权接入。</li><li>普通账号按服务商要求开启 IMAP 或 POP3，并取得专用授权码；授权码与本站登录密码、邮箱网页登录密码不是一回事。</li><li>Gmail 和 Outlook 优先按本站的 OAuth 授权流程操作，不要把网页登录密码粘贴到批量导入框。</li><li>若还需发信，确认服务商允许 SMTP，再在本站按需勾选 SMTP 验证。</li></ol><p><a href=\"https://support.google.com/mail/answer/7126229?hl=zh-Hans\" target=\"_blank\" rel=\"noopener noreferrer\">Gmail 官方客户端接入说明</a>建议使用 Google 登录；<a href=\"https://support.microsoft.com/en-US/Outlook/pop-imap-and-smtp-settings-for-outlook-com\" target=\"_blank\" rel=\"noopener noreferrer\">Microsoft 官方说明</a>指出 Outlook.com 需要 OAuth2，且 POP/IMAP 可能需在设置中开启。</p>",
+    "sort_order": 5,
+    "enabled": true
+  },
+  {
+    "article_key": "help_external_add",
+    "parent_key": "help_external",
+    "title": "添加第三方邮箱",
+    "content_html": "<ol><li>登录后打开<a href=\"/\">我的工作台</a>，选择“第三方邮箱”，点击“添加邮箱”。</li><li>在“输入账号（每行一个）”中，普通邮箱每行填“邮箱----授权码”，如需添加多个账号就换行；Gmail／Outlook 可只填邮箱地址，之后按 OAuth 提示授权。</li><li>普通邮箱可选择登录协议（不确定时选“自动”）及是否“启用 SMTP”；点击添加后，在右侧逐个查看成功或失败原因。</li><li>成功的邮箱出现在左侧列表；失败时先核对原邮箱是否已开启 IMAP／POP3、授权码是否有效，再按错误提示处理。</li></ol><p>这里填的是原邮箱服务商提供的客户端授权码，不是本站登录密码；只添加自己有权使用的邮箱。</p>",
+    "sort_order": 10,
+    "enabled": true
+  },
+  {
+    "article_key": "help_external_code",
+    "parent_key": "help_external",
+    "title": "授权码从哪里来",
+    "content_html": "<p>客户端授权码由<strong>原邮箱服务商</strong>生成，不是邮件验证码，也不是本站密码。登录原邮箱官网，找到“设置 → 账户／安全 → IMAP、POP3、SMTP 或客户端授权”，先开启要用的协议，再生成授权码；通常需要短信或其他安全验证。</p><p>常见入口：<a href=\"https://help.mail.10086.cn/statichtml/0/Content/1234606.html\" target=\"_blank\" rel=\"noopener noreferrer\">139 邮箱官方授权码步骤</a>（设置 → 常规设置 → 账号与安全 → 邮箱协议设置）；<a href=\"https://help.189.cn/client/client.html\" target=\"_blank\" rel=\"noopener noreferrer\">189 邮箱官方客户端密码说明</a>。其他服务商请在其邮箱官网查找对应入口，不要照搬不同服务商的服务器设置。</p><ol><li>复制生成的授权码，填入本站“添加邮箱”的账号行，不要填原邮箱网页登录密码。</li><li>若改过原邮箱密码、关闭客户端协议或撤销授权码，原连接可能失效，需要重新生成并添加。</li></ol><p>Gmail、Outlook 优先使用本站的 OAuth 授权入口；不要把授权码或令牌发给客服。</p>",
+    "sort_order": 15,
+    "enabled": true
+  },
+  {
+    "article_key": "help_external_oauth",
+    "parent_key": "help_external",
+    "title": "授权 Gmail/Outlook",
+    "content_html": "<p>这是<strong>把 Gmail 或 Outlook 邮箱接入本站收件箱</strong>，与在本站登录页使用 Google 登录不同。</p><ol><li>在工作台选择“第三方邮箱 → 添加邮箱”，一行只填一个 Gmail 或 Outlook 地址并提交。</li><li>在同一弹窗的“OAuth 授权”区域点击“开始授权”；浏览器会打开 Google 或 Microsoft 新标签页。</li><li>核对账号确属本人，在服务商官方页面完成登录与授权；多个邮箱会逐个处理。</li><li>返回本站查看“授权成功”或“授权失败”，再检查实际收信结果。</li></ol><p>不要在本站表单填写 Google／Microsoft 的网页登录密码。授权成功不保证邮箱协议一定可用；失败时检查浏览器弹窗拦截、邮箱开通状态和服务商 IMAP 设置。Outlook 若提示“已认证但未连接邮箱”，还需检查别名或共享邮箱身份。<a href=\"https://support.microsoft.com/en-US/Outlook/pop-imap-and-smtp-settings-for-outlook-com\" target=\"_blank\" rel=\"noopener noreferrer\">Microsoft 官方 POP/IMAP 说明</a>可供核对。</p>",
+    "sort_order": 20,
+    "enabled": true
+  },
+  {
+    "article_key": "help_external_verify",
+    "parent_key": "help_external",
+    "title": "批量验号怎么用",
+    "content_html": "<p>“批量验号”是先验证您<strong>已获授权</strong>的第三方邮箱能否连接，不会自动把所有通过的账号加入收件箱。账号密码／授权码类批量验号需要在<a href=\"/download\">桌面客户端</a>进行；网页端仅能查看页面与入口。</p><ol><li>在桌面客户端登录本站账号，打开“第三方邮箱 → 批量验号”。</li><li>在“账号导入”中一行填一个账号，可用“邮箱,授权码,auto”或“邮箱----授权码----imap”等页面提示格式。</li><li>按需勾选“同时验证 SMTP”，有自有代理时再选择代理；不确定时保留协议 auto。</li><li>点击“开始验号”，等待右侧结果统计。不要对同一批失败账号连续高频重试。</li></ol><p>表单含敏感凭据，不要截屏公开、粘贴到工单或导入来源不明的账号。OAuth 账号应按授权流程处理，不要把 OAuth 令牌当普通授权码填入。</p>",
+    "sort_order": 25,
+    "enabled": true
+  },
+  {
+    "article_key": "help_external_verify_result",
+    "parent_key": "help_external",
+    "title": "看验号结果并导入",
+    "content_html": "<ol><li>在“验号结果”查看通过、失败和每项的错误原因；按结果或失败原因筛选。</li><li>若是授权码、协议或代理设置有误，先到原邮箱服务商修正，再用“重试失败项”。</li><li>需要留存结果时可点击“导出结果”，但当前导出的表格<strong>包含密码／授权码列</strong>；只下载到可信设备，切勿发给他人或上传公共网盘，用完后按需安全删除。</li><li>确认只导入自己有权管理的通过账号后，点击“导入成功账号”，再到第三方邮箱列表核对。</li></ol><p>“验号通过”仅表示本次连接检查成功，不等于历史邮件全部可读，也不等于 SMTP 一定可用；发信能力取决于是否勾选 SMTP 验证及服务商权限。</p>",
+    "sort_order": 26,
+    "enabled": true
+  },
+  {
+    "article_key": "help_external_protocol",
+    "parent_key": "help_external",
+    "title": "IMAP、POP3、SMTP 区别",
+    "content_html": "<ul><li><strong>IMAP：</strong>从原邮箱同步邮件和文件夹，通常适合多设备查看。</li><li><strong>POP3：</strong>按服务商规则下载邮件；可见范围、是否保留原件取决于原邮箱设置。</li><li><strong>SMTP：</strong>用于发信，收信成功不代表 SMTP 也能发信。</li><li><strong>OAuth2：</strong>授权方式，不是另一种收信协议；授权后仍需服务商允许实际使用 IMAP、POP3 或 SMTP。</li></ul><p>添加或验号时可先选择“自动”让系统尝试可用协议；若服务商只允许某一种协议，按官方设置指定。不要因为单封历史邮件读取失败就反复更换密码或授权。</p>",
+    "sort_order": 27,
+    "enabled": true
+  },
+  {
+    "article_key": "help_external_receive",
+    "parent_key": "help_external",
+    "title": "收取第三方邮件",
+    "content_html": "<ol><li>在第三方邮箱列表选中要查看的账号。</li><li>使用该账号的“收取邮件”获取新邮件；需要历史邮件时可使用“收取全部”，并等待任务完成。</li><li>在中间邮件列表打开具体邮件，查看正文和附件。</li></ol><p>大量历史邮件可能需要较长时间，服务商也可能限流或拒绝个别邮件。若任务报错，请保留页面提示并检查授权、协议设置，不要在短时间内反复全量收取。</p>",
+    "sort_order": 30,
+    "enabled": true
+  },
+  {
+    "article_key": "help_external_send",
+    "parent_key": "help_external",
+    "title": "用第三方邮箱发信",
+    "content_html": "<p>第三方邮箱发信目前需要<a href=\"/download\">桌面客户端</a>；网页端可看到写信入口，但不能完成 SMTP 发送。能收信也不代表能发信。</p><ol><li>先在原邮箱服务商开启 SMTP；添加邮箱时启用“SMTP”检查，确认账号显示可发信。</li><li>在桌面客户端打开第三方邮箱的写信页，选择可发信的账号，填写收件人、主题和正文后发送。</li><li>若提示 SMTP 不可用，检查原邮箱的 SMTP 开关、授权码和发信账号状态。</li></ol><p>批量发送及发件记录见<a href=\"/about?help=help_external_send_records\">自有邮箱发送与发件记录</a>。</p>",
+    "sort_order": 40,
+    "enabled": true
+  },
+  {
+    "article_key": "help_external_reconnect",
+    "parent_key": "help_external",
+    "title": "授权失效与重新连接",
+    "content_html": "<ol><li>先在第三方邮箱列表确认具体是哪一个账号失败，记录页面上的错误类型。</li><li>若原邮箱改过密码、撤销过授权码或关闭客户端协议，请到原服务商恢复权限，重新生成授权码或在本站执行重新授权。</li><li>Gmail／Outlook 的 OAuth 账号应重新走服务商授权页面，不要在普通密码输入框里反复尝试。</li><li>连接恢复后先尝试收取少量新邮件，再决定是否收取全部历史邮件。</li></ol><p>服务商限流、临时网络错误和个别坏邮件不一定是凭据失效；连续高频重试可能触发服务商风控。</p>",
+    "sort_order": 50,
+    "enabled": true
+  },
+  {
+    "article_key": "help_external_proxy",
+    "parent_key": "help_external",
+    "title": "邮箱代理怎么设置",
+    "content_html": "<p>一般用户可先不配置代理。确有网络或服务商连接要求时，在<a href=\"/user/external-proxy-management\">邮箱代理</a>中点击“新增代理”，填写您自己有权使用的固定代理或代理接口，并保存。</p><ol><li>在代理列表核对地址和启用状态，按需使用“绑定邮箱”关联指定第三方邮箱。</li><li>批量验号或添加邮箱时，可在对应页面的“代理”下拉框选择已配置代理。</li><li>代理不可用时先检查主机、端口、凭据和网络，再更换或停用；不要把代理接口密钥公开在截图中。</li></ol><p>代理不会替代邮箱授权，也不能保证绕过服务商限制。来源不明的代理可能泄露邮箱连接信息，请只使用可信代理。</p>",
+    "sort_order": 60,
+    "enabled": true
+  },
+  {
+    "article_key": "help_external_send_records",
+    "parent_key": "help_external",
+    "title": "自有邮箱发送与发件记录",
+    "content_html": "<p>使用第三方邮箱 SMTP 发信的页面在<a href=\"/user/external-bulk-send\">自有邮箱发送</a>，该操作需要桌面客户端；网页端仅提供入口和提示。</p><ol><li>先确认所选第三方邮箱已验证 SMTP 可用。</li><li>在桌面客户端打开“自有邮箱发送”，选中有权使用的发件邮箱，填写收件人、主题和正文，核对后发送。</li><li>到<a href=\"/user/external-outbox\">已发送邮件</a>按发件人、收件人或标题查找记录；需要调整内容时可用“重新编辑”。</li></ol><p>只给已同意接收的人发信，并遵守服务商限额与退订要求；发件记录显示失败时先查看详情，不要盲目反复发送。</p>",
+    "sort_order": 70,
+    "enabled": true
+  },
+  {
+    "article_key": "help_mail",
+    "parent_key": "help_category_mailboxes",
+    "title": "收件与分享",
+    "content_html": "<p>复制地址只让对方给您发信，不会开放收件箱；要让别人看邮件，请创建有有效期和可见范围的分享链接。找不到来信时先核对邮箱，再清除筛选并刷新。</p>",
+    "sort_order": 60,
+    "enabled": true
+  },
+  {
+    "article_key": "help_mail_copy",
+    "parent_key": "help_mail",
+    "title": "复制地址和验证码",
+    "content_html": "<p>要复制邮箱地址，看<a href=\"/about?help=help_temp_copy\">复制邮箱地址</a>。要复制邮件中的验证码：打开来信后，点击验证码旁的复制按钮；如果没有识别出验证码，就从正文中手动复制并核对。</p>",
+    "sort_order": 10,
+    "enabled": true
+  },
+  {
+    "article_key": "help_mail_share",
+    "parent_key": "help_mail",
+    "title": "分享邮箱给别人",
+    "content_html": "<ol><li>登录后进入工作台，将鼠标移到邮箱卡片右侧“···”，在菜单中点击“分享邮箱”。</li><li>在弹窗中选择有效期、链接数量和邮件可见范围；若选“按分钟”，还要设置从何时开始计时。</li><li>点击“创建分享”，复制链接发给需要查看的人。</li></ol><p><img src=\"/help-center/share-mailbox-menu.webp\" width=\"392\" alt=\"邮箱卡片菜单中的分享邮箱入口\"></p><p><img src=\"/help-center/share-mailbox-settings.webp\" width=\"512\" alt=\"分享邮箱弹窗中的有效期、链接数量和可见范围设置\"></p><p>复制邮箱地址只供对方发信，<strong>不会开放收件箱</strong>；只有创建并发出分享链接，对方才能在设定范围和有效期内查看邮件。访客邮箱没有分享入口，链接只发给信任的人。</p>",
+    "sort_order": 20,
+    "enabled": true
+  },
+  {
+    "article_key": "help_mail_search",
+    "parent_key": "help_mail",
+    "title": "搜索与刷新邮件",
+    "content_html": "<ol><li>先在左侧确认已选中正确邮箱，再在中间收件箱查看来信。</li><li>可使用页面提供的搜索和未读筛选查找邮件；搜索不到时清除筛选条件重试。</li><li>点击刷新按钮重新读取邮件列表。第三方邮箱还可按需使用“收取邮件”。</li></ol><p><img src=\"/help-center/inbox-search-refresh.webp\" width=\"400\" alt=\"收件箱中的刷新按钮、未读筛选和搜索框\"></p><p>如果发件方说已发送但收不到，先核对收件地址、发件方发送结果和邮箱是否过期；域名邮箱还应检查 DNS，第三方邮箱应检查授权状态。</p>",
+    "sort_order": 30,
+    "enabled": true
+  },
+  {
+    "article_key": "help_market",
+    "parent_key": "help_category_account",
+    "title": "订单与奶片",
+    "content_html": "<p>资源市场是浏览和购买资源的入口；购买订单记录您的购买及售后事项。奶片账户记录余额和流水。出售资源相关的管理、收益与退款页面只与实际发布或售卖资源的用户有关。</p>",
+    "sort_order": 70,
+    "enabled": true
+  },
+  {
+    "article_key": "help_market_buy",
+    "parent_key": "help_market",
+    "title": "购买资源",
+    "content_html": "<ol><li>打开<a href=\"/market\">资源市场</a>，查看资源详情、价格、交付方式及使用条件。</li><li>确认适合自己的需求后按页面流程下单并完成支付。</li><li>在<a href=\"/user/resource-orders\">购买订单</a>查看订单状态和已获得的资源。</li></ol><p>付款前请仔细阅读资源说明；不同商品的交付和售后规则可能不同。</p>",
+    "sort_order": 10,
+    "enabled": true
+  },
+  {
+    "article_key": "help_market_orders",
+    "parent_key": "help_market",
+    "title": "订单和奶片流水",
+    "content_html": "<p><strong>购买订单</strong>回答“买了什么、交付到哪一步、是否申请售后”；<strong>奶片流水</strong>回答“账户余额为何增加或减少”。一次购买可能同时产生订单记录和奶片扣款记录，两者不是重复订单。</p><p>购买记录在<a href=\"/user/resource-orders\">购买订单</a>，账户余额及流水在<a href=\"/user/finance\">财务中心</a>查看。若订单与扣款金额不符，保留订单编号联系站内客服。</p>",
+    "sort_order": 20,
+    "enabled": true
+  },
+  {
+    "article_key": "help_market_seller",
+    "parent_key": "help_market",
+    "title": "收益与退款（卖家）",
+    "content_html": "<p>“收益记录”“退款申请”等卖家相关页面主要用于已经发布或售卖资源的用户。只购买、不售卖资源时，可重点查看“购买订单”和“奶片流水”；页面是否展示卖家入口以账号实际权限和业务记录为准。</p><p>如需售卖，请先了解资源发布与审核规则，并只发布自己有权提供的资源。</p>",
+    "sort_order": 30,
+    "enabled": true
+  },
+  {
+    "article_key": "help_advanced",
+    "parent_key": "help_category_tools",
+    "title": "工具概览",
+    "content_html": "<p>网页端提供两步验证码工具；批量验号和第三方邮箱 SMTP 发信需使用桌面客户端。手机可扫码打开小程序。</p>",
+    "sort_order": 10,
+    "enabled": true
+  },
+  {
+    "article_key": "help_advanced_workflows",
+    "parent_key": "help_category_automation",
+    "title": "工作流与资源",
+    "content_html": "<ol><li>打开<a href=\"/user/automation/workflows\">自动化 → 资源库</a>，查看自己创建或购买的资源；可按名称和状态筛选。</li><li>要做新流程，点击“新建资源”，在编辑页配置触发器和步骤，再保存、测试；确认运行结果后按页面提供的发布操作处理。</li><li>只想确认买了什么、订单是否完成，去<a href=\"/user/resource-orders\">购买订单</a>。订单是交易记录，资源库是实际使用和管理资源的地方。</li></ol>",
+    "sort_order": 10,
+    "enabled": true
+  },
+  {
+    "article_key": "help_advanced_api",
+    "parent_key": "help_category_developer",
+    "title": "访问密钥",
+    "content_html": "<ol><li>登录后打开<a href=\"/user/developer/api-keys\">开发者 → 访问密钥</a>，点击“新建访问密钥”。</li><li>填写密钥名称；“过期时间”可不填，不填就是长期有效。只勾选接口确实需要的权限，不确定时先看接口文档，不要直接全选。</li><li>点击“生成访问密钥”，在结果弹窗中立即复制完整密钥，保存到自己的服务端密钥管理处。关闭弹窗后列表只显示前缀，不能再取回完整值。</li><li>不再使用或怀疑泄露时，在列表中删除旧密钥并创建新密钥。</li></ol><p>不要把密钥写进公开网页、小程序代码或聊天记录。</p>",
+    "sort_order": 20,
+    "enabled": true
+  },
+  {
+    "article_key": "help_advanced_2fa",
+    "parent_key": "help_category_tools",
+    "title": "两步验证码",
+    "content_html": "<ol><li>打开<a href=\"/tools/2fa-code\">2FA 动态验证码工具</a>。</li><li>输入您自己账号的 Base32 密钥或 otpauth:// 链接，页面会在当前浏览器生成验证码。</li><li>需要使用时点击当前验证码复制，并在倒计时结束前填到原网站。</li></ol><p><img src=\"/help-center/tool-2fa-entry.webp\" width=\"305\" alt=\"工作台页脚中的 2FA 验证码入口\"></p><p>这个工具不负责找回密钥，也不是邮件中的一次性验证码。页面说明密钥不会上传或保存；仍请只在可信设备上输入本人或已授权的密钥，不要向他人发送密钥或截图。</p>",
+    "sort_order": 30,
+    "enabled": true
+  },
+  {
+    "article_key": "help_advanced_clients",
+    "parent_key": "help_category_tools",
+    "title": "客户端和小程序",
+    "content_html": "<p>网页端可直接在浏览器使用。需要桌面客户端时，打开<a href=\"/download\">下载客户端</a>，选择适合自己设备的版本并按页面说明安装。</p><p>网页工作台还提供小程序入口，使用手机扫描页面展示的小程序码即可打开对应版本。</p><p><img src=\"/help-center/miniapp-qr.webp\" width=\"165\" alt=\"网页工作台展示的小程序码\"></p>",
+    "sort_order": 40,
+    "enabled": true
+  },
+  {
+    "article_key": "help_advanced_reach",
+    "parent_key": "help_category_reach",
+    "title": "开始使用邮件触达",
+    "content_html": "<ol><li>打开<a href=\"/user/email-reach/dashboard\">邮件触达总览</a>，先看剩余邮件额度；若模板或任务页提示待开通，先按页面提示处理权限。</li><li>到<a href=\"/user/email-reach/templates\">模板</a>点击“新建模板”，写好主题和内容；到<a href=\"/user/email-reach/members\">会员列表</a>点击“导入会员”，确认名单来源和分组。</li><li>到<a href=\"/user/email-reach/tasks\">发送任务</a>点击“发送任务”，选择模板、收件范围和发送时间，核对后创建。</li><li>发送后在<a href=\"/user/email-reach/tasks\">发送任务</a>查看进度和成功／失败数，在<a href=\"/user/email-reach/records\">行为明细</a>查看收件人状态、打开与点击，并在<a href=\"/user/email-reach/unsubscribes\">退订名单</a>处理退订。</li></ol><p>只能向已同意接收的人发送。任务能否发送还取决于账户权限、剩余额度和平台发信通道，不等同于第三方邮箱的桌面端 SMTP 发信。</p>",
+    "sort_order": 50,
+    "enabled": true
+  },
+  {
+    "article_key": "help_faq",
+    "parent_key": "help_category_mailboxes",
+    "title": "常见问题",
+    "content_html": "<p>收不到信、认证失败或 DNS 验证不通过时，按下面对应问题逐项检查。</p>",
+    "sort_order": 90,
+    "enabled": true
+  },
+  {
+    "article_key": "help_faq_no_mail",
+    "parent_key": "help_faq",
+    "title": "收不到邮件",
+    "content_html": "<ol><li>检查发件人填写的完整地址，以及当前选中的收件箱是否一致。</li><li>清除搜索或未读筛选后刷新列表，确认邮箱未过期。</li><li>域名邮箱检查域名是否已验证、MX 是否正确生效；第三方邮箱检查授权状态并手动收取。</li><li>仍未收到时，向发件方确认是否已成功投递，并保留发送时间、收件地址和页面报错反馈给客服。</li></ol><p>请勿在反馈中发送密码、授权码或邮件中的一次性验证码。</p>",
+    "sort_order": 10,
+    "enabled": true
+  },
+  {
+    "article_key": "help_faq_auth",
+    "parent_key": "help_faq",
+    "title": "第三方邮箱认证失败",
+    "content_html": "<p>“认证失败”可能是授权码失效、IMAP/POP3 未开启、OAuth 授权过期、邮箱服务未开通或服务商限制连接，并不都意味着本站密码错误。</p><ol><li>确认账号和服务商邮箱功能正常，按服务商规则重新生成授权码或重新完成 OAuth。</li><li>检查是否开启对应收信协议，必要时改用服务商支持的协议。</li><li>根据具体报错再尝试；不要连续高频重试，以免触发服务商风控。</li></ol>",
+    "sort_order": 20,
+    "enabled": true
+  },
+  {
+    "article_key": "help_faq_security",
+    "parent_key": "help_faq",
+    "title": "保护邮箱隐私",
+    "content_html": "<ul><li>只接入您本人或已合法获授权的邮箱、域名和资源。</li><li>不要在公开页面或客服消息中发送密码、授权码、OAuth 令牌、两步验证密钥及一次性验证码。</li><li>分享邮箱链接前先设置合适的有效期和可见范围，只发给信任的人。</li><li>重要账户优先使用自己长期控制的邮箱，不要依赖访客临时邮箱或可被转发的分享链接找回账号。</li></ul>",
+    "sort_order": 30,
+    "enabled": true
+  }
+]

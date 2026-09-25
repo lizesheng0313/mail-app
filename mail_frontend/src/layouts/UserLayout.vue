@@ -1,471 +1,111 @@
 <template>
   <SidebarLayout
-    :title="t('userLayout.workspaceTitle')"
+    :title="t('workspace.brandName')"
     :logo-icon="UserIcon"
     :hide-brand-icon="true"
     :menu-sections="menuSections"
     :user-email="userInfo?.email || ''"
     :user-role="t('userLayout.userRole')"
-    :page-title="currentPageTitle"
-    :page-description="pageDescription"
+    :page-title="isMailboxPage ? '' : currentPageTitle"
     :on-logout="logout"
   >
     <template #header-actions>
-      <button
-        v-if="isAdmin"
-        type="button"
-        @click="router.push('/admin/workflow-review')"
-        class="mr-3 inline-flex items-center rounded-md bg-primary-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-700"
+      <router-link
+        :to="userStore.isAuthenticated ? '/user' : '/'"
+        class="shrink-0 whitespace-nowrap text-xs font-semibold text-primary-600 transition-colors hover:text-primary-700 sm:text-sm"
+        aria-current="page"
       >
-        管理后台
-      </button>
-      <button
-        type="button"
-        @click="handleBack"
-        class="mr-[28px] inline-flex items-center rounded-md border border-primary-200 bg-primary-50 px-3 py-2 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-100"
+        {{ t('pageHeader.workspace') }}
+      </router-link>
+      <router-link
+        to="/market"
+        class="inline-flex h-9 w-9 items-center justify-center rounded-md text-gray-600 transition-colors hover:bg-gray-100 hover:text-primary-700 xl:hidden"
+        :aria-label="t('pageHeader.resourceMarket')"
+        :title="t('pageHeader.resourceMarket')"
       >
-        {{ t('userLayout.backPrevious') }}
-      </button>
+        <ShoppingCartIcon class="h-5 w-5" />
+      </router-link>
+      <PublicNavigation compact />
+      <AccountActions />
     </template>
-    <router-view v-slot="{ Component, route }">
-      <KeepAlive>
-        <component v-if="route.meta.keepAlive" :is="Component" />
-      </KeepAlive>
-      <component v-if="!route.meta.keepAlive" :is="Component" />
-    </router-view>
+    <div class="flex h-full min-h-0 flex-col">
+      <nav
+        v-if="mailboxTabs.length"
+        :aria-label="t('workspace.mailboxTools')"
+        class="mb-3 flex shrink-0 gap-5 overflow-x-auto border-b border-gray-200"
+      >
+        <router-link
+          v-for="item in mailboxTabs"
+          :key="item.path"
+          :to="item.path"
+          class="whitespace-nowrap border-b-2 px-1 py-2 text-sm font-medium transition-colors"
+          :class="
+            route.path === item.path
+              ? 'border-primary-600 text-primary-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          "
+          :aria-current="route.path === item.path ? 'page' : undefined"
+          >{{ item.label }}</router-link
+        >
+      </nav>
+      <div class="min-h-0 flex-1">
+        <router-view v-slot="{ Component, route: childRoute }">
+          <KeepAlive>
+            <component v-if="childRoute.meta.keepAlive" :is="Component" />
+          </KeepAlive>
+          <component v-if="!childRoute.meta.keepAlive" :is="Component" />
+        </router-view>
+      </div>
+    </div>
   </SidebarLayout>
 </template>
 
 <script setup>
-import { computed, h } from 'vue'
+import { computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import { ShoppingCartIcon, UserIcon } from '@heroicons/vue/24/outline'
 import { useUserStore } from '@/stores/user'
 import SidebarLayout from '@/components/SidebarLayout/index.vue'
+import AccountActions from '@/components/AccountActions/index.vue'
+import PublicNavigation from '@/components/PublicNavigation/index.vue'
+import { createWorkspaceMenu, externalMailboxTabs } from '@/config/workspaceNavigation'
 
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
 const { t } = useI18n()
-
-// 用户信息
 const userInfo = computed(() => userStore.user)
-const isAdmin = computed(() => Boolean(userInfo.value?.is_admin))
-const canGoBack = computed(() => Boolean(window.history.state?.back) || window.history.length > 1)
-
-const handleBack = async () => {
-  if (canGoBack.value) {
-    await router.back()
-    return
-  }
-  await router.push('/')
-}
-
-// Logo 图标
-const UserIcon = {
-  render: () =>
-    h(
-      'svg',
-      {
-        class: 'h-5 w-5 text-white',
-        fill: 'none',
-        stroke: 'currentColor',
-        viewBox: '0 0 24 24'
-      },
-      [
-        h('path', {
-          'stroke-linecap': 'round',
-          'stroke-linejoin': 'round',
-          'stroke-width': '2',
-          d: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z'
-        })
-      ]
-    )
-}
-
-// 菜单配置
-const menuSections = computed(() => [
-  {
-    name: t('userLayout.automation'),
-    items: [
-      {
-        path: '/user/automation/triggers',
-        label: t('userLayout.automationTriggers'),
-        icon: {
-          render: () =>
-            h('svg', { fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' }, [
-              h('path', {
-                'stroke-linecap': 'round',
-                'stroke-linejoin': 'round',
-                'stroke-width': '2',
-                d: 'M13 10V3L4 14h7v7l9-11h-7z'
-              })
-            ])
-        }
-      },
-      {
-        path: '/user/automation/workflows',
-        label: t('userLayout.automationWorkflows'),
-        icon: {
-          render: () =>
-            h('svg', { fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' }, [
-              h('path', {
-                'stroke-linecap': 'round',
-                'stroke-linejoin': 'round',
-                'stroke-width': '2',
-                d: 'M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z'
-              })
-            ])
-        }
-      },
-      {
-        path: '/user/automation/browser-workflows',
-        label: '浏览器工作流',
-        icon: {
-          render: () =>
-            h('svg', { fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' }, [
-              h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'stroke-width': '2', d: 'M4 5a2 2 0 012-2h12a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm4 3h8M8 12h8M8 16h5' })
-            ])
-        }
-      },
-      {
-        path: '/user/resource-orders',
-        label: t('userLayout.resourceOrders'),
-        icon: {
-          render: () =>
-            h('svg', { fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' }, [
-              h('path', {
-                'stroke-linecap': 'round',
-                'stroke-linejoin': 'round',
-                'stroke-width': '2',
-                d: 'M9 12h6m-6 4h6M7 4h10a2 2 0 012 2v14l-4-2-4 2-4-2-4 2V6a2 2 0 012-2z'
-              })
-            ])
-        }
-      },
-      {
-        path: '/user/automation/plugins',
-        label: t('userLayout.myPlugins'),
-        icon: {
-          render: () =>
-            h('svg', { fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' }, [
-              h('path', {
-                'stroke-linecap': 'round',
-                'stroke-linejoin': 'round',
-                'stroke-width': '2',
-                d: 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4'
-              })
-            ])
-        }
-      }
+const menuSections = computed(() => createWorkspaceMenu(t, {
+  publicHome: route.path === '/',
+  guest: !userStore.isAuthenticated
+}))
+const activeMailboxType = computed(() => route.meta.mailboxType)
+const isExternalMailboxPage = computed(() =>
+  externalMailboxTabs(t).some((item) => item.path === route.path)
+)
+const isMailboxPage = computed(() =>
+  Boolean(activeMailboxType.value) || isExternalMailboxPage.value || route.path === '/user/domains'
+)
+const mailboxTabs = computed(() => {
+  if (isExternalMailboxPage.value) return externalMailboxTabs(t)
+  if (activeMailboxType.value === 'hosted' || route.path === '/user/domains')
+    return [
+      { path: '/user/mailboxes/hosted', label: t('mail.inbox') },
+      { path: '/user/domains', label: t('userLayout.myDomains') }
     ]
-  },
-  {
-    name: t('userLayout.developerAccess'),
-    items: [
-      {
-        path: '/user/developer/api-keys',
-        label: t('userLayout.apiKeys'),
-        icon: {
-          render: () =>
-            h('svg', { fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' }, [
-              h('path', {
-                'stroke-linecap': 'round',
-                'stroke-linejoin': 'round',
-                'stroke-width': '2',
-                d: 'M15 7a4 4 0 11-7.75 1H5a2 2 0 100 4h2.25A4 4 0 1115 7zm0 0l4 4m0 0l2-2m-2 2l-2 2'
-              })
-            ])
-        }
-      }
-    ]
-  },
-  {
-    name: t('userLayout.hostedMailbox'),
-    items: [
-      {
-        path: '/user/domains',
-        label: t('userLayout.myDomains'),
-        icon: {
-          render: () =>
-            h('svg', { fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' }, [
-              h('path', {
-                'stroke-linecap': 'round',
-                'stroke-linejoin': 'round',
-                'stroke-width': '2',
-                d: 'M21 12a9 9 0 11-18 0 9 9 0 0118 0zM3.6 9h16.8M3.6 15h16.8M12 3.6a14.2 14.2 0 010 16.8M12 3.6a14.2 14.2 0 000 16.8'
-              })
-            ])
-        }
-      }
-    ]
-  },
-  {
-    name: t('userLayout.emailReach'),
-    items: [
-      {
-        path: '/user/email-reach/dashboard',
-        label: t('userLayout.emailReachDashboard'),
-        icon: {
-          render: () =>
-            h('svg', { fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' }, [
-              h('path', {
-                'stroke-linecap': 'round',
-                'stroke-linejoin': 'round',
-                'stroke-width': '2',
-                d: 'M4 19V5m0 14h16M8 16V9m4 7V7m4 9v-4'
-              })
-            ])
-        }
-      },
-      {
-        path: '/user/email-reach/templates',
-        label: t('userLayout.emailReachTemplates'),
-        icon: {
-          render: () =>
-            h('svg', { fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' }, [
-              h('path', {
-                'stroke-linecap': 'round',
-                'stroke-linejoin': 'round',
-                'stroke-width': '2',
-                d: 'M9 12h6m-6 4h6M7 4h10a2 2 0 012 2v12a2 2 0 01-2 2H7a2 2 0 01-2-2V6a2 2 0 012-2z'
-              })
-            ])
-        }
-      },
-      {
-        path: '/user/email-reach/members',
-        label: t('userLayout.emailReachMembers'),
-        children: [
-          { path: '/user/email-reach/members', label: '会员列表' },
-          { path: '/user/email-reach/member-groups', label: '分组管理' }
-        ],
-        icon: {
-          render: () =>
-            h('svg', { fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' }, [
-              h('path', {
-                'stroke-linecap': 'round',
-                'stroke-linejoin': 'round',
-                'stroke-width': '2',
-                d: 'M17 20h5v-2a4 4 0 00-4-4h-1M9 20H4v-2a4 4 0 014-4h1m0-4a4 4 0 118 0 4 4 0 01-8 0z'
-              })
-            ])
-        }
-      },
-      {
-        path: '/user/email-reach/tasks',
-        label: '发送任务',
-        icon: {
-          render: () =>
-            h('svg', { fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' }, [
-              h('path', {
-                'stroke-linecap': 'round',
-                'stroke-linejoin': 'round',
-                'stroke-width': '2',
-                d: 'M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2V9l-4-4H9z'
-              }),
-              h('path', {
-                'stroke-linecap': 'round',
-                'stroke-linejoin': 'round',
-                'stroke-width': '2',
-                d: 'M9 13l2 2 4-4'
-              })
-            ])
-        }
-      },
-      {
-        path: '/user/email-reach/records',
-        label: '行为明细',
-        icon: {
-          render: () =>
-            h('svg', { fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' }, [
-              h('path', {
-                'stroke-linecap': 'round',
-                'stroke-linejoin': 'round',
-                'stroke-width': '2',
-                d: 'M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5s8.268 2.943 9.542 7c-1.274 4.057-5.065 7-9.542 7s-8.268-2.943-9.542-7z'
-              })
-            ])
-        }
-      },
-      {
-        path: '/user/email-reach/recipients',
-        label: t('userLayout.emailReachRecipients'),
-        icon: {
-          render: () =>
-            h('svg', { fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' }, [
-              h('path', {
-                'stroke-linecap': 'round',
-                'stroke-linejoin': 'round',
-                'stroke-width': '2',
-                d: 'M17 20h5V9H2v11h5m10 0v-4a3 3 0 00-3-3H10a3 3 0 00-3 3v4m10 0H7m8-11a3 3 0 11-6 0 3 3 0 016 0z'
-              })
-            ])
-        }
-      },
-      {
-        path: '/user/email-reach/unsubscribes',
-        label: t('userLayout.emailReachUnsubscribes'),
-        icon: {
-          render: () =>
-            h('svg', { fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' }, [
-              h('path', {
-                'stroke-linecap': 'round',
-                'stroke-linejoin': 'round',
-                'stroke-width': '2',
-                d: 'M18.364 5.636l-12.728 12.728M6.343 6.343l11.314 11.314'
-              })
-            ])
-        }
-      }
-    ]
-  },
-  {
-    name: t('userLayout.externalMailboxBatchOps'),
-    items: [
-      {
-        path: '/user/external-batch-verify',
-        label: t('userLayout.batchVerify'),
-        icon: {
-          render: () =>
-            h('svg', { fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' }, [
-              h('path', {
-                'stroke-linecap': 'round',
-                'stroke-linejoin': 'round',
-                'stroke-width': '2',
-                d: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'
-              })
-            ])
-        }
-      },
-      {
-        path: '/user/external-bulk-send',
-        label: t('userLayout.bulkSend'),
-        icon: {
-          render: () =>
-            h('svg', { fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' }, [
-              h('path', {
-                'stroke-linecap': 'round',
-                'stroke-linejoin': 'round',
-                'stroke-width': '2',
-                d: 'M4 4h16v12H4zm0 0l8 6 8-6M8 20h8'
-              })
-            ])
-        }
-      },
-      {
-        path: '/user/external-outbox',
-        label: t('userLayout.outbox'),
-        icon: {
-          render: () =>
-            h('svg', { fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' }, [
-              h('path', {
-                'stroke-linecap': 'round',
-                'stroke-linejoin': 'round',
-                'stroke-width': '2',
-                d: 'M7 7h10M7 11h10M7 15h6M5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2z'
-              })
-            ])
-        }
-      },
-      {
-        path: '/user/external-proxy-management',
-        label: t('userLayout.proxyManagement'),
-        icon: {
-          render: () =>
-            h('svg', { fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' }, [
-              h('path', {
-                'stroke-linecap': 'round',
-                'stroke-linejoin': 'round',
-                'stroke-width': '2',
-                d: 'M3 15a4 4 0 014-4h1a5 5 0 019.9-1A4.5 4.5 0 0119.5 19H7a4 4 0 01-4-4z'
-              })
-            ])
-        }
-      }
-    ]
-  },
-  {
-    name: t('userLayout.finance'),
-    items: [
-      {
-        path: '/user/finance',
-        label: t('userLayout.financeCenter'),
-        icon: {
-          render: () =>
-            h('svg', { fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' }, [
-              h('path', {
-                'stroke-linecap': 'round',
-                'stroke-linejoin': 'round',
-                'stroke-width': '2',
-                d: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z'
-              })
-            ])
-        }
-      },
-      {
-        path: '/user/purchases',
-        label: t('userLayout.transactions'),
-        icon: {
-          render: () =>
-            h('svg', { fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' }, [
-              h('path', {
-                'stroke-linecap': 'round',
-                'stroke-linejoin': 'round',
-                'stroke-width': '2',
-                d: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4'
-              })
-            ])
-        }
-      }
-    ]
-  },
-  {
-    name: t('userLayout.systemSettings'),
-    items: [
-      {
-        path: '/user/announcements',
-        label: t('userLayout.announcements'),
-        icon: {
-          render: () =>
-            h('svg', { fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' }, [
-              h('path', {
-                'stroke-linecap': 'round',
-                'stroke-linejoin': 'round',
-                'stroke-width': '2',
-                d: 'M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z'
-              })
-            ])
-        }
-      },
-      {
-        path: '/user/settings',
-        label: t('userLayout.personalSettings'),
-        icon: {
-          render: () =>
-            h('svg', { fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' }, [
-              h('path', {
-                'stroke-linecap': 'round',
-                'stroke-linejoin': 'round',
-                'stroke-width': '2',
-                d: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z'
-              }),
-              h('path', {
-                'stroke-linecap': 'round',
-                'stroke-linejoin': 'round',
-                'stroke-width': '2',
-                d: 'M15 12a3 3 0 11-6 0 3 3 0 016 0z'
-              })
-            ])
-        }
-      }
-    ]
-  }
-])
-
+  return []
+})
 // 当前页面标题
 const currentPageTitle = computed(() => {
-  if (route.path.startsWith('/user/automation/browser-workflows')) return route.params.workflowId ? '编辑浏览器工作流' : '浏览器工作流'
+  if (activeMailboxType.value)
+    return t(
+      `home.${activeMailboxType.value === 'system' ? 'temporaryMailbox' : activeMailboxType.value === 'hosted' ? 'hostedMailbox' : 'externalMailbox'}`
+    )
+  if (isExternalMailboxPage.value) return t('home.externalMailbox')
+  if (route.path === '/user/notifications') return t('pageHeader.notices')
+  if (route.path.startsWith('/user/automation/browser-workflows'))
+    return route.params.workflowId ? '编辑浏览器工作流' : '浏览器工作流'
   if (route.path === '/user/automation/workflows') return t('userLayout.automationWorkflows')
   if (route.path === '/user/automation/execution-history') return '执行记录'
   if (route.path === '/user/automation/triggers') return t('userLayout.automationTriggers')
@@ -475,7 +115,8 @@ const currentPageTitle = computed(() => {
   if (route.path === '/user/email-reach/dashboard') return t('userLayout.emailReachDashboard')
   if (route.path === '/user/email-reach/templates') return t('userLayout.emailReachTemplates')
   if (route.path === '/user/email-reach/templates/create') return '新建模板'
-  if (route.path.startsWith('/user/email-reach/templates/') && route.path.endsWith('/edit')) return '编辑模板'
+  if (route.path.startsWith('/user/email-reach/templates/') && route.path.endsWith('/edit'))
+    return '编辑模板'
   if (route.path === '/user/email-reach/members') return t('userLayout.emailReachMembers')
   if (route.path === '/user/email-reach/member-groups') return '分组管理'
   if (route.path === '/user/email-reach/member-tags') return '标签管理'
@@ -486,6 +127,7 @@ const currentPageTitle = computed(() => {
   if (route.path === '/user/email-reach/unsubscribes') return t('userLayout.emailReachUnsubscribes')
 
   const titles = {
+    '/user/tools/2fa-code': t('mail.footerTool2fa'),
     '/user/domains': t('userLayout.myDomains'),
     '/user/external-batch-verify': t('userLayout.batchVerify'),
     '/user/external-bulk-send': t('userLayout.bulkSend'),
@@ -493,55 +135,15 @@ const currentPageTitle = computed(() => {
     '/user/external-group-management': t('userLayout.groupManagement'),
     '/user/external-batch-repair': t('userLayout.batchRepair'),
     '/user/external-proxy-management': t('userLayout.proxyManagement'),
-    '/user/purchases': t('userLayout.transactions'),
+    '/user/purchases': t('userLayout.financeCenter'),
     '/user/resource-orders': t('userLayout.resourceOrders'),
     '/user/finance': t('userLayout.financeCenter'),
     '/user/settings': t('userLayout.personalSettings'),
     '/user/announcements': t('userLayout.announcements')
   }
-  return titles[route.path] || t('userLayout.workspaceTitle')
+  return titles[route.path] || t('pageHeader.siteName')
 })
 
-// 页面描述
-const pageDescription = computed(() => {
-  if (route.path.startsWith('/user/automation/browser-workflows')) return route.params.workflowId ? '编辑节点、配置凭据并启动当前流程' : '查看和管理浏览器自动化流程'
-  if (route.path === '/user/automation/workflows') return t('userLayout.automationWorkflowsDescription')
-  if (route.path === '/user/automation/execution-history') return '查看当前工作流的执行记录和失败详情'
-  if (route.path === '/user/automation/triggers') return t('userLayout.automationTriggersDescription')
-  if (route.path === '/user/automation/plugins') return t('userLayout.myPluginsDescription')
-  if (route.path === '/user/automation/plugins/store') return t('userLayout.pluginStoreDescription')
-  if (route.path.startsWith('/user/developer/api-keys')) return t('userLayout.apiKeysDescription')
-  if (route.path === '/user/email-reach/dashboard') return t('userLayout.emailReachDashboardDescription')
-  if (route.path === '/user/email-reach/templates') return t('userLayout.emailReachTemplatesDescription')
-  if (route.path === '/user/email-reach/templates/create') return '创建一个新的邮件模板'
-  if (route.path.startsWith('/user/email-reach/templates/') && route.path.endsWith('/edit')) return '修改当前邮件模板'
-  if (route.path === '/user/email-reach/members') return t('userLayout.emailReachMembersDescription')
-  if (route.path === '/user/email-reach/member-groups') return '管理会员分组'
-  if (route.path === '/user/email-reach/member-tags') return '管理会员标签'
-  if (route.path === '/user/email-reach/tasks') return '管理发送任务和查看进度'
-  if (route.path.startsWith('/user/email-reach/tasks/')) return '查看单个任务的发送效果和收件人明细'
-  if (route.path === '/user/email-reach/records') return '查看打开、点击、回复和异常行为'
-  if (route.path === '/user/email-reach/recipients') return t('userLayout.emailReachRecipientsDescription')
-  if (route.path === '/user/email-reach/unsubscribes') return t('userLayout.emailReachUnsubscribesDescription')
-
-  const descriptions = {
-    '/user/domains': t('userLayout.myDomainsDescription'),
-    '/user/external-batch-verify': t('userLayout.batchVerifyDescription'),
-    '/user/external-bulk-send': t('userLayout.bulkSendDescription'),
-    '/user/external-outbox': t('userLayout.outboxDescription'),
-    '/user/external-group-management': t('userLayout.groupManagementDescription'),
-    '/user/external-batch-repair': t('userLayout.batchRepairDescription'),
-    '/user/external-proxy-management': t('userLayout.proxyManagementDescription'),
-    '/user/purchases': t('userLayout.transactionsDescription'),
-    '/user/resource-orders': t('userLayout.resourceOrdersDescription'),
-    '/user/finance': t('userLayout.financeCenterDescription'),
-    '/user/settings': t('userLayout.personalSettingsDescription'),
-    '/user/announcements': t('userLayout.announcementsDescription')
-  }
-  return descriptions[route.path] || t('userLayout.workspaceDescription')
-})
-
-// 退出登录
 const logout = () => {
   userStore.logout()
   router.push('/login')

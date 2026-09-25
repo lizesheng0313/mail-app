@@ -279,6 +279,7 @@ import batchLoginAPI from '@/api/batchLogin'
 import mailboxProxyApi from '@/api/mailboxProxy'
 import CustomSelect from '@/components/CustomSelect/index.vue'
 import { isTauri } from '@/services/api'
+import { resolveOAuthProviderByDomain } from '@/utils/externalMailboxRules'
 import { showMessage } from '@/utils/message'
 const { t } = useI18n()
 
@@ -509,11 +510,23 @@ const parseAccountInput = () => {
 
     const domain = (email.split('@')[1] || '').toLowerCase()
     const isOAuthToken = parts.length >= 4 && isOAuthTokenDomain(domain)
+    const oauthProvider = resolveOAuthProviderByDomain(domain)
     const password = String(parts.length >= 3 && !isOAuthToken ? parts[2] : parts[1] || '').trim()
     const oauthClientId = String(parts[2] || '').trim()
     const oauthRefreshToken = String(parts[3] || '').trim()
 
     if (!password) {
+      if (oauthProvider) {
+        accounts.push({
+          row_id: rowId,
+          email,
+          password: '',
+          protocol: 'auto',
+          verify_smtp: false,
+          oauth_only: true
+        })
+        return
+      }
       invalidRows.push({
         row_id: rowId,
         email,

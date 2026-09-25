@@ -1,5 +1,6 @@
 <template>
   <div>
+    <MilkAccountTabs />
     <!-- 财务概览 -->
     <div>
       <!-- 财务概览卡片 - 简洁版 -->
@@ -594,6 +595,7 @@
 import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import MilkAccountTabs from '@/components/MilkAccountTabs.vue'
 import { showMessage } from '@/utils/message'
 import { showConfirm, showPrompt, showAlert } from '@/utils/dialog'
 import {

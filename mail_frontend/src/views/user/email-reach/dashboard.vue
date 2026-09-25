@@ -3,7 +3,7 @@
     <div class="space-y-4">
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p class="text-sm text-slate-500">邮件额度</p>
+          <p class="text-sm text-slate-500">邮件额度 · {{ t('workspace.platformChannel') }}</p>
           <p class="mt-1 text-lg font-semibold text-slate-900">剩余和使用情况</p>
         </div>
         <button
@@ -60,7 +60,7 @@
         <p class="mt-1 break-all text-base font-semibold text-slate-900">
           {{ replyTargetEmail || '暂未生成' }}
         </p>
-        <p class="mt-1 text-sm text-slate-500">在首页「临时邮箱」中查看客户回复</p>
+        <router-link to="/user/mailboxes/system" class="mt-1 inline-block text-sm text-primary-600 hover:text-primary-700">在「临时邮箱」中查看客户回复</router-link>
         <p v-if="replyTargetMessage" class="mt-2 text-sm text-amber-600">
           {{ replyTargetMessage }}
         </p>
@@ -80,7 +80,7 @@
         <div>
           <p class="text-sm font-semibold text-amber-950">有客户回复</p>
           <p class="mt-1 text-sm text-amber-800">{{ replyNoticeText }}</p>
-          <p class="mt-1 text-sm text-amber-800">请在首页「临时邮箱」中打开上方回信邮箱查看原始邮件。</p>
+          <p class="mt-1 text-sm text-amber-800">请在「邮箱 / 临时邮箱」中打开上方回信邮箱查看原始邮件。</p>
         </div>
       </div>
     </div>
@@ -181,11 +181,14 @@
 
 <script setup>
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import * as echarts from 'echarts'
 import emailReachApi from '@/api/emailReach'
 import { showMessage } from '@/utils/message'
 import AccessAgreementModal from './components/AccessAgreementModal.vue'
 import { formatDateTime, formatNumber } from './ui'
+
+const { t } = useI18n()
 
 const access = ref({
   status: 'pending',

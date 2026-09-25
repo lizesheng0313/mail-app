@@ -156,7 +156,8 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useUserStore } from '@/stores/user'
 import { showMessage } from '@/utils/message'
@@ -165,6 +166,8 @@ import api, { isTauri } from '@/services/api'
 import { openExternalAuthUrl } from '@/utils/openExternalAuthUrl'
 
 const userStore = useUserStore()
+const route = useRoute()
+const router = useRouter()
 const { t } = useI18n()
 
 // 个人信息
@@ -299,7 +302,29 @@ const unbindGoogle = async () => {
   }
 }
 
+const handleGoogleBindRoute = async () => {
+  const bindSuccess = route.query.google_bind_success
+  const bindError = route.query.google_bind_error
+  if (!bindSuccess && !bindError) return
+
+  bindLoading.value = false
+  await loadUserProfile()
+  if (bindSuccess) showMessage(t('profile.bindSuccess'), 'success')
+  else if (typeof bindError === 'string') showMessage(bindError, 'error')
+
+  const nextQuery = { ...route.query }
+  delete nextQuery.google_bind_success
+  delete nextQuery.google_bind_error
+  await router.replace({ path: route.path, query: nextQuery, hash: route.hash })
+}
+
+watch(
+  () => [route.query.google_bind_success, route.query.google_bind_error],
+  handleGoogleBindRoute,
+  { immediate: true }
+)
+
 onMounted(() => {
-  loadUserProfile()
+  if (!route.query.google_bind_success && !route.query.google_bind_error) loadUserProfile()
 })
 </script>

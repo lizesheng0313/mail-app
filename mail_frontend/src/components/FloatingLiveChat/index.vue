@@ -1,10 +1,10 @@
 <template>
-  <div class="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
+  <div class="fixed bottom-4 right-4 z-50 flex flex-col items-end gap-3 sm:bottom-6 sm:right-6">
     <Transition name="floating-panel">
       <div
         v-if="visible"
         class="flex h-[min(78vh,760px)] flex-col overflow-hidden rounded-[28px] border border-primary-100 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.18)]"
-        :class="isAdmin ? 'w-[min(720px,calc(100vw-1rem))]' : 'w-[min(420px,calc(100vw-1rem))]'"
+        :class="isAdmin ? 'w-[min(720px,calc(100vw-2rem))]' : 'w-[min(420px,calc(100vw-2rem))]'"
       >
         <div class="border-b border-primary-200 bg-gradient-to-r from-primary-800 via-primary-700 to-primary-500 px-4 py-3 text-white">
           <div class="flex items-center justify-between gap-3">
@@ -16,6 +16,8 @@
                 {{ onlineCount }} 在线
               </div>
               <button
+                type="button"
+                aria-label="关闭在线客服"
                 class="rounded-lg p-2 text-primary-100 transition-colors hover:bg-white/10 hover:text-white"
                 @click="visible = false"
               >
@@ -388,11 +390,15 @@
     </Transition>
 
     <button
-      v-if="!visible"
+      v-if="!visible && showLauncher"
       data-testid="chat-launcher"
       type="button"
-      class="group relative flex h-16 w-16 items-center justify-center rounded-full bg-primary-600 text-white shadow-[0_18px_40px_rgba(37,99,235,0.32)] transition-all duration-300 hover:-translate-y-0.5 hover:bg-primary-700"
-      @click="toggleVisible"
+      aria-label="打开在线客服"
+      :style="launcherStyle"
+      class="group relative flex h-16 w-16 touch-none select-none items-center justify-center rounded-full bg-primary-600 text-white shadow-[0_18px_40px_rgba(37,99,235,0.32)] transition-colors duration-300 hover:bg-primary-700"
+      :class="launcherDragging ? 'cursor-grabbing' : 'cursor-grab'"
+      @pointerdown="startLauncherDrag"
+      @click="handleLauncherClick"
     >
       <span
         v-if="unreadCount > 0"
@@ -418,9 +424,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { io, type Socket } from 'socket.io-client'
+
+withDefaults(defineProps<{ showLauncher?: boolean }>(), {
+  showLauncher: true
+})
 
 import api, { getApiBaseURL } from '@/services/api'
 import { useUserStore } from '@/stores/user'
@@ -482,6 +492,8 @@ const router = useRouter()
 const userStore = useUserStore()
 
 const visible = ref(false)
+const launcherDragging = ref(false)
+const launcherOffset = ref({ x: 0, y: 0 })
 const draft = ref('')
 const messages = ref<LiveChatMessage[]>([])
 const conversations = ref<LiveChatConversation[]>([])
@@ -516,6 +528,113 @@ let summaryRequest: Promise<void> | null = null
 const SOCKET_IO_PATH = '/mail-api/v1/live-chat/socket.io'
 const MAX_CHAT_IMAGES = 4
 const MESSAGE_BOTTOM_THRESHOLD_PX = 48
+const LAUNCHER_POSITION_KEY = 'live_chat_launcher_position'
+const LAUNCHER_SIZE = 64
+const LAUNCHER_EDGE_GAP = 8
+const DRAG_THRESHOLD = 4
+
+let launcherDragStart: {
+  pointerId: number
+  clientX: number
+  clientY: number
+  offsetX: number
+  offsetY: number
+} | null = null
+let launcherDragMoved = false
+let suppressLauncherClick = false
+
+const launcherStyle = computed(() => ({
+  transform: `translate3d(${launcherOffset.value.x}px, ${launcherOffset.value.y}px, 0)`
+}))
+
+const clampLauncherOffset = (offset: { x: number; y: number }) => {
+  if (typeof window === 'undefined') return offset
+  const compact = window.matchMedia('(max-width: 639px)').matches
+  const baseRight = compact ? 16 : 24
+  const baseBottom = compact ? 16 : 24
+  const baseLeft = window.innerWidth - baseRight - LAUNCHER_SIZE
+  const baseTop = window.innerHeight - baseBottom - LAUNCHER_SIZE
+  const minX = LAUNCHER_EDGE_GAP - baseLeft
+  const maxX = window.innerWidth - LAUNCHER_EDGE_GAP - LAUNCHER_SIZE - baseLeft
+  const minY = LAUNCHER_EDGE_GAP - baseTop
+  const maxY = window.innerHeight - LAUNCHER_EDGE_GAP - LAUNCHER_SIZE - baseTop
+
+  return {
+    x: Math.min(Math.max(Math.round(offset.x), minX), maxX),
+    y: Math.min(Math.max(Math.round(offset.y), minY), maxY)
+  }
+}
+
+const saveLauncherPosition = () => {
+  try {
+    localStorage.setItem(LAUNCHER_POSITION_KEY, JSON.stringify(launcherOffset.value))
+  } catch {}
+}
+
+const loadLauncherPosition = () => {
+  try {
+    const stored = JSON.parse(localStorage.getItem(LAUNCHER_POSITION_KEY) || '{}')
+    launcherOffset.value = clampLauncherOffset({
+      x: Number(stored.x || 0),
+      y: Number(stored.y || 0)
+    })
+  } catch {
+    launcherOffset.value = { x: 0, y: 0 }
+  }
+}
+
+const handleLauncherDragMove = (event: PointerEvent) => {
+  if (!launcherDragStart || event.pointerId !== launcherDragStart.pointerId) return
+  const deltaX = event.clientX - launcherDragStart.clientX
+  const deltaY = event.clientY - launcherDragStart.clientY
+  if (Math.hypot(deltaX, deltaY) >= DRAG_THRESHOLD) launcherDragMoved = true
+  launcherOffset.value = clampLauncherOffset({
+    x: launcherDragStart.offsetX + deltaX,
+    y: launcherDragStart.offsetY + deltaY
+  })
+}
+
+const stopLauncherDrag = (event?: PointerEvent) => {
+  if (!launcherDragStart || (event && event.pointerId !== launcherDragStart.pointerId)) return
+  launcherDragging.value = false
+  launcherDragStart = null
+  window.removeEventListener('pointermove', handleLauncherDragMove)
+  window.removeEventListener('pointerup', stopLauncherDrag)
+  window.removeEventListener('pointercancel', stopLauncherDrag)
+  if (!launcherDragMoved) return
+  suppressLauncherClick = true
+  saveLauncherPosition()
+  window.setTimeout(() => {
+    suppressLauncherClick = false
+  }, 0)
+}
+
+const startLauncherDrag = (event: PointerEvent) => {
+  if (event.button !== 0) return
+  launcherDragStart = {
+    pointerId: event.pointerId,
+    clientX: event.clientX,
+    clientY: event.clientY,
+    offsetX: launcherOffset.value.x,
+    offsetY: launcherOffset.value.y
+  }
+  launcherDragMoved = false
+  launcherDragging.value = true
+  ;(event.currentTarget as HTMLElement | null)?.setPointerCapture?.(event.pointerId)
+  window.addEventListener('pointermove', handleLauncherDragMove)
+  window.addEventListener('pointerup', stopLauncherDrag)
+  window.addEventListener('pointercancel', stopLauncherDrag)
+}
+
+const handleLauncherClick = () => {
+  if (suppressLauncherClick) return
+  toggleVisible()
+}
+
+const keepLauncherInViewport = () => {
+  launcherOffset.value = clampLauncherOffset(launcherOffset.value)
+  saveLauncherPosition()
+}
 
 const normalizeUserId = (value: unknown) => {
   const normalized = Number(value || 0)
@@ -798,6 +917,8 @@ const toggleVisible = async () => {
     }
   }
 }
+
+defineExpose({ open: () => visible.value ? undefined : toggleVisible() })
 
 const backToConversationList = () => {
   if (!isAdmin.value) return
@@ -1260,7 +1381,14 @@ watch(
   { immediate: true }
 )
 
+onMounted(() => {
+  loadLauncherPosition()
+  window.addEventListener('resize', keepLauncherInViewport)
+})
+
 onBeforeUnmount(() => {
+  stopLauncherDrag()
+  window.removeEventListener('resize', keepLauncherInViewport)
   cleanupSocket()
 })
 </script>
