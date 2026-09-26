@@ -15,7 +15,8 @@ import {
   ShoppingCartIcon,
   ShieldCheckIcon,
   Cog6ToothIcon,
-  WalletIcon
+  WalletIcon,
+  LinkIcon
 } from '@heroicons/vue/24/outline'
 
 export const WORKSPACE_HOME = '/user/mailboxes/system'
@@ -58,7 +59,8 @@ export const createWorkspaceMenu = (
         label: t('home.externalMailbox'),
         icon: InboxStackIcon,
         matchPaths: externalMailboxTabs(t).map((item) => item.path)
-      }
+      },
+      { path: undefined, action: 'manage-shares', label: t('shareMailbox.managedTitle'), icon: LinkIcon }
     ]
   },
   {

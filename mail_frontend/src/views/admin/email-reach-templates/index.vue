@@ -137,8 +137,8 @@
       :show-cancel="false"
       body-class="overflow-y-auto"
     >
-      <div class="grid grid-cols-12 gap-6">
-        <div class="col-span-4 space-y-5">
+      <div class="grid grid-cols-1 gap-6 lg:grid-cols-12">
+        <div class="min-w-0 space-y-5 lg:col-span-4">
           <div>
             <div class="mb-1 text-sm text-gray-500">客户</div>
             <div class="text-base font-semibold text-gray-900">{{ detail.user_email || '-' }}</div>
@@ -195,7 +195,7 @@
           </div>
         </div>
 
-        <div class="col-span-8 space-y-4">
+        <div class="min-w-0 space-y-4 lg:col-span-8">
           <div>
             <div class="mb-2 text-sm font-medium text-gray-900">邮件主题</div>
             <div class="rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm text-gray-700">

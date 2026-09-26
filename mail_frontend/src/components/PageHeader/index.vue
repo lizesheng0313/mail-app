@@ -65,7 +65,15 @@
       </div>
     </nav>
 
-    <MobileSiteDrawer v-model:open="mobileMenuOpen" :menu-sections="mobileMenuSections" />
+    <MobileSiteDrawer v-model:open="mobileMenuOpen" :menu-sections="mobileMenuSections" @menu-action="handleMenuAction" />
+
+    <ShareMailboxModal
+      :visible="showShareManager"
+      :mailbox-ids="[]"
+      mailbox-type="system"
+      manage-only
+      @close="showShareManager = false"
+    />
 
     <div class="h-[54px]"></div>
 
@@ -81,9 +89,14 @@ import { createWorkspaceMenu } from '@/config/workspaceNavigation'
 import AccountActions from '@/components/AccountActions/index.vue'
 import MobileSiteDrawer from '@/components/MobileSiteDrawer/index.vue'
 import PublicNavigation from '@/components/PublicNavigation/index.vue'
+import ShareMailboxModal from '@/components/Mail/ShareMailboxModal.vue'
 const { t } = useI18n()
 const userStore = useUserStore()
 const mobileMenuOpen = ref(false)
+const showShareManager = ref(false)
+const handleMenuAction = (action: string) => {
+  if (action === 'manage-shares') showShareManager.value = true
+}
 const mobileMenuSections = computed(() => createWorkspaceMenu(t, {
   publicHome: !userStore.isAuthenticated,
   guest: !userStore.isAuthenticated

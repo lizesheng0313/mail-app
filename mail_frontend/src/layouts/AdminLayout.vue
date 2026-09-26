@@ -1,21 +1,40 @@
 <template>
-  <div class="min-h-screen bg-gray-100 flex">
+  <div class="admin-layout flex min-h-screen min-w-0 bg-gray-100">
+    <button
+      v-if="mobileMenuOpen"
+      type="button"
+      class="fixed inset-0 z-40 bg-gray-900/50 md:hidden"
+      aria-label="关闭管理菜单"
+      @click="closeMobileMenu"
+    />
     <!-- 左侧菜单 -->
-    <div class="w-64 bg-white shadow-lg flex flex-col">
+    <div
+      id="admin-sidebar"
+      class="z-50 flex-col bg-white shadow-lg md:relative md:flex md:h-screen md:w-64 md:flex-shrink-0"
+      :class="mobileMenuOpen ? 'fixed inset-y-0 left-0 flex w-72 max-w-[calc(100vw-3rem)]' : 'hidden'"
+    >
       <!-- 头部Logo -->
-      <router-link
-        to="/"
-        class="flex items-center px-6 border-b border-gray-200 transition-colors hover:bg-gray-50"
-        style="height: 87px;"
-      >
-        <div class="relative h-12 w-12 overflow-visible bg-transparent flex items-center justify-center flex-shrink-0">
-          <img :src="logoImage" alt="logo" class="absolute h-[68px] w-[68px] max-w-none object-contain" />
-        </div>
-        <h1 class="ml-6 text-lg font-semibold text-gray-900">管理后台</h1>
-      </router-link>
+      <div class="flex h-16 items-center border-b border-gray-200 px-4 md:h-[87px] md:px-6">
+        <router-link to="/" class="flex min-w-0 flex-1 items-center" @click="closeMobileMenu">
+          <div class="relative flex h-12 w-12 flex-shrink-0 items-center justify-center overflow-visible bg-transparent">
+            <img :src="logoImage" alt="logo" class="absolute h-[68px] w-[68px] max-w-none object-contain" />
+          </div>
+          <h1 class="ml-6 text-lg font-semibold text-gray-900">管理后台</h1>
+        </router-link>
+        <button
+          type="button"
+          class="ml-auto rounded-lg p-2 text-gray-500 hover:bg-gray-100 md:hidden"
+          aria-label="关闭管理菜单"
+          @click.prevent.stop="closeMobileMenu"
+        >
+          <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 6l12 12M18 6L6 18" />
+          </svg>
+        </button>
+      </div>
 
       <!-- 菜单列表 - 可滚动区域 -->
-      <nav class="flex-1 overflow-y-auto py-4">
+      <nav class="min-h-0 flex-1 overflow-y-auto py-4" @click="handleMenuClick">
         <div class="px-3 space-y-1">
           <!-- 一级菜单：系统配置 -->
           <div class="mb-2">
@@ -332,21 +351,33 @@
     </div>
 
     <!-- 右侧内容区域 -->
-    <div class="flex-1 flex flex-col h-screen overflow-hidden">
+    <div class="flex h-screen min-w-0 flex-1 flex-col overflow-hidden" style="height: 100dvh;">
       <!-- 顶部导航栏 -->
-      <header class="bg-white shadow-sm border-b border-gray-200 flex-shrink-0" style="height: 87px;">
-        <div class="px-6 h-full">
-          <div class="flex items-center justify-between h-full">
-            <div>
-              <h1 class="text-2xl font-semibold text-gray-900">{{ pageTitle }}</h1>
-              <p class="text-sm text-gray-600 mt-1">{{ pageDescription }}</p>
+      <header class="h-16 flex-shrink-0 border-b border-gray-200 bg-white shadow-sm md:h-[87px]">
+        <div class="h-full px-4 md:px-6">
+          <div class="flex h-full min-w-0 items-center justify-between gap-3">
+            <button
+              type="button"
+              class="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg text-gray-700 hover:bg-gray-100 md:hidden"
+              aria-label="打开管理菜单"
+              aria-controls="admin-sidebar"
+              :aria-expanded="mobileMenuOpen"
+              @click="mobileMenuOpen = true"
+            >
+              <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+            <div class="min-w-0 flex-1">
+              <h1 class="truncate text-lg font-semibold text-gray-900 md:text-2xl">{{ pageTitle }}</h1>
+              <p class="mt-1 hidden text-sm text-gray-600 md:block">{{ pageDescription }}</p>
             </div>
-            <div class="flex items-center space-x-4">
+            <div class="flex flex-shrink-0 items-center">
               <router-link
                 to="/"
-                class="mr-[28px] inline-flex items-center rounded-md border border-primary-200 bg-primary-50 px-3 py-2 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-100"
+                class="inline-flex items-center rounded-md border border-primary-200 bg-primary-50 px-3 py-2 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-100 md:mr-[28px]"
               >
-                返回首页
+                <span class="md:hidden">首页</span><span class="hidden md:inline">返回首页</span>
               </router-link>
             </div>
           </div>
@@ -354,9 +385,9 @@
       </header>
 
       <!-- 主要内容区域 -->
-      <main class="flex-1 bg-gray-50 overflow-hidden">
-        <div class="h-full overflow-y-auto">
-          <div class="max-w-7xl mx-auto px-6 py-6">
+      <main class="admin-content min-h-0 min-w-0 flex-1 overflow-hidden bg-gray-50">
+        <div class="h-full overflow-y-auto overflow-x-hidden">
+          <div class="mx-auto max-w-7xl min-w-0 px-3 py-4 sm:px-6 sm:py-6">
             <router-view />
           </div>
         </div>
@@ -366,13 +397,26 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, onMounted, watch } from 'vue'
+import { computed, reactive, ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import logoImage from '@/assets/img/logo.png'
 
 const route = useRoute()
 const userStore = useUserStore()
+const mobileMenuOpen = ref(false)
+
+const closeMobileMenu = () => {
+  mobileMenuOpen.value = false
+}
+
+const handleMenuClick = (event: MouseEvent) => {
+  if ((event.target as HTMLElement).closest('a[href]')) closeMobileMenu()
+}
+
+const handleEscape = (event: KeyboardEvent) => {
+  if (event.key === 'Escape') closeMobileMenu()
+}
 
 // 展开的菜单
 const expandedMenus = reactive({
@@ -421,10 +465,16 @@ const autoExpandMenu = () => {
 // 页面加载时自动展开
 onMounted(() => {
   autoExpandMenu()
+  window.addEventListener('keydown', handleEscape)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleEscape)
 })
 
 // 路由变化时自动展开
 watch(() => route.path, () => {
+  closeMobileMenu()
   autoExpandMenu()
 })
 
@@ -441,6 +491,7 @@ const pageTitle = computed(() => {
     '/admin/resource-sources': '资源货源',
     '/admin/finance-settlement': '财务结算',
     '/admin/announcements': '公告管理',
+    '/admin/help-center': '帮助中心',
     '/admin/transactions': '奶片交易',
     '/admin/miniapp-management': '小程序管理',
     '/admin/miniapp-config': '视频激励配置',
@@ -467,6 +518,7 @@ const pageDescription = computed(() => {
     '/admin/resource-sources': '管理资源市场供货商、货源池和 SKU 货源绑定',
     '/admin/finance-settlement': '查看和管理工作流销售收入结算',
     '/admin/announcements': '发布和管理系统公告通知',
+    '/admin/help-center': '管理帮助中心目录和文章',
     '/admin/transactions': '查看和管理所有用户的奶片交易记录',
     '/admin/miniapp-management': '管理小程序基本信息和配置',
     '/admin/miniapp-config': '配置小程序工作流和视频奖励规则',

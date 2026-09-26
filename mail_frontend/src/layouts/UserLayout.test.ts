@@ -147,6 +147,11 @@ describe('User workspace navigation', () => {
     expect(tools.get('a[aria-current="page"]').text()).toBe('mail.inbox')
   })
 
+  it('keeps share management in the mailbox section', async () => {
+    const { wrapper } = await createWorkbench('/user/mailboxes/external')
+    expect(wrapper.findAll('button').some((button) => button.text() === 'shareMailbox.managedTitle')).toBe(true)
+  })
+
   it('preserves verification progress while switching to the inbox and back', async () => {
     const { wrapper, router } = await createWorkbench('/user/external-batch-verify')
     await wrapper.get('[data-testid="verification-progress"]').trigger('click')

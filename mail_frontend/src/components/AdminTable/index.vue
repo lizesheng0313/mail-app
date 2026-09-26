@@ -1,14 +1,14 @@
 <template>
-  <div class="bg-white rounded-lg shadow-sm border flex-1 flex flex-col overflow-hidden">
+  <div class="min-w-0 bg-white rounded-lg shadow-sm border flex-1 flex flex-col overflow-hidden">
     <!-- 标题区域 -->
-    <div v-if="title" class="px-6 py-4 border-b border-gray-200">
+    <div v-if="title" class="px-4 py-4 border-b border-gray-200 sm:px-6">
       <h2 class="text-xl font-semibold text-black">{{ title }}</h2>
     </div>
     
     <!-- 表格容器 -->
     <div class="flex-1 overflow-hidden">
-      <div class="h-full overflow-y-auto">
-        <table class="min-w-full divide-y divide-gray-200">
+      <div class="h-full overflow-auto" tabindex="0" aria-label="数据表格，可左右滑动查看完整内容">
+        <table class="min-w-[640px] divide-y divide-gray-200 sm:min-w-full">
           <thead class="bg-gray-50 sticky top-0">
             <tr>
               <th 

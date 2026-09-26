@@ -4,6 +4,7 @@
       v-if="visible"
       class="fixed inset-0 z-[200] flex items-center justify-center px-4"
       :class="mask ? 'bg-black/45' : 'pointer-events-none bg-transparent'"
+      :style="{ zIndex }"
     >
       <!-- 弹窗内容 -->
       <div class="relative pointer-events-auto bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
@@ -93,6 +94,10 @@ const props = defineProps({
   mask: {
     type: Boolean,
     default: true
+  },
+  zIndex: {
+    type: Number,
+    default: 200
   },
   position: {
     type: String,

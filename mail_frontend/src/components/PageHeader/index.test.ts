@@ -76,6 +76,7 @@ describe('public page workbench entry', () => {
     await menuButton.trigger('click')
     expect(menuButton.attributes('aria-expanded')).toBe('true')
     expect(wrapper.get('[role="dialog"] a[href="/user/mailboxes/system"]').exists()).toBe(true)
+    expect(wrapper.get('[role="dialog"]').text()).toContain('shareMailbox.managedTitle')
     expect(wrapper.get('a[href="/market"][class*="rounded-lg"]').text()).toBe('pageHeader.resourceMarket')
 
     await wrapper.get('a[href="/market"][class*="rounded-lg"]').trigger('click')

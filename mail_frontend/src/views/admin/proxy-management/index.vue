@@ -3,14 +3,14 @@
     <div class=" h-full flex flex-col">
 
       <!-- 操作区域 -->
-      <div class="bg-white rounded-lg shadow-sm border p-6 mb-8">
-        <div class="flex justify-between items-center">
-          <div class="flex items-center space-x-4">
+      <div class="mb-4 rounded-lg border bg-white p-4 shadow-sm sm:mb-8 sm:p-6">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div class="flex min-w-0 flex-wrap items-center gap-3 sm:gap-4">
             <!-- 搜索框 -->
             <BaseInput
               v-model="searchQuery"
               placeholder="搜索代理..."
-              class="w-64"
+              class="w-full sm:w-64"
               size="sm"
             >
               <template #left-icon>
@@ -26,7 +26,7 @@
               :options="statusOptions"
               placeholder="状态筛选"
               size="sm"
-              class="w-48"
+              class="w-full sm:w-48"
             />
             
             <!-- 查询按钮 -->
@@ -71,8 +71,8 @@
           <p class="mt-1 text-sm text-black">添加您的第一个代理配置</p>
         </div>
 
-        <div v-else class="overflow-hidden">
-        <table class="min-w-full divide-y divide-gray-200">
+        <div v-else class="overflow-x-auto" tabindex="0" aria-label="代理列表，可左右滑动查看完整内容">
+        <table class="min-w-[640px] divide-y divide-gray-200 sm:min-w-full">
           <thead class="bg-gray-50">
             <tr>
               <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">

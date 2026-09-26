@@ -3,14 +3,14 @@
     <div class=" h-full flex flex-col">
 
       <!-- 操作区域 -->
-      <div class="bg-white rounded-lg shadow-sm border p-6 mb-8">
-        <div class="flex justify-between items-center">
-          <div class="flex items-center space-x-4">
+      <div class="mb-4 rounded-lg border bg-white p-4 shadow-sm sm:mb-8 sm:p-6">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div class="flex min-w-0 flex-wrap items-center gap-3 sm:gap-4">
             <BaseInput
               v-model="searchQuery"
               type="text"
               placeholder="搜索域名..."
-              class="w-64"
+              class="w-full sm:w-64"
               size="sm"
             >
               <template #left-icon>
@@ -152,8 +152,8 @@
     </div>
 
     <!-- 创建域名弹窗 -->
-    <div v-if="showCreateModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div class="bg-white rounded-lg p-6 w-full max-w-md">
+    <div v-if="showCreateModal" class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black bg-opacity-50 p-3">
+      <div class="max-h-[calc(100dvh-1.5rem)] w-full max-w-md overflow-y-auto rounded-lg bg-white p-4 sm:p-6">
         <h3 class="text-lg font-semibold mb-4">添加新域名</h3>
 
         <div class="space-y-4">
@@ -216,8 +216,8 @@
     </div>
 
     <!-- 编辑域名模态框 -->
-    <div v-if="showEditModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div class="bg-white rounded-lg p-6 w-full max-w-md">
+    <div v-if="showEditModal" class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black bg-opacity-50 p-3">
+      <div class="max-h-[calc(100dvh-1.5rem)] w-full max-w-md overflow-y-auto rounded-lg bg-white p-4 sm:p-6">
         <h3 class="text-lg font-semibold mb-4">编辑域名</h3>
 
         <div class="space-y-4">

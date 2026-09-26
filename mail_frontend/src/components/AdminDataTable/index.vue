@@ -1,7 +1,7 @@
 <template>
-  <div class="bg-white rounded-lg shadow-sm border flex-1 flex flex-col overflow-hidden">
+  <div class="min-w-0 bg-white rounded-lg shadow-sm border flex-1 flex flex-col overflow-hidden">
     <!-- 标题区域 -->
-    <div v-if="title || $slots.header" class="px-6 py-4 border-b border-gray-200">
+    <div v-if="title || $slots.header" class="px-4 py-4 border-b border-gray-200 sm:px-6">
       <slot name="header">
         <h2 class="text-xl font-semibold text-black">{{ title }}</h2>
       </slot>
@@ -9,8 +9,8 @@
     
     <!-- 表格容器 -->
     <div class="min-w-0" :class="scrollable ? 'flex-1 overflow-hidden' : 'overflow-visible'">
-      <div :class="scrollable ? 'h-full overflow-auto' : 'overflow-x-auto overflow-y-visible'">
-        <table :class="['divide-y divide-gray-200', tableClass]">
+      <div :class="scrollable ? 'h-full overflow-auto' : 'overflow-x-auto overflow-y-visible'" tabindex="0" aria-label="数据表格，可左右滑动查看完整内容">
+        <table :class="['min-w-[640px] sm:min-w-full divide-y divide-gray-200', tableClass]">
           <thead class="bg-gray-50 sticky top-0">
             <slot name="thead" />
           </thead>
@@ -65,7 +65,7 @@ withDefaults(defineProps<Props>(), {
   loading: false,
   showPageSizeSelector: false,
   columnCount: 1,
-  tableClass: 'min-w-full',
+  tableClass: '',
   scrollable: true
 })
 

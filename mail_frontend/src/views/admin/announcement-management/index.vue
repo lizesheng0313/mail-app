@@ -1,5 +1,5 @@
 <template>
-  <div class="p-6">
+  <div class="p-0 sm:p-6">
     <!-- 操作栏 -->
     <div class="bg-white rounded-lg shadow p-4 mb-4">
       <div class="flex flex-wrap items-center gap-4">
@@ -15,7 +15,7 @@
         </div>
 
         <!-- 按钮组 -->
-        <div class="flex gap-2">
+        <div class="flex flex-wrap gap-2">
           <button
             @click="handleSearch"
             class="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700"
@@ -130,9 +130,9 @@
     <!-- 创建/编辑公告弹窗 -->
     <div
       v-if="showCreateModal"
-      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+      class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black bg-opacity-50 p-3"
     >
-      <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4">
+      <div class="max-h-[calc(100dvh-1.5rem)] w-full max-w-2xl overflow-y-auto rounded-lg bg-white shadow-xl">
         <div class="flex items-center justify-between px-6 py-4 border-b">
           <h3 class="text-lg font-semibold">
             {{ editingItem ? '编辑公告/更新' : '发布公告/更新' }}

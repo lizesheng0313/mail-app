@@ -96,6 +96,9 @@ export const mailboxShareAPI = {
    */
   getMyShares(page = 1, pageSize = 20, asGuest = false) {
     const guestTokens = asGuest ? getStoredGuestClaimTokens() : []
+    if (asGuest && !guestTokens.length) {
+      return Promise.resolve({ code: 0, data: { shares: [], pagination: { total: 0 } } })
+    }
     return request.get('/mailbox-share/my/list', {
       params: { page, page_size: pageSize },
       skipAuth: asGuest,

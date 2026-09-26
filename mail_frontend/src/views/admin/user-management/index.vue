@@ -3,14 +3,14 @@
     <div class=" h-full flex flex-col">
 
       <!-- 操作区域 -->
-      <div class="bg-white rounded-lg shadow-sm border p-6 mb-8">
-        <div class="flex justify-between items-center">
-          <div class="flex items-center space-x-4">
+      <div class="mb-4 rounded-lg border bg-white p-4 shadow-sm sm:mb-8 sm:p-6">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div class="flex min-w-0 flex-wrap items-center gap-3 sm:gap-4">
             <BaseInput
               v-model="searchQuery"
               type="text"
               placeholder="搜索用户名或邮箱..."
-              class="w-64"
+              class="w-full sm:w-64"
               size="sm"
             >
               <template #left-icon>
@@ -24,7 +24,7 @@
               :options="proxyFilterOptions"
               placeholder="代理权限筛选"
               size="sm"
-              class="w-48"
+              class="w-full sm:w-48"
             />
             <button
               @click="loadUsers"

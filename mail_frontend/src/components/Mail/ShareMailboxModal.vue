@@ -6,12 +6,12 @@
     >
       <div v-if="managing" class="flex max-h-[calc(100vh-2rem)] w-full max-w-2xl flex-col rounded-xl bg-white shadow-2xl">
         <div class="flex items-center justify-between border-b border-gray-200 px-6 py-5">
-          <div>
+          <div class="min-w-0">
             <h3 class="text-xl font-semibold text-gray-900">{{ t('shareMailbox.managedTitle') }}</h3>
-            <p class="mt-1 text-sm text-gray-500">{{ t('shareMailbox.managedHint') }}</p>
+            <p class="mt-1 text-xs text-gray-500">{{ t('shareMailbox.managedHint') }}</p>
           </div>
-          <button @click="managing = false" class="text-sm text-primary-700 hover:underline">
-            {{ t('shareMailbox.backToCreate') }}
+          <button @click="manageOnly ? $emit('close') : managing = false" class="shrink-0 text-sm text-primary-700 hover:underline">
+            {{ manageOnly ? t('common.close') : t('shareMailbox.backToCreate') }}
           </button>
         </div>
         <div class="min-h-0 flex-1 space-y-3 overflow-y-auto p-5">
@@ -27,9 +27,9 @@
                   <span v-if="isShareExpired(share)" class="ml-1 text-red-600">{{ t('shareMailbox.expired') }}</span>
                 </p>
               </div>
-              <div class="flex shrink-0 gap-3 text-sm">
-                <button v-if="share.share_url && !isShareExpired(share)" @click="copyText(toFullShareUrl(share.share_url))" class="text-primary-700 hover:underline">{{ t('common.copy') }}</button>
-                <button @click="revokeShare(share)" :disabled="revokingId === share.id" class="text-red-600 hover:underline disabled:opacity-50">{{ t('shareMailbox.revoke') }}</button>
+              <div class="flex shrink-0 gap-2 text-sm">
+                <button v-if="share.share_url && !isShareExpired(share)" @click="copyText(toFullShareUrl(share.share_url))" class="rounded-md border border-primary-200 px-3 py-1.5 font-medium text-primary-700 hover:bg-primary-50">{{ t('common.copy') }}</button>
+                <button @click="pendingRevokeShare = share" :disabled="revokingId === share.id" class="rounded-md border border-red-200 px-3 py-1.5 font-medium text-red-600 hover:bg-red-50 disabled:opacity-50">{{ t('shareMailbox.revoke') }}</button>
               </div>
             </div>
           </div>
@@ -391,6 +391,18 @@
         </div>
       </div>
     </div>
+    <ConfirmDialog
+      :visible="Boolean(pendingRevokeShare)"
+      :title="t('shareMailbox.revoke')"
+      :message="t('shareMailbox.revokeConfirm')"
+      :confirm-text="t('shareMailbox.revoke')"
+      :cancel-text="t('common.cancel')"
+      :loading="revokingId !== null"
+      :show-warning="false"
+      :z-index="12000"
+      @confirm="revokeShare"
+      @cancel="pendingRevokeShare = null"
+    />
   </Teleport>
 </template>
 
@@ -402,6 +414,7 @@ import { isTauri, extractApiErrorMessage } from '@/services/api'
 import { showMessage } from '@/utils/message'
 import { useUserStore } from '@/stores/user'
 import CustomSelect from '@/components/CustomSelect/index.vue'
+import ConfirmDialog from '@/components/ConfirmDialog/index.vue'
 import { readSharePreferences, saveSharePreferences } from './sharePreferences'
 
 const props = defineProps({
@@ -417,6 +430,10 @@ const props = defineProps({
   selectedMailboxes: {
     type: Array,
     default: () => []
+  },
+  manageOnly: {
+    type: Boolean,
+    default: false
   }
 })
 
@@ -444,13 +461,14 @@ const shareCount = ref(savedPreferences.shareCount)
 const latestOnly = ref(savedPreferences.latestOnly)
 const creating = ref(false)
 const shareUrls = ref([])
-const guestMode = computed(() => !userStore.isAuthenticated && Boolean(props.selectedMailboxes[0]?.claim_token))
+const guestMode = computed(() => !userStore.isAuthenticated && (props.manageOnly || Boolean(props.selectedMailboxes[0]?.claim_token)))
 const managing = ref(false)
 const loadingShares = ref(false)
 const managedShares = ref([])
 const sharePage = ref(1)
 const totalShares = ref(0)
 const revokingId = ref(null)
+const pendingRevokeShare = ref(null)
 
 const toFullShareUrl = (path) => `${isTauri() ? 'https://zjkdongao.cn' : window.location.origin}${path}`
 const formatShareDate = (value) => new Date(value).toLocaleString()
@@ -473,11 +491,14 @@ const loadShares = async (page = 1) => {
 
 const openManagedShares = () => {
   managing.value = true
+  managedShares.value = []
+  totalShares.value = 0
   loadShares(1)
 }
 
-const revokeShare = async (share) => {
-  if (!window.confirm(t('shareMailbox.revokeConfirm'))) return
+const revokeShare = async () => {
+  const share = pendingRevokeShare.value
+  if (!share || revokingId.value !== null) return
   revokingId.value = share.id
   try {
     const res = await mailboxShareAPI.deleteShare(share.id, guestMode.value)
@@ -488,6 +509,7 @@ const revokeShare = async (share) => {
     showMessage(error.message || t('shareMailbox.revokeFailed'), 'error')
   } finally {
     revokingId.value = null
+    pendingRevokeShare.value = null
   }
 }
 
@@ -576,17 +598,22 @@ const restoreSavedPreferences = () => {
 // 监听弹窗关闭，重置状态
 watch(
   () => props.visible,
-  (newVal) => {
-    if (!newVal) {
+  (newVal, oldVal) => {
+    if (newVal && props.manageOnly) {
+      openManagedShares()
+    } else if (!newVal && oldVal) {
+      pendingRevokeShare.value = null
       // 弹窗关闭时重置状态
       setTimeout(() => {
+        if (props.visible) return
         restoreSavedPreferences()
         shareUrls.value = []
         creating.value = false
         managing.value = false
       }, 300)
     }
-  }
+  },
+  { immediate: true }
 )
 </script>
 

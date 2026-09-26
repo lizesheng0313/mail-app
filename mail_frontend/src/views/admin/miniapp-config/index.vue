@@ -113,7 +113,7 @@
           <p class="text-xs text-gray-500 mt-1">用户看完要求次数后，只会获得这里指定的规格</p>
         </div>
 
-        <div class="grid grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-2">所需视频数 *</label>
             <BaseInput

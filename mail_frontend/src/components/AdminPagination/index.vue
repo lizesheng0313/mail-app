@@ -1,8 +1,8 @@
 <template>
-  <div class="px-6 py-4 border-t border-gray-200 flex-shrink-0">
-    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+  <div class="flex-shrink-0 border-t border-gray-200 px-4 py-3 sm:px-6 sm:py-4">
+    <div class="flex flex-col justify-between gap-3 sm:flex-row sm:items-center sm:gap-4">
       <!-- 左侧：记录信息和每页数量选择 -->
-      <div class="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+      <div class="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-4">
         <div class="text-sm text-black">
           共 {{ total }} 条记录，第 {{ currentPage }} / {{ totalPages }} 页
         </div>
@@ -23,7 +23,7 @@
         <button
           @click="$emit('page-change', 1)"
           :disabled="currentPage <= 1 || loading"
-          class="px-3 py-1 border border-gray-300 rounded text-sm disabled:opacity-50 hover:bg-gray-50"
+          class="hidden px-3 py-1 border border-gray-300 rounded text-sm disabled:opacity-50 hover:bg-gray-50 sm:inline-flex"
         >
           首页
         </button>
@@ -36,7 +36,7 @@
         </button>
 
         <!-- 页码数字 -->
-        <div v-if="showPageNumbers" class="flex items-center space-x-1">
+        <div v-if="showPageNumbers" class="hidden items-center space-x-1 sm:flex">
           <template v-for="pageNum in visiblePages" :key="pageNum">
             <button
               v-if="pageNum !== '...'"
@@ -64,7 +64,7 @@
         <button
           @click="$emit('page-change', totalPages)"
           :disabled="currentPage >= totalPages || loading"
-          class="px-3 py-1 border border-gray-300 rounded text-sm disabled:opacity-50 hover:bg-gray-50"
+          class="hidden px-3 py-1 border border-gray-300 rounded text-sm disabled:opacity-50 hover:bg-gray-50 sm:inline-flex"
         >
           末页
         </button>

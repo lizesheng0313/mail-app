@@ -1,7 +1,7 @@
 <template>
-  <div class="p-6">
+  <div class="p-0 sm:p-6">
     <!-- Tab 切换 -->
-    <div class="bg-white rounded-lg shadow-sm p-1 inline-flex mb-4">
+    <div class="mb-4 flex max-w-full overflow-x-auto whitespace-nowrap rounded-lg bg-white p-1 shadow-sm">
       <button
         @click="activeTab = 'all'"
         :class="[
@@ -243,8 +243,8 @@
     </AdminDataTable>
 
     <!-- 详情弹窗 -->
-    <div v-if="showDetailModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+    <div v-if="showDetailModal" class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black bg-opacity-50 p-3">
+      <div class="max-h-[calc(100dvh-1.5rem)] w-full max-w-2xl overflow-y-auto rounded-lg bg-white shadow-xl">
         <div class="p-6">
           <div class="flex items-center justify-between mb-4">
             <h3 class="text-lg font-bold">交易详情</h3>
@@ -256,7 +256,7 @@
           </div>
 
           <div v-if="selectedItem" class="space-y-4">
-            <div class="grid grid-cols-2 gap-4">
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <div class="text-sm text-gray-600 mb-1">交易号</div>
                 <div class="text-sm font-mono font-medium">{{ selectedItem.transaction_no || '#' + selectedItem.id }}</div>

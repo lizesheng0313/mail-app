@@ -1,8 +1,8 @@
 <template>
-  <div class="p-6">
-    <div class="mb-6 flex items-center justify-between">
-      <div>
-        <h1 class="text-2xl font-semibold text-gray-900">帮助中心管理</h1>
+  <div class="min-w-0 p-0 sm:p-6">
+    <div class="mb-4 flex flex-wrap items-start justify-between gap-3 sm:mb-6">
+      <div class="min-w-0">
+        <h1 class="text-xl font-semibold text-gray-900 sm:text-2xl">帮助中心管理</h1>
         <p class="mt-1 text-sm text-gray-500">左侧菜单可新增、删除、排序，前台目录完全按这里配置显示。</p>
       </div>
       <a
@@ -14,8 +14,8 @@
       </a>
     </div>
 
-    <div class="grid grid-cols-[320px,1fr] gap-6">
-      <aside class="rounded-xl bg-white p-3 shadow-sm ring-1 ring-gray-200">
+    <div class="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-[320px_minmax(0,1fr)] lg:gap-6">
+      <aside class="max-h-64 min-w-0 overflow-y-auto rounded-xl bg-white p-3 shadow-sm ring-1 ring-gray-200 lg:max-h-none">
         <div class="mb-3 grid grid-cols-2 gap-2">
           <button class="rounded-lg bg-primary-600 px-3 py-2 text-sm text-white hover:bg-primary-700" @click="createArticle('')">
             新增一级
@@ -56,8 +56,8 @@
         </div>
       </aside>
 
-      <main class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-gray-200">
-        <div class="mb-4 grid grid-cols-2 gap-4">
+      <main class="min-w-0 rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-200 sm:p-5">
+        <div class="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
           <label class="block">
             <span class="text-sm font-medium text-gray-700">菜单 Key</span>
             <input
@@ -145,7 +145,7 @@
 
         <textarea
           v-model="editorContent"
-          class="h-[460px] w-full rounded-xl border border-gray-300 p-4 font-mono text-sm leading-6 outline-none focus:border-primary-500"
+          class="h-64 w-full rounded-xl border border-gray-300 p-3 font-mono text-sm leading-6 outline-none focus:border-primary-500 sm:h-[460px] sm:p-4"
           :placeholder="editorPlaceholder"
         />
 

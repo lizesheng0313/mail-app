@@ -320,7 +320,7 @@
         </div>
 
         <!-- 状态信息 -->
-        <div class="grid grid-cols-3 gap-4">
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div class="bg-white rounded-lg p-4 border border-gray-200">
             <div class="text-xs text-gray-500 mb-1">审核状态</div>
             <div class="text-sm font-semibold text-gray-900">{{ getReviewStatusLabel(currentWorkflow.review_status) }}</div>

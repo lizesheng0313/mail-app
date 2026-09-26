@@ -8,6 +8,7 @@
     :user-role="t('userLayout.userRole')"
     :page-title="isMailboxPage ? '' : currentPageTitle"
     :on-logout="logout"
+    @menu-action="handleMenuAction"
   >
     <template #header-actions>
       <router-link
@@ -61,10 +62,17 @@
       </div>
     </div>
   </SidebarLayout>
+  <ShareMailboxModal
+    :visible="showShareManager"
+    :mailbox-ids="[]"
+    mailbox-type="system"
+    manage-only
+    @close="showShareManager = false"
+  />
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { HomeIcon, ShoppingCartIcon, UserIcon } from '@heroicons/vue/24/outline'
@@ -73,11 +81,16 @@ import SidebarLayout from '@/components/SidebarLayout/index.vue'
 import AccountActions from '@/components/AccountActions/index.vue'
 import PublicNavigation from '@/components/PublicNavigation/index.vue'
 import { createWorkspaceMenu, externalMailboxTabs } from '@/config/workspaceNavigation'
+import ShareMailboxModal from '@/components/Mail/ShareMailboxModal.vue'
 
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
 const { t } = useI18n()
+const showShareManager = ref(false)
+const handleMenuAction = (action) => {
+  if (action === 'manage-shares') showShareManager.value = true
+}
 const userInfo = computed(() => userStore.user)
 const menuSections = computed(() => createWorkspaceMenu(t, {
   publicHome: route.path === '/',

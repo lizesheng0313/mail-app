@@ -259,7 +259,7 @@
     "article_key": "help_external_add",
     "parent_key": "help_external",
     "title": "添加第三方邮箱",
-    "content_html": "<ol><li>登录后打开<a href=\"/\">我的工作台</a>，选择“第三方邮箱”，点击“添加邮箱”。</li><li>在“输入账号（每行一个）”中，普通邮箱每行填“邮箱----授权码”，如需添加多个账号就换行；Gmail／Outlook 可只填邮箱地址，之后按 OAuth 提示授权。</li><li>普通邮箱可选择登录协议（不确定时选“自动”）及是否“启用 SMTP”；点击添加后，在右侧逐个查看成功或失败原因。</li><li>成功的邮箱出现在左侧列表；失败时先核对原邮箱是否已开启 IMAP／POP3、授权码是否有效，再按错误提示处理。</li></ol><p>这里填的是原邮箱服务商提供的客户端授权码，不是本站登录密码；只添加自己有权使用的邮箱。</p>",
+    "content_html": "<ol><li>登录后打开<a href=\"/\">我的工作台</a>，选择“第三方邮箱”，点击“添加邮箱”。</li><li>在“输入账号（每行一个）”中，普通邮箱每行填“邮箱----授权码”，如需添加多个账号就换行；Gmail／Outlook 可只填邮箱地址，之后按 OAuth 提示授权。</li><li>普通邮箱可选择登录协议（不确定时选“自动”）及是否“启用 SMTP”；点击添加后，在右侧逐个查看成功或失败原因。</li><li>成功的邮箱出现在左侧列表；失败时先核对原邮箱是否已开启 IMAP／POP3、授权码是否有效，再按错误提示处理。</li></ol><figure><a href=\"/help-center/external-add-entry.png\" target=\"_blank\" rel=\"noopener noreferrer\"><img src=\"/help-center/external-add-entry.png\" width=\"905\" loading=\"lazy\" alt=\"第三方邮箱列表标题右侧的添加邮箱入口\"></a><figcaption>第三方邮箱的添加入口；画面由当前界面组件和本地演示数据生成。</figcaption></figure><figure><a href=\"/help-center/external-add-form.png\" target=\"_blank\" rel=\"noopener noreferrer\"><img src=\"/help-center/external-add-form.png\" width=\"905\" loading=\"lazy\" alt=\"添加第三方邮箱弹窗中的账号输入、添加结果和 OAuth 授权区域\"></a><figcaption>填写账号后可查看结果或继续 OAuth 授权；图中的邮箱和成功状态仅为演示，不代表真实连接结果。</figcaption></figure><p>这里填的是原邮箱服务商提供的客户端授权码，不是本站登录密码；只添加自己有权使用的邮箱。</p>",
     "sort_order": 10,
     "enabled": true
   },
