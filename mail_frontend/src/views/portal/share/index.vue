@@ -1,6 +1,12 @@
 <template>
   <div>
-    <ThreeColumnLayout workspace-mode resizable-panels>
+    <ThreeColumnLayout
+      workspace-mode
+      resizable-panels
+      :mobile-panes="mobilePanes"
+      v-model:mobile-active-pane="mobileActivePane"
+      :mobile-navigation-label="t('workspace.mailboxTools')"
+    >
       <template #toolbar>
         <div class="flex items-center justify-between pb-3">
           <div class="flex items-center gap-3">
@@ -240,6 +246,12 @@ import { isShareTerminalState, resolveShareValidity } from './shareDisplay'
 
 const route = useRoute()
 const { t } = useI18n()
+const mobileActivePane = ref('left')
+const mobilePanes = computed(() => [
+  { key: 'left', label: t('workspace.mailboxes') },
+  { key: 'middle', label: t('mail.inbox') },
+  { key: 'right', label: t('emailDetail.title') }
+])
 
 const loading = ref(true)
 const error = ref('')
@@ -447,6 +459,7 @@ const loadEmails = async () => {
 }
 
 const handleSelectMailbox = (mailbox) => {
+  mobileActivePane.value = 'middle'
   selectedMailbox.value = mailbox
   currentPage.value = 1
   selectedEmail.value = null
@@ -454,6 +467,7 @@ const handleSelectMailbox = (mailbox) => {
 }
 
 const handleSelectEmail = async (email) => {
+  mobileActivePane.value = 'right'
   // 先设置选中状态（显示基本信息）
   selectedEmail.value = email
 

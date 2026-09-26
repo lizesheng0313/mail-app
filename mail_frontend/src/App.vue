@@ -1,7 +1,8 @@
 <template>
   <div id="app">
     <RouterView />
-    <FloatingLiveChat v-if="showFloatingTools" />
+    <FloatingLiveChat v-if="showFloatingTools && userStore.isAuthenticated" />
+    <GuestLiveChat v-else-if="showFloatingTools" />
     <SystemMaintenance ref="maintenanceRef" />
     <AppUpdater ref="updaterRef" />
   </div>
@@ -15,6 +16,7 @@ import { usePageTracking } from '@/composables/usePageTracking'
 import { useOnlineSession } from '@/composables/useOnlineSession'
 import { useDesktopOAuthKeepAlive } from '@/composables/useDesktopOAuthKeepAlive'
 import FloatingLiveChat from '@/components/FloatingLiveChat/index.vue'
+import GuestLiveChat from '@/components/FloatingLiveChat/GuestLiveChat.vue'
 import SystemMaintenance from '@/components/SystemMaintenance/index.vue'
 import AppUpdater from '@/components/AppUpdater/index.vue'
 import { registerMaintenanceCallback, isTauri } from '@/services/api'

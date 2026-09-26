@@ -17,6 +17,7 @@
     v-else
     :title="t('home.temporaryMailbox')"
     :subtitle="guestMailboxQuotaText"
+    :empty-text="guestQuotaReached ? t('mail.guestMailboxNoAvailableToday') : t('mail.noMailbox')"
     :mailboxes="mailboxStore.guestMailboxes"
     :selected-id="mailboxStore.tempMailbox?.id || null"
     :hide-default-batch-action="true"
@@ -47,16 +48,26 @@
       />
     </template>
   </MailboxList>
+
+  <ConfirmDialog
+    :visible="Boolean(pendingDeleteMailbox)"
+    :title="t('systemMailbox.deleteTitle')"
+    :message="t('systemMailbox.deleteSingleMessage')"
+    :loading="deletingMailbox"
+    @confirm="confirmDeleteMailbox"
+    @cancel="pendingDeleteMailbox = null"
+  />
 </template>
 
 <script setup lang="ts">
-import { computed, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useMailboxStore } from '@/stores/auth'
 import { useMailStore } from '@/stores/mail'
 import { mailboxAPI } from '@/api/mailbox'
 import MailboxList from '@/components/Mail/MailboxList/MailboxList.vue'
 import MailboxCard from '@/components/Mail/MailboxList/MailboxCard.vue'
+import ConfirmDialog from '@/components/ConfirmDialog/index.vue'
 import { showMessage } from '@/utils/message'
 import { formatTimestamp } from '@/utils/timeUtils'
 import {
@@ -65,12 +76,18 @@ import {
 } from '@/utils/guestMailboxes'
 
 const { t } = useI18n()
-const emit = defineEmits<{ select: [] }>()
+const emit = defineEmits<{ select: []; share: [mailboxes: any[]]; deleted: [ids: number[]] }>()
 const mailboxStore = useMailboxStore()
 const mailStore = useMailStore()
+const pendingDeleteMailbox = ref<any | null>(null)
+const deletingMailbox = ref(false)
 const guestMailboxesCreatedToday = computed(() =>
-  countGuestMailboxesCreatedToday(mailboxStore.guestMailboxes)
+  Math.max(
+    mailboxStore.guestDailyUsed ?? 0,
+    countGuestMailboxesCreatedToday(mailboxStore.guestMailboxes)
+  )
 )
+const guestQuotaReached = computed(() => guestMailboxesCreatedToday.value >= GUEST_MAILBOX_DAILY_LIMIT)
 const guestMailboxQuotaText = computed(() =>
   t('mail.guestMailboxQuota', { count: guestMailboxesCreatedToday.value, limit: GUEST_MAILBOX_DAILY_LIMIT })
 )
@@ -79,6 +96,17 @@ const mailboxActions = computed(() => [
     id: 'copy',
     label: t('systemMailbox.copyMailbox'),
     icon: 'copy'
+  },
+  {
+    id: 'share',
+    label: t('systemMailbox.shareMailbox'),
+    icon: 'share'
+  },
+  {
+    id: 'delete',
+    label: t('systemMailbox.deleteMailbox'),
+    icon: 'delete',
+    tone: 'danger' as const
   }
 ])
 
@@ -125,6 +153,27 @@ const copy = async (text: string) => {
 
 const handleMailboxAction = (actionId: string, mailbox: any) => {
   if (actionId === 'copy') void copy(mailbox.email)
+  if (actionId === 'share') emit('share', [mailbox])
+  if (actionId === 'delete') pendingDeleteMailbox.value = mailbox
+}
+
+const confirmDeleteMailbox = async () => {
+  const mailbox = pendingDeleteMailbox.value
+  if (!mailbox || deletingMailbox.value) return
+  deletingMailbox.value = true
+  try {
+    const result = await mailboxStore.deleteGuestMailbox(mailbox.id)
+    if (!result.success) {
+      showMessage(result.error || t('systemMailbox.deleteFailed'), 'error')
+      return
+    }
+    mailStore.clearEmails()
+    emit('deleted', [Number(mailbox.id)])
+    showMessage(t('systemMailbox.deleteSuccess'), 'success')
+    pendingDeleteMailbox.value = null
+  } finally {
+    deletingMailbox.value = false
+  }
 }
 
 const formatDate = (date: string | number) => {

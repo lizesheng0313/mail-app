@@ -64,10 +64,13 @@ const en = {
     footerTool2fa: '2FA Code',
     tempMailboxFetchFailed: 'Failed to get temporary mailbox',
     mailboxApplyFailed: 'Failed to apply for mailbox',
-    guestMailboxQuota: 'Today {count}/{limit}'
+    guestMailboxQuota: 'Created today {count}/{limit} · Sign in for more free mailboxes',
+    guestMailboxNoAvailableToday: 'No available mailboxes. Today’s mailboxes may have been deleted or moved to your account.'
   },
   pageHeader: {
     siteName: 'FeiMao Mail',
+    navigationMenu: 'Open navigation menu',
+    closeNavigationMenu: 'Close navigation menu',
     temporaryMailbox: 'Temporary Mail',
     myAssets: 'My Assets',
     resourceMarket: 'Marketplace',
@@ -85,7 +88,7 @@ const en = {
     viewAllAnnouncements: 'View all announcements',
     markedAllRead: 'All announcements marked as read',
     admin: 'Admin',
-    workspace: 'FeiMao Workspace',
+    workspace: 'Home',
     logout: 'Sign out',
     registerBanner: 'Sign up to unlock free mailboxes, automation tools, and more features',
     registerNow: 'Create account'
@@ -1304,7 +1307,25 @@ const en = {
     selectMailboxWarning: 'Select at least one mailbox to share',
     createSuccess: 'Share created successfully',
     createFailed: 'Failed to create share',
-    copied: 'Link copied'
+    copied: 'Link copied',
+    guestValidity: 'Guest shares expire with the temporary mailbox. Sign in to save it and get more free mailboxes.',
+    managedTitle: 'Shared links',
+    managedHint: 'View, copy, or revoke your shares. Revoked links stop working immediately.',
+    backToCreate: 'Back to sharing',
+    loadingShares: 'Loading shares...',
+    noShares: 'No shared links yet',
+    webShare: 'Web share',
+    miniappShare: 'Mini Program share (forward in WeChat)',
+    waitingFirstOpen: 'Timer starts on first open',
+    expired: 'Expired',
+    revoke: 'Revoke',
+    revokeConfirm: 'Recipients will no longer be able to view this inbox. Revoke this share?',
+    revoked: 'Share revoked',
+    revokeFailed: 'Failed to revoke share',
+    loadFailed: 'Failed to load shares',
+    totalShares: '{count} total',
+    previous: 'Previous',
+    next: 'Next'
   },
   batchAdd: {
     title: 'Bulk Add External Mailboxes',

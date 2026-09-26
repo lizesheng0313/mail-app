@@ -6,12 +6,19 @@
     :page-scrollable="currentView === 'send-email'"
     workspace-mode
     resizable-panels
+    :mobile-panes="mobilePanes"
+    v-model:mobile-active-pane="mobileActivePane"
+    :mobile-navigation-label="t('workspace.mailboxTools')"
   >
     <!-- 左栏：邮箱 -->
     <template #left>
       <div v-if="!userStore.isAuthenticated" class="h-full">
         <div v-show="mailboxType === 'system'" class="h-full">
-          <TempMailbox>
+          <TempMailbox
+            @select="mobileActivePane = 'middle'"
+            @share="handleShareMailboxes"
+            @deleted="handleSystemMailboxesDeleted"
+          >
             <template #header-actions>
               <MailboxCreationActions
                 :menu-label="t('home.getMailbox')"
@@ -372,7 +379,7 @@
         <OutboxListPanel
           ref="outboxListRef"
           :filter-mailbox-id="selectedOutboxMailboxId"
-          @select="selectedOutboxRecord = $event"
+          @select="handleSelectOutboxRecord"
           @clear-filter="selectedOutboxMailboxId = null"
         />
       </div>
@@ -618,6 +625,22 @@ const externalEmailListRef = ref()
 const hostedEmailListRef = ref()
 const mailboxType = ref<'system' | 'hosted' | 'external'>(props.initialMailboxType)
 const currentView = ref<'emails' | 'send-email' | 'outbox'>('emails')
+const mobileActivePane = ref<'left' | 'middle' | 'right' | 'main'>('left')
+const mobilePanes = computed(() => {
+  const mailboxes = { key: 'left' as const, label: t('workspace.mailboxes') }
+  if (currentView.value === 'send-email') {
+    return [mailboxes, { key: 'main' as const, label: t('sendEmail.title') }]
+  }
+  return [
+    mailboxes,
+    { key: 'middle' as const, label: currentView.value === 'outbox' ? t('userLayout.outbox') : t('mail.inbox') },
+    { key: 'right' as const, label: t('emailDetail.title') }
+  ]
+})
+watch(currentView, (view) => {
+  if (view === 'send-email') mobileActivePane.value = 'main'
+  else if (mobileActivePane.value === 'main') mobileActivePane.value = 'middle'
+})
 const selectedMailboxId = ref<number | null>(null)
 const showOnlyUnread = ref(false)
 const refreshingSystemEmails = ref(false)
@@ -784,7 +807,10 @@ const guestRegisterMessage = computed(() =>
 )
 
 const guestMailboxesCreatedToday = computed(() =>
-  countGuestMailboxesCreatedToday(mailboxStore.guestMailboxes)
+  Math.max(
+    mailboxStore.guestDailyUsed ?? 0,
+    countGuestMailboxesCreatedToday(mailboxStore.guestMailboxes)
+  )
 )
 const guestMailboxLimitReached = computed(() =>
   guestMailboxesCreatedToday.value >= GUEST_MAILBOX_DAILY_LIMIT
@@ -1708,6 +1734,7 @@ const handleExternalAddMailboxAction = async () => {
 // 切换邮箱类型
 const switchMailboxType = (type: 'system' | 'hosted' | 'external') => {
   currentView.value = 'emails'
+  mobileActivePane.value = 'left'
   // 保存当前Tab的选中邮件
   if (mailboxType.value === 'system') {
     systemSelectedEmail.value = mailStore.selectedEmail
@@ -2680,6 +2707,7 @@ const applySystemEmailListResult = (result: any, mailboxId?: number | null) => {
   }
   mailboxType.value = 'system'
   currentView.value = 'emails'
+  mobileActivePane.value = 'middle'
 }
 
 const applyHostedEmailListResult = (result: any, mailboxId?: number | null) => {
@@ -2694,6 +2722,7 @@ const applyHostedEmailListResult = (result: any, mailboxId?: number | null) => {
   }
   mailboxType.value = 'hosted'
   currentView.value = 'emails'
+  mobileActivePane.value = 'middle'
 }
 
 const applyExternalEmailListResult = (result: any, mailboxId?: number | null) => {
@@ -2711,6 +2740,7 @@ const applyExternalEmailListResult = (result: any, mailboxId?: number | null) =>
   }
   mailboxType.value = 'external'
   currentView.value = 'emails'
+  mobileActivePane.value = 'middle'
 }
 
 const applyEmailDetailResult = (
@@ -2721,6 +2751,7 @@ const applyEmailDetailResult = (
 
   mailStore.selectedEmail = result
   currentView.value = 'emails'
+  mobileActivePane.value = 'right'
 
   if (mailboxTypeValue === 'hosted') {
     mailboxType.value = 'hosted'
@@ -2924,6 +2955,9 @@ onMounted(async () => {
   } else {
     mailboxType.value = 'system'
     syncAutoRefreshStates()
+    mailboxStore.restoreGuestMailboxes()
+    await mailboxStore.fetchGuestQuota()
+    if (guestMailboxLimitReached.value && mailboxStore.guestMailboxes.length === 0) return
     const result = await mailboxStore.ensureInitialGuestMailbox()
     if (!result.success) {
       showMessage(result.error || t('home.allocateMailboxFailed'), 'error')
@@ -2991,6 +3025,7 @@ const handleCustomGenerateSuccess = async () => {
 
 // 选择系统邮箱
 const handleSelectMailbox = async (mailbox: any) => {
+  mobileActivePane.value = 'middle'
   selectedMailboxId.value = mailbox.id
   mailStore.clearEmails()
   mailStore.currentPage = 1
@@ -3003,6 +3038,7 @@ const handleSelectMailbox = async (mailbox: any) => {
 }
 
 const handleSelectHostedMailbox = async (mailbox: any) => {
+  mobileActivePane.value = 'middle'
   selectedHostedMailboxId.value = Number(mailbox.id)
   selectedHostedEmailId.value = null
   hostedEmailPage.value = 1
@@ -3027,9 +3063,11 @@ const handleSelectExternalMailbox = async (account: any) => {
       selectedExternalMailboxIds.value.length > 0
         ? selectedExternalMailboxIds.value[selectedExternalMailboxIds.value.length - 1]
         : null
+    mobileActivePane.value = 'main'
     return
   }
   if (currentView.value === 'outbox') {
+    mobileActivePane.value = 'middle'
     const mailboxId = Number(account.id)
     selectedOutboxMailboxId.value =
       selectedOutboxMailboxId.value === mailboxId ? null : mailboxId
@@ -3037,6 +3075,7 @@ const handleSelectExternalMailbox = async (account: any) => {
     await outboxListRef.value?.loadSentEmails?.()
     return
   }
+  mobileActivePane.value = 'middle'
   selectedExternalMailboxId.value = account.id
   const authType = String(
     account?.auth_type || externalMailboxAuthTypeMap.value[account.id] || 'password'
@@ -3067,6 +3106,7 @@ const handleReeditSentEmail = async (record: any) => {
     selectedExternalMailboxId.value = mailboxId
   }
   currentView.value = 'send-email'
+  mobileActivePane.value = 'main'
   await nextTick()
   await externalMailboxListRef.value?.ensureAccountVisible?.(mailboxId)
   await sendEmailPanelRef.value?.loadData?.()
@@ -3075,11 +3115,18 @@ const handleReeditSentEmail = async (record: any) => {
 
 const openOutboxView = async () => {
   currentView.value = 'outbox'
+  mobileActivePane.value = 'middle'
   await nextTick()
   await outboxListRef.value?.loadSentEmails?.()
 }
 
+const handleSelectOutboxRecord = (record: any) => {
+  selectedOutboxRecord.value = record
+  mobileActivePane.value = 'right'
+}
+
 const handleSelectHostedEmail = async (email: any) => {
+  mobileActivePane.value = 'right'
   selectedHostedEmailId.value = Number(email.id)
   mailStore.selectedEmail = email
 
@@ -3331,6 +3378,7 @@ const fetchExternalMailboxEmails = async () => {
 
 // 选择外部邮件
 const handleSelectExternalEmail = async (email: any) => {
+  mobileActivePane.value = 'right'
   selectedExternalEmailId.value = email.id
   mailStore.selectEmail(email)
 
@@ -3366,6 +3414,7 @@ const handleReplyExternalEmail = async (email: any) => {
 
   mailboxType.value = 'external'
   currentView.value = 'send-email'
+  mobileActivePane.value = 'main'
   selectedExternalMailboxId.value = mailboxId
   selectedExternalMailboxIds.value = [mailboxId]
   selectedExternalAuthType.value =
@@ -3984,6 +4033,7 @@ const copyVerificationCode = (code: string) => {
 
 // 选择邮件（获取详情并自动标记已读）
 const handleSelectEmail = async (email: any) => {
+  mobileActivePane.value = 'right'
   // 先设置选中状态（显示基本信息）
   mailStore.selectEmail(email)
 

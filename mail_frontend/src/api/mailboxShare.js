@@ -2,6 +2,7 @@
  * 邮箱分享 API
  */
 import request from '@/services/api'
+import { getStoredGuestClaimTokens } from '@/utils/guestMailboxes'
 
 const SHARE_VISITOR_STORAGE_KEY = 'mailbox_share_visitor_id'
 
@@ -28,8 +29,12 @@ export const mailboxShareAPI = {
    * 创建分享
    * @param {Object} data - { mailbox_ids: number[], mailbox_type: 'system'|'external', expire_days: number }
    */
-  createShare(data) {
-    return request.post('/mailbox-share/create', data)
+  createShare(data, guestClaimToken = '') {
+    return request.post('/mailbox-share/create', data, guestClaimToken ? {
+      headers: { 'X-Guest-Mailbox-Token': guestClaimToken },
+      skipAuth: true,
+      suppressErrorMessage: true
+    } : { suppressErrorMessage: true })
   },
 
   /**
@@ -89,9 +94,12 @@ export const mailboxShareAPI = {
    * @param {number} page
    * @param {number} pageSize
    */
-  getMyShares(page = 1, pageSize = 20) {
+  getMyShares(page = 1, pageSize = 20, asGuest = false) {
+    const guestTokens = asGuest ? getStoredGuestClaimTokens() : []
     return request.get('/mailbox-share/my/list', {
-      params: { page, page_size: pageSize }
+      params: { page, page_size: pageSize },
+      skipAuth: asGuest,
+      ...(guestTokens.length ? { headers: { 'X-Guest-Mailbox-Tokens': guestTokens.join(',') } } : {})
     })
   },
 
@@ -99,8 +107,12 @@ export const mailboxShareAPI = {
    * 删除分享
    * @param {number} shareId
    */
-  deleteShare(shareId) {
-    return request.delete(`/mailbox-share/${shareId}`)
+  deleteShare(shareId, asGuest = false) {
+    const guestTokens = asGuest ? getStoredGuestClaimTokens() : []
+    return request.delete(`/mailbox-share/${shareId}`, {
+      skipAuth: asGuest,
+      ...(guestTokens.length ? { headers: { 'X-Guest-Mailbox-Tokens': guestTokens.join(',') } } : {})
+    })
   }
 }
 

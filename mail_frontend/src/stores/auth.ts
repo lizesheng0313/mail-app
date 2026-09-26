@@ -5,7 +5,9 @@ import { mailboxAPI } from '@/api/mailbox'
 import { i18n } from '@/i18n'
 import {
   GUEST_MAILBOX_DAILY_LIMIT,
+  countGuestMailboxesCreatedToday,
   loadStoredGuestMailboxes,
+  removeStoredGuestMailbox,
   upsertStoredGuestMailbox
 } from '@/utils/guestMailboxes'
 import { trackProductEvent } from '@/services/productAnalytics'
@@ -14,6 +16,7 @@ export const useMailboxStore = defineStore('mailbox', () => {
   const mailboxes = ref<Mailbox[]>([])
   const loading = ref(false)
   const claimingMailbox = ref(false)
+  const guestDailyUsed = ref<number | null>(null)
   const guestMailboxes = ref<any[]>(loadStoredGuestMailboxes())
   const tempMailbox = ref<any | null>(guestMailboxes.value[0] || null)
 
@@ -149,6 +152,14 @@ export const useMailboxStore = defineStore('mailbox', () => {
           remaining_requests_today: response.data.remaining_requests_today
         }
         guestMailboxes.value = upsertStoredGuestMailbox(tempMailbox.value)
+        if (response.data.used_today !== undefined) {
+          guestDailyUsed.value = Number(response.data.used_today)
+        } else if (response.data.remaining_requests_today !== undefined) {
+          guestDailyUsed.value = Number(response.data.daily_limit || GUEST_MAILBOX_DAILY_LIMIT)
+            - Number(response.data.remaining_requests_today)
+        } else {
+          guestDailyUsed.value = countGuestMailboxesCreatedToday(guestMailboxes.value)
+        }
         trackProductEvent('guest_mailbox_created', {
           duration_ms: Date.now() - startedAt
         })
@@ -157,11 +168,13 @@ export const useMailboxStore = defineStore('mailbox', () => {
       trackProductEvent('guest_mailbox_create_failed', {
         duration_ms: Date.now() - startedAt
       })
+      await fetchGuestQuota()
       return { success: false, error: response.message }
     } catch (error: any) {
       trackProductEvent('guest_mailbox_create_failed', {
         duration_ms: Date.now() - startedAt
       })
+      await fetchGuestQuota()
       return {
         success: false,
         error: error.response?.data?.message || error.response?.data?.detail || i18n.global.t('mail.tempMailboxFetchFailed')
@@ -169,6 +182,17 @@ export const useMailboxStore = defineStore('mailbox', () => {
     } finally {
       loading.value = false
       claimingMailbox.value = false
+    }
+  }
+
+  const fetchGuestQuota = async () => {
+    try {
+      const response: any = await mailboxAPI.getGuestQuota()
+      if (response.code !== 0 || !response.data) return false
+      guestDailyUsed.value = Math.max(0, Number(response.data.used_today || 0))
+      return true
+    } catch {
+      return false
     }
   }
 
@@ -199,6 +223,25 @@ export const useMailboxStore = defineStore('mailbox', () => {
   const clearGuestMailboxes = () => {
     guestMailboxes.value = []
     tempMailbox.value = null
+  }
+
+  const deleteGuestMailbox = async (id: number) => {
+    const target = guestMailboxes.value.find((item) => Number(item.id) === Number(id))
+    if (!target?.claim_token) return { success: false, error: '缺少临时邮箱领取凭据' }
+    try {
+      const response: any = await mailboxAPI.deleteTempMailbox(id, target.claim_token)
+      if (response.code !== 0) return { success: false, error: response.message }
+      guestMailboxes.value = removeStoredGuestMailbox(id)
+      if (Number(tempMailbox.value?.id) === Number(id)) {
+        tempMailbox.value = guestMailboxes.value[0] || null
+      }
+      return { success: true }
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.message || error.response?.data?.detail || '删除邮箱失败'
+      }
+    }
   }
 
   const allocateMailbox = async (payload: Record<string, any> = {}) => {
@@ -271,6 +314,7 @@ export const useMailboxStore = defineStore('mailbox', () => {
     guestMailboxes,
     loading,
     claimingMailbox,
+    guestDailyUsed,
     totalMailboxes,
     currentPage,
     pageSize,
@@ -278,10 +322,12 @@ export const useMailboxStore = defineStore('mailbox', () => {
     searchKeyword,
     fetchMailboxes,
     getTempMailbox,
+    fetchGuestQuota,
     ensureInitialGuestMailbox,
     selectGuestMailbox,
     restoreGuestMailboxes,
     clearGuestMailboxes,
+    deleteGuestMailbox,
     allocateMailbox,
     deleteMailbox,
     replaceMailboxes,

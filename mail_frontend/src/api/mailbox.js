@@ -3,10 +3,19 @@
  */
 
 import api from '@/services/api'
+import { getGuestVisitorId } from '@/utils/guestIdentity'
 
 export const mailboxAPI = {
   // 获取临时邮箱（未注册用户）
-  getTempMailbox: () => api.post('/mailboxes/temp'),
+  getTempMailbox: () => api.post('/mailboxes/temp', null, {
+    headers: { 'X-Guest-Visitor-Id': getGuestVisitorId() },
+    skipAuth: true
+  }),
+
+  getGuestQuota: () => api.get('/mailboxes/temp/quota', {
+    headers: { 'X-Guest-Visitor-Id': getGuestVisitorId() },
+    skipAuth: true
+  }),
 
   // 获取临时邮箱的邮件（无需登录）
   getTempMailboxEmails: (mailboxId, params = {}, claimToken = '') =>
@@ -15,6 +24,12 @@ export const mailboxAPI = {
       ...(claimToken
         ? { headers: { 'X-Guest-Mailbox-Token': claimToken } }
         : {})
+    }),
+
+  deleteTempMailbox: (mailboxId, claimToken) =>
+    api.delete(`/mailboxes/temp/${mailboxId}`, {
+      headers: { 'X-Guest-Mailbox-Token': claimToken },
+      skipAuth: true
     }),
 
   // 登录后保存当前浏览器创建的游客邮箱

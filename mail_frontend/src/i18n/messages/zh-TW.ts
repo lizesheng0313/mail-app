@@ -64,10 +64,13 @@ const zhTW = {
     footerTool2fa: '2FA 驗證碼',
     tempMailboxFetchFailed: '取得臨時郵箱失敗',
     mailboxApplyFailed: '申請郵箱失敗',
-    guestMailboxQuota: '今日 {count}/{limit}'
+    guestMailboxQuota: '今日已建立 {count}/{limit} · 登入後可取得更多免費郵箱',
+    guestMailboxNoAvailableToday: '目前沒有可用郵箱。今天建立的郵箱可能已刪除或轉入登入帳號。'
   },
   pageHeader: {
     siteName: '肥貓貓郵箱',
+    navigationMenu: '開啟導覽選單',
+    closeNavigationMenu: '關閉導覽選單',
     temporaryMailbox: '臨時郵箱',
     myAssets: '我的資源',
     resourceMarket: '資源市場',
@@ -85,7 +88,7 @@ const zhTW = {
     viewAllAnnouncements: '查看全部公告',
     markedAllRead: '已全部標記為已讀',
     admin: '管理後台',
-    workspace: '肥貓貓工作台',
+    workspace: '首頁',
     logout: '退出登入',
     registerBanner: '註冊登入解鎖：免費郵箱 + 自動化工具 + 更多功能',
     registerNow: '立即註冊'
@@ -1248,7 +1251,25 @@ const zhTW = {
     selectMailboxWarning: '請選擇要分享的郵箱',
     createSuccess: '分享建立成功',
     createFailed: '建立分享失敗',
-    copied: '連結已複製'
+    copied: '連結已複製',
+    guestValidity: '訪客分享會隨臨時郵箱到期自動失效；登入後可保存郵箱並取得更多免費郵箱。',
+    managedTitle: '已分享連結',
+    managedHint: '查看、複製或撤銷你建立的分享。撤銷後原連結立即失效。',
+    backToCreate: '返回分享',
+    loadingShares: '正在載入分享...',
+    noShares: '還沒有分享連結',
+    webShare: '網頁分享',
+    miniappShare: '小程式分享（請在小程式內轉發）',
+    waitingFirstOpen: '首次開啟後開始計時',
+    expired: '已過期',
+    revoke: '撤銷',
+    revokeConfirm: '撤銷後，收到連結的人將無法繼續查看。確定撤銷嗎？',
+    revoked: '分享已撤銷',
+    revokeFailed: '撤銷分享失敗',
+    loadFailed: '載入分享失敗',
+    totalShares: '共 {count} 條',
+    previous: '上一頁',
+    next: '下一頁'
   },
   batchAdd: {
     title: '批量添加第三方郵箱',

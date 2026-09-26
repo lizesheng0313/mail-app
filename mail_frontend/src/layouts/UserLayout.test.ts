@@ -77,6 +77,8 @@ describe('User workspace navigation', () => {
     expect(expandButton.exists()).toBe(true)
     expect(expandButton.element.parentElement?.classList.contains('justify-start')).toBe(true)
     expect(expandButton.classes()).toContain('ml-0')
+    expect(wrapper.get('.sidebar-shell').classes()).toContain('sidebar-shell--collapsed')
+    expect(wrapper.get('header button[aria-label="展开菜单"]').exists()).toBe(true)
   })
 
   it('hides duplicate mailbox headings but keeps titles on other workspace pages', async () => {
@@ -92,18 +94,32 @@ describe('User workspace navigation', () => {
 
   it('keeps public pages reachable from the workspace header', async () => {
     const { wrapper } = await createWorkbench('/user/automation/workflows')
-    expect(wrapper.get('a[href="/user"][aria-current="page"]').text()).toBe('pageHeader.workspace')
+    expect(wrapper.get('a[href="/user"][aria-current="page"] span.hidden').text()).toBe('pageHeader.workspace')
+    expect(wrapper.get('a[href="/user"][aria-current="page"]').attributes('aria-label')).toBe('pageHeader.workspace')
+    expect(wrapper.get('a[href="/user"][aria-current="page"] svg.md\\:hidden').exists()).toBe(true)
     for (const path of ['/market', '/open-platform', '/download', '/about']) {
       expect(wrapper.find(`a[href="${path}"]`).exists(), path).toBe(true)
     }
     expect(wrapper.get('a[aria-label="pageHeader.resourceMarket"]').attributes('href')).toBe('/market')
   })
 
+  it('uses the same mobile drawer for workspace and public links', async () => {
+    const { wrapper } = await createWorkbench('/user/mailboxes/external')
+    await wrapper.get('header button[aria-label="展开菜单"]').trigger('click')
+    const drawer = wrapper.get('[role="dialog"]')
+    expect(drawer.get('a[href="/user/mailboxes/external"]').exists()).toBe(true)
+    expect(drawer.get('a[href="/market"]').exists()).toBe(true)
+    expect(drawer.get('a[href="/about"]').exists()).toBe(true)
+
+    await drawer.get('button[aria-label="pageHeader.closeNavigationMenu"]').trigger('click')
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
+  })
+
   it('keeps the workspace entry in place while moving between workspace pages', async () => {
     const { wrapper, router } = await createWorkbench('/user/mailboxes/external')
     await router.push('/user/automation/workflows')
     await flushPromises()
-    expect(wrapper.get('a[href="/user"][aria-current="page"]').text()).toBe('pageHeader.workspace')
+    expect(wrapper.get('a[href="/user"][aria-current="page"] span.hidden').text()).toBe('pageHeader.workspace')
   })
 
   it('shows the original workflows under automation while the browser workflow transition is hidden', async () => {

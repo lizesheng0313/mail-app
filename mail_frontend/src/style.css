@@ -507,10 +507,6 @@ body.is-tauri .update-notes-body {
     }
 
     /* 移动端导航优化 */
-    .mobile-nav {
-      @apply px-2;
-    }
-
     .mobile-nav h1 {
       @apply text-lg;
     }

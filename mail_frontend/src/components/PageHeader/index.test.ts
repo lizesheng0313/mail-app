@@ -17,6 +17,9 @@ const mountHeader = async () => {
     routes: [
       { path: '/', component: { template: '<div />' } },
       { path: '/user', component: { template: '<div />' } },
+      { path: '/user/mailboxes/system', component: { template: '<div />' } },
+      { path: '/user/mailboxes/hosted', component: { template: '<div />' } },
+      { path: '/user/mailboxes/external', component: { template: '<div />' } },
       { path: '/market', component: { template: '<div />' } },
       { path: '/download', component: { template: '<div />' } },
       { path: '/open-platform', component: { template: '<div />' } },
@@ -42,7 +45,11 @@ describe('public page workbench entry', () => {
     )
     const workbench = wrapper.get('a[href="/"][class*="whitespace-nowrap"]')
     expect(workbench.text()).toBe('pageHeader.workspace')
-    expect(wrapper.findAll('a[href="/"]')).toHaveLength(2)
+    expect(wrapper.findAll('a[href="/"]')).toHaveLength(3)
+    expect(wrapper.get('nav button[aria-label="pageHeader.navigationMenu"]').element.parentElement?.children[0].tagName).toBe('BUTTON')
+    expect(wrapper.get('nav a[aria-label="pageHeader.workspace"] svg').exists()).toBe(true)
+    expect(wrapper.get('nav a[aria-label="pageHeader.resourceMarket"] svg').exists()).toBe(true)
+    expect(wrapper.get('nav h1').element.parentElement?.parentElement?.classList.contains('hidden')).toBe(true)
 
     await router.push('/download')
     await flushPromises()
@@ -53,8 +60,26 @@ describe('public page workbench entry', () => {
   it('opens the signed-in workspace from the marketplace', async () => {
     auth.isAuthenticated = true
     const { wrapper } = await mountHeader()
-    expect(wrapper.get('a[href="/user"]').text()).toBe('pageHeader.workspace')
+    expect(wrapper.get('a[href="/user"] h1').text()).toBe('pageHeader.siteName')
+    expect(wrapper.get('a[href="/user"][class*="whitespace-nowrap"]').text()).toBe('pageHeader.workspace')
     expect(wrapper.find('a[href="/market"]').exists()).toBe(true)
+    wrapper.unmount()
+  })
+
+  it('keeps long navigation labels in a mobile menu', async () => {
+    auth.isAuthenticated = true
+    const { wrapper } = await mountHeader()
+    expect(wrapper.get('.page-header-shell .hidden.md\\:flex').exists()).toBe(true)
+    const menuButton = wrapper.get('button[aria-label="pageHeader.navigationMenu"]')
+    expect(menuButton.attributes('aria-expanded')).toBe('false')
+
+    await menuButton.trigger('click')
+    expect(menuButton.attributes('aria-expanded')).toBe('true')
+    expect(wrapper.get('[role="dialog"] a[href="/user/mailboxes/system"]').exists()).toBe(true)
+    expect(wrapper.get('a[href="/market"][class*="rounded-lg"]').text()).toBe('pageHeader.resourceMarket')
+
+    await wrapper.get('a[href="/market"][class*="rounded-lg"]').trigger('click')
+    expect(menuButton.attributes('aria-expanded')).toBe('false')
     wrapper.unmount()
   })
 })

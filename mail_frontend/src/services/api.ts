@@ -164,8 +164,8 @@ api.interceptors.request.use(
   (config) => {
     // 添加授权头
     const token = localStorage.getItem('token')
-    ;(config as any).__authTokenSnapshot = token || ''
-    if (token) {
+    ;(config as any).__authTokenSnapshot = (config as any).skipAuth ? '' : token || ''
+    if (token && !(config as any).skipAuth) {
       if (!config.headers) {
         config.headers = {} as any
       }
@@ -213,6 +213,12 @@ api.interceptors.response.use(
   (error) => {
     // 401错误不计入维护检测
     if (error.response?.status === 401) {
+      if ((error.config as any)?.skipAuth) {
+        if (!shouldSuppressErrorMessage(error.config)) {
+          showMessage(extractApiErrorMessage(error.response?.data, t('common.operationFailed')), 'error')
+        }
+        return Promise.reject(error)
+      }
       const requestTokenSnapshot = String((error.config as any)?.__authTokenSnapshot || '')
       const currentToken = localStorage.getItem('token') || ''
       const shouldInvalidateCurrentSession =

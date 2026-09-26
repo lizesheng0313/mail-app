@@ -49,7 +49,7 @@
                 <p class="mt-0.5 text-[11px] text-gray-400">有过消息的客户</p>
               </div>
               <span class="rounded-full bg-primary-50 px-2 py-1 text-[11px] font-medium text-primary-700">
-                {{ conversations.length }} 个
+                {{ conversationItems.length }} 个
               </span>
             </div>
 
@@ -104,13 +104,13 @@
 
             <div class="min-h-0 flex-1 overflow-y-auto px-2 pb-2 pt-2">
               <div
-                v-for="conversation in conversations"
+                v-for="conversation in conversationItems"
                 :key="conversation.user.id"
                 :data-testid="`admin-conversation-item-${conversation.user.id}`"
                 role="button"
                 tabindex="0"
                 class="group mb-1.5 flex w-full items-start gap-3 rounded-2xl px-3 py-3 text-left transition-colors"
-                :class="activeConversationUserId === conversation.user.id ? 'bg-white shadow-sm ring-1 ring-primary-100' : 'hover:bg-white/75'"
+                :class="(conversation.is_guest ? activeGuestConversationId === conversation.guest_id : activeConversationUserId === conversation.user.id) ? 'bg-white shadow-sm ring-1 ring-primary-100' : 'hover:bg-white/75'"
                 @click="selectConversation(conversation)"
                 @keydown.enter="selectConversation(conversation)"
               >
@@ -128,8 +128,10 @@
                     <span class="truncate text-sm font-semibold text-gray-800">
                       {{ conversation.user.display_name }}
                     </span>
+                    <span v-if="conversation.is_guest" class="shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">游客</span>
                     <span
                       v-if="conversation.unread_count"
+                      :data-testid="`admin-conversation-unread-${conversation.user.id}`"
                       class="shrink-0 rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-semibold text-white"
                     >
                       {{ conversation.unread_count > 99 ? '99+' : conversation.unread_count }}
@@ -140,11 +142,12 @@
                       {{ conversation.last_message.content || '暂无消息' }}
                     </span>
                     <span class="shrink-0 text-[10px] text-gray-400">
-                      {{ conversation.is_online ? '在线' : '最近联系' }}
+                      {{ conversation.is_guest ? '游客' : conversation.is_online ? '在线' : '最近联系' }}
                     </span>
                   </span>
                 </span>
                 <button
+                  v-if="!conversation.is_guest"
                   type="button"
                   :data-testid="`admin-remove-conversation-${conversation.user.id}`"
                   class="mt-1 shrink-0 rounded-lg p-1.5 text-gray-300 opacity-0 transition hover:bg-rose-50 hover:text-rose-500 group-hover:opacity-100 focus:opacity-100"
@@ -159,7 +162,7 @@
               </div>
 
               <div
-                v-if="conversations.length === 0"
+                v-if="conversationItems.length === 0"
                 class="rounded-2xl border border-dashed border-gray-300 bg-white/70 px-3 py-6 text-center text-xs text-gray-500"
               >
                 暂无客户会话
@@ -192,7 +195,7 @@
                   {{ activeConversation?.user.display_name || '选择客户会话' }}
                 </p>
                 <p class="mt-0.5 text-[11px] text-gray-400">
-                  {{ activeConversation ? (activeConversation.is_online ? '在线' : '最近联系') : '从左侧选择一位客户开始聊天' }}
+                  {{ activeConversation ? (activeConversation.is_guest ? '游客会话' : activeConversation.is_online ? '在线' : '最近联系') : '从左侧选择一位客户开始聊天' }}
                 </p>
               </div>
             </div>
@@ -305,7 +308,7 @@
             v-if="!loadingHistory && messages.length === 0"
             class="rounded-2xl border border-dashed border-gray-300 bg-white/70 px-4 py-6 text-center text-sm text-gray-500"
           >
-            {{ isAdmin && !activeConversationUserId ? '请先在左侧选择客户会话。' : '还没有客服消息。' }}
+            {{ isAdmin && !activeConversationUserId && !activeGuestConversationId ? '请先在左侧选择客户会话。' : '还没有客服消息。' }}
           </div>
         </div>
 
@@ -346,7 +349,7 @@
               @change="handleImageSelection"
             />
             <button
-              v-if="userStore.isAuthenticated"
+              v-if="userStore.isAuthenticated && !activeGuestConversationId"
               type="button"
               class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-primary-100 text-primary-600 transition-colors hover:border-primary-200 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-60"
               :disabled="!canSend || imageUploading"
@@ -361,13 +364,14 @@
               v-model="draft"
               rows="1"
               class="min-h-[24px] min-w-0 flex-1 resize-none border-0 bg-transparent p-0 text-sm leading-10 text-gray-800 outline-none focus:ring-0 placeholder:text-gray-400"
-              :disabled="!canSend || (isAdmin && !activeConversationUserId)"
+              :disabled="!canSend || (isAdmin && !activeConversationUserId && !activeGuestConversationId)"
               :placeholder="userStore.isAuthenticated ? (isAdmin ? '输入回复，消息会发给当前客户' : 'Enter 发送，Shift+Enter 换行') : '登录后查看客服会话'"
               @keydown.enter.exact.prevent="submitMessage"
               @paste="handleTextareaPaste"
             />
             <button
               v-if="userStore.isAuthenticated"
+              data-testid="chat-send-button"
               class="min-w-[72px] shrink-0 whitespace-nowrap rounded-xl bg-primary-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-700"
               :class="{ 'cursor-not-allowed opacity-60': !canSubmit }"
               :disabled="!canSubmit"
@@ -401,11 +405,11 @@
       @click="handleLauncherClick"
     >
       <span
-        v-if="unreadCount > 0"
+        v-if="totalUnreadCount > 0"
         data-testid="chat-launcher-unread"
         class="absolute -right-1 -top-1 min-w-5 rounded-full bg-rose-500 px-1.5 py-0.5 text-center text-[10px] font-semibold leading-4 text-white ring-2 ring-white/85"
       >
-        {{ unreadCount > 99 ? '99+' : unreadCount }}
+        {{ totalUnreadCount > 99 ? '99+' : totalUnreadCount }}
       </span>
       <svg class="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path
@@ -459,6 +463,8 @@ type LiveChatMessage = {
 }
 
 type LiveChatConversation = {
+  is_guest?: boolean
+  guest_id?: number
   user: LiveChatUser
   is_online: boolean
   unread_count: number
@@ -497,7 +503,9 @@ const launcherOffset = ref({ x: 0, y: 0 })
 const draft = ref('')
 const messages = ref<LiveChatMessage[]>([])
 const conversations = ref<LiveChatConversation[]>([])
+const guestConversations = ref<LiveChatConversation[]>([])
 const activeConversationUserId = ref(0)
+const activeGuestConversationId = ref(0)
 const selectedSearchTarget = ref<LiveChatUserSearchResult | null>(null)
 const removingConversationUserId = ref(0)
 const mobileShowConversation = ref(false)
@@ -505,11 +513,13 @@ const loadingHistory = ref(false)
 const loadingMoreHistory = ref(false)
 const onlineCount = ref(0)
 const unreadCount = ref(0)
+const guestUnreadCount = ref(0)
 const connectionStatus = ref<'idle' | 'connecting' | 'connected' | 'error'>('idle')
 const messageContainerRef = ref<HTMLElement | null>(null)
 const imageInputRef = ref<HTMLInputElement | null>(null)
 const hasMoreHistory = ref(false)
 const imageUploading = ref(false)
+const sendingGuestReply = ref(false)
 const pendingAttachments = ref<Array<{ url: string; filename: string; size: number }>>([])
 const socketUserId = ref(0)
 const userSearchKeyword = ref('')
@@ -522,9 +532,11 @@ let historyLoaded = false
 let manualClose = false
 let socketConnecting = false
 let historyRequest: Promise<void> | null = null
+let historyRequestVersion = 0
 let conversationsRequest: Promise<void> | null = null
 let historyCursor = 0
 let summaryRequest: Promise<void> | null = null
+let guestConversationPoll: ReturnType<typeof setInterval> | null = null
 const SOCKET_IO_PATH = '/mail-api/v1/live-chat/socket.io'
 const MAX_CHAT_IMAGES = 4
 const MESSAGE_BOTTOM_THRESHOLD_PX = 48
@@ -646,12 +658,17 @@ const isCompactViewport = () => (
 )
 
 const selfUserId = computed(() => normalizeUserId(socketUserId.value || userStore.user?.id))
-const canSend = computed(() => userStore.isAuthenticated && connectionStatus.value === 'connected')
+const canSend = computed(() => userStore.isAuthenticated && (
+  activeGuestConversationId.value > 0 || connectionStatus.value === 'connected'
+))
 const isAdmin = computed(() => Boolean(userStore.user?.is_admin))
+const totalUnreadCount = computed(() => unreadCount.value + (isAdmin.value ? guestUnreadCount.value : 0))
+const conversationItems = computed(() => [...conversations.value, ...guestConversations.value]
+  .sort((a, b) => Number(b.last_message?.created_at_ms || 0) - Number(a.last_message?.created_at_ms || 0)))
 const activeConversation = computed<LiveChatConversation | undefined>(() => {
-  const existingConversation = conversations.value.find(
-    (conversation) => conversation.user.id === activeConversationUserId.value,
-  )
+  const existingConversation = activeGuestConversationId.value
+    ? guestConversations.value.find((conversation) => conversation.guest_id === activeGuestConversationId.value)
+    : conversations.value.find((conversation) => conversation.user.id === activeConversationUserId.value)
   if (existingConversation) return existingConversation
 
   if (
@@ -673,9 +690,10 @@ const activeConversation = computed<LiveChatConversation | undefined>(() => {
 })
 const canSubmit = computed(() =>
   canSend.value &&
-  (!isAdmin.value || activeConversationUserId.value > 0) &&
+  (!isAdmin.value || activeConversationUserId.value > 0 || activeGuestConversationId.value > 0) &&
   !imageUploading.value &&
-  (Boolean(draft.value.trim()) || pendingAttachments.value.length > 0)
+  !sendingGuestReply.value &&
+  (Boolean(draft.value.trim()) || (!activeGuestConversationId.value && pendingAttachments.value.length > 0))
 )
 
 const statusText = computed(() => {
@@ -787,6 +805,7 @@ const startPrivateConversation = async (result: LiveChatUserSearchResult) => {
 
   selectedSearchTarget.value = result
   activeConversationUserId.value = userId
+  activeGuestConversationId.value = 0
   mobileShowConversation.value = true
   userSearchKeyword.value = ''
   userSearchResults.value = []
@@ -801,19 +820,22 @@ const startPrivateConversation = async (result: LiveChatUserSearchResult) => {
 
 const selectConversation = async (conversation: LiveChatConversation) => {
   if (!isAdmin.value) return
+  const nextGuestId = Number(conversation.guest_id || 0)
   const nextUserId = normalizeUserId(conversation.user.id)
-  if (nextUserId <= 0) return
+  if (conversation.is_guest ? nextGuestId <= 0 : nextUserId <= 0) return
 
   selectedSearchTarget.value = null
-  activeConversationUserId.value = nextUserId
+  activeConversationUserId.value = conversation.is_guest ? 0 : nextUserId
+  activeGuestConversationId.value = conversation.is_guest ? nextGuestId : 0
   mobileShowConversation.value = true
   messages.value = []
+  pendingAttachments.value = []
   historyLoaded = false
   historyCursor = 0
   hasMoreHistory.value = false
   await loadHistory(true)
   await scrollToBottom()
-  if (visible.value) {
+  if (visible.value && (!conversation.is_guest || historyLoaded)) {
     await markMessagesRead()
   }
 }
@@ -860,16 +882,41 @@ const loadConversations = async () => {
 
   conversationsRequest = (async () => {
     try {
-      const response: any = await api.get('/live-chat/conversations', {
-        suppressErrorMessage: true,
-      })
-      if (response.code !== 0) return
-
-      const items = Array.isArray(response.data?.items) ? response.data.items : []
-      conversations.value = items
-      const activeStillExists = items.some(
-        (conversation: LiveChatConversation) => conversation.user.id === activeConversationUserId.value,
-      )
+      const [response, guestResponse]: any[] = await Promise.all([
+        api.get('/live-chat/conversations', { suppressErrorMessage: true } as any).catch(() => null),
+        api.get('/live-chat/guest/conversations', { suppressErrorMessage: true } as any).catch(() => null),
+      ])
+      if (response?.code === 0) {
+        conversations.value = Array.isArray(response.data?.items) ? response.data.items : []
+      }
+      if (guestResponse?.code === 0) {
+        const guestItems = Array.isArray(guestResponse.data?.items) ? guestResponse.data.items : []
+        guestUnreadCount.value = Number(guestResponse.data?.unread_count || 0)
+        guestConversations.value = guestItems.map((item: any) => {
+          const guestId = Number(item.id)
+          return {
+            is_guest: true,
+            guest_id: guestId,
+            user: {
+              id: -guestId,
+              display_name: `游客 #${guestId}`,
+              email: '',
+              is_admin: false,
+              avatar_text: '游',
+            },
+            is_online: false,
+            unread_count: Number(item.unread_count || 0),
+            last_message: {
+              content: String(item.last_message || ''),
+              created_at_ms: Number(item.updated_at_ms || 0),
+            },
+          } as LiveChatConversation
+        })
+      }
+      const items = conversationItems.value
+      const activeStillExists = activeGuestConversationId.value
+        ? guestConversations.value.some((conversation) => conversation.guest_id === activeGuestConversationId.value)
+        : conversations.value.some((conversation) => conversation.user.id === activeConversationUserId.value)
       if (activeStillExists) {
         selectedSearchTarget.value = null
       }
@@ -877,6 +924,7 @@ const loadConversations = async () => {
         const isSearchTargetActive = selectedSearchTarget.value?.user.id === activeConversationUserId.value
         if (!isSearchTargetActive) {
           activeConversationUserId.value = 0
+          activeGuestConversationId.value = 0
           mobileShowConversation.value = false
           messages.value = []
           historyLoaded = false
@@ -884,7 +932,7 @@ const loadConversations = async () => {
       }
 
       const canAutoSelect = !isCompactViewport() || mobileShowConversation.value
-      if (!activeConversationUserId.value && items.length > 0 && visible.value && canAutoSelect) {
+      if (!activeConversationUserId.value && !activeGuestConversationId.value && items.length > 0 && visible.value && canAutoSelect) {
         await selectConversation(items[0])
       }
     } catch (error) {
@@ -903,14 +951,14 @@ const toggleVisible = async () => {
     if (isAdmin.value) {
       mobileShowConversation.value = false
       await loadConversations()
-      if (activeConversationUserId.value && !historyLoaded) {
+      if (activeGuestConversationId.value || (activeConversationUserId.value && !historyLoaded)) {
         await loadHistory(true)
       }
     } else {
       await loadHistory(!historyLoaded)
     }
     await scrollToBottom()
-    if (userStore.isAuthenticated) {
+    if (userStore.isAuthenticated && (!activeGuestConversationId.value || historyLoaded)) {
       await markMessagesRead()
     } else {
       unreadCount.value = 0
@@ -942,6 +990,10 @@ const removePendingAttachment = (url: string) => {
 }
 
 const uploadImages = async (files: File[]) => {
+  if (activeGuestConversationId.value) {
+    showMessage('游客会话暂不支持发送图片', 'warning')
+    return
+  }
   const availableSlots = MAX_CHAT_IMAGES - pendingAttachments.value.length
   if (availableSlots <= 0) {
     showMessage(`最多只能发送 ${MAX_CHAT_IMAGES} 张图片`, 'warning')
@@ -1043,6 +1095,24 @@ const loadSummary = async () => {
 const markMessagesRead = async (messageId?: number) => {
   if (!userStore.isAuthenticated) return
 
+  if (activeGuestConversationId.value) {
+    const guestId = activeGuestConversationId.value
+    try {
+      const response: any = await api.post(
+        `/live-chat/guest/conversations/${guestId}/read`,
+        null,
+        { suppressErrorMessage: true } as any,
+      )
+      if (response?.code !== 0) return
+      const active = guestConversations.value.find((conversation) => conversation.guest_id === guestId)
+      if (active) {
+        guestUnreadCount.value = Math.max(0, guestUnreadCount.value - Number(active.unread_count || 0))
+        active.unread_count = 0
+      }
+    } catch {}
+    return
+  }
+
   const lastMessageId = Number(messageId || messages.value[messages.value.length - 1]?.id || 0)
   if (lastMessageId <= 0) {
     unreadCount.value = 0
@@ -1088,9 +1158,33 @@ const loadHistory = async (force = false) => {
   if (historyLoaded && !force) return
   if (historyRequest && !force) return historyRequest
 
+  const requestVersion = ++historyRequestVersion
+  const requestedGuestId = activeGuestConversationId.value
+  const requestedUserId = activeConversationUserId.value
   historyRequest = (async () => {
     loadingHistory.value = true
     try {
+      const guestId = requestedGuestId
+      if (guestId) {
+        const response: any = await api.get(`/live-chat/guest/conversations/${guestId}/messages`, {
+          suppressErrorMessage: true,
+        } as any)
+        if (requestVersion !== historyRequestVersion || guestId !== activeGuestConversationId.value) return
+        if (response?.code === 0) {
+          const guestItems = Array.isArray(response.data?.items) ? response.data.items : []
+          messages.value = guestItems.map((item: any) => ({
+            id: Number(item.id),
+            content: String(item.content || ''),
+            created_at_ms: Number(item.created_at_ms || 0),
+            user: item.sender_type === 'admin'
+              ? { id: selfUserId.value, display_name: '客服', email: '', is_admin: true, avatar_text: '客' }
+              : { id: -guestId, display_name: `游客 #${guestId}`, email: '', is_admin: false, avatar_text: '游' },
+          }))
+          hasMoreHistory.value = false
+          historyLoaded = true
+        }
+        return
+      }
       const response: any = await api.get('/live-chat/messages', {
         params: {
           limit: 60,
@@ -1100,6 +1194,7 @@ const loadHistory = async (force = false) => {
         },
         suppressErrorMessage: true
       })
+      if (requestVersion !== historyRequestVersion || requestedUserId !== activeConversationUserId.value || activeGuestConversationId.value) return
       if (response.code === 0) {
         messages.value = Array.isArray(response.data?.items) ? response.data.items : []
         historyCursor = Number(response.data?.next_before_message_id || messages.value[0]?.id || 0)
@@ -1113,8 +1208,10 @@ const loadHistory = async (force = false) => {
     } catch (error) {
       console.error('加载聊天室历史失败:', error)
     } finally {
-      loadingHistory.value = false
-      historyRequest = null
+      if (requestVersion === historyRequestVersion) {
+        loadingHistory.value = false
+        historyRequest = null
+      }
     }
   })()
 
@@ -1122,6 +1219,7 @@ const loadHistory = async (force = false) => {
 }
 
 const loadOlderHistory = async () => {
+  if (activeGuestConversationId.value) return
   if (loadingMoreHistory.value || loadingHistory.value || !hasMoreHistory.value) return
   const beforeMessageId = Number(historyCursor || messages.value[0]?.id || 0)
   if (beforeMessageId <= 0) return
@@ -1274,6 +1372,32 @@ const connectSocket = async () => {
   })
 }
 
+const sendGuestReply = async (guestId: number, content: string) => {
+  if (sendingGuestReply.value) return
+  sendingGuestReply.value = true
+  try {
+    const response: any = await api.post(
+      `/live-chat/guest/conversations/${guestId}/reply`,
+      { content },
+      { suppressErrorMessage: true } as any,
+    )
+    if (response?.code !== 0) {
+      showMessage(response?.message || '回复游客失败', 'error')
+      return
+    }
+    if (guestId === activeGuestConversationId.value) {
+      draft.value = ''
+      await loadHistory(true)
+      await scrollToBottom()
+    }
+    await loadConversations()
+  } catch (error: any) {
+    showMessage(error?.response?.data?.detail || error?.message || '回复游客失败', 'error')
+  } finally {
+    sendingGuestReply.value = false
+  }
+}
+
 const submitMessage = () => {
   const content = draft.value.trim()
   const attachments = pendingAttachments.value.map((item) => ({
@@ -1285,6 +1409,12 @@ const submitMessage = () => {
 
   if (!userStore.isAuthenticated) {
     showMessage('请先登录后再发言', 'warning')
+    return
+  }
+
+  if (isAdmin.value && activeGuestConversationId.value) {
+    if (!content || sendingGuestReply.value) return
+    void sendGuestReply(activeGuestConversationId.value, content)
     return
   }
 
@@ -1360,8 +1490,11 @@ watch(
     historyCursor = 0
     hasMoreHistory.value = false
     unreadCount.value = 0
+    guestUnreadCount.value = 0
     conversations.value = []
+    guestConversations.value = []
     activeConversationUserId.value = 0
+    activeGuestConversationId.value = 0
     selectedSearchTarget.value = null
     userSearchKeyword.value = ''
     userSearchResults.value = []
@@ -1384,11 +1517,24 @@ watch(
 onMounted(() => {
   loadLauncherPosition()
   window.addEventListener('resize', keepLauncherInViewport)
+  if (isAdmin.value) void loadConversations()
+  guestConversationPoll = setInterval(() => {
+    if (!isAdmin.value) return
+    void (async () => {
+      await loadConversations()
+      if (visible.value && activeGuestConversationId.value && !loadingHistory.value) {
+        const wasNearBottom = isMessageNearBottom()
+        await loadHistory(true)
+        if (wasNearBottom && historyLoaded) await markMessagesRead()
+      }
+    })()
+  }, 5000)
 })
 
 onBeforeUnmount(() => {
   stopLauncherDrag()
   window.removeEventListener('resize', keepLauncherInViewport)
+  if (guestConversationPoll) clearInterval(guestConversationPoll)
   cleanupSocket()
 })
 </script>

@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { Email } from '@/types'
 import { emailAPI } from '@/api/email'
+import { loadStoredGuestMailboxes } from '@/utils/guestMailboxes'
 
 export const useMailStore = defineStore('mail', () => {
   const emails = ref<Email[]>([])
@@ -14,6 +15,14 @@ export const useMailStore = defineStore('mail', () => {
   const searchKeyword = ref('')
   let listRequestSeq = 0
   let detailRequestSeq = 0
+
+  const guestClaimTokenForEmail = (emailId: number, type: string) => {
+    if (type !== 'system') return ''
+    const email = emails.value.find(item => Number(item.id) === Number(emailId))
+      || (Number(selectedEmail.value?.id) === Number(emailId) ? selectedEmail.value : null)
+    const mailboxId = Number(email?.mailbox_id || 0)
+    return loadStoredGuestMailboxes().find(item => item.id === mailboxId)?.claim_token || ''
+  }
 
   const applyPagination = (pagination?: any, fallbackCount = emails.value.length) => {
     if (pagination) {
@@ -153,7 +162,7 @@ export const useMailStore = defineStore('mail', () => {
     const requestSeq = ++detailRequestSeq
     loading.value = true
     try {
-      const response: any = await emailAPI.getEmail(id, type)
+      const response: any = await emailAPI.getEmail(id, type, guestClaimTokenForEmail(id, type))
       if (requestSeq !== detailRequestSeq) {
         return { success: false, error: 'stale' }
       }
@@ -175,7 +184,7 @@ export const useMailStore = defineStore('mail', () => {
 
   const markAsRead = async (id: number, type: string = 'system') => {
     try {
-      const response: any = await emailAPI.markAsRead(id, type)
+      const response: any = await emailAPI.markAsRead(id, type, guestClaimTokenForEmail(id, type))
       if (response.code === 0) {
         const email = emails.value.find(e => e.id === id)
         if (email) {
@@ -197,7 +206,7 @@ export const useMailStore = defineStore('mail', () => {
 
   const deleteEmail = async (id: number, type: string = 'system') => {
     try {
-      const response: any = await emailAPI.deleteEmail(id, type)
+      const response: any = await emailAPI.deleteEmail(id, type, guestClaimTokenForEmail(id, type))
       if (response.code === 0) {
         const index = emails.value.findIndex(e => e.id === id)
         if (index > -1) {

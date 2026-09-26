@@ -33,16 +33,25 @@ export const emailAPI = {
 
   // 获取邮件详情
   // 需要传 type 参数：'system' 或 'external'
-  getEmail: (id, type = 'system') => api.get(`/unified-emails/emails/${id}`, { params: { type } }),
+  getEmail: (id, type = 'system', guestClaimToken = '') => api.get(`/unified-emails/emails/${id}`, {
+    params: { type },
+    ...(guestClaimToken ? { headers: { 'X-Guest-Mailbox-Token': guestClaimToken } } : {})
+  }),
 
   // 翻译邮件正文
   translateEmail: (data) => api.post('/ai/translate-email', data),
 
   // 标记邮件为已读
-  markAsRead: (id, type = 'system') => api.put(`/unified-emails/emails/${id}/read`, null, { params: { type } }),
+  markAsRead: (id, type = 'system', guestClaimToken = '') => api.put(`/unified-emails/emails/${id}/read`, null, {
+    params: { type },
+    ...(guestClaimToken ? { headers: { 'X-Guest-Mailbox-Token': guestClaimToken } } : {})
+  }),
 
   // 删除邮件
-  deleteEmail: (id, type = 'system') => api.delete(`/unified-emails/emails/${id}`, { params: { type } })
+  deleteEmail: (id, type = 'system', guestClaimToken = '') => api.delete(`/unified-emails/emails/${id}`, {
+    params: { type },
+    ...(guestClaimToken ? { headers: { 'X-Guest-Mailbox-Token': guestClaimToken } } : {})
+  })
 }
 
 export default emailAPI

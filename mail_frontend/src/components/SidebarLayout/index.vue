@@ -3,8 +3,8 @@
     <!-- 左侧菜单 -->
     <div
       :class="[
-        'flex h-full flex-shrink-0 flex-col bg-white shadow-lg transition-all duration-200',
-        sidebarCollapsed ? 'w-16 sm:w-20' : 'w-64'
+        'sidebar-shell flex h-full flex-shrink-0 flex-col bg-white shadow-lg transition-all duration-200',
+        sidebarCollapsed ? 'sidebar-shell--collapsed w-16 sm:w-20' : 'w-64'
       ]"
     >
       <!-- 头部Logo -->
@@ -184,18 +184,34 @@
       </nav>
     </div>
 
+    <MobileSiteDrawer
+      v-model:open="mobileMenuOpen"
+      :menu-sections="menuSections"
+      @menu-action="handleMenuAction"
+    />
+
     <!-- 右侧内容区域 -->
     <div class="flex min-w-0 flex-1 flex-col overflow-hidden">
       <!-- 顶部导航栏 -->
       <header class="bg-white shadow-sm border-b border-gray-200 flex-shrink-0" style="height: 54px;">
         <div
-          class="px-3 sm:px-6 h-full flex items-center gap-2"
-          :class="pageTitle ? 'justify-between' : 'justify-end'"
+          class="h-full flex items-center justify-between gap-1 px-2 sm:gap-2 sm:px-6"
         >
+            <button
+              type="button"
+              class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-gray-600 hover:bg-gray-100 md:hidden"
+              aria-label="展开菜单"
+              :aria-expanded="mobileMenuOpen"
+              @click="mobileMenuOpen = true"
+            >
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
             <div v-if="pageTitle" class="min-w-0">
               <h1 class="truncate text-lg font-semibold text-gray-900">{{ pageTitle }}</h1>
             </div>
-            <div class="flex shrink-0 items-center gap-3">
+            <div class="ml-auto flex min-w-0 items-center gap-1 sm:gap-3">
               <slot name="header-actions"></slot>
             </div>
         </div>
@@ -212,9 +228,10 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { HomeIcon } from '@heroicons/vue/24/outline'
 import { isMenuItemActive } from '@/config/workspaceNavigation'
+import MobileSiteDrawer from '@/components/MobileSiteDrawer/index.vue'
 import { useRoute } from 'vue-router'
 
 const props = defineProps({
@@ -263,13 +280,21 @@ const props = defineProps({
 const emit = defineEmits(['menu-action'])
 const route = useRoute()
 const closeMobileSidebar = () => {
-  if (window.matchMedia?.('(max-width: 767px)').matches) sidebarCollapsed.value = true
+  if (window.matchMedia?.('(max-width: 767px)').matches) mobileMenuOpen.value = false
 }
 const handleMenuAction = (action) => {
   closeMobileSidebar()
   emit('menu-action', action)
 }
-const sidebarCollapsed = ref(window.matchMedia?.('(max-width: 767px)').matches ?? false)
+const mobileMediaQuery = window.matchMedia?.('(max-width: 767px)')
+const sidebarCollapsed = ref(mobileMediaQuery?.matches ?? false)
+const mobileMenuOpen = ref(false)
+const syncSidebarForViewport = (event) => {
+  sidebarCollapsed.value = event.matches
+  if (!event.matches) mobileMenuOpen.value = false
+}
+onMounted(() => mobileMediaQuery?.addEventListener('change', syncSidebarForViewport))
+onBeforeUnmount(() => mobileMediaQuery?.removeEventListener('change', syncSidebarForViewport))
 const openSections = ref({})
 const openMenuItems = ref({})
 
@@ -336,3 +361,11 @@ const toggleSidebar = () => {
   sidebarCollapsed.value = !sidebarCollapsed.value
 }
 </script>
+
+<style scoped>
+@media (max-width: 767px) {
+  .sidebar-shell {
+    display: none;
+  }
+}
+</style>

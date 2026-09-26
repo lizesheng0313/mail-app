@@ -688,7 +688,7 @@ router.beforeEach(async (to, _from, next) => {
 
   // 检查本地存储的认证状态（只在初始加载时检查一次）
   if (!userStore.isAuthenticated && !userStore.user) {
-    userStore.checkAuth()
+    await userStore.checkAuth()
   }
 
   // 如果要访问登录页面且用户已认证，重定向到首页

@@ -27,8 +27,10 @@
     <!-- 邮件详情内容 -->
     <div class="email-copy-region min-h-0 flex-1 overflow-auto break-words">
       <div v-if="!email" class="flex items-center justify-center h-full text-gray-400">
-        <FloatingMiniapp v-if="showMiniappPromotion" panel />
-        <div v-else class="text-center">
+        <div v-if="showMiniappPromotion" class="hidden lg:block">
+          <FloatingMiniapp panel />
+        </div>
+        <div class="text-center" :class="showMiniappPromotion ? 'lg:hidden' : ''">
           <svg class="w-16 h-16 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path>
           </svg>
@@ -60,11 +62,11 @@
           <div class="space-y-2 text-sm">
             <div class="flex">
               <span class="text-gray-500 w-16">{{ t('common.sender') }}：</span>
-              <span class="text-gray-900">{{ email.from_addr }}</span>
+              <span class="min-w-0 break-all text-gray-900">{{ email.from_addr }}</span>
             </div>
             <div class="flex">
               <span class="text-gray-500 w-16">{{ t('common.recipient') }}：</span>
-              <span class="text-gray-900">{{ email.to_addr }}</span>
+              <span class="min-w-0 break-all text-gray-900">{{ email.to_addr }}</span>
             </div>
             <div class="flex">
               <span class="text-gray-500 w-16">{{ t('common.time') }}：</span>

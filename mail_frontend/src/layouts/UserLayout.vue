@@ -12,10 +12,13 @@
     <template #header-actions>
       <router-link
         :to="userStore.isAuthenticated ? '/user' : '/'"
-        class="shrink-0 whitespace-nowrap text-xs font-semibold text-primary-600 transition-colors hover:text-primary-700 sm:text-sm"
+        class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-xs font-semibold text-primary-600 transition-colors hover:bg-primary-50 hover:text-primary-700 md:h-auto md:w-auto md:whitespace-nowrap md:rounded-none md:hover:bg-transparent md:text-sm"
+        :aria-label="t('pageHeader.workspace')"
+        :title="t('pageHeader.workspace')"
         aria-current="page"
       >
-        {{ t('pageHeader.workspace') }}
+        <HomeIcon class="h-5 w-5 md:hidden" aria-hidden="true" />
+        <span class="hidden md:inline">{{ t('pageHeader.workspace') }}</span>
       </router-link>
       <router-link
         to="/market"
@@ -64,7 +67,7 @@
 import { computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { ShoppingCartIcon, UserIcon } from '@heroicons/vue/24/outline'
+import { HomeIcon, ShoppingCartIcon, UserIcon } from '@heroicons/vue/24/outline'
 import { useUserStore } from '@/stores/user'
 import SidebarLayout from '@/components/SidebarLayout/index.vue'
 import AccountActions from '@/components/AccountActions/index.vue'

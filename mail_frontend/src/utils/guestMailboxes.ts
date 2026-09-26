@@ -1,3 +1,5 @@
+import { getGuestVisitorId } from '@/utils/guestIdentity'
+
 export type StoredGuestMailbox = {
   id: number
   email: string
@@ -13,6 +15,7 @@ const DAILY_LIMIT = 5
 const MAX_STORED_MAILBOXES = 25
 
 const hasWindow = () => typeof window !== 'undefined'
+const scopedStorageKey = () => `${STORAGE_KEY}:${getGuestVisitorId()}`
 
 const normalizeMailbox = (value: any): StoredGuestMailbox | null => {
   const id = Number(value?.id || 0)
@@ -34,18 +37,33 @@ const normalizeMailbox = (value: any): StoredGuestMailbox | null => {
 export const loadStoredGuestMailboxes = (): StoredGuestMailbox[] => {
   if (!hasWindow()) return []
   try {
-    const parsed = JSON.parse(window.localStorage.getItem(STORAGE_KEY) || '[]')
-    if (!Array.isArray(parsed)) return []
+    const key = scopedStorageKey()
+    const readList = (value: string | null): any[] | null => {
+      if (value === null) return null
+      try {
+        const parsed = JSON.parse(value)
+        return Array.isArray(parsed) ? parsed : null
+      } catch {
+        return null
+      }
+    }
+    const scopedItems = readList(window.localStorage.getItem(key)) || []
+    const legacyItems = readList(window.localStorage.getItem(STORAGE_KEY))
     const now = Date.now()
-    const mailboxes = parsed
+    const seen = new Set<number>()
+    const mailboxes = [...scopedItems, ...(legacyItems || [])]
       .map(normalizeMailbox)
       .filter((item): item is StoredGuestMailbox => {
         if (!item) return false
         const expiresAt = Number(item.expires_at || 0)
-        return !expiresAt || expiresAt > now
+        if (expiresAt && expiresAt <= now) return false
+        if (seen.has(item.id)) return false
+        seen.add(item.id)
+        return true
       })
       .slice(0, MAX_STORED_MAILBOXES)
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(mailboxes))
+    window.localStorage.setItem(key, JSON.stringify(mailboxes))
+    if (legacyItems !== null) window.localStorage.removeItem(STORAGE_KEY)
     return mailboxes
   } catch {
     return []
@@ -60,8 +78,14 @@ export const upsertStoredGuestMailbox = (mailbox: any): StoredGuestMailbox[] => 
     0,
     MAX_STORED_MAILBOXES
   )
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+  window.localStorage.setItem(scopedStorageKey(), JSON.stringify(next))
   return next
+}
+
+export const removeStoredGuestMailbox = (mailboxId: number): StoredGuestMailbox[] => {
+  const remaining = loadStoredGuestMailboxes().filter((item) => item.id !== Number(mailboxId))
+  if (hasWindow()) window.localStorage.setItem(scopedStorageKey(), JSON.stringify(remaining))
+  return remaining
 }
 
 export const getStoredGuestClaimTokens = () =>
@@ -69,7 +93,7 @@ export const getStoredGuestClaimTokens = () =>
 
 export const clearStoredGuestMailboxes = () => {
   if (!hasWindow()) return
-  window.localStorage.removeItem(STORAGE_KEY)
+  window.localStorage.removeItem(scopedStorageKey())
 }
 
 const toTimestamp = (value: number | string | null | undefined) => {

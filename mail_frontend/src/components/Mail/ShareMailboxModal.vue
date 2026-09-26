@@ -4,7 +4,45 @@
       v-if="visible"
       class="fixed inset-0 z-[11000] flex items-center justify-center bg-black bg-opacity-50 p-4"
     >
-      <div v-if="!shareUrls.length" class="bg-white rounded-xl shadow-2xl w-full max-w-lg">
+      <div v-if="managing" class="flex max-h-[calc(100vh-2rem)] w-full max-w-2xl flex-col rounded-xl bg-white shadow-2xl">
+        <div class="flex items-center justify-between border-b border-gray-200 px-6 py-5">
+          <div>
+            <h3 class="text-xl font-semibold text-gray-900">{{ t('shareMailbox.managedTitle') }}</h3>
+            <p class="mt-1 text-sm text-gray-500">{{ t('shareMailbox.managedHint') }}</p>
+          </div>
+          <button @click="managing = false" class="text-sm text-primary-700 hover:underline">
+            {{ t('shareMailbox.backToCreate') }}
+          </button>
+        </div>
+        <div class="min-h-0 flex-1 space-y-3 overflow-y-auto p-5">
+          <p v-if="loadingShares" class="py-8 text-center text-sm text-gray-500">{{ t('shareMailbox.loadingShares') }}</p>
+          <p v-else-if="!managedShares.length" class="py-8 text-center text-sm text-gray-500">{{ t('shareMailbox.noShares') }}</p>
+          <div v-for="share in managedShares" :key="share.id" class="rounded-lg border border-gray-200 p-4">
+            <div class="flex flex-wrap items-start justify-between gap-2">
+              <div class="min-w-0 flex-1">
+                <p class="break-all font-medium text-gray-900">{{ share.mailbox_emails?.join('、') || `#${share.mailbox_ids}` }}</p>
+                <p class="mt-1 text-xs text-gray-500">
+                  {{ share.miniapp_path ? t('shareMailbox.miniappShare') : t('shareMailbox.webShare') }}
+                  · {{ share.expire_at ? t('shareMailbox.validUntil', { date: formatShareDate(share.expire_at) }) : share.expire_mode === 'minutes' ? t('shareMailbox.waitingFirstOpen') : t('shareMailbox.permanentValid') }}
+                  <span v-if="isShareExpired(share)" class="ml-1 text-red-600">{{ t('shareMailbox.expired') }}</span>
+                </p>
+              </div>
+              <div class="flex shrink-0 gap-3 text-sm">
+                <button v-if="share.share_url && !isShareExpired(share)" @click="copyText(toFullShareUrl(share.share_url))" class="text-primary-700 hover:underline">{{ t('common.copy') }}</button>
+                <button @click="revokeShare(share)" :disabled="revokingId === share.id" class="text-red-600 hover:underline disabled:opacity-50">{{ t('shareMailbox.revoke') }}</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="flex items-center justify-between border-t border-gray-200 px-5 py-4 text-sm text-gray-500">
+          <span>{{ t('shareMailbox.totalShares', { count: totalShares }) }}</span>
+          <div class="flex gap-4">
+            <button @click="loadShares(sharePage - 1)" :disabled="sharePage <= 1 || loadingShares" class="text-primary-700 disabled:text-gray-400">{{ t('shareMailbox.previous') }}</button>
+            <button @click="loadShares(sharePage + 1)" :disabled="sharePage * 20 >= totalShares || loadingShares" class="text-primary-700 disabled:text-gray-400">{{ t('shareMailbox.next') }}</button>
+          </div>
+        </div>
+      </div>
+      <div v-else-if="!shareUrls.length" class="bg-white rounded-xl shadow-2xl w-full max-w-lg">
         <!-- 标题栏 -->
         <div class="px-6 py-5 border-b border-gray-200 flex items-center justify-between">
           <div class="flex items-center gap-3">
@@ -77,7 +115,10 @@
             </div>
 
             <!-- 有效期选择 -->
-            <div>
+            <div v-if="guestMode" class="rounded-lg bg-primary-50 px-4 py-3 text-sm text-primary-800">
+              {{ t('shareMailbox.guestValidity') }}
+            </div>
+            <div v-else>
               <div class="flex items-center gap-2 mb-3">
                 <svg
                   class="w-5 h-5 text-gray-600"
@@ -225,6 +266,9 @@
 
             <!-- 操作按钮 -->
             <div class="flex justify-end gap-3 pt-4 border-t border-gray-200">
+              <button @click="openManagedShares" class="mr-auto text-sm font-medium text-primary-700 hover:underline">
+                {{ t('shareMailbox.managedTitle') }}
+              </button>
               <button
                 @click="$emit('close')"
                 class="px-5 py-2.5 text-sm font-medium text-gray-700 bg-white border-2 border-gray-300 rounded-lg hover:bg-gray-50 hover:border-gray-400 transition-all duration-200"
@@ -333,7 +377,10 @@
             </div>
           </div>
 
-          <div class="mt-4 flex justify-end">
+          <div class="mt-4 flex items-center justify-between gap-3">
+            <button @click="openManagedShares" class="text-sm font-medium text-primary-700 hover:underline">
+              {{ t('shareMailbox.managedTitle') }}
+            </button>
             <button
               @click="copyAllShareUrls"
               class="shrink-0 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700"
@@ -351,8 +398,9 @@
 import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { mailboxShareAPI } from '@/api/mailboxShare'
-import { isTauri } from '@/services/api'
+import { isTauri, extractApiErrorMessage } from '@/services/api'
 import { showMessage } from '@/utils/message'
+import { useUserStore } from '@/stores/user'
 import CustomSelect from '@/components/CustomSelect/index.vue'
 import { readSharePreferences, saveSharePreferences } from './sharePreferences'
 
@@ -374,6 +422,7 @@ const props = defineProps({
 
 const emit = defineEmits(['close', 'success'])
 const { t } = useI18n()
+const userStore = useUserStore()
 
 // 有效期选项
 const expireModeOptions = computed(() => [
@@ -395,6 +444,52 @@ const shareCount = ref(savedPreferences.shareCount)
 const latestOnly = ref(savedPreferences.latestOnly)
 const creating = ref(false)
 const shareUrls = ref([])
+const guestMode = computed(() => !userStore.isAuthenticated && Boolean(props.selectedMailboxes[0]?.claim_token))
+const managing = ref(false)
+const loadingShares = ref(false)
+const managedShares = ref([])
+const sharePage = ref(1)
+const totalShares = ref(0)
+const revokingId = ref(null)
+
+const toFullShareUrl = (path) => `${isTauri() ? 'https://zjkdongao.cn' : window.location.origin}${path}`
+const formatShareDate = (value) => new Date(value).toLocaleString()
+const isShareExpired = (share) => share.status !== 'active' || Boolean(share.expire_at && new Date(share.expire_at).getTime() <= Date.now())
+
+const loadShares = async (page = 1) => {
+  loadingShares.value = true
+  try {
+    const res = await mailboxShareAPI.getMyShares(page, 20, guestMode.value)
+    if (res.code !== 0) throw new Error(res.message || t('shareMailbox.loadFailed'))
+    managedShares.value = res.data?.shares || []
+    sharePage.value = page
+    totalShares.value = Number(res.data?.pagination?.total || 0)
+  } catch (error) {
+    showMessage(error.message || t('shareMailbox.loadFailed'), 'error')
+  } finally {
+    loadingShares.value = false
+  }
+}
+
+const openManagedShares = () => {
+  managing.value = true
+  loadShares(1)
+}
+
+const revokeShare = async (share) => {
+  if (!window.confirm(t('shareMailbox.revokeConfirm'))) return
+  revokingId.value = share.id
+  try {
+    const res = await mailboxShareAPI.deleteShare(share.id, guestMode.value)
+    if (res.code !== 0) throw new Error(res.message || t('shareMailbox.revokeFailed'))
+    showMessage(t('shareMailbox.revoked'), 'success')
+    await loadShares(managedShares.value.length === 1 && sharePage.value > 1 ? sharePage.value - 1 : sharePage.value)
+  } catch (error) {
+    showMessage(error.message || t('shareMailbox.revokeFailed'), 'error')
+  } finally {
+    revokingId.value = null
+  }
+}
 
 // 完整分享链接
 const fullShareUrl = computed(() => {
@@ -411,11 +506,11 @@ const handleCreateShare = async () => {
     return
   }
 
-  if (selectedExpireMode.value === 'days' && Number(selectedExpireDays.value) <= 0) {
+  if (!guestMode.value && selectedExpireMode.value === 'days' && Number(selectedExpireDays.value) <= 0) {
     showMessage(t('shareMailbox.invalidDays'), 'warning')
     return
   }
-  if (selectedExpireMode.value === 'minutes' && Number(expireMinutes.value) <= 0) {
+  if (!guestMode.value && selectedExpireMode.value === 'minutes' && Number(expireMinutes.value) <= 0) {
     showMessage(t('shareMailbox.invalidMinutes'), 'warning')
     return
   }
@@ -425,13 +520,13 @@ const handleCreateShare = async () => {
     const res = await mailboxShareAPI.createShare({
       mailbox_ids: props.mailboxIds,
       mailbox_type: props.mailboxType,
-      share_count: Math.max(1, Math.min(100, Number(shareCount.value) || 1)),
-      expire_mode: selectedExpireMode.value,
-      expire_days: selectedExpireMode.value === 'days' ? selectedExpireDays.value : 0,
-      expire_minutes: selectedExpireMode.value === 'minutes' ? Number(expireMinutes.value) : null,
-      expire_start_mode: selectedExpireMode.value === 'minutes' ? expireStartMode.value : 'created',
-      latest_only: latestOnly.value
-    })
+      share_count: guestMode.value ? 1 : Math.max(1, Math.min(100, Number(shareCount.value) || 1)),
+      expire_mode: guestMode.value ? 'days' : selectedExpireMode.value,
+      expire_days: guestMode.value ? 1 : selectedExpireMode.value === 'days' ? selectedExpireDays.value : 0,
+      expire_minutes: !guestMode.value && selectedExpireMode.value === 'minutes' ? Number(expireMinutes.value) : null,
+      expire_start_mode: !guestMode.value && selectedExpireMode.value === 'minutes' ? expireStartMode.value : 'created',
+      latest_only: guestMode.value ? false : latestOnly.value
+    }, guestMode.value ? props.selectedMailboxes[0]?.claim_token : '')
 
     if (res.code === 0) {
       const shares = res.data.shares || [res.data]
@@ -453,7 +548,7 @@ const handleCreateShare = async () => {
     }
   } catch (error) {
     console.error('创建分享失败:', error)
-    showMessage(t('shareMailbox.createFailed'), 'error')
+    showMessage(extractApiErrorMessage(error?.response?.data, error?.message || t('shareMailbox.createFailed')), 'error')
   } finally {
     creating.value = false
   }
@@ -488,6 +583,7 @@ watch(
         restoreSavedPreferences()
         shareUrls.value = []
         creating.value = false
+        managing.value = false
       }, 300)
     }
   }

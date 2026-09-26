@@ -63,4 +63,37 @@ describe('ThreeColumnLayout', () => {
     expect(wrapper.find('.mail-layout-safe').exists()).toBe(false)
     wrapper.unmount()
   })
+
+  it('keeps mobile mailboxes, inbox and detail in switchable panes', async () => {
+    const wrapper = mount(ThreeColumnLayout, {
+      props: {
+        embedded: true,
+        compactPanels: true,
+        mobilePanes: [
+          { key: 'left', label: '邮箱' },
+          { key: 'middle', label: '收件箱' },
+          { key: 'right', label: '邮件详情' }
+        ],
+        mobileActivePane: 'left'
+      },
+      slots: {
+        left: '<section>Mailboxes</section>',
+        middle: '<section>Inbox</section>',
+        right: '<section>Detail</section>'
+      }
+    })
+
+    expect(wrapper.get('.mail-mobile-pane-grid').exists()).toBe(true)
+    expect(wrapper.get('.mail-pane--left').classes()).toContain('mail-pane--active')
+    expect(wrapper.get('.mail-pane--right').classes()).not.toContain('mail-pane--active')
+
+    await wrapper.get('button[aria-current="page"]').trigger('click')
+    await wrapper.findAll('.mail-mobile-tabs button')[2].trigger('click')
+    expect(wrapper.emitted('update:mobileActivePane')?.[1]).toEqual(['right'])
+
+    await wrapper.setProps({ mobileActivePane: 'right' })
+    expect(wrapper.get('.mail-pane--right').classes()).toContain('mail-pane--active')
+    expect(wrapper.findAll('button[aria-current="page"]')).toHaveLength(1)
+    wrapper.unmount()
+  })
 })

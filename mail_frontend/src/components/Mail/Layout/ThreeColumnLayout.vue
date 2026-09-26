@@ -18,16 +18,36 @@
         <slot name="toolbar"></slot>
       </div>
 
+      <nav
+        v-if="mobilePanes.length"
+        class="mail-mobile-tabs mb-2 flex shrink-0 gap-1 overflow-x-auto border-b border-gray-200 lg:hidden"
+        :aria-label="mobileNavigationLabel"
+      >
+        <button
+          v-for="pane in mobilePanes"
+          :key="pane.key"
+          type="button"
+          class="min-w-0 flex-1 whitespace-nowrap border-b-2 px-2 py-2 text-sm font-medium transition-colors"
+          :class="mobileActivePane === pane.key
+            ? 'border-primary-600 text-primary-700'
+            : 'border-transparent text-gray-500 hover:text-gray-700'"
+          :aria-current="mobileActivePane === pane.key ? 'page' : undefined"
+          @click="emit('update:mobileActivePane', pane.key)"
+        >
+          {{ pane.label }}
+        </button>
+      </nav>
+
       <!-- 三栏布局 -->
       <div :class="['mail-layout-grid-shell w-full flex-1 flex flex-col', pageScrollable ? '' : 'min-h-0', workspaceMode ? 'mail-layout-grid-shell--workspace' : '']">
         <template v-if="resizablePanels && !compactPanels">
           <div
             v-if="useMain && $slots.main"
             ref="resizableMainRef"
-            :class="['mail-resizable-grid mail-resizable-grid--main flex-1', pageScrollable ? '' : 'min-h-0', (pageScrollable || compactPanels) ? '' : 'lg:overflow-hidden']"
+            :class="['mail-resizable-grid mail-resizable-grid--main flex-1', pageScrollable ? '' : 'min-h-0', (pageScrollable || compactPanels) ? '' : 'lg:overflow-hidden', mobilePanes.length ? 'mail-mobile-pane-grid' : '']"
             :style="mainGridStyle"
           >
-            <div class="min-h-0 min-w-0 relative z-0">
+            <div class="mail-pane mail-pane--left min-h-0 min-w-0 relative z-0" :class="{ 'mail-pane--active': mobileActivePane === 'left' }">
               <div :class="panelContainerClasses">
                 <slot name="left"></slot>
               </div>
@@ -42,7 +62,7 @@
               <span class="mail-resize-handle__line"></span>
             </button>
 
-            <div class="min-h-0 min-w-0">
+            <div class="mail-pane mail-pane--main min-h-0 min-w-0" :class="{ 'mail-pane--active': mobileActivePane === 'main' }">
               <div :class="[...panelContainerClasses, pageScrollable ? '' : 'h-full']">
                 <slot name="main"></slot>
               </div>
@@ -51,10 +71,10 @@
           <div
             v-else
             ref="resizableGridRef"
-            :class="['mail-resizable-grid mail-resizable-grid--triple flex-1', pageScrollable ? '' : 'min-h-0', (pageScrollable || compactPanels) ? '' : 'lg:overflow-hidden']"
+            :class="['mail-resizable-grid mail-resizable-grid--triple flex-1', pageScrollable ? '' : 'min-h-0', (pageScrollable || compactPanels) ? '' : 'lg:overflow-hidden', mobilePanes.length ? 'mail-mobile-pane-grid' : '']"
             :style="tripleGridStyle"
           >
-            <div class="min-h-0 min-w-0 relative z-0">
+            <div class="mail-pane mail-pane--left min-h-0 min-w-0 relative z-0" :class="{ 'mail-pane--active': mobileActivePane === 'left' }">
               <div :class="panelContainerClasses">
                 <slot name="left"></slot>
               </div>
@@ -69,7 +89,7 @@
               <span class="mail-resize-handle__line"></span>
             </button>
 
-            <div class="min-h-0 min-w-0">
+            <div class="mail-pane mail-pane--middle min-h-0 min-w-0" :class="{ 'mail-pane--active': mobileActivePane === 'middle' }">
               <div :class="panelContainerClasses">
                 <slot name="middle"></slot>
               </div>
@@ -84,7 +104,7 @@
               <span class="mail-resize-handle__line"></span>
             </button>
 
-            <div class="min-h-0 min-w-0">
+            <div class="mail-pane mail-pane--right min-h-0 min-w-0" :class="{ 'mail-pane--active': mobileActivePane === 'right' }">
               <div :class="panelContainerClasses">
                 <slot name="right"></slot>
               </div>
@@ -97,18 +117,19 @@
           :class="[
             'mail-three-column-grid grid grid-cols-1 gap-6 flex-1',
             workspaceMode ? 'mail-three-column-grid--workspace' : '',
-            (pageScrollable || compactPanels) ? '' : 'lg:overflow-hidden'
+            (pageScrollable || compactPanels) ? '' : 'lg:overflow-hidden',
+            mobilePanes.length ? 'mail-mobile-pane-grid' : ''
           ]"
         >
           <!-- 左栏 -->
-          <div class="lg:col-span-1 relative z-0">
+          <div class="mail-pane mail-pane--left lg:col-span-1 relative z-0" :class="{ 'mail-pane--active': mobileActivePane === 'left' }">
             <div :class="panelContainerClasses">
               <slot name="left"></slot>
             </div>
           </div>
 
           <!-- 中右合并大块 (可选) -->
-          <div v-if="useMain && $slots.main" class="lg:col-span-2">
+          <div v-if="useMain && $slots.main" class="mail-pane mail-pane--main lg:col-span-2" :class="{ 'mail-pane--active': mobileActivePane === 'main' }">
             <div :class="[...panelContainerClasses, pageScrollable ? '' : 'h-full']">
               <slot name="main"></slot>
             </div>
@@ -116,14 +137,14 @@
 
           <template v-else>
             <!-- 中栏 -->
-            <div class="lg:col-span-1">
+            <div class="mail-pane mail-pane--middle lg:col-span-1" :class="{ 'mail-pane--active': mobileActivePane === 'middle' }">
               <div :class="panelContainerClasses">
                 <slot name="middle"></slot>
               </div>
             </div>
 
             <!-- 右栏 -->
-            <div class="lg:col-span-1">
+            <div class="mail-pane mail-pane--right lg:col-span-1" :class="{ 'mail-pane--active': mobileActivePane === 'right' }">
               <div :class="panelContainerClasses">
                 <slot name="right"></slot>
               </div>
@@ -146,6 +167,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import PageHeader from '@/components/PageHeader/index.vue'
 
 type ResizeMode = 'left-main' | 'left-middle' | 'middle-right'
+type MobilePane = 'left' | 'middle' | 'right' | 'main'
 
 const DESKTOP_BREAKPOINT = 1024
 const HANDLE_SIZE = 10
@@ -164,6 +186,9 @@ const props = withDefaults(
     workspaceMode?: boolean
     resizablePanels?: boolean
     embedded?: boolean
+    mobilePanes?: Array<{ key: MobilePane; label: string }>
+    mobileActivePane?: MobilePane
+    mobileNavigationLabel?: string
   }>(),
   {
     pageScrollable: false,
@@ -172,8 +197,13 @@ const props = withDefaults(
     workspaceMode: false,
     resizablePanels: false,
     embedded: false,
+    mobilePanes: () => [],
+    mobileActivePane: 'left',
+    mobileNavigationLabel: '邮箱视图',
   }
 )
+
+const emit = defineEmits<{ 'update:mobileActivePane': [pane: MobilePane] }>()
 
 const resizableGridRef = ref<HTMLElement | null>(null)
 const resizableMainRef = ref<HTMLElement | null>(null)
@@ -629,6 +659,23 @@ onBeforeUnmount(() => {
 @media (max-width: 1023px) {
   .mail-layout--embedded .mail-resizable-grid > div {
     min-height: 28rem;
+  }
+
+  .mail-mobile-pane-grid {
+    min-height: 0;
+    height: 100%;
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .mail-mobile-pane-grid > .mail-pane:not(.mail-pane--active) {
+    display: none;
+  }
+
+  .mail-layout--embedded .mail-mobile-pane-grid > .mail-pane--active,
+  .mail-mobile-pane-grid > .mail-pane--active,
+  .mail-mobile-pane-grid > .mail-pane--active > .panel-container {
+    min-height: 0;
+    height: 100%;
   }
 }
 </style>

@@ -64,10 +64,13 @@ const zhCN = {
     footerTool2fa: '2FA 验证码',
     tempMailboxFetchFailed: '获取临时邮箱失败',
     mailboxApplyFailed: '申请邮箱失败',
-    guestMailboxQuota: '今日 {count}/{limit}'
+    guestMailboxQuota: '今日已创建 {count}/{limit} · 登录后可获取更多免费邮箱',
+    guestMailboxNoAvailableToday: '当前没有可用邮箱。今天创建的邮箱可能已删除或转入登录账号。'
   },
   pageHeader: {
     siteName: '肥猫猫邮箱',
+    navigationMenu: '打开导航菜单',
+    closeNavigationMenu: '关闭导航菜单',
     temporaryMailbox: '临时邮箱',
     myAssets: '我的资源',
     resourceMarket: '资源市场',
@@ -85,7 +88,7 @@ const zhCN = {
     viewAllAnnouncements: '查看全部公告',
     markedAllRead: '已全部标记为已读',
     admin: '管理后台',
-    workspace: '肥猫猫工作台',
+    workspace: '首页',
     logout: '退出登录',
     registerBanner: '注册登录解锁：免费邮箱 + 自动化工具 + 更多功能',
     registerNow: '立即注册'
@@ -1248,7 +1251,25 @@ const zhCN = {
     selectMailboxWarning: '请选择要分享的邮箱',
     createSuccess: '分享创建成功',
     createFailed: '创建分享失败',
-    copied: '链接已复制'
+    copied: '链接已复制',
+    guestValidity: '游客分享会随临时邮箱到期自动失效；登录后可保存邮箱并获取更多免费邮箱。',
+    managedTitle: '已分享链接',
+    managedHint: '查看、复制或撤销你创建的分享。撤销后原链接立即失效。',
+    backToCreate: '返回分享',
+    loadingShares: '正在加载分享...',
+    noShares: '还没有分享链接',
+    webShare: '网页分享',
+    miniappShare: '小程序分享（请在小程序内转发）',
+    waitingFirstOpen: '首次打开后开始计时',
+    expired: '已过期',
+    revoke: '撤销',
+    revokeConfirm: '撤销后，收到链接的人将无法继续查看。确定撤销吗？',
+    revoked: '分享已撤销',
+    revokeFailed: '撤销分享失败',
+    loadFailed: '加载分享失败',
+    totalShares: '共 {count} 条',
+    previous: '上一页',
+    next: '下一页'
   },
   batchAdd: {
     title: '批量添加第三方邮箱',

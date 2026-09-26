@@ -16,6 +16,18 @@ describe('mailbox loading states', () => {
     vi.restoreAllMocks()
     window.localStorage.clear()
     setActivePinia(createPinia())
+    vi.spyOn(mailboxAPI, 'getGuestQuota').mockResolvedValue({ code: 0, data: { used_today: 0 } } as any)
+  })
+
+  it('shows the server creation count even when no guest mailbox is currently available', async () => {
+    vi.spyOn(mailboxAPI, 'getGuestQuota').mockResolvedValue({
+      code: 0,
+      data: { daily_limit: 5, used_today: 5, remaining_requests_today: 0 }
+    } as any)
+    const store = useMailboxStore()
+    expect(store.guestMailboxes).toHaveLength(0)
+    expect(await store.fetchGuestQuota()).toBe(true)
+    expect(store.guestDailyUsed).toBe(5)
   })
 
   it('refreshing the list for sharing does not mark free claim as loading', async () => {
@@ -105,5 +117,20 @@ describe('mailbox loading states', () => {
     expect((await store.ensureInitialGuestMailbox()).success).toBe(true)
     expect(store.guestMailboxes).toHaveLength(1)
     expect(getTempMailbox).toHaveBeenCalledTimes(2)
+  })
+
+  it('deletes only the guest mailbox proved by its claim token', async () => {
+    const store = useMailboxStore()
+    vi.spyOn(mailboxAPI, 'getTempMailbox')
+      .mockResolvedValueOnce({ code: 0, data: { id: 7, email: 'first@example.test', claim_token: 'claim-7' } } as any)
+      .mockResolvedValueOnce({ code: 0, data: { id: 8, email: 'second@example.test', claim_token: 'claim-8' } } as any)
+    await store.getTempMailbox()
+    await store.getTempMailbox()
+    const deleteTempMailbox = vi.spyOn(mailboxAPI, 'deleteTempMailbox').mockResolvedValue({ code: 0 } as any)
+
+    expect((await store.deleteGuestMailbox(8)).success).toBe(true)
+    expect(deleteTempMailbox).toHaveBeenCalledWith(8, 'claim-8')
+    expect(store.guestMailboxes.map((item) => item.id)).toEqual([7])
+    expect(store.tempMailbox?.id).toBe(7)
   })
 })

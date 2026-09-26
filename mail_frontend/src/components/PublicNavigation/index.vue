@@ -1,10 +1,11 @@
 <template>
-  <nav :class="compact ? 'hidden items-center gap-4 xl:flex' : 'flex shrink-0 items-center gap-3 sm:gap-4 lg:gap-5'">
+  <nav :class="vertical ? 'flex flex-col items-stretch gap-1' : (compact ? 'hidden items-center gap-4 xl:flex' : 'flex shrink-0 items-center gap-3 sm:gap-4 lg:gap-5')">
     <router-link
       v-for="item in visibleItems"
       :key="item.path"
       :to="item.path"
-      class="whitespace-nowrap text-xs font-medium text-black transition-colors hover:text-primary-600 sm:text-sm"
+      class="whitespace-nowrap font-medium text-black transition-colors hover:text-primary-600"
+      :class="vertical ? 'rounded-lg px-3 py-2.5 text-sm hover:bg-gray-50' : 'text-xs sm:text-sm'"
       active-class="text-primary-600 font-semibold"
       exact-active-class="text-primary-600 font-semibold"
     >
@@ -18,9 +19,10 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { isTauri } from '@/services/api'
 
-const props = withDefaults(defineProps<{ compact?: boolean; guest?: boolean }>(), {
+const props = withDefaults(defineProps<{ compact?: boolean; guest?: boolean; vertical?: boolean }>(), {
   compact: false,
-  guest: false
+  guest: false,
+  vertical: false
 })
 
 const { t } = useI18n()

@@ -3,7 +3,7 @@
     <LanguageSwitcher compact />
 
     <!-- 用户信息 -->
-    <div v-if="userStore.isAuthenticated" class="flex items-center space-x-4">
+    <div v-if="userStore.isAuthenticated" class="flex items-center space-x-2 sm:space-x-4">
       <!-- 公告按钮 -->
       <div class="relative" ref="announcementRef">
         <button
@@ -190,7 +190,8 @@
           @click="toggleUserMenu"
           class="flex items-center space-x-2 text-sm text-black hover:text-black focus:outline-none"
         >
-          <span class="max-w-24 truncate sm:max-w-44">{{ displayUserName }}</span>
+          <BaseIcon name="user" size="md" class="sm:hidden" />
+          <span class="hidden max-w-24 truncate sm:inline sm:max-w-44">{{ displayUserName }}</span>
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
               stroke-linecap="round"
