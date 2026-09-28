@@ -1,5 +1,5 @@
 <template>
-  <div class="space-y-6">
+  <div class="flex h-full min-h-0 flex-col gap-3">
     <AccessPendingAlert v-if="accessLoaded && !canOperate" :reason="access.reason" />
 
     <div v-if="canOperate" class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -33,7 +33,7 @@
       </div>
     </div>
 
-    <AdminDataTable title="拦截名单" :loading="loading" :column-count="6">
+    <AdminDataTable class="min-h-0 flex-1" title="拦截名单" :loading="loading" :column-count="6" :fill-empty-height="!filteredRows.length">
       <template #thead>
         <tr>
           <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-black">邮箱</th>

@@ -29,7 +29,7 @@
       </div>
     </section>
 
-    <AdminDataTable title="浏览器工作流" :loading="loading" :column-count="5" :scrollable="false">
+    <AdminDataTable class="min-h-0 flex-1" title="浏览器工作流" :loading="loading" :column-count="5" :fill-empty-height="!filteredWorkflows.length">
       <template #thead><tr><th class="px-6 py-3 text-left text-xs font-medium text-black">资源信息</th><th class="px-6 py-3 text-left text-xs font-medium text-black">状态</th><th class="px-6 py-3 text-left text-xs font-medium text-black">触发器</th><th class="px-6 py-3 text-left text-xs font-medium text-black">步骤</th><th class="px-6 py-3 text-left text-xs font-medium text-black">操作</th></tr></template>
       <template #tbody>
         <tr v-for="item in filteredWorkflows" :key="item.workflow_id" class="hover:bg-gray-50">
@@ -144,5 +144,20 @@ onMounted(loadWorkflows)
 
 <style scoped>
 .workflow-list-page { min-height: 100vh; padding: 20px 28px; color: #26362b; background: #f5f7f5; font: 13px ui-sans-serif, system-ui, sans-serif; }.filter-panel, .list-panel { max-width: 1280px; margin: 0 auto 14px; background: #fff; border: 1px solid #e2e8e3; border-radius: 10px; box-shadow: 0 3px 12px #2e5a3a08; }.filter-panel { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 16px; }.filter-fields, .filter-actions { display: flex; align-items: center; gap: 10px; }.hidden-file-input { display: none; }.search-field { width: 290px; }.status-filter { width: 150px; }.search-button, .outline-button, .primary-button { padding: 8px 14px; border-radius: 6px; cursor: pointer; font: inherit; }.search-button, .primary-button { color: #fff; background: #198754; border: 1px solid #198754; }.outline-button { color: #526158; background: #fff; border: 1px solid #dce5de; }.list-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 16px 18px; border-bottom: 1px solid #edf1ed; }.list-toolbar div { display: flex; gap: 10px; align-items: center; }.list-toolbar span, .toolbar-hint, .muted { color: #8b998e; font-size: 12px; }.table-head, .workflow-row { display: grid; grid-template-columns: minmax(300px, 2fr) 100px 90px 140px 190px; gap: 14px; align-items: center; padding: 12px 18px; }.table-head { color: #88958c; background: #fafcfa; border-bottom: 1px solid #edf1ed; font-size: 12px; }.workflow-row { min-height: 66px; border-bottom: 1px solid #f0f3f0; }.workflow-row:hover { background: #fbfdfb; }.workflow-name { display: flex; align-items: center; gap: 10px; min-width: 0; color: #2c4032; text-align: left; background: transparent; border: 0; cursor: pointer; }.workflow-name > span:last-child { display: grid; gap: 4px; min-width: 0; }.workflow-name strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.workflow-name small { overflow: hidden; color: #8b998e; text-overflow: ellipsis; white-space: nowrap; }.workflow-mark { display: grid; flex: 0 0 30px; width: 30px; height: 30px; place-items: center; color: #198754; background: #e7f5eb; border-radius: 7px; }.status-tag { display: inline-block; padding: 4px 8px; color: #98701b; background: #fff4d7; border-radius: 10px; font-size: 11px; font-weight: 500; }.status-tag.published { color: #198754; background: #e7f5eb; }.row-actions { display: flex; gap: 8px; }.row-actions button { padding: 4px 7px; color: #34704c; background: transparent; border: 0; cursor: pointer; font-size: 12px; }.row-actions button:disabled { color: #b6c0b8; cursor: not-allowed; }.row-actions .danger { color: #a45a55; }.empty-state { padding: 70px 20px; color: #8b998e; text-align: center; }
+.workflow-list-page {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  gap: 12px;
+  padding: 0;
+  background: transparent;
+}
+.filter-panel {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  flex-shrink: 0;
+}
 @media (max-width: 900px) { .filter-panel { display: block; }.filter-actions { margin-top: 12px; }.table-head { display: none; }.workflow-row { grid-template-columns: 1fr auto; }.workflow-row > span:nth-child(2), .workflow-row > span:nth-child(3), .workflow-row > span:nth-child(4) { display: none; }.row-actions { grid-column: 2; grid-row: 1; }.toolbar-hint { display: none; } }
 </style>

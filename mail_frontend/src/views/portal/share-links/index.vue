@@ -1,0 +1,146 @@
+<template>
+  <section class="flex h-full min-h-0 flex-col">
+    <AdminDataTable
+      class="min-h-0 flex-1"
+      :loading="loadingShares"
+      :pagination="{ page: sharePage, pages: Math.max(1, Math.ceil(totalShares / pageSize)), total: totalShares, limit: pageSize }"
+      :show-page-size-selector="false"
+      :column-count="6"
+      table-class="w-full min-w-[960px] sm:min-w-[960px] table-fixed"
+      :fill-empty-height="!managedShares.length"
+      @page-change="loadShares"
+    >
+      <template #thead>
+        <tr>
+          <th class="w-[22%] px-6 py-3 text-left text-xs font-medium text-gray-600">{{ t('shareMailbox.mailboxColumn') }}</th>
+          <th class="w-[10%] px-4 py-3 text-left text-xs font-medium text-gray-600">{{ t('shareMailbox.typeColumn') }}</th>
+          <th class="w-[20%] px-4 py-3 text-left text-xs font-medium text-gray-600">{{ t('shareMailbox.createdAtColumn') }}</th>
+          <th class="w-[26%] px-4 py-3 text-left text-xs font-medium text-gray-600">{{ t('shareMailbox.validityColumn') }}</th>
+          <th class="w-[10%] px-4 py-3 text-left text-xs font-medium text-gray-600">{{ t('shareMailbox.statusColumn') }}</th>
+          <th class="w-[12%] px-4 py-3 text-left text-xs font-medium text-gray-600">{{ t('shareMailbox.actionColumn') }}</th>
+        </tr>
+      </template>
+      <template #tbody>
+        <tr v-if="loadError">
+          <td colspan="6" class="px-6 py-12 text-center text-sm text-red-600">
+            {{ loadError }}
+            <button type="button" class="ml-2 font-medium text-primary-700 hover:underline" @click="loadShares(sharePage)">{{ t('common.retry') }}</button>
+          </td>
+        </tr>
+        <tr v-else-if="!managedShares.length">
+          <td colspan="6" class="px-6 py-12 text-center text-sm text-gray-500">{{ t('shareMailbox.noShares') }}</td>
+        </tr>
+        <tr v-for="share in loadError ? [] : managedShares" :key="share.id" class="hover:bg-gray-50">
+          <td class="px-6 py-3 text-sm font-medium text-gray-900">
+            <p class="max-w-full truncate" :title="share.mailbox_emails?.join('、') || `#${share.mailbox_ids}`">{{ share.mailbox_emails?.join('、') || `#${share.mailbox_ids}` }}</p>
+          </td>
+          <td class="whitespace-nowrap px-4 py-3 text-sm text-gray-600">{{ share.miniapp_path ? t('shareMailbox.miniappShare') : t('shareMailbox.webShare') }}</td>
+          <td class="whitespace-nowrap px-4 py-3 text-sm text-gray-600">{{ formatShareDate(share.created_at) }}</td>
+          <td class="px-4 py-3 text-sm text-gray-600"><span class="block truncate" :title="shareValidity(share)">{{ shareValidity(share) }}</span></td>
+          <td class="whitespace-nowrap px-4 py-3 text-sm">
+            <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium" :class="isShareExpired(share) ? 'bg-gray-100 text-gray-600' : isAwaitingFirstOpen(share) ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'">{{ isShareExpired(share) ? t('shareMailbox.expired') : isAwaitingFirstOpen(share) ? t('shareMailbox.awaitingFirstOpen') : t('shareMailbox.active') }}</span>
+          </td>
+          <td class="whitespace-nowrap px-4 py-3 text-sm">
+            <div class="flex items-center gap-1">
+              <ActionButton v-if="share.share_url && !isShareExpired(share)" icon="copy" variant="copy" :tooltip="t('common.copy')" @click="copyShareUrl(share.share_url)" />
+              <ActionButton :icon="isShareExpired(share) ? 'delete' : 'ban'" :variant="isShareExpired(share) ? 'delete' : 'danger'" :tooltip="isShareExpired(share) ? t('shareMailbox.deleteRecord') : t('shareMailbox.revoke')" :disabled="revokingId === share.id" @click="pendingRevokeShare = share" />
+            </div>
+          </td>
+        </tr>
+      </template>
+    </AdminDataTable>
+
+    <ConfirmDialog
+      :visible="Boolean(pendingRevokeShare)"
+      :title="pendingRevokeShare && isShareExpired(pendingRevokeShare) ? t('shareMailbox.deleteRecord') : t('shareMailbox.revoke')"
+      :message="pendingRevokeShare && isShareExpired(pendingRevokeShare) ? t('shareMailbox.deleteRecordConfirm') : t('shareMailbox.revokeConfirm')"
+      :confirm-text="pendingRevokeShare && isShareExpired(pendingRevokeShare) ? t('shareMailbox.deleteRecord') : t('shareMailbox.revoke')"
+      :cancel-text="t('common.cancel')"
+      :loading="revokingId !== null"
+      :show-warning="false"
+      @confirm="revokeShare"
+      @cancel="pendingRevokeShare = null"
+    />
+  </section>
+</template>
+
+<script setup>
+import { computed, onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { mailboxShareAPI } from '@/api/mailboxShare'
+import AdminDataTable from '@/components/AdminDataTable/index.vue'
+import ActionButton from '@/components/ActionButton/index.vue'
+import ConfirmDialog from '@/components/ConfirmDialog/index.vue'
+import { isTauri } from '@/services/api'
+import { useUserStore } from '@/stores/user'
+import { showMessage } from '@/utils/message'
+
+const pageSize = 20
+const { t } = useI18n()
+const userStore = useUserStore()
+const guestMode = computed(() => !userStore.isAuthenticated)
+const managedShares = ref([])
+const loadingShares = ref(false)
+const loadError = ref('')
+const sharePage = ref(1)
+const totalShares = ref(0)
+const revokingId = ref(null)
+const pendingRevokeShare = ref(null)
+
+const formatShareDate = (value) => value
+  ? new Date(value).toLocaleString(undefined, { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false })
+  : '-'
+const shareValidity = (share) => share.expire_at
+  ? formatShareDate(share.expire_at)
+  : share.expire_mode === 'minutes'
+    ? (share.expire_minutes ? t('shareMailbox.firstOpenMinutes', { count: share.expire_minutes }) : t('shareMailbox.waitingFirstOpen'))
+    : t('shareMailbox.permanentValid')
+const isShareExpired = (share) => share.status !== 'active' || Boolean(share.expire_at && new Date(share.expire_at).getTime() <= Date.now())
+const isAwaitingFirstOpen = (share) => share.status === 'active' && share.expire_mode === 'minutes' && !share.expire_at
+
+const loadShares = async (page = 1) => {
+  loadingShares.value = true
+  loadError.value = ''
+  try {
+    const res = await mailboxShareAPI.getMyShares(page, pageSize, guestMode.value)
+    if (res.code !== 0) throw new Error(res.message || t('shareMailbox.loadFailed'))
+    managedShares.value = res.data?.shares || []
+    sharePage.value = page
+    totalShares.value = Number(res.data?.pagination?.total || 0)
+  } catch (error) {
+    loadError.value = error?.message || t('shareMailbox.loadFailed')
+  } finally {
+    loadingShares.value = false
+  }
+}
+
+const copyShareUrl = async (path) => {
+  const origin = isTauri() ? 'https://zjkdongao.cn' : window.location.origin
+  try {
+    await navigator.clipboard.writeText(`${origin}${path}`)
+    showMessage(t('shareMailbox.copied'), 'success')
+  } catch {
+    showMessage(t('common.copyFailed'), 'error')
+  }
+}
+
+const revokeShare = async () => {
+  const share = pendingRevokeShare.value
+  if (!share || revokingId.value !== null) return
+  const deletingExpiredRecord = isShareExpired(share)
+  revokingId.value = share.id
+  try {
+    const res = await mailboxShareAPI.deleteShare(share.id, guestMode.value)
+    if (res.code !== 0) throw new Error(res.message || t('shareMailbox.revokeFailed'))
+    showMessage(t(deletingExpiredRecord ? 'shareMailbox.recordDeleted' : 'shareMailbox.revoked'), 'success')
+    await loadShares(managedShares.value.length === 1 && sharePage.value > 1 ? sharePage.value - 1 : sharePage.value)
+  } catch (error) {
+    showMessage(error?.message || t(deletingExpiredRecord ? 'shareMailbox.deleteRecordFailed' : 'shareMailbox.revokeFailed'), 'error')
+  } finally {
+    revokingId.value = null
+    pendingRevokeShare.value = null
+  }
+}
+
+onMounted(() => loadShares())
+</script>

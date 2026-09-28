@@ -1,6 +1,6 @@
 <template>
-  <div class="flex h-full min-h-0 flex-col gap-4">
-    <div class="rounded-lg border bg-white p-6 shadow-sm">
+  <div class="flex h-full min-h-0 flex-col gap-3">
+    <div class="shrink-0 rounded-lg border bg-white p-4 shadow-sm">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-4 overflow-x-auto pb-1">
           <BaseInput
@@ -53,12 +53,14 @@
       </div>
     </div>
 
-    <div class="min-h-0 flex-1">
+    <div class="flex min-h-0 flex-1">
       <AdminDataTable
+        class="min-h-0 w-full"
         :loading="loading"
         :pagination="pagination"
         :show-page-size-selector="true"
         :column-count="7"
+        :fill-empty-height="records.length === 0"
         @page-change="handlePageChange"
         @page-size-change="handlePageSizeChange"
       >

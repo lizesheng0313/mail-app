@@ -1,11 +1,12 @@
 <template>
-  <div class="min-h-screen bg-[#f6f8fb]">
+  <div :class="isWorkspaceView ? 'h-full min-h-0' : 'min-h-screen bg-[#f6f8fb]'">
     <!-- 顶部导航 -->
     <PageHeader v-if="!isWorkspaceView" />
     
     <div
-      class="mx-auto max-w-[1440px] space-y-6 px-4 pb-8 sm:px-6"
-      :class="isWorkspaceView ? 'pt-0' : 'pt-6'"
+      :class="isWorkspaceView
+        ? 'flex h-full min-h-0 flex-col gap-3'
+        : 'mx-auto max-w-[1440px] space-y-6 px-4 pb-8 pt-6 sm:px-6'"
     >
         <!-- 页面头部 -->
         <div
@@ -86,7 +87,7 @@
         </div>
 
         <!-- 执行记录列表 -->
-        <div v-if="!currentWorkflowId" class="rounded-[24px] border border-slate-200 bg-white p-10 text-center text-black shadow-[0_12px_30px_rgba(15,23,42,0.05)]">
+        <div v-if="!currentWorkflowId" class="flex min-h-0 flex-1 flex-col items-center justify-center rounded-[24px] border border-slate-200 bg-white p-10 text-center text-black shadow-[0_12px_30px_rgba(15,23,42,0.05)]">
             <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
             </svg>
@@ -96,7 +97,9 @@
 
         <AdminDataTable
           v-else
+          class="min-h-0 flex-1"
           :loading="loading"
+          :fill-empty-height="!paginatedExecutions.length"
           :pagination="{
             page: currentPage,
             pages: totalPages,

@@ -219,7 +219,7 @@
 
       <!-- 主要内容区域 -->
       <main class="min-h-0 flex-1 bg-gray-50 overflow-hidden">
-        <div class="h-full min-h-0 px-2 pt-2 pb-0 sm:px-3 sm:pt-3 overflow-y-auto">
+        <div class="workspace-content h-full min-h-0 overflow-y-auto px-2 pb-2 pt-2 sm:px-3 sm:pb-3 sm:pt-3">
           <slot></slot>
         </div>
       </main>
@@ -363,6 +363,11 @@ const toggleSidebar = () => {
 </script>
 
 <style scoped>
+.workspace-content :deep(.admin-pagination),
+.workspace-content :deep(.workspace-pagination) {
+  padding-right: 5rem;
+}
+
 @media (max-width: 767px) {
   .sidebar-shell {
     display: none;

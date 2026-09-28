@@ -48,6 +48,7 @@ const createWorkbench = async (path: string) => {
           { path: 'purchases', component: page }
         ]
       },
+      { path: '/share-links', component: UserLayout, children: [{ path: '', component: page }] },
       { path: '/:pathMatch(.*)*', component: page }
     ]
   })
@@ -64,6 +65,7 @@ const createWorkbench = async (path: string) => {
 describe('User workspace navigation', () => {
   it('shows the brand as the home link without a duplicate mailbox title', async () => {
     const { wrapper } = await createWorkbench('/user/mailboxes/external')
+    expect(wrapper.get('.workspace-content').classes()).toEqual(expect.arrayContaining(['pb-2', 'sm:pb-3']))
     expect(wrapper.get('header').attributes('style')).toContain('height: 54px')
     expect(wrapper.get('a[href="/"] h1').text()).toBe('pageHeader.siteName')
     expect(wrapper.get('a[href="/"]').element.parentElement?.classList.contains('site-header-inline-padding')).toBe(true)
@@ -148,8 +150,14 @@ describe('User workspace navigation', () => {
   })
 
   it('keeps share management in the mailbox section', async () => {
-    const { wrapper } = await createWorkbench('/user/mailboxes/external')
-    expect(wrapper.findAll('button').some((button) => button.text() === 'shareMailbox.managedTitle')).toBe(true)
+    const { wrapper, router } = await createWorkbench('/user/mailboxes/external')
+    const entry = wrapper.get('a[href="/share-links"]')
+    expect(entry.text()).toBe('shareMailbox.managedTitle')
+    await entry.trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.path).toBe('/share-links')
+    expect(wrapper.get('a[href="/share-links"]').classes()).toContain('text-primary-700')
+    expect(wrapper.get('header h1').text()).toBe('shareMailbox.managedTitle')
   })
 
   it('preserves verification progress while switching to the inbox and back', async () => {

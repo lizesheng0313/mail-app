@@ -1,6 +1,6 @@
 <template>
-  <div class="space-y-6">
-    <div class="bg-white rounded-lg shadow-sm border p-6">
+  <div class="flex h-full min-h-0 flex-col gap-3">
+    <div class="shrink-0 bg-white rounded-lg shadow-sm border p-4">
       <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div class="flex items-center space-x-4">
           <BaseInput
@@ -45,7 +45,9 @@
     </div>
 
     <AdminDataTable
+      class="min-h-0 flex-1"
       :title="t('domainsPage.listTitle')"
+      :fill-empty-height="!domains.length"
       :loading="loading"
       :column-count="6"
       :pagination="pagination"

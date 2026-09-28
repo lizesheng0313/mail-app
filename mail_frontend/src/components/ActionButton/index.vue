@@ -3,6 +3,7 @@
     <button 
       ref="buttonRef"
       :class="buttonClass"
+      :aria-label="tooltip || text || icon"
       @click="handleClick"
       :disabled="disabled"
     >

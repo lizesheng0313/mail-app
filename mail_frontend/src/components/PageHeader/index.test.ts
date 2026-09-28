@@ -20,6 +20,7 @@ const mountHeader = async () => {
       { path: '/user/mailboxes/system', component: { template: '<div />' } },
       { path: '/user/mailboxes/hosted', component: { template: '<div />' } },
       { path: '/user/mailboxes/external', component: { template: '<div />' } },
+      { path: '/share-links', component: { template: '<div />' } },
       { path: '/market', component: { template: '<div />' } },
       { path: '/download', component: { template: '<div />' } },
       { path: '/open-platform', component: { template: '<div />' } },
@@ -76,7 +77,7 @@ describe('public page workbench entry', () => {
     await menuButton.trigger('click')
     expect(menuButton.attributes('aria-expanded')).toBe('true')
     expect(wrapper.get('[role="dialog"] a[href="/user/mailboxes/system"]').exists()).toBe(true)
-    expect(wrapper.get('[role="dialog"]').text()).toContain('shareMailbox.managedTitle')
+    expect(wrapper.get('[role="dialog"] a[href="/share-links"]').text()).toBe('shareMailbox.managedTitle')
     expect(wrapper.get('a[href="/market"][class*="rounded-lg"]').text()).toBe('pageHeader.resourceMarket')
 
     await wrapper.get('a[href="/market"][class*="rounded-lg"]').trigger('click')

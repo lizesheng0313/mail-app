@@ -80,6 +80,7 @@ const WorkflowDetail = () => import('@/views/market/detail.vue')
 
 // 邮箱分享页面（无需登录）
 const ShareMailbox = () => import('@/views/portal/share/index.vue')
+const ShareLinks = () => import('@/views/portal/share-links/index.vue')
 
 // 下载页面（无需登录）
 const DownloadPage = () => import('@/views/download/index.vue')
@@ -129,6 +130,11 @@ const router = createRouter({
               canonicalPath: '/'
             }
           }
+        },
+        {
+          path: 'share-links',
+          name: 'share-links',
+          component: ShareLinks
         }
       ]
     },

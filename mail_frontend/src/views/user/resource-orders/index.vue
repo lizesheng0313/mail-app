@@ -1,6 +1,6 @@
 <template>
-  <div class="space-y-4">
-    <div class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+  <div class="flex h-full min-h-0 flex-col gap-3">
+    <div class="shrink-0 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
       <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 class="text-lg font-semibold text-gray-900">购买订单</h1>
@@ -16,9 +16,9 @@
       </div>
     </div>
 
-    <div class="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
-      <div class="overflow-x-auto">
-        <table class="min-w-[1280px] w-full table-fixed divide-y divide-gray-200">
+    <div class="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+      <div class="min-h-0 flex-1 overflow-auto">
+        <table class="min-w-[1280px] w-full table-fixed divide-y divide-gray-200" :class="!loading && !orders.length ? 'h-full' : ''">
           <colgroup>
             <col class="w-[330px]" />
             <col class="w-[270px]" />

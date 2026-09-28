@@ -1,5 +1,11 @@
 <template>
-  <AdminDataTable :title="t('workflowList.title')" :loading="loading" :column-count="6" :scrollable="false">
+  <AdminDataTable
+    :title="t('workflowList.title')"
+    :loading="loading"
+    :column-count="6"
+    :scrollable="fillHeight"
+    :fill-empty-height="fillHeight && !workflows.length"
+  >
     <template #thead>
           <tr>
             <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
@@ -280,6 +286,10 @@ const props = defineProps({
     default: () => []
   },
   loading: {
+    type: Boolean,
+    default: false
+  },
+  fillHeight: {
     type: Boolean,
     default: false
   },

@@ -30,6 +30,12 @@ describe('mailbox entry routes', () => {
     expect(router.currentRoute.value.fullPath).toBe('/')
   })
 
+  it('opens share management as a public workspace page', async () => {
+    await router.push('/share-links')
+    expect(router.currentRoute.value.path).toBe('/share-links')
+    expect(router.currentRoute.value.meta.requiresAuth).not.toBe(true)
+  })
+
   it.each(['hosted', 'external'])('asks guests to log in for %s, then returns to that mailbox', async (type) => {
     await router.push(`/user/mailboxes/${type}`)
     expect(router.currentRoute.value.path).toBe('/login')

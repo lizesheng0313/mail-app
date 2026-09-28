@@ -1,10 +1,10 @@
 <template>
-  <div>
+  <div :class="isWorkspaceView ? 'h-full min-h-0' : ''">
     <!-- 顶部导航 -->
     <PageHeader v-if="!isWorkspaceView" />
     
-    <div class="space-y-6">
-      <div class="bg-white rounded-lg shadow-sm border p-6">
+    <div class="flex h-full min-h-0 flex-col gap-3">
+      <div class="shrink-0 bg-white rounded-lg shadow-sm border p-4">
         <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div class="flex flex-wrap items-center gap-4">
             <BaseInput
@@ -75,6 +75,8 @@
       </div>
 
       <WorkflowTable
+        class="min-h-0 flex-1"
+        :fill-height="isWorkspaceView"
         :workflows="filteredWorkflows"
         :loading="loading"
         @export="handleExportWorkflow"

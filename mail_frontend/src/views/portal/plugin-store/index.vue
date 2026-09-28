@@ -1,12 +1,12 @@
 <template>
-  <div>
+  <div :class="isWorkspaceView ? 'h-full min-h-0' : ''">
     <!-- 顶部导航 -->
     <PageHeader v-if="!isWorkspaceView" />
     
-    <div class="min-h-screen bg-gray-50">
+    <div :class="isWorkspaceView ? 'flex h-full min-h-0 flex-col bg-white' : 'min-h-screen bg-gray-50'">
       <!-- 页面头部 -->
       <div class="bg-white shadow-sm border-b">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div :class="isWorkspaceView ? 'w-full px-4 sm:px-6' : 'mx-auto max-w-7xl px-4 sm:px-6 lg:px-8'">
           <div class="flex flex-col gap-4 py-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <h1 style="font-size: 14px;" class="font-bold text-black">插件商店</h1>
@@ -33,7 +33,7 @@
       </div>
 
       <!-- 主要内容 -->
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div :class="isWorkspaceView ? 'min-h-0 w-full flex-1 overflow-y-auto px-4 py-4 sm:px-6' : 'mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8'">
         <!-- 筛选和排序 -->
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 space-y-4 sm:space-y-0">
           <div class="flex flex-wrap items-center gap-4">
@@ -128,7 +128,7 @@
         </div>
 
         <!-- 分页 -->
-        <div v-if="totalPages > 1" class="mt-8 flex items-center justify-between">
+        <div v-if="totalPages > 1" class="mt-8 flex items-center justify-between" :class="isWorkspaceView ? 'pr-20' : ''">
           <div class="flex-1 flex justify-between sm:hidden">
             <button
               @click="changePage(currentPage - 1)"

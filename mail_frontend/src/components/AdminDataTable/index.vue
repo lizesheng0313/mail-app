@@ -10,8 +10,8 @@
     <!-- 表格容器 -->
     <div class="min-w-0" :class="scrollable ? 'flex-1 overflow-hidden' : 'overflow-visible'">
       <div :class="scrollable ? 'h-full overflow-auto' : 'overflow-x-auto overflow-y-visible'" tabindex="0" aria-label="数据表格，可左右滑动查看完整内容">
-        <table :class="['min-w-[640px] sm:min-w-full divide-y divide-gray-200', tableClass]">
-          <thead class="bg-gray-50 sticky top-0">
+        <table :class="['min-w-[640px] sm:min-w-full divide-y divide-gray-200', tableClass, fillEmptyHeight && !loading ? 'h-full' : '']">
+          <thead class="sticky top-0 z-10 bg-gray-50">
             <slot name="thead" />
           </thead>
           <tbody class="bg-white divide-y divide-gray-200">
@@ -59,6 +59,7 @@ interface Props {
   columnCount?: number
   tableClass?: string
   scrollable?: boolean
+  fillEmptyHeight?: boolean
 }
 
 withDefaults(defineProps<Props>(), {
@@ -66,7 +67,8 @@ withDefaults(defineProps<Props>(), {
   showPageSizeSelector: false,
   columnCount: 1,
   tableClass: '',
-  scrollable: true
+  scrollable: true,
+  fillEmptyHeight: false
 })
 
 const { t } = useI18n()

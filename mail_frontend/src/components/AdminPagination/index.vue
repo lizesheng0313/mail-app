@@ -1,5 +1,5 @@
 <template>
-  <div class="flex-shrink-0 border-t border-gray-200 px-4 py-3 sm:px-6 sm:py-4">
+  <div class="admin-pagination flex-shrink-0 border-t border-gray-200 px-4 py-3 sm:px-6 sm:py-4">
     <div class="flex flex-col justify-between gap-3 sm:flex-row sm:items-center sm:gap-4">
       <!-- 左侧：记录信息和每页数量选择 -->
       <div class="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-4">

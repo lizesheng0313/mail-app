@@ -60,7 +60,7 @@ export const createWorkspaceMenu = (
         icon: InboxStackIcon,
         matchPaths: externalMailboxTabs(t).map((item) => item.path)
       },
-      { path: undefined, action: 'manage-shares', label: t('shareMailbox.managedTitle'), icon: LinkIcon }
+      { path: '/share-links', label: t('shareMailbox.managedTitle'), icon: LinkIcon }
     ]
   },
   {

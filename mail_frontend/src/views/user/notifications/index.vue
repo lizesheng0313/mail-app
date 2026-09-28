@@ -1,6 +1,6 @@
 <template>
-  <div class="space-y-4">
-    <div class="bg-white rounded-lg shadow">
+  <div class="flex h-full min-h-0 flex-col">
+    <div class="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg bg-white shadow">
       <div class="border-b border-gray-200 px-6 pt-5">
         <h2 class="text-xl font-semibold text-gray-900">通知中心</h2>
         <div class="mt-4 flex gap-6">
@@ -21,8 +21,8 @@
         </div>
       </div>
 
-      <div v-if="activeTab === 'personal'" class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-gray-200">
+      <div v-if="activeTab === 'personal'" class="min-h-0 flex-1 overflow-auto">
+        <table class="min-w-full divide-y divide-gray-200" :class="!loading && !notifications.length ? 'h-full' : ''">
           <thead class="bg-gray-50">
             <tr>
               <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">标题</th>
@@ -62,8 +62,8 @@
         </table>
       </div>
 
-      <div v-else class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-gray-200">
+      <div v-else class="min-h-0 flex-1 overflow-auto">
+        <table class="min-w-full divide-y divide-gray-200" :class="!loading && !announcements.length ? 'h-full' : ''">
           <thead class="bg-gray-50">
             <tr>
               <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">标题</th>
@@ -117,7 +117,7 @@
         </table>
       </div>
 
-      <div class="px-6 py-4 flex items-center justify-between border-t border-gray-200">
+      <div class="workspace-pagination px-6 py-4 flex items-center justify-between border-t border-gray-200">
         <div class="text-sm text-gray-700">共 {{ total }} 条记录</div>
         <div class="flex gap-2">
           <button

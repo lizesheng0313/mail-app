@@ -14,6 +14,7 @@ describe('Workspace navigation', () => {
     const guestMenu = createWorkspaceMenu(t, { publicHome: true, guest: true })
     expect(guestMenu.map((section) => section.name)).toEqual(menu.map((section) => section.name))
     expect(guestMenu[0].items[0].path).toBe('/')
+    expect(guestMenu[0].items[3].path).toBe('/share-links')
     expect(isMenuItemActive(guestMenu[0].items[0], '/')).toBe(true)
     const account = guestMenu.find((section) => section.name === t('workspace.account'))
     expect(account?.items.map((item) => item.path)).toEqual([

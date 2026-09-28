@@ -1,9 +1,9 @@
 <template>
-  <div>
+  <div class="flex h-full min-h-0 flex-col">
     <!-- 公告列表 -->
-    <div class="bg-white rounded-lg shadow">
-      <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-gray-200">
+    <div class="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg bg-white shadow">
+      <div class="min-h-0 flex-1 overflow-auto">
+        <table class="min-w-full divide-y divide-gray-200" :class="!loading && !announcements.length ? 'h-full' : ''">
           <thead class="bg-gray-50">
             <tr>
               <th
@@ -92,7 +92,7 @@
       </div>
 
       <!-- 分页 -->
-      <div class="px-6 py-4 flex items-center justify-between border-t border-gray-200">
+      <div class="workspace-pagination px-6 py-4 flex items-center justify-between border-t border-gray-200">
         <div class="text-sm text-gray-700">
           {{ t('announcementsPage.totalRecords', { total }) }}
         </div>

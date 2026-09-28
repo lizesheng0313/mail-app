@@ -1,6 +1,6 @@
 <template>
-  <div class="space-y-6">
-    <section v-if="section === 'api-keys'" class="space-y-6">
+  <div class="h-full min-h-0">
+    <section v-if="section === 'api-keys'" class="flex h-full min-h-0 flex-col gap-3">
       <div
         v-if="!userStore.isAuthenticated"
         class="rounded-lg border border-yellow-200 bg-yellow-50 p-6 text-sm text-yellow-800"
@@ -9,7 +9,7 @@
       </div>
 
       <template v-else>
-        <div class="bg-white rounded-lg shadow-sm border p-6">
+        <div class="shrink-0 bg-white rounded-lg shadow-sm border p-4">
           <div class="flex justify-between items-center">
             <div class="flex items-center space-x-4">
               <BaseInput
@@ -51,7 +51,9 @@
         </div>
 
         <AdminDataTable
+          class="min-h-0 flex-1"
           :title="t('developer.apiKeyList')"
+          :fill-empty-height="!pagedApiKeys.length"
           :pagination="pagination"
           :loading="keysLoading"
           :show-page-size-selector="true"

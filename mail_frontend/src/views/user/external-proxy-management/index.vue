@@ -42,8 +42,13 @@
       </div>
     </div>
 
-    <div class="min-h-0 flex-1">
-      <AdminDataTable :loading="loading" :column-count="6">
+    <div class="flex min-h-0 flex-1">
+      <AdminDataTable
+        class="min-h-0 w-full"
+        :loading="loading"
+        :column-count="6"
+        :fill-empty-height="filteredProxyRows.length === 0"
+      >
         <template #thead>
           <tr>
             <th class="px-6 py-3 text-left text-xs font-medium text-black">代理名称</th>
