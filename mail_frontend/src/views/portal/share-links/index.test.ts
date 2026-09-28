@@ -5,7 +5,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({
   isAuthenticated: true,
   getMyShares: vi.fn(),
-  deleteShare: vi.fn()
+  deleteShare: vi.fn(),
+  batchDeleteShares: vi.fn()
 }))
 
 vi.mock('vue-i18n', () => ({ useI18n: () => ({ t: (key: string, params?: { count?: number }) => params?.count ? `${key}:${params.count}` : key }) }))
@@ -13,7 +14,7 @@ vi.mock('@/stores/user', () => ({ useUserStore: () => mocks }))
 vi.mock('@/services/api', () => ({ isTauri: () => false }))
 vi.mock('@/utils/message', () => ({ showMessage: vi.fn() }))
 vi.mock('@/api/mailboxShare', () => ({
-  mailboxShareAPI: { getMyShares: mocks.getMyShares, deleteShare: mocks.deleteShare }
+  mailboxShareAPI: { getMyShares: mocks.getMyShares, deleteShare: mocks.deleteShare, batchDeleteShares: mocks.batchDeleteShares }
 }))
 
 import ShareLinksPage from './index.vue'
@@ -28,6 +29,8 @@ const share = {
   status: 'active',
   expire_mode: 'permanent',
   expire_at: null,
+  open_count: 2,
+  last_opened_at: '2026-09-28T11:30:00',
   share_url: '/share/example-token'
 }
 
@@ -38,6 +41,7 @@ describe('share-link workspace page', () => {
     mocks.isAuthenticated = true
     mocks.getMyShares.mockReset()
     mocks.deleteShare.mockReset()
+    mocks.batchDeleteShares.mockReset()
   })
 
   it('loads links in the page and uses the site confirmation dialog to revoke', async () => {
@@ -49,13 +53,15 @@ describe('share-link workspace page', () => {
     const wrapper = mountPage()
     await flushPromises()
 
-    expect(mocks.getMyShares).toHaveBeenCalledWith(1, 20, false)
+    expect(mocks.getMyShares).toHaveBeenCalledWith(1, 20, false, '')
     expect(wrapper.classes()).toContain('h-full')
     expect(wrapper.findComponent(AdminDataTable).exists()).toBe(true)
-    expect(wrapper.get('table').findAll('thead th')).toHaveLength(6)
+    expect(wrapper.get('table').findAll('thead th')).toHaveLength(8)
     expect(wrapper.findComponent(AdminPagination).props('total')).toBe(1)
     expect(wrapper.get('.admin-pagination').exists()).toBe(true)
     expect(wrapper.text()).toContain('sample@example.com')
+    expect(wrapper.text()).toContain('shareMailbox.openCountValue:2')
+    expect(wrapper.text()).toContain('shareMailbox.lastOpened')
     expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
     await wrapper.get('button[aria-label="shareMailbox.revoke"]').trigger('click')
 
@@ -78,7 +84,7 @@ describe('share-link workspace page', () => {
     const wrapper = mountPage()
     await flushPromises()
 
-    expect(mocks.getMyShares).toHaveBeenCalledWith(1, 20, true)
+    expect(mocks.getMyShares).toHaveBeenCalledWith(1, 20, true, '')
     expect(wrapper.text()).toContain('shareMailbox.noShares')
     wrapper.unmount()
   })
@@ -93,7 +99,7 @@ describe('share-link workspace page', () => {
     pagination.vm.$emit('page-change', 2)
     await flushPromises()
 
-    expect(mocks.getMyShares).toHaveBeenCalledWith(2, 20, false)
+    expect(mocks.getMyShares).toHaveBeenCalledWith(2, 20, false, '')
     expect(wrapper.getComponent(AdminPagination).props('currentPage')).toBe(2)
     wrapper.unmount()
   })
@@ -106,25 +112,63 @@ describe('share-link workspace page', () => {
     await flushPromises()
 
     expect(wrapper.get('thead').findAll('th').map((column) => column.text())).toEqual([
+      '',
       'shareMailbox.mailboxColumn',
       'shareMailbox.typeColumn',
       'shareMailbox.createdAtColumn',
       'shareMailbox.validityColumn',
       'shareMailbox.statusColumn',
+      'shareMailbox.openCountColumn',
       'shareMailbox.actionColumn'
     ])
     expect(wrapper.text()).toContain('shareMailbox.firstOpenMinutes:30')
     expect(wrapper.text()).toContain('shareMailbox.awaitingFirstOpen')
     const firstRowCells = wrapper.get('tbody').findAll('tr')[0].findAll('td')
-    expect(firstRowCells[2].text()).toContain('2026')
-    expect(firstRowCells[3].text()).toBe('shareMailbox.firstOpenMinutes:30')
-    const expiredStatus = wrapper.get('tbody').findAll('tr')[1].findAll('td')[4].get('span')
+    expect(firstRowCells[3].text()).toContain('2026')
+    expect(firstRowCells[4].text()).toBe('shareMailbox.firstOpenMinutes:30')
+    const expiredStatus = wrapper.get('tbody').findAll('tr')[1].findAll('td')[5].get('span')
     expect(expiredStatus.text()).toBe('shareMailbox.expired')
     expect(expiredStatus.classes()).toEqual(expect.arrayContaining(['bg-gray-100', 'text-gray-600']))
     expect(wrapper.get('button[aria-label="shareMailbox.deleteRecord"]').exists()).toBe(true)
     expect(wrapper.findAll('button[aria-label="common.copy"]')).toHaveLength(1)
     await wrapper.get('button[aria-label="shareMailbox.deleteRecord"]').trigger('click')
     expect(wrapper.getComponent(ConfirmDialog).props('title')).toBe('shareMailbox.deleteRecord')
+    wrapper.unmount()
+  })
+
+  it('searches all shares by mailbox address through the API', async () => {
+    mocks.getMyShares.mockResolvedValue({ code: 0, data: { shares: [], pagination: { total: 0 } } })
+    const wrapper = mountPage()
+    await flushPromises()
+
+    await wrapper.get('input[type="search"]').setValue(' sample@example.com ')
+    await wrapper.findAll('button').find((button) => button.text() === 'shareMailbox.search')!.trigger('click')
+    await flushPromises()
+
+    expect(mocks.getMyShares).toHaveBeenLastCalledWith(1, 20, false, 'sample@example.com')
+    expect(wrapper.text()).toContain('shareMailbox.noSearchResults')
+    wrapper.unmount()
+  })
+
+  it('selects the current page and deletes owned links in one request', async () => {
+    const secondShare = { ...share, id: 43, share_url: '/share/second-token' }
+    mocks.getMyShares
+      .mockResolvedValueOnce({ code: 0, data: { shares: [share, secondShare], pagination: { total: 2 } } })
+      .mockResolvedValueOnce({ code: 0, data: { shares: [], pagination: { total: 0 } } })
+    mocks.batchDeleteShares.mockResolvedValue({ code: 0, data: { deleted_count: 2 } })
+    const wrapper = mountPage()
+    await flushPromises()
+
+    await wrapper.get('input[aria-label="shareMailbox.selectPage"]').setValue(true)
+    expect(wrapper.text()).toContain('shareMailbox.selectedCount:2')
+    await wrapper.findAll('button').find((button) => button.text() === 'shareMailbox.deleteSelected')!.trigger('click')
+    const dialog = wrapper.getComponent(ConfirmDialog)
+    expect(dialog.props('message')).toBe('shareMailbox.deleteSelectedConfirm:2')
+    dialog.vm.$emit('confirm')
+    await flushPromises()
+
+    expect(mocks.batchDeleteShares).toHaveBeenCalledWith([42, 43], false)
+    expect(mocks.deleteShare).not.toHaveBeenCalled()
     wrapper.unmount()
   })
 })

@@ -94,13 +94,13 @@ export const mailboxShareAPI = {
    * @param {number} page
    * @param {number} pageSize
    */
-  getMyShares(page = 1, pageSize = 20, asGuest = false) {
+  getMyShares(page = 1, pageSize = 20, asGuest = false, search = '') {
     const guestTokens = asGuest ? getStoredGuestClaimTokens() : []
     if (asGuest && !guestTokens.length) {
       return Promise.resolve({ code: 0, data: { shares: [], pagination: { total: 0 } } })
     }
     return request.get('/mailbox-share/my/list', {
-      params: { page, page_size: pageSize },
+      params: { page, page_size: pageSize, ...(search ? { search } : {}) },
       skipAuth: asGuest,
       ...(guestTokens.length ? { headers: { 'X-Guest-Mailbox-Tokens': guestTokens.join(',') } } : {})
     })
@@ -114,6 +114,15 @@ export const mailboxShareAPI = {
     const guestTokens = asGuest ? getStoredGuestClaimTokens() : []
     return request.delete(`/mailbox-share/${shareId}`, {
       skipAuth: asGuest,
+      ...(guestTokens.length ? { headers: { 'X-Guest-Mailbox-Tokens': guestTokens.join(',') } } : {})
+    })
+  },
+
+  batchDeleteShares(shareIds, asGuest = false) {
+    const guestTokens = asGuest ? getStoredGuestClaimTokens() : []
+    return request.post('/mailbox-share/batch-delete', { share_ids: shareIds }, {
+      skipAuth: asGuest,
+      suppressErrorMessage: true,
       ...(guestTokens.length ? { headers: { 'X-Guest-Mailbox-Tokens': guestTokens.join(',') } } : {})
     })
   }
