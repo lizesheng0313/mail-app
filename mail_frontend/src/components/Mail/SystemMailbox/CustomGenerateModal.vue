@@ -84,6 +84,12 @@
                 <div class="flex items-center gap-2">
                   <p class="truncate text-base font-medium text-gray-900">{{ domain.domain_name }}</p>
                   <span
+                    v-if="isNewDomain(domain)"
+                    class="inline-flex flex-shrink-0 rounded-full bg-orange-100 px-2 py-0.5 text-xs font-semibold text-orange-700"
+                  >
+                    {{ t('home.newDomainBadge') }}
+                  </span>
+                  <span
                     v-if="domain.is_public_domain"
                     class="inline-flex flex-shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700"
                   >
@@ -349,6 +355,7 @@ import { getBalance } from '@/api/milkCoin'
 import { showMessage } from '@/utils/message'
 import { isInsufficientBalanceError } from '@/services/api'
 import { formatTimestamp } from '@/utils/timeUtils'
+import { isNewDomain, sortDomainsByCreatedAt } from './domainFreshness'
 
 const props = defineProps({
   visible: {
@@ -460,15 +467,6 @@ const resolvedSequenceStart = computed(() => {
   if (!Number.isFinite(value)) return 1
   return Math.max(1, Math.floor(value))
 })
-
-const sortDomainsByCreatedAt = (domains: any[]) =>
-  [...domains].sort((left, right) => {
-    const createdCompare = Number(right?.created_at || 0) - Number(left?.created_at || 0)
-    if (createdCompare !== 0) return createdCompare
-    const leftName = String(left?.domain_name || '').toLowerCase()
-    const rightName = String(right?.domain_name || '').toLowerCase()
-    return leftName.localeCompare(rightName)
-  })
 
 const domainStrategyOptions = computed(() => [
   {
@@ -682,6 +680,9 @@ const normalizeHostedDomainRows = (items: any[] = []) =>
       id: String(item.id),
       raw_id: Number(item.id),
       domain_name: item.domain_name,
+      created_at: item.created_at,
+      public_shared_at: item.public_shared_at,
+      domain_source: 'owned_hosted',
       expires_at: item.expires_at,
       is_public_domain: Boolean(item.is_public)
     }))
@@ -689,7 +690,7 @@ const normalizeHostedDomainRows = (items: any[] = []) =>
 const loadSystemDomains = async () => {
   const domainsRes: any = await mailboxAPI.getSystemDomains()
   if (domainsRes.code === 0 && domainsRes.data) {
-    domainOptions.value = domainsRes.data.items || []
+    domainOptions.value = sortDomainsByCreatedAt(domainsRes.data.items || [])
     domainTotal.value = domainOptions.value.length
     syncCustomGenerateDomainSelection()
   }

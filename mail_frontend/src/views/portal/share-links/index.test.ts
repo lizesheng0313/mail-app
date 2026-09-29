@@ -60,6 +60,7 @@ describe('share-link workspace page', () => {
     expect(wrapper.findComponent(AdminPagination).props('total')).toBe(1)
     expect(wrapper.get('.admin-pagination').exists()).toBe(true)
     expect(wrapper.text()).toContain('sample@example.com')
+    expect(wrapper.findAll('button').some((button) => button.text() === 'shareMailbox.batchDelete')).toBe(false)
     expect(wrapper.text()).toContain('shareMailbox.openCountValue:2')
     expect(wrapper.text()).toContain('shareMailbox.lastOpened')
     expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
@@ -161,8 +162,11 @@ describe('share-link workspace page', () => {
 
     await wrapper.get('input[aria-label="shareMailbox.selectPage"]').setValue(true)
     expect(wrapper.text()).toContain('shareMailbox.selectedCount:2')
-    await wrapper.findAll('button').find((button) => button.text() === 'shareMailbox.deleteSelected')!.trigger('click')
+    const batchDeleteButton = wrapper.findAll('button').find((button) => button.text() === 'shareMailbox.batchDelete')!
+    expect(batchDeleteButton.classes()).toContain('bg-red-600')
+    await batchDeleteButton.trigger('click')
     const dialog = wrapper.getComponent(ConfirmDialog)
+    expect(dialog.props('title')).toBe('shareMailbox.batchDelete')
     expect(dialog.props('message')).toBe('shareMailbox.deleteSelectedConfirm:2')
     dialog.vm.$emit('confirm')
     await flushPromises()

@@ -206,6 +206,7 @@ const en = {
     coinBalanceLabel: 'Current balance',
     coinUnit: 'coins',
     customGenerateDomainLabel: 'Choose domains',
+    newDomainBadge: 'New',
     customGenerateDomainHint: 'Select one or more system domains to generate mailboxes from.',
     customGenerateHostedDomainHint:
       'Select one or more verified domains you can use for domain mailbox generation.',
@@ -1319,7 +1320,7 @@ const en = {
     selectPage: 'Select shares on this page',
     selectShare: 'Select {email}',
     selectedCount: '{count} selected',
-    deleteSelected: 'Delete selected',
+    batchDelete: 'Delete shares',
     deleteSelectedConfirm: 'Delete {count} selected shares? Active links will stop working immediately.',
     selectedDeleted: '{count} shares deleted',
     deleteSelectedFailed: 'Failed to delete selected shares',

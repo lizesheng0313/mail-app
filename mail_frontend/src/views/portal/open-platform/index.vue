@@ -2,87 +2,106 @@
   <div class="min-h-screen bg-gray-50">
     <PageHeader />
 
-    <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-      <div class="grid grid-cols-1 gap-6 lg:grid-cols-[220px,1fr]">
-        <aside class="self-start rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-200 lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto">
-          <div class="border-b border-gray-100 px-3 pb-4">
-            <p class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-400">{{ t('openPlatform.sidebarCatalog') }}</p>
-            <h2 class="mt-2 text-base font-semibold text-gray-900">{{ t('openPlatform.externalApis') }}</h2>
-          </div>
-
-          <div class="space-y-5 px-1 pt-4">
-            <div>
-              <p class="px-3 text-xs font-semibold uppercase tracking-wide text-gray-400">{{ t('openPlatform.accessGuide') }}</p>
-              <div class="mt-2 space-y-1">
-                <a
-                  href="#doc-auth"
-                  class="block rounded-xl px-3 py-2 text-sm text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900"
-                >
-                  {{ t('openPlatform.howToCall') }}
-                </a>
-              </div>
+    <div class="mx-auto max-w-7xl px-4 py-4 sm:px-6 sm:py-6 lg:px-8">
+      <div class="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-[220px,minmax(0,1fr)] lg:gap-6">
+        <aside class="min-w-0 self-start rounded-2xl bg-white p-3 shadow-sm ring-1 ring-gray-200 sm:p-4 lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto">
+          <button
+            type="button"
+            class="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-sm font-semibold text-gray-900 lg:hidden"
+            :aria-expanded="mobileCatalogOpen"
+            aria-controls="open-platform-catalog"
+            @click="mobileCatalogOpen = !mobileCatalogOpen"
+          >
+            {{ t('openPlatform.sidebarCatalog') }}
+            <svg class="h-4 w-4 shrink-0 transition-transform" :class="mobileCatalogOpen ? 'rotate-180' : ''" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="m5 7 5 5 5-5" />
+            </svg>
+          </button>
+          <div id="open-platform-catalog" :class="mobileCatalogOpen ? 'block max-h-[60vh] overflow-y-auto lg:max-h-none lg:overflow-visible' : 'hidden lg:block'">
+            <div class="border-b border-gray-100 px-3 pb-4">
+              <p class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-400">{{ t('openPlatform.sidebarCatalog') }}</p>
+              <h2 class="mt-2 text-base font-semibold text-gray-900">{{ t('openPlatform.externalApis') }}</h2>
             </div>
 
-            <div v-if="docEndpointGroups.length">
-              <p class="px-3 text-xs font-semibold uppercase tracking-wide text-gray-400">{{ t('openPlatform.sidebarCatalog') }}</p>
-              <div class="mt-2 space-y-3">
-                <div
-                  v-for="group in docEndpointGroups"
-                  :key="group.name"
-                  class="space-y-2"
-                >
+            <div class="space-y-5 px-1 pt-4">
+              <div>
+                <p class="px-3 text-xs font-semibold uppercase tracking-wide text-gray-400">{{ t('openPlatform.accessGuide') }}</p>
+                <div class="mt-2 space-y-1">
                   <a
-                    :href="`#${getDocAnchor(group.name)}`"
-                    class="block rounded-xl px-3 py-2 text-sm font-medium text-gray-800 transition-colors hover:bg-gray-50 hover:text-gray-900"
+                    href="#doc-auth"
+                    class="block rounded-xl px-3 py-2 text-sm text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900"
+                    @click="mobileCatalogOpen = false"
                   >
-                    {{ group.label }}
+                    {{ t('openPlatform.howToCall') }}
                   </a>
-                  <div class="space-y-2 pl-3">
-                    <div
-                      v-for="subgroup in group.groups"
-                      :key="subgroup.name"
-                      class="space-y-1"
+                </div>
+              </div>
+
+              <div v-if="docEndpointGroups.length">
+                <p class="px-3 text-xs font-semibold uppercase tracking-wide text-gray-400">{{ t('openPlatform.sidebarCatalog') }}</p>
+                <div class="mt-2 space-y-3">
+                  <div
+                    v-for="group in docEndpointGroups"
+                    :key="group.name"
+                    class="space-y-2"
+                  >
+                    <a
+                      :href="`#${getDocAnchor(group.name)}`"
+                      class="block rounded-xl px-3 py-2 text-sm font-medium text-gray-800 transition-colors hover:bg-gray-50 hover:text-gray-900"
+                      @click="mobileCatalogOpen = false"
                     >
-                      <a
-                        :href="`#${getDocSubgroupAnchor(group.name, subgroup.name)}`"
-                        class="block rounded-lg px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900"
+                      {{ group.label }}
+                    </a>
+                    <div class="space-y-2 pl-3">
+                      <div
+                        v-for="subgroup in group.groups"
+                        :key="subgroup.name"
+                        class="space-y-1"
                       >
-                        {{ subgroup.label }}
-                      </a>
-                      <div class="space-y-1 pl-3">
                         <a
-                          v-for="endpoint in subgroup.items"
-                          :key="`${endpoint.method}-${endpoint.path}`"
-                          :href="`#${getEndpointAnchor(getEndpointAnchorGroup(endpoint, subgroup.name), endpoint)}`"
-                          class="block rounded-lg px-3 py-1.5 text-sm text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-900"
+                          :href="`#${getDocSubgroupAnchor(group.name, subgroup.name)}`"
+                          class="block rounded-lg px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900"
+                          @click="mobileCatalogOpen = false"
                         >
-                          {{ getEndpointLabel(endpoint) }}
+                          {{ subgroup.label }}
                         </a>
+                        <div class="space-y-1 pl-3">
+                          <a
+                            v-for="endpoint in subgroup.items"
+                            :key="`${endpoint.method}-${endpoint.path}`"
+                            :href="`#${getEndpointAnchor(getEndpointAnchorGroup(endpoint, subgroup.name), endpoint)}`"
+                            class="block rounded-lg px-3 py-1.5 text-sm text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-900"
+                            @click="mobileCatalogOpen = false"
+                          >
+                            {{ getEndpointLabel(endpoint) }}
+                          </a>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            <div v-if="errorGroups.length">
-              <p class="px-3 text-xs font-semibold uppercase tracking-wide text-gray-400">{{ t('openPlatform.appendix') }}</p>
-              <div class="mt-2 space-y-1">
-                <a
-                  href="#doc-errors"
-                  class="block rounded-xl px-3 py-2 text-sm text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900"
-                >
-                  {{ t('openPlatform.errorCodes') }}
-                </a>
+              <div v-if="errorGroups.length">
+                <p class="px-3 text-xs font-semibold uppercase tracking-wide text-gray-400">{{ t('openPlatform.appendix') }}</p>
+                <div class="mt-2 space-y-1">
+                  <a
+                    href="#doc-errors"
+                    class="block rounded-xl px-3 py-2 text-sm text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900"
+                    @click="mobileCatalogOpen = false"
+                  >
+                    {{ t('openPlatform.errorCodes') }}
+                  </a>
+                </div>
               </div>
             </div>
           </div>
         </aside>
 
-        <main class="space-y-6">
-          <section id="doc-auth" class="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
+        <main class="min-w-0 space-y-4 lg:space-y-6">
+          <section id="doc-auth" class="scroll-mt-20 min-w-0 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-200 sm:p-6">
             <div class="flex items-center justify-between gap-4">
-              <div>
+              <div class="min-w-0">
                 <h2 class="text-xl font-semibold text-gray-900">{{ t('openPlatform.title') }}</h2>
                 <p class="mt-2 text-sm text-gray-600">{{ t('openPlatform.intro') }}</p>
               </div>
@@ -132,11 +151,11 @@
                 <div
                   v-for="header in commonHeaders"
                   :key="header.name"
-                  class="grid grid-cols-1 gap-2 px-4 py-3 lg:grid-cols-[220px,1fr]"
+                  class="grid min-w-0 grid-cols-1 gap-2 px-4 py-3 lg:grid-cols-[220px,minmax(0,1fr)]"
                 >
                   <div>
                     <div class="flex flex-wrap items-center gap-2">
-                      <code class="text-sm text-primary-700">{{ header.name }}</code>
+                      <code class="break-all text-sm text-primary-700">{{ header.name }}</code>
                       <span
                         :class="header.required ? 'bg-red-50 text-red-700' : 'bg-gray-100 text-gray-600'"
                         class="rounded-full px-2 py-0.5 text-xs"
@@ -146,14 +165,14 @@
                     </div>
                     <div class="mt-1 text-xs text-gray-500">{{ header.type }}</div>
                   </div>
-                  <div class="text-sm leading-6 text-gray-600">{{ header.description }}</div>
+                  <div class="min-w-0 break-words text-sm leading-6 text-gray-600">{{ header.description }}</div>
                 </div>
               </div>
             </div>
 
             <div class="mt-6 rounded-2xl bg-gray-900 p-5 text-gray-100">
               <p class="text-sm font-medium">{{ t('openPlatform.requestSample') }}</p>
-              <pre class="mt-3 overflow-x-auto whitespace-pre-wrap text-xs leading-6 text-gray-100">{{ sampleCurl }}</pre>
+              <pre class="mt-3 max-w-full whitespace-pre-wrap break-words text-xs leading-6 text-gray-100 [overflow-wrap:anywhere]">{{ sampleCurl }}</pre>
             </div>
           </section>
 
@@ -187,7 +206,7 @@
                     v-for="endpoint in subgroup.items"
                     :key="endpoint.method + endpoint.path"
                     :id="getEndpointAnchor(getEndpointAnchorGroup(endpoint, subgroup.name), endpoint)"
-                    class="scroll-mt-28 space-y-3 px-5 py-4"
+                    class="scroll-mt-20 min-w-0 space-y-3 px-4 py-4 sm:px-5 lg:scroll-mt-28"
                   >
                     <div class="space-y-2">
                       <div class="flex flex-wrap items-center gap-3">
@@ -207,7 +226,7 @@
                             >
                               {{ target.label }}
                             </span>
-                            <code class="block text-sm text-primary-700 break-all">{{ target.url }}</code>
+                            <code class="block min-w-0 break-all text-sm text-primary-700">{{ target.url }}</code>
                           </div>
                         </div>
                       </div>
@@ -224,7 +243,7 @@
 
                     <pre
                       v-if="endpoint.sample"
-                      class="overflow-x-auto whitespace-pre-wrap rounded-xl bg-gray-900 px-4 py-3 text-xs leading-6 text-gray-100"
+                      class="max-w-full whitespace-pre-wrap break-words rounded-xl bg-gray-900 px-4 py-3 text-xs leading-6 text-gray-100 [overflow-wrap:anywhere]"
                     >{{ endpoint.sample }}</pre>
 
                     <div v-if="shouldRenderRequestParams(endpoint) && getEndpointParameters(endpoint).length" class="overflow-hidden rounded-xl border border-gray-200">
@@ -233,11 +252,11 @@
                         <div
                           v-for="param in getEndpointParameters(endpoint)"
                           :key="param.name"
-                          class="grid grid-cols-1 gap-2 px-4 py-3 lg:grid-cols-[220px,1fr]"
+                          class="grid min-w-0 grid-cols-1 gap-2 px-4 py-3 lg:grid-cols-[220px,minmax(0,1fr)]"
                         >
                           <div>
                             <div class="flex flex-wrap items-center gap-2">
-                              <code class="text-sm text-primary-700">{{ param.name }}</code>
+                              <code class="break-all text-sm text-primary-700">{{ param.name }}</code>
                               <span
                                 :class="param.required ? 'bg-red-50 text-red-700' : 'bg-gray-100 text-gray-600'"
                                 class="rounded-full px-2 py-0.5 text-xs"
@@ -250,7 +269,7 @@
                               <span v-if="param.enumText"> · {{ param.enumText }}</span>
                             </div>
                           </div>
-                          <div class="text-sm leading-6 text-gray-600">{{ param.description || '-' }}</div>
+                          <div class="min-w-0 break-words text-sm leading-6 text-gray-600">{{ param.description || '-' }}</div>
                         </div>
                       </div>
                     </div>
@@ -258,12 +277,12 @@
                     <div v-if="hasRenderableExample(endpoint.request_example) || hasRenderableExample(endpoint.response_example)" class="grid grid-cols-1 gap-3 lg:grid-cols-2">
                       <pre
                         v-if="hasRenderableExample(endpoint.request_example)"
-                        class="overflow-x-auto whitespace-pre-wrap rounded-xl bg-gray-50 px-4 py-3 text-xs leading-6 text-gray-700"
+                        class="min-w-0 max-w-full whitespace-pre-wrap break-words rounded-xl bg-gray-50 px-4 py-3 text-xs leading-6 text-gray-700 [overflow-wrap:anywhere]"
                       >{{ t('openPlatform.requestExample') }}
 {{ formatJson(endpoint.request_example) }}</pre>
                       <pre
                         v-if="hasRenderableExample(endpoint.response_example)"
-                        class="overflow-x-auto whitespace-pre-wrap rounded-xl bg-gray-50 px-4 py-3 text-xs leading-6 text-gray-700"
+                        class="min-w-0 max-w-full whitespace-pre-wrap break-words rounded-xl bg-gray-50 px-4 py-3 text-xs leading-6 text-gray-700 [overflow-wrap:anywhere]"
                       >{{ t('openPlatform.responseExample') }}
 {{ formatJson(endpoint.response_example) }}</pre>
                     </div>
@@ -295,13 +314,13 @@
                   <div
                     v-for="item in group.items"
                     :key="item.code"
-                    class="grid grid-cols-1 gap-2 border-b border-gray-100 px-4 py-3 last:border-b-0 lg:grid-cols-[220px,1fr]"
+                    class="grid min-w-0 grid-cols-1 gap-2 border-b border-gray-100 px-4 py-3 last:border-b-0 lg:grid-cols-[220px,minmax(0,1fr)]"
                   >
                     <div>
-                      <code class="text-sm text-red-700">{{ item.code }}</code>
-                      <div class="mt-1 text-xs text-gray-500">{{ item.message_key }}</div>
+                      <code class="break-all text-sm text-red-700">{{ item.code }}</code>
+                      <div class="mt-1 break-all text-xs text-gray-500">{{ item.message_key }}</div>
                     </div>
-                    <div class="text-sm leading-6 text-gray-600">{{ item.message }}</div>
+                    <div class="min-w-0 break-words text-sm leading-6 text-gray-600">{{ item.message }}</div>
                   </div>
                 </div>
               </div>
@@ -382,6 +401,7 @@ type CommonHeaderItem = {
 }
 
 const loading = ref(false)
+const mobileCatalogOpen = ref(false)
 const meta = ref<any>(null)
 const docsData = ref<any>(null)
 
