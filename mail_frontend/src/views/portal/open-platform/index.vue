@@ -239,7 +239,7 @@
                     <div class="space-y-2">
                       <div class="flex flex-wrap items-center gap-3">
                         <span class="rounded-full bg-gray-900 px-3 py-1 text-xs font-semibold text-white">{{ endpoint.method }}</span>
-                        <h4 class="text-sm font-semibold text-gray-900">{{ endpoint.title || getEndpointLabel(endpoint) }}</h4>
+                        <h4 class="text-sm font-semibold text-gray-900">{{ getEndpointLabel(endpoint) }}</h4>
                       </div>
                       <div class="space-y-2">
                         <div class="space-y-1.5">
@@ -643,8 +643,7 @@ const getDesktopLocalTitle = (endpoint: EndpointItem) => {
 const getEndpointLabel = (endpoint: EndpointItem) => {
   if (endpoint.execution_mode === 'desktop_local') return getDesktopLocalTitle(endpoint)
   const key = `${String(endpoint.method || '').toUpperCase()} ${String(endpoint.path || '')}`
-  if (endpoint.title) return endpoint.title
-  return endpointLabelMap[key] ? t(endpointLabelMap[key]) : endpoint.description || `${endpoint.method} ${endpoint.path}`
+  return endpointLabelMap[key] ? t(endpointLabelMap[key]) : endpoint.title || endpoint.description || `${endpoint.method} ${endpoint.path}`
 }
 const getRuntimeOrigin = () => (typeof window !== 'undefined' ? window.location.origin : '')
 const getEndpointTargets = (endpoint: EndpointItem): EndpointTarget[] => {

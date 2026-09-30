@@ -476,10 +476,10 @@ const zhCN = {
       workflowExecutions: '工作流执行'
     },
     endpoints: {
-      createMailbox: '创建临时邮箱或域名邮箱',
-      listMailboxes: '临时邮箱或域名邮箱列表',
+      createMailbox: '创建邮箱账号',
+      listMailboxes: '邮箱列表',
       resolveMailbox: '按邮箱地址查 ID',
-      deleteMailbox: '删除临时邮箱或域名邮箱',
+      deleteMailbox: '删除邮箱账号',
       listExternalMailboxes: '外部邮箱列表',
       deleteExternalMailbox: '删除外部邮箱',
       listSmtpAccounts: '发信账号列表',
@@ -493,9 +493,9 @@ const zhCN = {
     },
     commonMail: {
       title: '通用邮箱接口',
-      description: '创建、列表、删除邮箱账号和读取邮件都共用一套接口；传 mailbox_type（system / hosted / external）区分类型。邮件列表还可直接传 mailbox_email，无需先查 mailbox_id。',
+      description: '邮箱账号用 /mailboxes，邮件用 /emails。两组接口都支持临时、域名、第三方邮箱，用 mailbox_type 区分。查邮件可直接传 mailbox_email。',
       lookup: '按地址查邮箱 ID（可选）',
-      emails: '邮件列表、详情与删除',
+      emails: '邮件',
       codes: '验证码',
       shares: '邮箱分享',
       mailboxAccounts: '临时与域名邮箱',

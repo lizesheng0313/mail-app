@@ -475,10 +475,10 @@ const zhTW = {
       workflowExecutions: '工作流執行'
     },
     endpoints: {
-      createMailbox: '建立臨時郵箱或網域郵箱',
-      listMailboxes: '臨時郵箱或網域郵箱列表',
+      createMailbox: '建立郵箱帳號',
+      listMailboxes: '郵箱列表',
       resolveMailbox: '按郵箱地址查 ID',
-      deleteMailbox: '刪除臨時郵箱或網域郵箱',
+      deleteMailbox: '刪除郵箱帳號',
       listExternalMailboxes: '外部郵箱列表',
       deleteExternalMailbox: '刪除外部郵箱',
       listSmtpAccounts: '發信帳號列表',
@@ -492,9 +492,9 @@ const zhTW = {
     },
     commonMail: {
       title: '通用郵箱接口',
-      description: '建立、列表、刪除郵箱帳號和讀取郵件都共用一套接口；傳 mailbox_type（system / hosted / external）區分類型。郵件列表還可直接傳 mailbox_email，無需先查 mailbox_id。',
+      description: '郵箱帳號用 /mailboxes，郵件用 /emails。兩組接口都支援臨時、網域、第三方郵箱，用 mailbox_type 區分。查郵件可直接傳 mailbox_email。',
       lookup: '按地址查郵箱 ID（可選）',
-      emails: '郵件列表、詳情與刪除',
+      emails: '郵件',
       codes: '驗證碼',
       shares: '郵箱分享',
       mailboxAccounts: '臨時與網域郵箱',
