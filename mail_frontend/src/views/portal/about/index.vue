@@ -4,7 +4,7 @@
 
     <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
       <div class="relative mb-5">
-        <label for="help-search" class="sr-only">搜索帮助中心</label>
+        <label for="help-search" class="sr-only">{{ t('about.helpSearchLabel') }}</label>
         <div class="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 transition-colors focus-within:border-primary-500">
           <svg class="h-5 w-5 shrink-0 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
             <circle cx="11" cy="11" r="7" />
@@ -15,19 +15,19 @@
             v-model="searchQuery"
             type="search"
             class="h-12 min-w-0 flex-1 border-0 bg-transparent text-sm text-slate-900 outline-none ring-0 placeholder:text-slate-400 focus:border-0 focus:outline-none focus:ring-0"
-            placeholder="搜索帮助，例如：复制邮箱、DNS、授权码"
+            :placeholder="t('about.helpSearchPlaceholder')"
             autocomplete="off"
             @keydown.enter.prevent="openFirstSearchResult"
             @keydown.esc="searchQuery = ''"
           />
-          <button v-if="searchQuery" type="button" class="shrink-0 text-sm text-slate-500 hover:text-slate-900" @click="searchQuery = ''">清空</button>
+          <button v-if="searchQuery" type="button" class="shrink-0 text-sm text-slate-500 hover:text-slate-900" @click="searchQuery = ''">{{ t('about.helpClear') }}</button>
         </div>
       </div>
 
-      <section v-if="normalizedSearchQuery" class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 sm:p-7" aria-label="帮助中心搜索结果">
+      <section v-if="normalizedSearchQuery" class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 sm:p-7" :aria-label="t('about.helpSearchResults')">
         <div class="mb-4 flex items-baseline justify-between gap-3">
-          <h1 class="text-lg font-semibold text-slate-900">搜索结果</h1>
-          <p class="text-sm text-slate-500" aria-live="polite">找到 {{ searchResults.length }} 篇指南</p>
+          <h1 class="text-lg font-semibold text-slate-900">{{ t('about.helpSearchResults') }}</h1>
+          <p class="text-sm text-slate-500" aria-live="polite">{{ t('about.helpResultsCount', { count: searchResults.length }) }}</p>
         </div>
         <div v-if="searchResults.length" class="divide-y divide-slate-100">
           <a
@@ -42,13 +42,13 @@
             <p v-if="result.snippet" class="mt-1 line-clamp-2 text-sm leading-6 text-slate-600">{{ result.snippet }}</p>
           </a>
         </div>
-        <p v-else class="py-8 text-center text-sm text-slate-500">没有找到相关指南，试试更短的关键词，例如“域名”或“收件”。</p>
+        <p v-else class="py-8 text-center text-sm text-slate-500">{{ t('about.helpNoResults') }}</p>
       </section>
 
       <div v-else class="grid grid-cols-1 gap-6 lg:h-[calc(100vh-11.5rem)] lg:grid-cols-[252px_minmax(0,1fr)]">
         <aside class="help-toc max-h-[60vh] self-start overflow-y-auto rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 lg:h-full lg:max-h-none lg:self-stretch">
           <div class="border-b border-slate-100 px-3 pb-4">
-            <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">目录</p>
+            <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">{{ t('about.helpContents') }}</p>
             <a href="/about" class="mt-2 block text-base font-semibold text-slate-900 hover:text-primary-700" @click.prevent="goHome">
               {{ t('about.title') }}
             </a>
@@ -89,7 +89,7 @@
               </div>
             </div>
           </div>
-          <div v-else class="px-3 py-4 text-sm text-slate-400">暂无菜单</div>
+          <div v-else class="px-3 py-4 text-sm text-slate-400">{{ t('about.helpNoMenu') }}</div>
         </aside>
 
         <main ref="contentPanelRef" class="help-content-panel space-y-6 lg:min-h-0 lg:overflow-y-auto">
@@ -106,14 +106,15 @@
               {{ selectedArticle.title }}
             </div>
             <h2 class="text-2xl font-semibold text-slate-900">{{ selectedArticle.title }}</h2>
+            <p v-if="selectedArticle.translation_missing" class="mt-3 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800">{{ t('about.helpTranslationPending') }}</p>
             <div
               v-if="selectedArticle.content_html"
               class="help-rich-content mt-4 text-sm leading-7 text-slate-600"
               v-html="selectedArticle.content_html"
             ></div>
-            <p v-else class="mt-4 text-sm leading-7 text-slate-400">暂无内容</p>
+            <p v-else class="mt-4 text-sm leading-7 text-slate-400">{{ t('about.helpNoContent') }}</p>
             <div v-if="relatedArticles.length" class="mt-8 border-t border-slate-100 pt-6">
-              <h3 class="text-sm font-semibold text-slate-900">{{ relatedTitle }}使用指南</h3>
+              <h3 class="text-sm font-semibold text-slate-900">{{ t('about.helpRelated', { name: relatedTitle }) }}</h3>
               <div class="mt-3 grid gap-2 sm:grid-cols-2">
                 <a
                   v-for="item in relatedArticles"
@@ -130,7 +131,7 @@
           <template v-else>
             <div class="rounded-2xl bg-white px-8 py-8 shadow-sm ring-1 ring-slate-200">
               <h1 class="text-2xl font-semibold text-slate-900">{{ t('about.title') }}</h1>
-              <p class="mt-3 text-sm leading-7 text-slate-600">按使用场景查找指南，了解如何创建、收取、分享和管理邮箱。</p>
+              <p class="mt-3 text-sm leading-7 text-slate-600">{{ t('about.helpIntro') }}</p>
             </div>
             <div v-if="menuTree.length" class="grid gap-4 sm:grid-cols-2">
               <a
@@ -141,10 +142,10 @@
                 @click.prevent="goHelp(root.article_key)"
               >
                 <h2 class="text-lg font-semibold text-slate-900">{{ root.title }}</h2>
-                <p class="mt-2 text-sm text-slate-500">{{ root.children?.length ? `${root.children.length} 篇使用指南` : '查看说明' }}</p>
+                <p class="mt-2 text-sm text-slate-500">{{ root.children?.length ? t('about.helpGuideCount', { count: root.children.length }) : t('about.helpViewGuide') }}</p>
               </a>
             </div>
-            <p v-else class="rounded-2xl bg-white px-8 py-8 text-sm text-slate-500 shadow-sm ring-1 ring-slate-200">暂无帮助内容，请稍后再试。</p>
+            <p v-else class="rounded-2xl bg-white px-8 py-8 text-sm text-slate-500 shadow-sm ring-1 ring-slate-200">{{ t('about.helpUnavailable') }}</p>
           </template>
         </main>
       </div>
@@ -159,6 +160,9 @@ import { useRoute, useRouter } from 'vue-router'
 import PageHeader from '@/components/PageHeader/index.vue'
 import helpCenterAPI from '@/api/helpCenter'
 import fallbackArticles from '@/data/helpCenterFallback.json'
+import traditionalArticles from '@/data/helpCenterFallback.zh-TW.json'
+import { helpCenterEnglish } from '@/data/helpCenterEnglish'
+import { normalizeLocale } from '@/i18n'
 
 type HelpArticle = {
   article_key: string
@@ -167,6 +171,7 @@ type HelpArticle = {
   content_html: string
   sort_order: number
   enabled: boolean
+  translation_missing?: boolean
   children?: HelpArticle[]
 }
 
@@ -178,14 +183,41 @@ type SearchEntry = {
   order: number
 }
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const defaultArticles = fallbackArticles as HelpArticle[]
-const articles = ref<HelpArticle[]>(defaultArticles)
+const apiArticles = ref<HelpArticle[] | null>(null)
+const traditionalByKey = new Map((traditionalArticles as HelpArticle[]).map((article) => [article.article_key, article]))
+const englishImages = (html: string, title: string) => {
+  const images = [...String(html || '').matchAll(/<img\b[^>]*>/gi)]
+  return images.map(([tag]) => {
+    const src = tag.match(/\bsrc="([^"]+)"/i)?.[1]
+    const width = tag.match(/\bwidth="(\d+)"/i)?.[1]
+    if (!src || !src.startsWith('/help-center/')) return ''
+    const image = `<img src="${src}"${width ? ` width="${width}"` : ''} alt="${title}" loading="lazy">`
+    return `<p><a href="${src}" target="_blank" rel="noopener noreferrer">${image}</a></p>`
+  }).join('')
+}
+const articles = computed<HelpArticle[]>(() => {
+  if (apiArticles.value) return apiArticles.value
+  const selectedLocale = normalizeLocale(locale.value)
+  if (selectedLocale === 'zh-CN') return defaultArticles
+  return defaultArticles.map((article) => {
+    if (selectedLocale === 'zh-TW') {
+      const translation = traditionalByKey.get(article.article_key)
+      return translation
+        ? { ...article, title: translation.title, content_html: translation.content_html }
+        : { ...article, translation_missing: true }
+    }
+    const translation = helpCenterEnglish[article.article_key]
+    return translation
+      ? { ...article, title: translation.title, content_html: translation.content_html + englishImages(article.content_html, translation.title) }
+      : { ...article, translation_missing: true }
+  })
+})
 const searchQuery = ref('')
 const contentPanelRef = ref<HTMLElement | null>(null)
-const expectedRootKeys = defaultArticles.filter((item) => !item.parent_key).map((item) => item.article_key)
 
 const menuTree = computed<HelpArticle[]>(() => {
   const byParent = new Map<string, HelpArticle[]>()
@@ -219,7 +251,7 @@ const searchIndex = computed<SearchEntry[]>(() => {
       entries.push({
         article_key: node.article_key,
         title: node.title,
-        breadcrumb: ancestors.length ? ancestors.join(' › ') : '帮助中心',
+        breadcrumb: ancestors.length ? ancestors.join(' › ') : t('about.title'),
         body: plainText(node.content_html),
         order: entries.length
       })
@@ -284,22 +316,24 @@ const removeGeneratedIllustrations = (contentHtml: string) =>
     .replace(/<p>\s*<img[^>]*src="\/help-center\/guide\/[^"]+"[^>]*>\s*<\/p>/gi, '')
     .replace(/<img[^>]*src="\/help-center\/guide\/[^"]+"[^>]*>/gi, '')
 
+let loadSequence = 0
 const loadHelpArticles = async () => {
+  const sequence = ++loadSequence
   try {
-    const res: any = await helpCenterAPI.listPublicArticles()
-    const apiArticles: HelpArticle[] = (res.data?.articles || [])
+    const res: any = await helpCenterAPI.listPublicArticles(normalizeLocale(locale.value))
+    if (sequence !== loadSequence) return
+    if (!Array.isArray(res.data?.articles)) throw new Error('Invalid help center response')
+    const loadedArticles: HelpArticle[] = res.data.articles
       .filter((item: HelpArticle) => item.article_key && item.enabled)
       .map((item: HelpArticle) => ({
         ...item,
         content_html: removeGeneratedIllustrations(item.content_html)
       }))
-    const availableRoots = new Set(apiArticles.filter((item) => !item.parent_key).map((item) => item.article_key))
-    articles.value = expectedRootKeys.every((key) => availableRoots.has(key))
-      ? apiArticles
-      : defaultArticles
+    apiArticles.value = loadedArticles
   } catch (error) {
+    if (sequence !== loadSequence) return
     console.warn('加载帮助中心内容失败', error)
-    articles.value = defaultArticles
+    apiArticles.value = null
   }
 }
 
@@ -321,6 +355,12 @@ const openFirstSearchResult = () => {
 }
 
 onMounted(loadHelpArticles)
+
+watch(locale, () => {
+  searchQuery.value = ''
+  apiArticles.value = null
+  void loadHelpArticles()
+})
 
 watch(
   () => route.query.help,

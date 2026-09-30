@@ -57,11 +57,27 @@
       </aside>
 
       <main class="min-w-0 rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-200 sm:p-5">
+        <div class="mb-4 flex flex-wrap items-center gap-2 border-b border-gray-200 pb-4">
+          <button
+            v-for="language in languages"
+            :key="language.value"
+            type="button"
+            class="rounded-lg px-4 py-2 text-sm font-medium"
+            :class="selectedLocale === language.value ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
+            :disabled="!selectedKey && language.value !== 'zh-CN'"
+            @click="changeLocale(language.value)"
+          >
+            {{ language.label }}
+            <span v-if="language.value !== 'zh-CN' && translationDrafts[language.value].stale" class="ml-1 text-amber-600">待更新</span>
+          </button>
+          <span class="text-xs text-gray-500">先保存简体原文；原文修改后，旧译文需重新确认，前台不会继续使用旧译文。</span>
+        </div>
         <div class="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
           <label class="block">
             <span class="text-sm font-medium text-gray-700">菜单 Key</span>
             <input
               v-model.trim="form.article_key"
+              :disabled="selectedLocale !== 'zh-CN'"
               class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-primary-500"
               placeholder="例如 help-login"
             />
@@ -70,14 +86,15 @@
             <span class="text-sm font-medium text-gray-700">父级 Key</span>
             <input
               v-model.trim="form.parent_key"
+              :disabled="selectedLocale !== 'zh-CN'"
               class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-primary-500"
               placeholder="空着就是一级菜单"
             />
           </label>
           <label class="block">
-            <span class="text-sm font-medium text-gray-700">标题</span>
+            <span class="text-sm font-medium text-gray-700">{{ selectedLocale === 'zh-CN' ? '标题' : '翻译标题' }}</span>
             <input
-              v-model="form.title"
+              v-model="editingTitle"
               class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-primary-500"
             />
           </label>
@@ -85,6 +102,7 @@
             <span class="text-sm font-medium text-gray-700">排序</span>
             <input
               v-model.number="form.sort_order"
+              :disabled="selectedLocale !== 'zh-CN'"
               type="number"
               class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-primary-500"
             />
@@ -93,7 +111,7 @@
 
         <div class="mb-4 flex flex-wrap items-center gap-3">
           <label class="inline-flex items-center gap-2 text-sm text-gray-700">
-            <input v-model="form.enabled" type="checkbox" class="rounded border-gray-300" />
+            <input v-model="form.enabled" type="checkbox" :disabled="selectedLocale !== 'zh-CN'" class="rounded border-gray-300" />
             启用
           </label>
           <div class="inline-flex rounded-lg border border-gray-300 p-1">
@@ -136,7 +154,7 @@
           <button
             type="button"
             class="rounded-lg border border-red-300 px-4 py-2 text-sm text-red-600 hover:bg-red-50"
-            :disabled="!selectedKey"
+            :disabled="!selectedKey || selectedLocale !== 'zh-CN'"
             @click="deleteArticle"
           >
             删除
@@ -168,6 +186,16 @@ const selectedKey = ref('')
 const saving = ref(false)
 const editMode = ref('text')
 const editorContent = ref('')
+const selectedLocale = ref('zh-CN')
+const languages = [
+  { value: 'zh-CN', label: '简体中文' },
+  { value: 'zh-TW', label: '繁體中文' },
+  { value: 'en', label: 'English' },
+]
+const translationDrafts = reactive({
+  'zh-TW': { title: '', content_html: '', stale: false },
+  en: { title: '', content_html: '', stale: false },
+})
 
 const form = reactive({
   article_key: '',
@@ -177,6 +205,27 @@ const form = reactive({
   sort_order: 0,
   enabled: true,
 })
+
+const editingTitle = computed({
+  get: () => selectedLocale.value === 'zh-CN' ? form.title : translationDrafts[selectedLocale.value].title,
+  set: (title) => {
+    if (selectedLocale.value === 'zh-CN') form.title = title
+    else translationDrafts[selectedLocale.value].title = title
+  },
+})
+const currentDraftContent = () => selectedLocale.value === 'zh-CN'
+  ? form.content_html
+  : translationDrafts[selectedLocale.value].content_html
+const storeEditorContent = () => {
+  if (selectedLocale.value === 'zh-CN') form.content_html = previewContent.value
+  else translationDrafts[selectedLocale.value].content_html = previewContent.value
+}
+const changeLocale = (nextLocale) => {
+  if (selectedLocale.value === nextLocale || (!selectedKey.value && nextLocale !== 'zh-CN')) return
+  storeEditorContent()
+  selectedLocale.value = nextLocale
+  syncEditorFromHtml(currentDraftContent())
+}
 
 const articleMap = computed(() => Object.fromEntries(articles.value.map((item) => [item.article_key, item])))
 const menuTree = computed(() => {
@@ -253,6 +302,7 @@ const switchEditMode = (mode) => {
 }
 
 const resetForm = (parentKey = '') => {
+  selectedLocale.value = 'zh-CN'
   selectedKey.value = ''
   form.article_key = ''
   form.parent_key = parentKey
@@ -260,6 +310,11 @@ const resetForm = (parentKey = '') => {
   form.content_html = ''
   form.sort_order = articles.value.length
   form.enabled = true
+  for (const language of ['zh-TW', 'en']) {
+    translationDrafts[language].title = ''
+    translationDrafts[language].content_html = ''
+    translationDrafts[language].stale = false
+  }
   editorContent.value = ''
 }
 
@@ -289,7 +344,12 @@ const selectArticle = (key) => {
   form.content_html = article.content_html || ''
   form.sort_order = article.sort_order || 0
   form.enabled = article.enabled ?? true
-  syncEditorFromHtml(form.content_html)
+  for (const language of ['zh-TW', 'en']) {
+    translationDrafts[language].title = article.translations?.[language]?.title || ''
+    translationDrafts[language].content_html = article.translations?.[language]?.content_html || ''
+    translationDrafts[language].stale = Boolean(article.translations?.[language]?.stale)
+  }
+  syncEditorFromHtml(currentDraftContent())
 }
 
 const saveArticle = async () => {
@@ -297,23 +357,26 @@ const saveArticle = async () => {
     showMessage('请填写菜单 Key', 'error')
     return
   }
-  if (!form.title) {
+  if (!editingTitle.value.trim()) {
     showMessage('请填写标题', 'error')
+    return
+  }
+  if (selectedLocale.value !== 'zh-CN' && !selectedKey.value) {
+    showMessage('请先保存简体中文原文', 'error')
     return
   }
   saving.value = true
   try {
-    form.content_html = previewContent.value
+    storeEditorContent()
     const oldKey = selectedKey.value
-    const res = await helpCenterAPI.saveArticle(oldKey || form.article_key, { ...form })
-    const saved = res.data
-    const existsIndex = articles.value.findIndex((item) => item.article_key === (oldKey || saved.article_key))
-    if (existsIndex >= 0) {
-      articles.value.splice(existsIndex, 1, saved)
-    } else {
-      articles.value.push(saved)
-    }
-    selectedKey.value = saved.article_key
+    await helpCenterAPI.saveArticle(oldKey || form.article_key, {
+      ...form,
+      locale: selectedLocale.value,
+      title: editingTitle.value,
+      content_html: currentDraftContent(),
+    })
+    selectedKey.value = oldKey || form.article_key
+    await loadArticles()
     showMessage('保存成功', 'success')
   } finally {
     saving.value = false

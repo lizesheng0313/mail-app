@@ -3,8 +3,10 @@ import { defineComponent } from 'vue'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import fallbackArticles from '@/data/helpCenterFallback.json'
+import traditionalArticles from '@/data/helpCenterFallback.zh-TW.json'
+import { helpCenterEnglish } from '@/data/helpCenterEnglish'
+import { i18n, setI18nLocale } from '@/i18n'
 
-vi.mock('vue-i18n', () => ({ useI18n: () => ({ t: () => '帮助中心' }) }))
 vi.mock('@/components/PageHeader/index.vue', () => ({ default: { template: '<header />' } }))
 vi.mock('@/api/helpCenter', () => ({
   default: { listPublicArticles: vi.fn() }
@@ -17,6 +19,7 @@ const cleanups: Array<() => void> = []
 afterEach(() => {
   cleanups.splice(0).forEach((cleanup) => cleanup())
   vi.restoreAllMocks()
+  setI18nLocale('zh-CN')
 })
 
 const createPage = async (path = '/about') => {
@@ -27,7 +30,7 @@ const createPage = async (path = '/about') => {
   await router.push(path)
   await router.isReady()
   const wrapper = mount(defineComponent({ template: '<router-view />' }), {
-    global: { plugins: [router] }
+    global: { plugins: [router, i18n] }
   })
   cleanups.push(() => wrapper.unmount())
   await flushPromises()
@@ -35,13 +38,94 @@ const createPage = async (path = '/about') => {
 }
 
 describe('Help center', () => {
+  it('provides a translation for every built-in guide in English and Traditional Chinese', () => {
+    const keys = fallbackArticles.map((article) => article.article_key).sort()
+    expect(Object.keys(helpCenterEnglish).sort()).toEqual(keys)
+    expect(traditionalArticles.map((article) => article.article_key).sort()).toEqual(keys)
+  })
+
+  it('localizes the home page, search, article body, and screenshots in English', async () => {
+    setI18nLocale('en')
+    const localized = fallbackArticles.map((article) => ({
+      ...article,
+      title: helpCenterEnglish[article.article_key].title,
+      content_html: helpCenterEnglish[article.article_key].content_html
+        + (article.article_key === 'help_temp_copy'
+          ? '<p><img src="/help-center/copy-mailbox-hover.gif" width="392" alt="Copy a mailbox address"></p>'
+          : '')
+    }))
+    vi.mocked(helpCenterAPI.listPublicArticles).mockResolvedValue({ data: { articles: localized } } as any)
+    const { wrapper } = await createPage()
+    expect(helpCenterAPI.listPublicArticles).toHaveBeenCalledWith('en')
+    expect(wrapper.get('main h1').text()).toBe('Help Center')
+    expect(wrapper.get('aside a[href="/about?help=help_category_mailboxes"]').text()).toBe('Mailboxes')
+    expect(wrapper.get('input#help-search').attributes('placeholder')).toContain('Search guides')
+    await wrapper.get('input#help-search').setValue('copy mailbox')
+    expect(wrapper.get('section[aria-label="Search results"]').text()).toContain('Copy a mailbox address')
+    await wrapper.get('section[aria-label="Search results"] a[href="/about?help=help_temp_copy"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.get('main h2').text()).toBe('Copy a mailbox address')
+    expect(wrapper.get('main').text()).toContain('Paste the full address')
+    expect(wrapper.get('main').text()).not.toContain('复制邮箱地址')
+    expect(wrapper.get('main img').attributes('src')).toBe('/help-center/copy-mailbox-hover.gif')
+  })
+
+  it('updates existing guide content when the locale changes to Traditional Chinese', async () => {
+    vi.mocked(helpCenterAPI.listPublicArticles).mockImplementation(async (locale) => ({
+      data: { articles: locale === 'zh-TW' ? traditionalArticles : fallbackArticles }
+    } as any))
+    const { wrapper } = await createPage('/about?help=help_temp_copy')
+    expect(wrapper.get('main h2').text()).toBe('复制邮箱地址')
+    setI18nLocale('zh-TW')
+    await flushPromises()
+    expect(wrapper.get('main h2').text()).toBe('複製郵箱地址')
+    expect(wrapper.get('aside a[href="/about?help=help_category_mailboxes"]').text()).toBe('郵箱')
+    expect(wrapper.get('input#help-search').attributes('placeholder')).toContain('搜尋指南')
+  })
+
+  it('keeps newly added untranslated database guides accessible with a language notice', async () => {
+    setI18nLocale('en')
+    const articles = [...fallbackArticles, {
+      article_key: 'help_new_custom',
+      parent_key: 'help_category_tools',
+      title: '新指南',
+      content_html: '<p>新内容</p>',
+      sort_order: 99,
+      enabled: true,
+      translation_missing: true
+    }]
+    vi.mocked(helpCenterAPI.listPublicArticles).mockResolvedValue({ data: { articles } } as any)
+    const { wrapper } = await createPage('/about?help=help_new_custom')
+    expect(wrapper.get('main h2').text()).toBe('新指南')
+    expect(wrapper.get('main').text()).toContain('not been translated yet')
+    expect(wrapper.get('main').text()).toContain('新内容')
+  })
+
+  it('uses the database translation instead of a bundled copy when an article changes', async () => {
+    setI18nLocale('en')
+    const articles = fallbackArticles.map((article) => ({
+      ...article,
+      title: helpCenterEnglish[article.article_key].title,
+      content_html: helpCenterEnglish[article.article_key].content_html
+    }))
+    const copy = articles.find((article) => article.article_key === 'help_temp_copy')!
+    copy.title = 'Updated in admin'
+    copy.content_html = '<p>Latest instructions from the database.</p>'
+    vi.mocked(helpCenterAPI.listPublicArticles).mockResolvedValue({ data: { articles } } as any)
+
+    const { wrapper } = await createPage('/about?help=help_temp_copy')
+    expect(wrapper.get('main h2').text()).toBe('Updated in admin')
+    expect(wrapper.get('main').text()).toContain('Latest instructions from the database.')
+    expect(wrapper.get('main').text()).not.toContain('Paste the full address')
+  })
+
   it('finds guides by title and opens the best match with Enter', async () => {
-    vi.mocked(helpCenterAPI.listPublicArticles).mockResolvedValue({ data: { articles: [] } } as any)
+    vi.mocked(helpCenterAPI.listPublicArticles).mockResolvedValue({ data: { articles: fallbackArticles } } as any)
     const { wrapper, router } = await createPage()
     const search = wrapper.get('input#help-search')
 
     await search.setValue('复制邮箱')
-    const results = wrapper.get('section[aria-label="帮助中心搜索结果"]')
+    const results = wrapper.get('section[aria-label="搜索结果"]')
     expect(results.text()).toContain('复制邮箱地址')
     expect(results.findAll('a')[0].attributes('href')).toBe('/about?help=help_temp_copy')
     expect(wrapper.find('aside').exists()).toBe(false)
@@ -54,20 +138,20 @@ describe('Help center', () => {
   })
 
   it('searches article text, ignores case, and shows a useful empty state', async () => {
-    vi.mocked(helpCenterAPI.listPublicArticles).mockResolvedValue({ data: { articles: [] } } as any)
+    vi.mocked(helpCenterAPI.listPublicArticles).mockResolvedValue({ data: { articles: fallbackArticles } } as any)
     const { wrapper } = await createPage()
     const search = wrapper.get('input#help-search')
 
     await search.setValue('只显示前缀')
-    expect(wrapper.get('section[aria-label="帮助中心搜索结果"] a[href="/about?help=help_advanced_api"]').text()).toContain('访问密钥')
+    expect(wrapper.get('section[aria-label="搜索结果"] a[href="/about?help=help_advanced_api"]').text()).toContain('访问密钥')
 
     await search.setValue('dns')
-    expect(wrapper.get('section[aria-label="帮助中心搜索结果"]').text()).toContain('配置并验证 DNS')
+    expect(wrapper.get('section[aria-label="搜索结果"]').text()).toContain('配置并验证 DNS')
 
     await search.setValue('不存在的搜索词123')
-    expect(wrapper.get('section[aria-label="帮助中心搜索结果"]').text()).toContain('没有找到相关指南')
+    expect(wrapper.get('section[aria-label="搜索结果"]').text()).toContain('没有找到相关指南')
     await search.trigger('keydown.esc')
-    expect(wrapper.find('section[aria-label="帮助中心搜索结果"]').exists()).toBe(false)
+    expect(wrapper.find('section[aria-label="搜索结果"]').exists()).toBe(false)
   })
 
   it('searches the current database articles after they load', async () => {
@@ -77,7 +161,7 @@ describe('Help center', () => {
     vi.mocked(helpCenterAPI.listPublicArticles).mockResolvedValue({ data: { articles: imported } } as any)
     const { wrapper } = await createPage()
     await wrapper.get('input#help-search').setValue('独有搜索测试词')
-    expect(wrapper.find('section[aria-label="帮助中心搜索结果"] a[href="/about?help=help_temp_copy"]').exists()).toBe(true)
+    expect(wrapper.find('section[aria-label="搜索结果"] a[href="/about?help=help_temp_copy"]').exists()).toBe(true)
   })
 
   it('uses only the available interface screenshots, without generated diagrams', () => {
@@ -85,7 +169,7 @@ describe('Help center', () => {
     expect(fallbackArticles.filter((article) => article.content_html.includes('<img ')).map((article) => article.article_key)).toEqual([
       'help_start_account', 'help_start_choose', 'help_account_register', 'help_temp_create',
       'help_temp_custom', 'help_temp_copy', 'help_temp_read', 'help_domain_add', 'help_domain_dns',
-      'help_domain_dns_aliyun', 'help_mail_share', 'help_mail_search', 'help_advanced_2fa',
+      'help_domain_dns_aliyun', 'help_external_add', 'help_mail_share', 'help_mail_search', 'help_advanced_2fa',
       'help_advanced_clients'
     ])
     expect(fallbackArticles.some((article) => article.content_html.includes('/help-center/guide/'))).toBe(false)
@@ -112,7 +196,9 @@ describe('Help center', () => {
       '/help-center/domain-dns-local-demo.png': '896',
       '/help-center/aliyun-dns-records.png': '905',
       '/help-center/aliyun-dns-txt-form.png': '765',
-      '/help-center/aliyun-dns-mx-form.png': '765'
+      '/help-center/aliyun-dns-mx-form.png': '765',
+      '/help-center/external-add-entry.png': '905',
+      '/help-center/external-add-form.png': '905'
     }
     const seen = new Set<string>()
     for (const article of fallbackArticles) {
@@ -143,8 +229,8 @@ describe('Help center', () => {
     expect(wrapper.get('main').text()).not.toContain('非页面截图')
   })
 
-  it('shows all six menu groups even before the content SQL is imported', async () => {
-    vi.mocked(helpCenterAPI.listPublicArticles).mockResolvedValue({ data: { articles: [] } } as any)
+  it('shows all six menu groups when they are present in the database', async () => {
+    vi.mocked(helpCenterAPI.listPublicArticles).mockResolvedValue({ data: { articles: fallbackArticles } } as any)
     const { wrapper } = await createPage()
     const sections = wrapper.findAll('aside a[href^="/about?help=help_category_"]')
     expect(sections.map((section) => section.text())).toEqual([
@@ -155,18 +241,26 @@ describe('Help center', () => {
     expect(wrapper.get('aside a[href="/about?help=help_domain_dns"]').text()).toBe('配置并验证 DNS')
   })
 
-  it('keeps the full guide visible when the database still has the old four articles', async () => {
+  it('does not resurrect articles removed from the database', async () => {
     const oldArticles = fallbackArticles
       .filter((article) => ['product', 'feature', 'feature1_1', 'feature_1_2'].includes(article.article_key))
       .map((article) => ({ ...article, parent_key: '' }))
     vi.mocked(helpCenterAPI.listPublicArticles).mockResolvedValue({ data: { articles: oldArticles } } as any)
     const { wrapper } = await createPage()
-    expect(wrapper.findAll('aside a[href^="/about?help=help_category_"]')).toHaveLength(6)
-    expect(wrapper.text()).toContain('邮件触达')
+    expect(wrapper.findAll('aside a[href^="/about?help=help_category_"]')).toHaveLength(0)
+    expect(wrapper.get('aside a[href="/about?help=product"]').text()).toBe('快速开始')
+    expect(wrapper.text()).not.toContain('邮件触达')
+  })
+
+  it('honors an intentionally empty database list', async () => {
+    vi.mocked(helpCenterAPI.listPublicArticles).mockResolvedValue({ data: { articles: [] } } as any)
+    const { wrapper } = await createPage()
+    expect(wrapper.findAll('aside a[href^="/about?help="]')).toHaveLength(0)
+    expect(wrapper.get('main').text()).toContain('暂无帮助内容')
   })
 
   it('opens a deep guide with its category and topic visible in the menu', async () => {
-    vi.mocked(helpCenterAPI.listPublicArticles).mockResolvedValue({ data: { articles: [] } } as any)
+    vi.mocked(helpCenterAPI.listPublicArticles).mockResolvedValue({ data: { articles: fallbackArticles } } as any)
     const { wrapper } = await createPage('/about?help=help_temp_copy')
     expect(wrapper.get('main h2').text()).toBe('复制邮箱地址')
     expect(wrapper.get('aside a[href="/about?help=feature1_1"]').text()).toBe('临时邮箱')
@@ -177,7 +271,7 @@ describe('Help center', () => {
   })
 
   it('shows the real component screenshots for sharing a mailbox', async () => {
-    vi.mocked(helpCenterAPI.listPublicArticles).mockResolvedValue({ data: { articles: [] } } as any)
+    vi.mocked(helpCenterAPI.listPublicArticles).mockResolvedValue({ data: { articles: fallbackArticles } } as any)
     const { wrapper } = await createPage('/about?help=help_mail_share')
     expect(wrapper.get('main h2').text()).toBe('分享邮箱给别人')
     expect(wrapper.findAll('main img').map((image) => image.attributes('src'))).toEqual([
@@ -189,14 +283,14 @@ describe('Help center', () => {
   })
 
   it('shows the existing inbox screenshot when explaining where to refresh mail', async () => {
-    vi.mocked(helpCenterAPI.listPublicArticles).mockResolvedValue({ data: { articles: [] } } as any)
+    vi.mocked(helpCenterAPI.listPublicArticles).mockResolvedValue({ data: { articles: fallbackArticles } } as any)
     const { wrapper } = await createPage('/about?help=help_temp_read')
     expect(wrapper.get('main img').attributes('src')).toBe('/help-center/inbox-search-refresh.webp')
     expect(wrapper.get('main img').attributes('width')).toBe('400')
   })
 
   it('changes only the selected item and keeps the sidebar still when navigating', async () => {
-    vi.mocked(helpCenterAPI.listPublicArticles).mockResolvedValue({ data: { articles: [] } } as any)
+    vi.mocked(helpCenterAPI.listPublicArticles).mockResolvedValue({ data: { articles: fallbackArticles } } as any)
     const { wrapper, router } = await createPage('/about?help=help_temp_copy')
     const sidebar = wrapper.get('aside').element as HTMLElement
     const content = wrapper.get('main').element as HTMLElement
@@ -232,7 +326,7 @@ describe('Help center', () => {
   })
 
   it('links to the DNS provider guide and explains the external control panel fields', async () => {
-    vi.mocked(helpCenterAPI.listPublicArticles).mockResolvedValue({ data: { articles: [] } } as any)
+    vi.mocked(helpCenterAPI.listPublicArticles).mockResolvedValue({ data: { articles: fallbackArticles } } as any)
     const { wrapper } = await createPage('/about?help=help_domain_dns_cloudflare')
     expect(wrapper.get('main h2').text()).toBe('Cloudflare 添加 DNS 记录')
     expect(wrapper.get('main').text()).toContain('DNS → Records')
@@ -240,7 +334,7 @@ describe('Help center', () => {
   })
 
   it('shows the supplied redacted Aliyun screenshots and clarifies the record values', async () => {
-    vi.mocked(helpCenterAPI.listPublicArticles).mockResolvedValue({ data: { articles: [] } } as any)
+    vi.mocked(helpCenterAPI.listPublicArticles).mockResolvedValue({ data: { articles: fallbackArticles } } as any)
     const { wrapper } = await createPage('/about?help=help_domain_dns_aliyun')
     expect(wrapper.findAll('main img').map((image) => image.attributes('src'))).toEqual([
       '/help-center/aliyun-dns-records.png',
@@ -253,7 +347,7 @@ describe('Help center', () => {
   })
 
   it('maps each site DNS column to provider fields and explains separate TXT/MX records', async () => {
-    vi.mocked(helpCenterAPI.listPublicArticles).mockResolvedValue({ data: { articles: [] } } as any)
+    vi.mocked(helpCenterAPI.listPublicArticles).mockResolvedValue({ data: { articles: fallbackArticles } } as any)
     const add = await createPage('/about?help=help_domain_add')
     expect(add.wrapper.get('main').text()).toContain('在“域名”框只填域名本身')
     expect(add.wrapper.get('main').text()).toContain('DNS 配置')
@@ -274,7 +368,7 @@ describe('Help center', () => {
   })
 
   it('separates account social login from mailbox OAuth and warns that password verification needs desktop', async () => {
-    vi.mocked(helpCenterAPI.listPublicArticles).mockResolvedValue({ data: { articles: [] } } as any)
+    vi.mocked(helpCenterAPI.listPublicArticles).mockResolvedValue({ data: { articles: fallbackArticles } } as any)
     const social = await createPage('/about?help=help_account_social_login')
     expect(social.wrapper.get('main').text()).toContain('不是把微信、Gmail 或 Outlook 邮箱添加到收件箱')
     const verify = await createPage('/about?help=help_external_verify')

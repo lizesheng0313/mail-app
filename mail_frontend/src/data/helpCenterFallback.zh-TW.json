@@ -1,0 +1,490 @@
+[
+  {
+    "article_key": "help_category_mailboxes",
+    "parent_key": "",
+    "title": "郵箱",
+    "content_html": "<p>臨時郵箱、域名郵箱、第三方郵箱的創建、收件、複製地址和分享方法。</p>",
+    "sort_order": 10,
+    "enabled": true
+  },
+  {
+    "article_key": "help_category_account",
+    "parent_key": "",
+    "title": "個人中心",
+    "content_html": "<p>新用戶先看“快速開始”。購買訂單記錄買了什麼，財務中心記錄奶片餘額和收支流水。</p>",
+    "sort_order": 20,
+    "enabled": true
+  },
+  {
+    "article_key": "help_category_developer",
+    "parent_key": "",
+    "title": "開發者",
+    "content_html": "<p>訪問密鑰用於程序調用已授權的接口；完整密鑰只顯示一次，創建後請立即保存。</p>",
+    "sort_order": 30,
+    "enabled": true
+  },
+  {
+    "article_key": "help_category_automation",
+    "parent_key": "",
+    "title": "自動化",
+    "content_html": "<p>在資源庫創建、編輯和測試工作流；購買訂單只記錄交易，不是編輯工作流的地方。</p>",
+    "sort_order": 40,
+    "enabled": true
+  },
+  {
+    "article_key": "help_category_reach",
+    "parent_key": "",
+    "title": "郵件觸達",
+    "content_html": "<p>模板寫郵件內容，會員列表管理收件人，發送任務執行投遞，行為明細看結果；發送前排除退訂名單。</p>",
+    "sort_order": 50,
+    "enabled": true
+  },
+  {
+    "article_key": "help_category_tools",
+    "parent_key": "",
+    "title": "工具",
+    "content_html": "<p>下載桌面客戶端、打開小程序，或在瀏覽器中生成兩步驗證碼。</p>",
+    "sort_order": 60,
+    "enabled": true
+  },
+  {
+    "article_key": "product",
+    "parent_key": "help_category_account",
+    "title": "快速開始",
+    "content_html": "<p>先選擇需要的郵箱類型：臨時郵箱適合臨時收信；域名郵箱使用您已驗證的自有域名；第三方郵箱用於集中管理您已擁有的郵箱。</p><ol><li>只想馬上收信：進入<a href=\"/\">我的工作台</a>，選擇“臨時郵箱”，點擊“隨機獲取”。</li><li>需要長期管理、分享郵箱或添加自己的域名、第三方郵箱：先登錄或註冊。</li><li>創建郵箱後，複製地址給發件人；在工作台左側選中郵箱，中間查看來信，右側查看正文。</li></ol><p>請勿將臨時郵箱用於重要賬戶的長期找回郵箱。</p>",
+    "sort_order": 10,
+    "enabled": true
+  },
+  {
+    "article_key": "help_start_account",
+    "parent_key": "product",
+    "title": "登錄與賬號",
+    "content_html": "<p>登錄後可以在同一工作台管理臨時郵箱、已驗證域名下的郵箱和第三方郵箱，並使用分享鏈接、購買記錄等賬戶功能。訪客也能直接體驗臨時郵箱，但訪客郵箱保存在當前瀏覽器中，清除瀏覽器數據或更換設備可能無法繼續訪問。</p><ol><li>點擊頁面右上角“登錄”或“註冊”。</li><li>登錄成功後回到“我的工作台”，從郵箱類型入口切換。</li><li>如果此前在同一瀏覽器創建過訪客臨時郵箱，系統會嘗試將其認領到當前賬號；請在郵箱列表確認是否出現。</li></ol><p><img src=\"/help-center/login-entry.webp\" width=\"590\" alt=\"頁面頂部登錄入口\"></p>",
+    "sort_order": 10,
+    "enabled": true
+  },
+  {
+    "article_key": "help_start_choose",
+    "parent_key": "product",
+    "title": "選擇郵箱類型",
+    "content_html": "<ul><li><strong>臨時郵箱：</strong>不用先準備域名或現有郵箱，適合臨時接收郵件和驗證碼。</li><li><strong>域名郵箱：</strong>您擁有域名並能修改 DNS 時使用；先添加並驗證域名，再創建該域名下的地址。</li><li><strong>第三方郵箱：</strong>您已經有其他服務商的郵箱，想在這裡集中收取或通過其 SMTP 發信時使用；需取得該郵箱的授權碼或完成 OAuth 授權。</li></ul><p><img src=\"/help-center/mail-types.webp\" width=\"905\" alt=\"頁面上的臨時郵箱、域名郵箱和第三方郵箱介紹\"></p>",
+    "sort_order": 20,
+    "enabled": true
+  },
+  {
+    "article_key": "help_account_register",
+    "parent_key": "product",
+    "title": "註冊賬號",
+    "content_html": "<ol><li>打開<a href=\"/login\">登錄頁面</a>，點擊“註冊”。</li><li>填寫您能正常收信的郵箱，點擊“發送驗證碼”，去該郵箱查看驗證郵件。</li><li>填入驗證碼、密碼和確認密碼，閱讀服務條款與隱私政策後提交。</li><li>註冊成功後回到工作台，確認左側郵箱列表和賬號狀態。</li></ol><p><img src=\"/help-center/register-entry.webp\" width=\"156\" alt=\"頁面頂部的註冊入口\"></p><p>收不到驗證碼時，先核對地址和垃圾郵件文件夾，再按頁面提示重新發送；驗證碼和密碼不要轉發給他人。</p>",
+    "sort_order": 30,
+    "enabled": true
+  },
+  {
+    "article_key": "help_account_social_login",
+    "parent_key": "product",
+    "title": "微信和 Google 登錄",
+    "content_html": "<p>這是<strong>登錄本站賬號</strong>，不是把微信、Gmail 或 Outlook 郵箱添加到收件箱。要添加已有郵箱，請看<a href=\"/about?help=help_external_add\">添加第三方郵箱</a>。</p><ol><li>打開<a href=\"/login\">登錄頁面</a>，選擇“微信登錄”或“Google 登錄”。</li><li>微信：按頁面展示的小程序二維碼完成掃碼和確認；首次使用時，選擇創建新賬號或輸入已有本站賬號的郵箱、密碼完成綁定。</li><li>Google：在 Google 頁面選擇自己的賬號並確認；首次使用時，在返回頁面選擇創建新賬號或綁定已有本站賬號。</li><li>回到本站後檢查右上角是否顯示已登錄賬號。</li></ol><p>如果您已有本站賬號，首次授權時應選擇“綁定已有賬號”，避免創建兩個獨立賬號。只在官方授權頁面輸入第三方賬號憑據；無法打開授權頁時，檢查瀏覽器彈窗攔截和網絡。</p>",
+    "sort_order": 40,
+    "enabled": true
+  },
+  {
+    "article_key": "help_account_reset",
+    "parent_key": "product",
+    "title": "忘記密碼",
+    "content_html": "<ol><li>打開<a href=\"/login\">登錄頁面</a>，點擊“忘記密碼”。</li><li>填寫註冊郵箱，點擊“發送驗證碼”。</li><li>在註冊郵箱中查收驗證碼，填入新密碼和確認密碼後提交。</li><li>重置完成後，用新密碼重新登錄。</li></ol><p>若無法收取註冊郵箱的郵件，請通過站內客服咨詢賬號恢復方式；不要把驗證碼或新密碼發給客服。</p>",
+    "sort_order": 50,
+    "enabled": true
+  },
+  {
+    "article_key": "feature",
+    "parent_key": "help_category_mailboxes",
+    "title": "郵箱功能",
+    "content_html": "<p>工作台支持<a href=\"/about?help=feature1_1\">臨時郵箱</a>、<a href=\"/about?help=feature_1_2\">域名郵箱</a>和<a href=\"/about?help=help_external\">第三方郵箱</a>。選中郵箱後可以查看來信；需要給別人使用時，可複製地址或按權限<a href=\"/about?help=help_mail\">分享郵箱</a>。</p><p>部分操作需要先登錄。第三方郵箱的收發能力還取決於服務商授權和協議設置，域名郵箱收件取決於 DNS 是否配置正確。</p>",
+    "sort_order": 20,
+    "enabled": true
+  },
+  {
+    "article_key": "feature1_1",
+    "parent_key": "help_category_mailboxes",
+    "title": "臨時郵箱",
+    "content_html": "<p>臨時郵箱可以快速生成地址並接收郵件。訪客可在工作台直接隨機獲取；登錄後還可使用自定義創建等賬戶功能。創建後可在左側查看地址與有效期，選中郵箱查看來信。</p><p>從下面的指南開始：創建郵箱 → 複製地址 → 查看來信和驗證碼。臨時郵箱不適合存放敏感信息，也不建議用於長期依賴的賬號。</p>",
+    "sort_order": 30,
+    "enabled": true
+  },
+  {
+    "article_key": "help_temp_create",
+    "parent_key": "feature1_1",
+    "title": "隨機創建郵箱",
+    "content_html": "<ol><li>打開<a href=\"/\">我的工作台</a>，切換到“臨時郵箱”。</li><li>點擊“隨機獲取”，系統會生成一個郵箱地址並加入左側列表。</li><li>選中這個郵箱，等待對方發送郵件；新郵件會顯示在收件箱中。</li></ol><p><img src=\"/help-center/get-mailbox.webp\" width=\"810\" alt=\"隨機獲取按鈕和臨時郵箱列表\"></p><p>訪客頁面會顯示“今日已用/額度”，達到當日額度後需等待額度恢復或登錄後查看可用方式。</p>",
+    "sort_order": 10,
+    "enabled": true
+  },
+  {
+    "article_key": "help_temp_custom",
+    "parent_key": "feature1_1",
+    "title": "指定生成郵箱",
+    "content_html": "<ol><li>登錄賬號，在工作台選擇“臨時郵箱”，點擊“自定義創建”。</li><li>在彈窗左側選擇一個可用域名，右側“生成規則”選擇“指定生成”。</li><li>在“指定郵箱名”中只填寫 @ 前面的名稱，例如 hello；指定生成一次只能選一個域名、創建一個地址。</li><li>核對頁面顯示的完整地址和價格，確認後再提交；成功後在左側列表選中郵箱。</li></ol><p><img src=\"/help-center/custom-mailbox.webp\" width=\"810\" alt=\"自定義創建郵箱入口\"></p><p>域名郵箱也可以從“域名郵箱”頁的“自定義創建”進入同一規則。若未登錄請先登錄；地址被佔用可更換名稱，域名不可用時換域名，餘額不足時先充值。</p>",
+    "sort_order": 20,
+    "enabled": true
+  },
+  {
+    "article_key": "help_temp_copy",
+    "parent_key": "feature1_1",
+    "title": "複製郵箱地址",
+    "content_html": "<ol><li>在工作台左側找到郵箱卡片，將鼠標移到右側“···”。</li><li>打開菜單，點擊“複製郵箱”。</li><li>到目標網站的郵箱輸入框粘貼完整地址。</li></ol><p><img src=\"/help-center/copy-mailbox-hover.gif\" width=\"392\" alt=\"懸停郵箱卡片的省略號後顯示複製郵箱菜單\"></p>",
+    "sort_order": 30,
+    "enabled": true
+  },
+  {
+    "article_key": "help_temp_read",
+    "parent_key": "feature1_1",
+    "title": "查看郵件和驗證碼",
+    "content_html": "<ol><li>在左側選中收件地址，中間收件箱會顯示該郵箱的郵件。</li><li>點擊郵件，右側查看正文、發件人和附件信息。</li><li>如果列表識別出驗證碼，可點擊驗證碼旁的複製按鈕；請仍以郵件正文核對。</li><li>暫未看到來信時，點擊收件箱刷新按鈕，並檢查發件地址是否填對。</li></ol><p><img src=\"/help-center/inbox-search-refresh.webp\" width=\"400\" alt=\"收件箱的搜索框和刷新按鈕\"></p><p>郵件送達速度還受發件方和網絡影響，切換郵箱時要確認當前選中的是正確地址。</p>",
+    "sort_order": 40,
+    "enabled": true
+  },
+  {
+    "article_key": "help_temp_keep",
+    "parent_key": "feature1_1",
+    "title": "保存訪客郵箱",
+    "content_html": "<p>訪客郵箱與當前瀏覽器保存的訪問憑據有關。不要清理瀏覽器站點數據，也不要只憑郵箱地址期待在另一台設備恢復收件箱。</p><ol><li>在創建訪客郵箱的同一瀏覽器登錄或註冊。</li><li>登錄後返回工作台，確認郵箱已出現在賬戶的臨時郵箱列表中。</li><li>如未出現，請不要繼續用該地址接收重要郵件，並聯繫站內客服覈實。</li></ol>",
+    "sort_order": 50,
+    "enabled": true
+  },
+  {
+    "article_key": "feature_1_2",
+    "parent_key": "help_category_mailboxes",
+    "title": "域名郵箱",
+    "content_html": "<p>擁有自己的域名、並能在域名服務商處修改 DNS 的用戶，可以先綁定和驗證域名，再創建該域名下的郵箱。僅在本網站輸入域名名稱，不會自動替您修改域名解析。</p><p>請按“添加域名 → 配置 DNS → 驗證 → 創建郵箱”的順序操作。</p>",
+    "sort_order": 40,
+    "enabled": true
+  },
+  {
+    "article_key": "help_domain_add",
+    "parent_key": "feature_1_2",
+    "title": "添加自己的域名",
+    "content_html": "<ol><li>登錄後打開<a href=\"/user/domains\">我的域名</a>，點擊右上角“添加域名”。</li><li>在“域名”框只填域名本身，例如 example.com，不要填 https://、網址路徑或郵箱地址。“描述”可不填；“過期時間”默認是一年後，可按需要調整。</li><li>“未匹配郵箱代收”默認開啓：發往尚未創建的地址也會進入 admin@該域名；只想收已創建地址的郵件就關閉，詳情見<a href=\"/about?help=help_domain_catchall\">未匹配郵箱代收</a>。“是否公益”會允許其他用戶用這個域名生成臨時郵箱，私人或公司域名通常不要勾選。</li><li>點擊“添加域名”。成功後彈窗會直接切換成該域名的詳情，顯示系統為這次綁定生成的“DNS 配置”表；不用自己猜 TXT 或 MX 的主機記錄和值。</li><li>如果關閉了彈窗，在域名列表找到“待驗證”的域名，點擊操作列的眼睛圖標“詳情”，可以重新查看記錄。</li></ol><figure><a href=\"/help-center/domain-add-local-demo.png\" target=\"_blank\" rel=\"noopener noreferrer\"><img src=\"/help-center/domain-add-local-demo.png\" alt=\"添加域名表單截圖，域名框填寫 example.com，下面是描述、過期時間、未匹配郵箱代收及是否公益\" width=\"896\" loading=\"lazy\"></a><figcaption>本站添加域名表單截圖；example.com 是本地演示域名。</figcaption></figure><p>添加成功只表示域名已登記，還不能保證收信；繼續按<a href=\"/about?help=help_domain_dns\">配置並驗證 DNS</a>逐行設置。只有您能管理該域名的實際 DNS 解析時才可完成綁定。</p>",
+    "sort_order": 10,
+    "enabled": true
+  },
+  {
+    "article_key": "help_domain_dns_provider",
+    "parent_key": "feature_1_2",
+    "title": "先找到 DNS 管理平台",
+    "content_html": "<p>域名在哪個平台購買，與解析記錄在哪個平台修改，不一定是一回事。應去<strong>當前負責該域名解析的 DNS 平台</strong>添加記錄。</p><ol><li>先登錄域名購買平台，在域名詳情查看“DNS 服務器”“Nameserver”或“NS”設置。</li><li>如果 DNS 服務器指向阿里雲、騰訊雲 DNSPod 或 Cloudflare，就去對應平台的 DNS 記錄頁面；若使用其他托管商，就去那個托管商。</li><li>找到域名的“解析設置”“記錄管理”或“DNS Records”，再對照本站<a href=\"/user/domains\">域名詳情</a>逐條填寫。</li></ol><p>不要為了添加一條 TXT 或 MX 記錄而隨意更換 NS。更換 NS 會影響整個域名的現有網站和郵箱解析。</p>",
+    "sort_order": 15,
+    "enabled": true
+  },
+  {
+    "article_key": "help_domain_dns",
+    "parent_key": "feature_1_2",
+    "title": "配置並驗證 DNS",
+    "content_html": "<ol><li>打開<a href=\"/user/domains\">我的域名</a>。新添加域名會直接顯示詳情；以後可點待驗證域名操作列的“詳情”眼睛圖標，找到“DNS 配置”表。</li><li>表裡<strong>每一行都是一條要單獨保存的 DNS 記錄</strong>。普通綁定顯示證明域名歸屬的 TXT 行和負責收信的 MX 行；只按自己頁面實際顯示的行添加，不要照搬別人截圖中的記錄值。</li><li>確認域名實際使用哪家 DNS 平台，在該平台選擇同一個域名，進入“添加記錄”。照下表逐列填寫，保存一行後再添加下一行。</li><li>等待解析生效，回本站詳情點擊“立即驗證DNS”。逐行看“狀態”和檢查說明；通過後確認域名顯示“已驗證”，再去創建郵箱並試收一封郵件。</li></ol><figure><a href=\"/help-center/domain-dns-local-demo.png\" target=\"_blank\" rel=\"noopener noreferrer\"><img src=\"/help-center/domain-dns-local-demo.png\" alt=\"域名詳情 DNS 配置表截圖，顯示 TXT 和 MX 兩行，每行含主機記錄、記錄類型、值、優先級、狀態\" width=\"896\" loading=\"lazy\"></a><figcaption>本站 DNS 配置表截圖；記錄值為本地演示佔位，請複製您自己頁面中的實際值。</figcaption></figure><h3>本站這一列，填到外站哪裡</h3><div class=\"help-table-wrap\"><table><thead><tr><th>本站 DNS 配置表</th><th>阿里雲／DNSPod</th><th>Cloudflare</th><th>填寫方法</th></tr></thead><tbody><tr><td>主機記錄</td><td>主機記錄</td><td>Name</td><td>點本站這一格旁的複製按鈕，填到名稱欄；@ 表示當前解析域名本身。</td></tr><tr><td>記錄類型</td><td>記錄類型</td><td>Type</td><td>本站顯示 TXT 就選 TXT，顯示 MX 就選 MX。</td></tr><tr><td>值</td><td>記錄值；DNSPod 的 MX 彈窗也可能叫郵件服務器</td><td>TXT 用 Content；MX 用 Mail server</td><td>點本站“值”旁的複製按鈕，原樣粘貼，不要把主機記錄或優先級拼進這裡。</td></tr><tr><td>優先級</td><td>MX 優先級／優先級</td><td>Priority</td><td>僅 MX 行填寫本站顯示的數字；TXT 行顯示“-”就不用填。</td></tr><tr><td>狀態</td><td>不填寫</td><td>不填寫</td><td>只用於回本站查看驗證結果。</td></tr></tbody></table></div><p><strong>主機記錄特別注意：</strong>DNS 平台通常會自動補上當前管理域名的後綴。管理 example.com 時，@ 指 example.com，mail 指 mail.example.com；如果本站綁定的是子域名，主機記錄可能是 mail 或 _fm_verify.mail，不要一律改成 @，也不要重復輸入完整域名。若子域名有獨立委託的 DNS 區域，應先核對外站預覽的最終完整名稱是否與本站記錄對應。</p><p>TXT 值用於證明域名歸屬，MX 值指向收件服務器；<strong>值和優先級只以您當前域名詳情為準</strong>。修改已有 MX 可能中斷原郵箱收信；有舊郵箱業務時先確認遷移方案。</p>",
+    "sort_order": 20,
+    "enabled": true
+  },
+  {
+    "article_key": "help_domain_dns_aliyun",
+    "parent_key": "feature_1_2",
+    "title": "阿里雲添加 DNS 記錄",
+    "content_html": "<ol><li>先按<a href=\"/about?help=help_domain_dns_provider\">先找到 DNS 管理平台</a>確認阿里雲確實在解析這個域名，再進入阿里雲“雲解析 DNS → 公網權威解析”。選中域名，打開“解析設置”，點擊“添加記錄”。</li><li>如果本站“DNS 配置”表有 TXT 行，就新建一條 TXT：把本站“主機記錄”填到阿里雲“主機記錄”，把本站“值”填到“記錄值集合 → 記錄值”；“解析請求來源”保持“默認／默認”。TXT 不填優先級。</li><li>如果本站還有 MX 行，再點擊一次“添加記錄”，類型選 MX。本站“主機記錄”仍填同名字段；本站“值”填到“記錄值集合 → 記錄值”，本站“優先級”數字填到旁邊的“優先級”。截圖里的 1 不是本站給出的值，不能照抄；也不要把優先級拼進郵件服務器地址。</li><li>每條記錄分別點擊“確定”保存，在解析列表確認都已啓用，再回本站域名詳情點擊“立即驗證DNS”。</li></ol><figure><a href=\"/help-center/aliyun-dns-records.png\" target=\"_blank\" rel=\"noopener noreferrer\"><img src=\"/help-center/aliyun-dns-records.png\" width=\"905\" loading=\"lazy\" alt=\"阿里雲解析設置頁中的添加記錄按鈕\"></a><figcaption>阿里雲解析設置頁：從“添加記錄”進入。</figcaption></figure><figure><a href=\"/help-center/aliyun-dns-txt-form.png\" target=\"_blank\" rel=\"noopener noreferrer\"><img src=\"/help-center/aliyun-dns-txt-form.png\" width=\"765\" loading=\"lazy\" alt=\"阿里雲 TXT 記錄表單，顯示主機記錄、解析請求來源和記錄值集合\"></a><figcaption>TXT 表單：域名已遮擋，記錄值要複製本站當前域名詳情里的實際值。</figcaption></figure><figure><a href=\"/help-center/aliyun-dns-mx-form.png\" target=\"_blank\" rel=\"noopener noreferrer\"><img src=\"/help-center/aliyun-dns-mx-form.png\" width=\"765\" loading=\"lazy\" alt=\"阿里雲 MX 記錄表單，記錄值集合內分別填寫記錄值和優先級\"></a><figcaption>MX 表單：優先級請填本站給出的數字，不要沿用截圖里的 1。</figcaption></figure><p>阿里雲會自動拼接解析區後綴；主域名通常用 @，子域名不要一律用 @。本站要求的記錄以<strong>您自己的域名詳情</strong>為準。若舊郵箱正在使用 MX，先確認遷移影響。界面變化時可參考<a href=\"https://help.aliyun.com/zh/dns/pubz-add-parsing-record\" target=\"_blank\" rel=\"noopener noreferrer\">阿里雲官方添加解析記錄指南</a>。</p>",
+    "sort_order": 21,
+    "enabled": true
+  },
+  {
+    "article_key": "help_domain_dns_tencent",
+    "parent_key": "feature_1_2",
+    "title": "騰訊雲 DNSPod 添加記錄",
+    "content_html": "<ol><li>確認域名當前使用騰訊雲 DNSPod 解析，進入“雲解析 DNS → 權威解析”，選中實際托管解析的域名，打開“記錄管理 → 添加記錄”。</li><li>先添加本站 DNS 表的 TXT 行：DNSPod“記錄類型”選 TXT；本站“主機記錄”填入 DNSPod“主機記錄”；本站“值”填入“記錄值”。“線路類型”選“默認”，其他項無特殊要求時保持默認。</li><li>再單獨添加本站 MX 行：類型選 MX，主機記錄照抄；本站“值”填 DNSPod 的“記錄值”或“郵件服務器”，本站“優先級”數字填“MX 優先級”，不要拼進郵件服務器地址。</li><li>保存後確認兩條記錄都已啓用，回本站域名詳情點擊“立即驗證DNS”。</li></ol><p>DNSPod 的 @ 表示當前解析區本身，子域名的主機記錄不能無條件填 @；請核對它最終拼出的完整域名與本站記錄一致。騰訊雲提供帶控制台截圖的<a href=\"https://cloud.tencent.com/document/product/302/3451\" target=\"_blank\" rel=\"noopener noreferrer\">官方 MX 記錄操作頁</a>及<a href=\"https://cloud.tencent.com/document/product/302/3468\" target=\"_blank\" rel=\"noopener noreferrer\">主機記錄說明</a>。域名不使用 DNSPod 解析時，在這裡添加不會生效。</p>",
+    "sort_order": 22,
+    "enabled": true
+  },
+  {
+    "article_key": "help_domain_dns_cloudflare",
+    "parent_key": "feature_1_2",
+    "title": "Cloudflare 添加 DNS 記錄",
+    "content_html": "<ol><li>確認域名的 Nameserver 指向 Cloudflare，在 Cloudflare 控制台選中該域名，進入“DNS → Records → Add record”。</li><li>添加本站 DNS 表的 TXT 行：Type 選 TXT，本站“主機記錄”填 Name，本站“值”填 Content，點擊 Save。</li><li>再點 Add record 添加 MX 行：Type 選 MX，主機記錄填 Name，本站“值”填 Mail server，本站“優先級”數字填 Priority，再點擊 Save。TXT 和 MX 是兩條獨立記錄，不要合併。</li><li>核對記錄列表中最終的完整 Name、值及 MX 優先級，回本站點“立即驗證DNS”。</li></ol><p>Cloudflare 會按當前 DNS 區域補全 Name；主域名可用 @，子域名須按本站記錄核對。TXT 和 MX 無代理開關；不要借用 Cloudflare Email Routing 生成的 MX。若已使用其他郵箱或 Email Routing，先確認遷移影響，不要直接刪除正在使用的 MX。詳見<a href=\"https://developers.cloudflare.com/dns/manage-dns-records/how-to/create-dns-records/\" target=\"_blank\" rel=\"noopener noreferrer\">Cloudflare 官方記錄操作指南</a>和<a href=\"https://developers.cloudflare.com/dns/troubleshooting/email-issues/\" target=\"_blank\" rel=\"noopener noreferrer\">郵件解析衝突說明</a>。</p>",
+    "sort_order": 23,
+    "enabled": true
+  },
+  {
+    "article_key": "help_domain_dns_trouble",
+    "parent_key": "feature_1_2",
+    "title": "DNS 驗證失敗怎麼辦",
+    "content_html": "<ol><li>確認記錄加在實際生效的 DNS 平台，而不只是域名購買平台；核對該域名當前的 Nameserver。</li><li>核對每條記錄的類型、主機記錄、值和 MX 優先級，尤其注意外站是否自動補全域名後綴。</li><li>確認記錄已保存且啓用，等待緩存更新後重新點擊“立即驗證DNS”。</li><li>若 TXT 已通過但仍收不到信，單獨檢查 MX 是否指向本站要求的服務；若原有郵箱仍在使用，不要貿然覆蓋舊 MX。</li></ol><p>域名在本站顯示“已添加”不等於“已驗證”，驗證成功也不等於 MX 已正確收信。仍失敗時可提供域名和公開 DNS 查詢結果給客服，但不要發送域名平台密碼或管理令牌。</p>",
+    "sort_order": 24,
+    "enabled": true
+  },
+  {
+    "article_key": "help_domain_create",
+    "parent_key": "feature_1_2",
+    "title": "創建域名郵箱",
+    "content_html": "<ol><li>先在<a href=\"/user/domains\">我的域名</a>確認域名顯示“已驗證”。</li><li>返回<a href=\"/\">我的工作台</a>，切換到“域名郵箱”。</li><li>點擊“隨機獲取”生成地址；若要自己定郵箱名，點擊“自定義創建”，按<a href=\"/about?help=help_temp_custom\">指定生成郵箱</a>的步驟選域名和填寫名稱。</li><li>在左側列表選中新郵箱，複製完整地址並開始收信。</li></ol><p>如果無法生成，先檢查域名狀態；生成成功卻收不到信，再檢查該域名的 MX 記錄。</p>",
+    "sort_order": 30,
+    "enabled": true
+  },
+  {
+    "article_key": "help_domain_catchall",
+    "parent_key": "feature_1_2",
+    "title": "未匹配郵箱代收",
+    "content_html": "<p>“未匹配郵箱代收”在添加域名時默認開啓，也可在“我的域名”編輯域名時調整。域名驗證通過後，發往該域名下<strong>未單獨創建</strong>地址的郵件會統一進入 admin@該域名；關閉後不代收。這不是為每個地址創建獨立收件箱。</p><p>只想接收已創建地址的郵件，就關閉此開關。開啓後可能收到更多垃圾郵件；子域名能否代收還取決於相應 MX 是否指向本站。</p>",
+    "sort_order": 40,
+    "enabled": true
+  },
+  {
+    "article_key": "help_domain_public",
+    "parent_key": "feature_1_2",
+    "title": "公益域名開關",
+    "content_html": "<p>添加或編輯域名時有“是否公益”選項。開啓後，該域名會共享給其他用戶，其他用戶也可以使用它生成臨時郵箱。</p><p>如果這是公司、品牌或私人域名，不想供其他用戶使用，就不要勾選。開啓前請確認自己有權開放該域名，並瞭解可能增加的收信量和管理責任。</p>",
+    "sort_order": 50,
+    "enabled": true
+  },
+  {
+    "article_key": "help_external",
+    "parent_key": "help_category_mailboxes",
+    "title": "第三方郵箱",
+    "content_html": "<p>第三方郵箱用於管理您在其他服務商已有的郵箱。添加前請確認您有該賬戶的使用授權，並按服務商要求開啓 IMAP/POP3、取得郵箱授權碼或完成 OAuth 授權。</p><p>登錄本站後，在工作台切換到“第三方郵箱”即可開始添加。</p>",
+    "sort_order": 50,
+    "enabled": true
+  },
+  {
+    "article_key": "help_external_prepare",
+    "parent_key": "help_external",
+    "title": "添加前準備什麼",
+    "content_html": "<ol><li>先在郵箱服務商的網站確認這個賬號能正常收信，且您有權接入。</li><li>普通賬號按服務商要求開啓 IMAP 或 POP3，並取得專用授權碼；授權碼與本站登錄密碼、郵箱網頁登錄密碼不是一回事。</li><li>Gmail 和 Outlook 優先按本站的 OAuth 授權流程操作，不要把網頁登錄密碼粘貼到批量導入框。</li><li>若還需發信，確認服務商允許 SMTP，再在本站按需勾選 SMTP 驗證。</li></ol><p><a href=\"https://support.google.com/mail/answer/7126229?hl=zh-Hans\" target=\"_blank\" rel=\"noopener noreferrer\">Gmail 官方客戶端接入說明</a>建議使用 Google 登錄；<a href=\"https://support.microsoft.com/en-US/Outlook/pop-imap-and-smtp-settings-for-outlook-com\" target=\"_blank\" rel=\"noopener noreferrer\">Microsoft 官方說明</a>指出 Outlook.com 需要 OAuth2，且 POP/IMAP 可能需在設置中開啓。</p>",
+    "sort_order": 5,
+    "enabled": true
+  },
+  {
+    "article_key": "help_external_add",
+    "parent_key": "help_external",
+    "title": "添加第三方郵箱",
+    "content_html": "<ol><li>登錄後打開<a href=\"/\">我的工作台</a>，選擇“第三方郵箱”，點擊“添加郵箱”。</li><li>在“輸入賬號（每行一個）”中，普通郵箱每行填“郵箱----授權碼”，如需添加多個賬號就換行；Gmail／Outlook 可只填郵箱地址，之後按 OAuth 提示授權。</li><li>普通郵箱可選擇登錄協議（不確定時選“自動”）及是否“啓用 SMTP”；點擊添加後，在右側逐個查看成功或失敗原因。</li><li>成功的郵箱出現在左側列表；失敗時先核對原郵箱是否已開啓 IMAP／POP3、授權碼是否有效，再按錯誤提示處理。</li></ol><figure><a href=\"/help-center/external-add-entry.png\" target=\"_blank\" rel=\"noopener noreferrer\"><img src=\"/help-center/external-add-entry.png\" width=\"905\" loading=\"lazy\" alt=\"第三方郵箱列表標題右側的添加郵箱入口\"></a><figcaption>第三方郵箱的添加入口；畫面由當前界面組件和本地演示數據生成。</figcaption></figure><figure><a href=\"/help-center/external-add-form.png\" target=\"_blank\" rel=\"noopener noreferrer\"><img src=\"/help-center/external-add-form.png\" width=\"905\" loading=\"lazy\" alt=\"添加第三方郵箱彈窗中的賬號輸入、添加結果和 OAuth 授權區域\"></a><figcaption>填寫賬號後可查看結果或繼續 OAuth 授權；圖中的郵箱和成功狀態僅為演示，不代表真實連接結果。</figcaption></figure><p>這裡填的是原郵箱服務商提供的客戶端授權碼，不是本站登錄密碼；只添加自己有權使用的郵箱。</p>",
+    "sort_order": 10,
+    "enabled": true
+  },
+  {
+    "article_key": "help_external_code",
+    "parent_key": "help_external",
+    "title": "授權碼從哪裡來",
+    "content_html": "<p>客戶端授權碼由<strong>原郵箱服務商</strong>生成，不是郵件驗證碼，也不是本站密碼。登錄原郵箱官網，找到“設置 → 賬戶／安全 → IMAP、POP3、SMTP 或客戶端授權”，先開啓要用的協議，再生成授權碼；通常需要短信或其他安全驗證。</p><p>常見入口：<a href=\"https://help.mail.10086.cn/statichtml/0/Content/1234606.html\" target=\"_blank\" rel=\"noopener noreferrer\">139 郵箱官方授權碼步驟</a>（設置 → 常規設置 → 賬號與安全 → 郵箱協議設置）；<a href=\"https://help.189.cn/client/client.html\" target=\"_blank\" rel=\"noopener noreferrer\">189 郵箱官方客戶端密碼說明</a>。其他服務商請在其郵箱官網查找對應入口，不要照搬不同服務商的服務器設置。</p><ol><li>複製生成的授權碼，填入本站“添加郵箱”的賬號行，不要填原郵箱網頁登錄密碼。</li><li>若改過原郵箱密碼、關閉客戶端協議或撤銷授權碼，原連接可能失效，需要重新生成並添加。</li></ol><p>Gmail、Outlook 優先使用本站的 OAuth 授權入口；不要把授權碼或令牌發給客服。</p>",
+    "sort_order": 15,
+    "enabled": true
+  },
+  {
+    "article_key": "help_external_oauth",
+    "parent_key": "help_external",
+    "title": "授權 Gmail/Outlook",
+    "content_html": "<p>這是<strong>把 Gmail 或 Outlook 郵箱接入本站收件箱</strong>，與在本站登錄頁使用 Google 登錄不同。</p><ol><li>在工作台選擇“第三方郵箱 → 添加郵箱”，一行只填一個 Gmail 或 Outlook 地址並提交。</li><li>在同一彈窗的“OAuth 授權”區域點擊“開始授權”；瀏覽器會打開 Google 或 Microsoft 新標籤頁。</li><li>核對賬號確屬本人，在服務商官方頁面完成登錄與授權；多個郵箱會逐個處理。</li><li>返回本站查看“授權成功”或“授權失敗”，再檢查實際收信結果。</li></ol><p>不要在本站表單填寫 Google／Microsoft 的網頁登錄密碼。授權成功不保證郵箱協議一定可用；失敗時檢查瀏覽器彈窗攔截、郵箱開通狀態和服務商 IMAP 設置。Outlook 若提示“已認證但未連接郵箱”，還需檢查別名或共享郵箱身份。<a href=\"https://support.microsoft.com/en-US/Outlook/pop-imap-and-smtp-settings-for-outlook-com\" target=\"_blank\" rel=\"noopener noreferrer\">Microsoft 官方 POP/IMAP 說明</a>可供核對。</p>",
+    "sort_order": 20,
+    "enabled": true
+  },
+  {
+    "article_key": "help_external_verify",
+    "parent_key": "help_external",
+    "title": "批量驗號怎麼用",
+    "content_html": "<p>“批量驗號”是先驗證您<strong>已獲授權</strong>的第三方郵箱能否連接，不會自動把所有通過的賬號加入收件箱。賬號密碼／授權碼類批量驗號需要在<a href=\"/download\">桌面客戶端</a>進行；網頁端僅能查看頁面與入口。</p><ol><li>在桌面客戶端登錄本站賬號，打開“第三方郵箱 → 批量驗號”。</li><li>在“賬號導入”中一行填一個賬號，可用“郵箱,授權碼,auto”或“郵箱----授權碼----imap”等頁面提示格式。</li><li>按需勾選“同時驗證 SMTP”，有自有代理時再選擇代理；不確定時保留協議 auto。</li><li>點擊“開始驗號”，等待右側結果統計。不要對同一批失敗賬號連續高頻重試。</li></ol><p>表單含敏感憑據，不要截屏公開、粘貼到工單或導入來源不明的賬號。OAuth 賬號應按授權流程處理，不要把 OAuth 令牌當普通授權碼填入。</p>",
+    "sort_order": 25,
+    "enabled": true
+  },
+  {
+    "article_key": "help_external_verify_result",
+    "parent_key": "help_external",
+    "title": "看驗號結果並導入",
+    "content_html": "<ol><li>在“驗號結果”查看通過、失敗和每項的錯誤原因；按結果或失敗原因篩選。</li><li>若是授權碼、協議或代理設置有誤，先到原郵箱服務商修正，再用“重試失敗項”。</li><li>需要留存結果時可點擊“導出結果”，但當前導出的表格<strong>包含密碼／授權碼列</strong>；只下載到可信設備，切勿發給他人或上傳公共網盤，用完後按需安全刪除。</li><li>確認只導入自己有權管理的通過賬號後，點擊“導入成功賬號”，再到第三方郵箱列表核對。</li></ol><p>“驗號通過”僅表示本次連接檢查成功，不等於歷史郵件全部可讀，也不等於 SMTP 一定可用；發信能力取決於是否勾選 SMTP 驗證及服務商權限。</p>",
+    "sort_order": 26,
+    "enabled": true
+  },
+  {
+    "article_key": "help_external_protocol",
+    "parent_key": "help_external",
+    "title": "IMAP、POP3、SMTP 區別",
+    "content_html": "<ul><li><strong>IMAP：</strong>從原郵箱同步郵件和文件夾，通常適合多設備查看。</li><li><strong>POP3：</strong>按服務商規則下載郵件；可見範圍、是否保留原件取決於原郵箱設置。</li><li><strong>SMTP：</strong>用於發信，收信成功不代表 SMTP 也能發信。</li><li><strong>OAuth2：</strong>授權方式，不是另一種收信協議；授權後仍需服務商允許實際使用 IMAP、POP3 或 SMTP。</li></ul><p>添加或驗號時可先選擇“自動”讓系統嘗試可用協議；若服務商只允許某一種協議，按官方設置指定。不要因為單封歷史郵件讀取失敗就反復更換密碼或授權。</p>",
+    "sort_order": 27,
+    "enabled": true
+  },
+  {
+    "article_key": "help_external_receive",
+    "parent_key": "help_external",
+    "title": "收取第三方郵件",
+    "content_html": "<ol><li>在第三方郵箱列表選中要查看的賬號。</li><li>使用該賬號的“收取郵件”獲取新郵件；需要歷史郵件時可使用“收取全部”，並等待任務完成。</li><li>在中間郵件列表打開具體郵件，查看正文和附件。</li></ol><p>大量歷史郵件可能需要較長時間，服務商也可能限流或拒絕個別郵件。若任務報錯，請保留頁面提示並檢查授權、協議設置，不要在短時間內反復全量收取。</p>",
+    "sort_order": 30,
+    "enabled": true
+  },
+  {
+    "article_key": "help_external_send",
+    "parent_key": "help_external",
+    "title": "用第三方郵箱發信",
+    "content_html": "<p>第三方郵箱發信目前需要<a href=\"/download\">桌面客戶端</a>；網頁端可看到寫信入口，但不能完成 SMTP 發送。能收信也不代表能發信。</p><ol><li>先在原郵箱服務商開啓 SMTP；添加郵箱時啓用“SMTP”檢查，確認賬號顯示可發信。</li><li>在桌面客戶端打開第三方郵箱的寫信頁，選擇可發信的賬號，填寫收件人、主題和正文後發送。</li><li>若提示 SMTP 不可用，檢查原郵箱的 SMTP 開關、授權碼和發信賬號狀態。</li></ol><p>批量發送及發件記錄見<a href=\"/about?help=help_external_send_records\">自有郵箱發送與發件記錄</a>。</p>",
+    "sort_order": 40,
+    "enabled": true
+  },
+  {
+    "article_key": "help_external_reconnect",
+    "parent_key": "help_external",
+    "title": "授權失效與重新連接",
+    "content_html": "<ol><li>先在第三方郵箱列表確認具體是哪一個賬號失敗，記錄頁面上的錯誤類型。</li><li>若原郵箱改過密碼、撤銷過授權碼或關閉客戶端協議，請到原服務商恢復權限，重新生成授權碼或在本站執行重新授權。</li><li>Gmail／Outlook 的 OAuth 賬號應重新走服務商授權頁面，不要在普通密碼輸入框里反復嘗試。</li><li>連接恢復後先嘗試收取少量新郵件，再決定是否收取全部歷史郵件。</li></ol><p>服務商限流、臨時網絡錯誤和個別壞郵件不一定是憑據失效；連續高頻重試可能觸發服務商風控。</p>",
+    "sort_order": 50,
+    "enabled": true
+  },
+  {
+    "article_key": "help_external_proxy",
+    "parent_key": "help_external",
+    "title": "郵箱代理怎麼設置",
+    "content_html": "<p>一般用戶可先不配置代理。確有網絡或服務商連接要求時，在<a href=\"/user/external-proxy-management\">郵箱代理</a>中點擊“新增代理”，填寫您自己有權使用的固定代理或代理接口，並保存。</p><ol><li>在代理列表核對地址和啓用狀態，按需使用“綁定郵箱”關聯指定第三方郵箱。</li><li>批量驗號或添加郵箱時，可在對應頁面的“代理”下拉框選擇已配置代理。</li><li>代理不可用時先檢查主機、端口、憑據和網絡，再更換或停用；不要把代理接口密鑰公開在截圖中。</li></ol><p>代理不會替代郵箱授權，也不能保證繞過服務商限制。來源不明的代理可能洩露郵箱連接信息，請只使用可信代理。</p>",
+    "sort_order": 60,
+    "enabled": true
+  },
+  {
+    "article_key": "help_external_send_records",
+    "parent_key": "help_external",
+    "title": "自有郵箱發送與發件記錄",
+    "content_html": "<p>使用第三方郵箱 SMTP 發信的頁面在<a href=\"/user/external-bulk-send\">自有郵箱發送</a>，該操作需要桌面客戶端；網頁端僅提供入口和提示。</p><ol><li>先確認所選第三方郵箱已驗證 SMTP 可用。</li><li>在桌面客戶端打開“自有郵箱發送”，選中有權使用的發件郵箱，填寫收件人、主題和正文，核對後發送。</li><li>到<a href=\"/user/external-outbox\">已發送郵件</a>按發件人、收件人或標題查找記錄；需要調整內容時可用“重新編輯”。</li></ol><p>只給已同意接收的人發信，並遵守服務商限額與退訂要求；發件記錄顯示失敗時先查看詳情，不要盲目反復發送。</p>",
+    "sort_order": 70,
+    "enabled": true
+  },
+  {
+    "article_key": "help_mail",
+    "parent_key": "help_category_mailboxes",
+    "title": "收件與分享",
+    "content_html": "<p>複製地址只讓對方給您發信，不會開放收件箱；要讓別人看郵件，請創建有有效期和可見範圍的分享鏈接。找不到來信時先核對郵箱，再清除篩選並刷新。</p>",
+    "sort_order": 60,
+    "enabled": true
+  },
+  {
+    "article_key": "help_mail_copy",
+    "parent_key": "help_mail",
+    "title": "複製地址和驗證碼",
+    "content_html": "<p>要複製郵箱地址，看<a href=\"/about?help=help_temp_copy\">複製郵箱地址</a>。要複製郵件中的驗證碼：打開來信後，點擊驗證碼旁的複製按鈕；如果沒有識別出驗證碼，就從正文中手動複製並核對。</p>",
+    "sort_order": 10,
+    "enabled": true
+  },
+  {
+    "article_key": "help_mail_share",
+    "parent_key": "help_mail",
+    "title": "分享郵箱給別人",
+    "content_html": "<ol><li>登錄後進入工作台，將鼠標移到郵箱卡片右側“···”，在菜單中點擊“分享郵箱”。</li><li>在彈窗中選擇有效期、鏈接數量和郵件可見範圍；若選“按分鐘”，還要設置從何時開始計時。</li><li>點擊“創建分享”，複製鏈接發給需要查看的人。</li></ol><p><img src=\"/help-center/share-mailbox-menu.webp\" width=\"392\" alt=\"郵箱卡片菜單中的分享郵箱入口\"></p><p><img src=\"/help-center/share-mailbox-settings.webp\" width=\"512\" alt=\"分享郵箱彈窗中的有效期、鏈接數量和可見範圍設置\"></p><p>複製郵箱地址只供對方發信，<strong>不會開放收件箱</strong>；只有創建併發出分享鏈接，對方才能在設定範圍和有效期內查看郵件。訪客郵箱沒有分享入口，鏈接只發給信任的人。</p>",
+    "sort_order": 20,
+    "enabled": true
+  },
+  {
+    "article_key": "help_mail_search",
+    "parent_key": "help_mail",
+    "title": "搜索與刷新郵件",
+    "content_html": "<ol><li>先在左側確認已選中正確郵箱，再在中間收件箱查看來信。</li><li>可使用頁面提供的搜索和未讀篩選查找郵件；搜索不到時清除篩選條件重試。</li><li>點擊刷新按鈕重新讀取郵件列表。第三方郵箱還可按需使用“收取郵件”。</li></ol><p><img src=\"/help-center/inbox-search-refresh.webp\" width=\"400\" alt=\"收件箱中的刷新按鈕、未讀篩選和搜索框\"></p><p>如果發件方說已發送但收不到，先核對收件地址、發件方發送結果和郵箱是否過期；域名郵箱還應檢查 DNS，第三方郵箱應檢查授權狀態。</p>",
+    "sort_order": 30,
+    "enabled": true
+  },
+  {
+    "article_key": "help_market",
+    "parent_key": "help_category_account",
+    "title": "訂單與奶片",
+    "content_html": "<p>資源市場是瀏覽和購買資源的入口；購買訂單記錄您的購買及售後事項。奶片賬戶記錄餘額和流水。出售資源相關的管理、收益與退款頁面只與實際發佈或售賣資源的用戶有關。</p>",
+    "sort_order": 70,
+    "enabled": true
+  },
+  {
+    "article_key": "help_market_buy",
+    "parent_key": "help_market",
+    "title": "購買資源",
+    "content_html": "<ol><li>打開<a href=\"/market\">資源市場</a>，查看資源詳情、價格、交付方式及使用條件。</li><li>確認適合自己的需求後按頁面流程下單並完成支付。</li><li>在<a href=\"/user/resource-orders\">購買訂單</a>查看訂單狀態和已獲得的資源。</li></ol><p>付款前請仔細閱讀資源說明；不同商品的交付和售後規則可能不同。</p>",
+    "sort_order": 10,
+    "enabled": true
+  },
+  {
+    "article_key": "help_market_orders",
+    "parent_key": "help_market",
+    "title": "訂單和奶片流水",
+    "content_html": "<p><strong>購買訂單</strong>回答“買了什麼、交付到哪一步、是否申請售後”；<strong>奶片流水</strong>回答“賬戶餘額為何增加或減少”。一次購買可能同時產生訂單記錄和奶片扣款記錄，兩者不是重復訂單。</p><p>購買記錄在<a href=\"/user/resource-orders\">購買訂單</a>，賬戶餘額及流水在<a href=\"/user/finance\">財務中心</a>查看。若訂單與扣款金額不符，保留訂單編號聯繫站內客服。</p>",
+    "sort_order": 20,
+    "enabled": true
+  },
+  {
+    "article_key": "help_market_seller",
+    "parent_key": "help_market",
+    "title": "收益與退款（賣家）",
+    "content_html": "<p>“收益記錄”“退款申請”等賣家相關頁面主要用於已經發佈或售賣資源的用戶。只購買、不售賣資源時，可重點查看“購買訂單”和“奶片流水”；頁面是否展示賣家入口以賬號實際權限和業務記錄為準。</p><p>如需售賣，請先瞭解資源發佈與審核規則，並只發佈自己有權提供的資源。</p>",
+    "sort_order": 30,
+    "enabled": true
+  },
+  {
+    "article_key": "help_advanced",
+    "parent_key": "help_category_tools",
+    "title": "工具概覽",
+    "content_html": "<p>網頁端提供兩步驗證碼工具；批量驗號和第三方郵箱 SMTP 發信需使用桌面客戶端。手機可掃碼打開小程序。</p>",
+    "sort_order": 10,
+    "enabled": true
+  },
+  {
+    "article_key": "help_advanced_workflows",
+    "parent_key": "help_category_automation",
+    "title": "工作流與資源",
+    "content_html": "<ol><li>打開<a href=\"/user/automation/workflows\">自動化 → 資源庫</a>，查看自己創建或購買的資源；可按名稱和狀態篩選。</li><li>要做新流程，點擊“新建資源”，在編輯頁配置觸發器和步驟，再保存、測試；確認運行結果後按頁面提供的發佈操作處理。</li><li>只想確認買了什麼、訂單是否完成，去<a href=\"/user/resource-orders\">購買訂單</a>。訂單是交易記錄，資源庫是實際使用和管理資源的地方。</li></ol>",
+    "sort_order": 10,
+    "enabled": true
+  },
+  {
+    "article_key": "help_advanced_api",
+    "parent_key": "help_category_developer",
+    "title": "訪問密鑰",
+    "content_html": "<ol><li>登錄後打開<a href=\"/user/developer/api-keys\">開發者 → 訪問密鑰</a>，點擊“新建訪問密鑰”。</li><li>填寫密鑰名稱；“過期時間”可不填，不填就是長期有效。只勾選接口確實需要的權限，不確定時先看接口文檔，不要直接全選。</li><li>點擊“生成訪問密鑰”，在結果彈窗中立即複製完整密鑰，保存到自己的服務端密鑰管理處。關閉彈窗後列表只顯示前綴，不能再取回完整值。</li><li>不再使用或懷疑洩露時，在列表中刪除舊密鑰並創建新密鑰。</li></ol><p>不要把密鑰寫進公開網頁、小程序代碼或聊天記錄。</p>",
+    "sort_order": 20,
+    "enabled": true
+  },
+  {
+    "article_key": "help_advanced_2fa",
+    "parent_key": "help_category_tools",
+    "title": "兩步驗證碼",
+    "content_html": "<ol><li>打開<a href=\"/tools/2fa-code\">2FA 動態驗證碼工具</a>。</li><li>輸入您自己賬號的 Base32 密鑰或 otpauth:// 鏈接，頁面會在當前瀏覽器生成驗證碼。</li><li>需要使用時點擊當前驗證碼複製，並在倒計時結束前填到原網站。</li></ol><p><img src=\"/help-center/tool-2fa-entry.webp\" width=\"305\" alt=\"工作台頁腳中的 2FA 驗證碼入口\"></p><p>這個工具不負責找回密鑰，也不是郵件中的一次性驗證碼。頁面說明密鑰不會上傳或保存；仍請只在可信設備上輸入本人或已授權的密鑰，不要向他人發送密鑰或截圖。</p>",
+    "sort_order": 30,
+    "enabled": true
+  },
+  {
+    "article_key": "help_advanced_clients",
+    "parent_key": "help_category_tools",
+    "title": "客戶端和小程序",
+    "content_html": "<p>網頁端可直接在瀏覽器使用。需要桌面客戶端時，打開<a href=\"/download\">下載客戶端</a>，選擇適合自己設備的版本並按頁面說明安裝。</p><p>網頁工作台還提供小程序入口，使用手機掃描頁面展示的小程序碼即可打開對應版本。</p><p><img src=\"/help-center/miniapp-qr.webp\" width=\"165\" alt=\"網頁工作台展示的小程序碼\"></p>",
+    "sort_order": 40,
+    "enabled": true
+  },
+  {
+    "article_key": "help_advanced_reach",
+    "parent_key": "help_category_reach",
+    "title": "開始使用郵件觸達",
+    "content_html": "<ol><li>打開<a href=\"/user/email-reach/dashboard\">郵件觸達總覽</a>，先看剩餘郵件額度；若模板或任務頁提示待開通，先按頁面提示處理權限。</li><li>到<a href=\"/user/email-reach/templates\">模板</a>點擊“新建模板”，寫好主題和內容；到<a href=\"/user/email-reach/members\">會員列表</a>點擊“導入會員”，確認名單來源和分組。</li><li>到<a href=\"/user/email-reach/tasks\">發送任務</a>點擊“發送任務”，選擇模板、收件範圍和發送時間，核對後創建。</li><li>發送後在<a href=\"/user/email-reach/tasks\">發送任務</a>查看進度和成功／失敗數，在<a href=\"/user/email-reach/records\">行為明細</a>查看收件人狀態、打開與點擊，並在<a href=\"/user/email-reach/unsubscribes\">退訂名單</a>處理退訂。</li></ol><p>只能向已同意接收的人發送。任務能否發送還取決於賬戶權限、剩餘額度和平台發信通道，不等同於第三方郵箱的桌面端 SMTP 發信。</p>",
+    "sort_order": 50,
+    "enabled": true
+  },
+  {
+    "article_key": "help_faq",
+    "parent_key": "help_category_mailboxes",
+    "title": "常見問題",
+    "content_html": "<p>收不到信、認證失敗或 DNS 驗證不通過時，按下面對應問題逐項檢查。</p>",
+    "sort_order": 90,
+    "enabled": true
+  },
+  {
+    "article_key": "help_faq_no_mail",
+    "parent_key": "help_faq",
+    "title": "收不到郵件",
+    "content_html": "<ol><li>檢查發件人填寫的完整地址，以及當前選中的收件箱是否一致。</li><li>清除搜索或未讀篩選後刷新列表，確認郵箱未過期。</li><li>域名郵箱檢查域名是否已驗證、MX 是否正確生效；第三方郵箱檢查授權狀態並手動收取。</li><li>仍未收到時，向發件方確認是否已成功投遞，並保留發送時間、收件地址和頁面報錯反饋給客服。</li></ol><p>請勿在反饋中發送密碼、授權碼或郵件中的一次性驗證碼。</p>",
+    "sort_order": 10,
+    "enabled": true
+  },
+  {
+    "article_key": "help_faq_auth",
+    "parent_key": "help_faq",
+    "title": "第三方郵箱認證失敗",
+    "content_html": "<p>“認證失敗”可能是授權碼失效、IMAP/POP3 未開啓、OAuth 授權過期、郵箱服務未開通或服務商限制連接，並不都意味著本站密碼錯誤。</p><ol><li>確認賬號和服務商郵箱功能正常，按服務商規則重新生成授權碼或重新完成 OAuth。</li><li>檢查是否開啓對應收信協議，必要時改用服務商支持的協議。</li><li>根據具體報錯再嘗試；不要連續高頻重試，以免觸發服務商風控。</li></ol>",
+    "sort_order": 20,
+    "enabled": true
+  },
+  {
+    "article_key": "help_faq_security",
+    "parent_key": "help_faq",
+    "title": "保護郵箱隱私",
+    "content_html": "<ul><li>只接入您本人或已合法獲授權的郵箱、域名和資源。</li><li>不要在公開頁面或客服消息中發送密碼、授權碼、OAuth 令牌、兩步驗證密鑰及一次性驗證碼。</li><li>分享郵箱鏈接前先設置合適的有效期和可見範圍，只發給信任的人。</li><li>重要賬戶優先使用自己長期控制的郵箱，不要依賴訪客臨時郵箱或可被轉發的分享鏈接找回賬號。</li></ul>",
+    "sort_order": 30,
+    "enabled": true
+  }
+]

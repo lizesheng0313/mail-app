@@ -34,6 +34,14 @@
                   >
                     {{ t('openPlatform.howToCall') }}
                   </a>
+                  <a
+                    v-if="docsData?.deprecated_endpoints?.length"
+                    href="#doc-deprecation"
+                    class="block rounded-xl px-3 py-2 text-sm text-amber-700 transition-colors hover:bg-amber-50"
+                    @click="mobileCatalogOpen = false"
+                  >
+                    {{ t('openPlatform.deprecationTitle') }}
+                  </a>
                 </div>
               </div>
 
@@ -122,6 +130,26 @@
               >
                 {{ getAuthModeLabel(mode) }}
               </span>
+            </div>
+
+            <div
+              v-if="docsData?.deprecated_endpoints?.length"
+              id="doc-deprecation"
+              class="mt-6 scroll-mt-28 rounded-xl border border-amber-200 bg-amber-50 p-4 sm:p-5"
+            >
+              <h3 class="text-sm font-semibold text-amber-900">{{ t('openPlatform.deprecationTitle') }}</h3>
+              <p class="mt-2 text-sm leading-6 text-amber-900">{{ docsData.deprecation_notice }}</p>
+              <div class="mt-4 space-y-2">
+                <div
+                  v-for="endpoint in docsData.deprecated_endpoints"
+                  :key="`${endpoint.method}-${endpoint.path}`"
+                  class="grid min-w-0 gap-1 rounded-lg bg-white/80 px-3 py-2 text-xs text-gray-700 sm:grid-cols-[minmax(0,1fr),minmax(0,1fr)] sm:gap-4"
+                >
+                  <code class="min-w-0 break-all">{{ endpoint.method }} {{ endpoint.path }}</code>
+                  <code class="min-w-0 break-all text-primary-700">→ {{ endpoint.replacement_method }} {{ endpoint.replacement_path }}</code>
+                </div>
+              </div>
+              <p class="mt-3 text-xs leading-5 text-amber-800">{{ t('openPlatform.deprecatedDomainParam') }}</p>
             </div>
 
             <div class="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
@@ -411,6 +439,7 @@ const scopeLabelMap: Record<string, string> = {
   'external_mailbox.read': 'openPlatform.scopes.externalRead',
   'external_mailbox.write': 'openPlatform.scopes.externalWrite',
   'smtp_account.read': 'openPlatform.scopes.smtpRead',
+  'credential.export': 'openPlatform.scopes.credentialExport',
   'email.read': 'openPlatform.scopes.emailRead',
   'email.body.read': 'openPlatform.scopes.emailBodyRead',
   'email.delete': 'openPlatform.scopes.emailDelete',
@@ -421,6 +450,7 @@ const scopeLabelMap: Record<string, string> = {
 const endpointLabelMap: Record<string, string> = {
   'POST /open/v1/mailboxes': 'openPlatform.endpoints.createMailbox',
   'GET /open/v1/mailboxes': 'openPlatform.endpoints.listMailboxes',
+  'GET /open/v1/mailboxes/resolve': 'openPlatform.endpoints.resolveMailbox',
   'DELETE /open/v1/mailboxes/{mailbox_id}': 'openPlatform.endpoints.deleteMailbox',
   'GET /open/v1/external-mailboxes': 'openPlatform.endpoints.listExternalMailboxes',
   'DELETE /open/v1/external-mailboxes/{mailbox_id}': 'openPlatform.endpoints.deleteExternalMailbox',
@@ -445,7 +475,6 @@ const isVisibleDocEndpoint = (groupName: string, item: EndpointItem) => {
   if (groupName === 'desktop-local' || item.execution_mode === 'desktop_local') return true
   if (path.startsWith('desktop://')) return true
   if (!path.startsWith('/open/v1')) return false
-  if (path.startsWith('/open/v1/hosted-domains')) return false
   if (method === 'POST' && path === '/open/v1/external-mailboxes') return false
   return true
 }
@@ -462,6 +491,7 @@ const docEndpointGroups = computed<DocEndpointGroup[]>(() => {
 
   const groupMap = new Map(groups.map((group) => [group.name, group]))
   const getItems = (name: string) => groupMap.get(name)?.items || []
+  const mailboxItems = getItems('mailboxes')
   const desktopItems = getItems('desktop-local')
 
   const desktopSendItems = desktopItems.filter(endpointPathIncludes('/local-api/v1/smtp/send'))
@@ -473,77 +503,95 @@ const docEndpointGroups = computed<DocEndpointGroup[]>(() => {
 
   const sections: DocEndpointGroup[] = [
     {
-      name: 'mailbox',
-      label: '临时邮箱',
-      description: '临时邮箱和域名邮箱账号管理接口。',
+      name: 'common',
+      label: t('openPlatform.commonMail.title'),
+      description: t('openPlatform.commonMail.description'),
       groups: [
         {
           name: 'mailboxes',
-          label: '邮箱账号',
-          description: getItems('mailboxes')[0] ? groupMap.get('mailboxes')?.description : '',
-          items: getItems('mailboxes')
+          label: t('openPlatform.commonMail.accounts'),
+          description: groupMap.get('mailboxes')?.description || '',
+          items: mailboxItems
+        },
+        {
+          name: 'hosted-domains',
+          label: t('openPlatform.commonMail.domains'),
+          description: groupMap.get('hosted-domains')?.description || '',
+          items: getItems('hosted-domains')
+        },
+        {
+          name: 'emails',
+          label: t('openPlatform.commonMail.emails'),
+          description: groupMap.get('emails')?.description || '',
+          items: getItems('emails')
+        },
+        {
+          name: 'verification-codes',
+          label: t('openPlatform.commonMail.codes'),
+          description: groupMap.get('verification-codes')?.description || '',
+          items: getItems('verification-codes')
+        },
+        {
+          name: 'mailbox-shares',
+          label: t('openPlatform.commonMail.shares'),
+          description: groupMap.get('mailbox-shares')?.description || '',
+          items: getItems('mailbox-shares')
         }
       ]
     },
     {
       name: 'external',
-      label: '第三方邮箱',
-      description: '第三方邮箱、发信账号和桌面端本地能力。',
+      label: t('openPlatform.commonMail.externalSpecial'),
+      description: t('openPlatform.commonMail.externalSpecialDesc'),
       groups: [
         {
           name: 'external-mailboxes',
-          label: '邮箱账号',
+          label: t('openPlatform.commonMail.fetch'),
           description: groupMap.get('external-mailboxes')?.description || '',
           items: getItems('external-mailboxes')
         },
         {
           name: 'desktop-local',
-          label: '桌面端本地',
-          description: '以下接口只能在桌面应用启动后，通过 127.0.0.1 调用。',
+          label: t('openPlatform.commonMail.desktopLocal'),
+          description: t('openPlatform.commonMail.desktopLocalDesc'),
           items: desktopExternalItems
         },
         {
           name: 'send',
-          label: '发信',
-          description: '发信账号查询和桌面端本地发信。',
+          label: t('openPlatform.commonMail.send'),
+          description: t('openPlatform.commonMail.sendDesc'),
           items: [...getItems('smtp-accounts'), ...desktopSendItems]
         }
       ]
     },
     {
       name: 'email-reach',
-      label: '邮件触达',
-      description: '模板发信、变量替换和批量触达接口。',
+      label: t('openPlatform.commonMail.emailReach'),
+      description: t('openPlatform.commonMail.emailReachDesc'),
       groups: [
         {
           name: 'email-reach',
-          label: '发送接口',
+          label: t('openPlatform.commonMail.sendApis'),
           description: groupMap.get('email-reach')?.description || '',
           items: getItems('email-reach')
         }
       ]
     },
     {
-      name: 'common',
-      label: '通用',
-      description: '第三方邮箱和临时邮箱都可以调用。',
+      name: 'workflow',
+      label: t('openPlatform.commonMail.workflow'),
+      description: groupMap.get('workflow-executions')?.description || '',
       groups: [
         {
-          name: 'emails',
-          label: '邮件列表与邮件详情',
-          description: groupMap.get('emails')?.description || '',
-          items: getItems('emails')
-        },
-        {
-          name: 'verification-codes',
-          label: '验证码',
-          description: groupMap.get('verification-codes')?.description || '',
-          items: getItems('verification-codes')
+          name: 'workflows',
+          label: t('openPlatform.commonMail.workflowList'),
+          description: groupMap.get('workflows')?.description || '',
+          items: getItems('workflows')
         },
         {
           name: 'workflow-executions',
-          label: '工作流',
-          description: groupMap.get('workflow-executions')?.description || '',
+          label: t('openPlatform.commonMail.workflow'),
+          description: '',
           items: getItems('workflow-executions')
         }
       ]
@@ -573,7 +621,10 @@ const getEndpointAnchorGroup = (endpoint: EndpointItem, fallback: string) => {
   if (path.startsWith('/open/v1/email-reach')) return 'email-reach'
   if (path.startsWith('/open/v1/emails')) return 'emails'
   if (path.startsWith('/open/v1/verification-codes')) return 'verification-codes'
+  if (path.startsWith('/open/v1/mailbox-shares')) return 'mailbox-shares'
+  if (path.startsWith('/open/v1/hosted-domains')) return 'hosted-domains'
   if (path.startsWith('/open/v1/workflow-executions')) return 'workflow-executions'
+  if (path.startsWith('/open/v1/workflows')) return 'workflows'
   if (path.startsWith('/open/v1/mailboxes')) return 'mailboxes'
   return fallback
 }
@@ -584,10 +635,10 @@ const getEndpointAnchor = (groupName: string, endpoint: EndpointItem) =>
     .toLowerCase()}`
 const getDesktopLocalTitle = (endpoint: EndpointItem) => {
   const path = String(endpoint.path || '')
-  if (path.includes('/local-api/v1/smtp/send') || path.includes('desktop://smtp/send')) return '本地发信'
-  if (path.includes('/local-api/v1/external-mailboxes/verify') || path.includes('desktop://external-mailboxes/verify')) return '本地验号'
-  if (path.includes('/local-api/v1/external-mailboxes/fetch') || path.includes('desktop://external-mailboxes/fetch')) return '本地收信'
-  return '本地接口'
+  if (path.includes('/local-api/v1/smtp/send') || path.includes('desktop://smtp/send')) return t('openPlatform.commonMail.desktopSend')
+  if (path.includes('/local-api/v1/external-mailboxes/verify') || path.includes('desktop://external-mailboxes/verify')) return t('openPlatform.commonMail.desktopVerify')
+  if (path.includes('/local-api/v1/external-mailboxes/fetch') || path.includes('desktop://external-mailboxes/fetch')) return t('openPlatform.commonMail.desktopFetch')
+  return t('openPlatform.commonMail.desktopApi')
 }
 const getEndpointLabel = (endpoint: EndpointItem) => {
   if (endpoint.execution_mode === 'desktop_local') return getDesktopLocalTitle(endpoint)
@@ -643,7 +694,7 @@ const commonHeaders = computed<CommonHeaderItem[]>(() => [
 
 const sampleCurl = computed(() => {
   const origin = typeof window !== 'undefined' ? window.location.origin : ''
-  return `curl -X GET '${origin}/open/v1/verification-codes/latest?mailbox_type=system' \\\n  -H 'X-API-Key: sk_live_xxx'`
+  return `curl -X GET '${origin}/open/v1/emails?mailbox_type=hosted&mailbox_email=support%40example.com' \\\n  -H 'X-API-Key: sk_live_xxx'`
 })
 
 const getScopeLabel = (scope?: string) => {

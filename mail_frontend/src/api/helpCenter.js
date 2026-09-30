@@ -1,8 +1,8 @@
 import api from '@/services/api'
 
 export const helpCenterAPI = {
-  listPublicArticles() {
-    return api.get('/help-center/articles')
+  listPublicArticles(locale = 'zh-CN') {
+    return api.get('/help-center/articles', { params: { locale } })
   },
 
   listAdminArticles() {

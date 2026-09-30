@@ -163,7 +163,7 @@ describe('share-link workspace page', () => {
     await wrapper.get('input[aria-label="shareMailbox.selectPage"]').setValue(true)
     expect(wrapper.text()).toContain('shareMailbox.selectedCount:2')
     const batchDeleteButton = wrapper.findAll('button').find((button) => button.text() === 'shareMailbox.batchDelete')!
-    expect(batchDeleteButton.classes()).toContain('bg-red-600')
+    expect(batchDeleteButton.classes()).toContain('bg-primary-600')
     await batchDeleteButton.trigger('click')
     const dialog = wrapper.getComponent(ConfirmDialog)
     expect(dialog.props('title')).toBe('shareMailbox.batchDelete')
