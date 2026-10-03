@@ -17,9 +17,9 @@
             <CheckCircleIcon class="w-12 h-12 text-white" />
           </div>
           <h3 class="text-2xl font-bold text-gray-900 mb-1">
-            {{ t('executionResult.successTitle') }}
+            {{ t(product ? 'executionResult.productSuccessTitle' : 'executionResult.successTitle') }}
           </h3>
-          <p class="text-sm text-gray-600">{{ t('executionResult.successSubtitle') }}</p>
+          <p class="text-sm text-gray-600">{{ t(product ? 'executionResult.productSuccessSubtitle' : 'executionResult.successSubtitle') }}</p>
         </div>
 
         <!-- 关闭按钮 -->
@@ -138,6 +138,10 @@ const props = defineProps({
     type: Object,
     required: true,
     default: () => ({})
+  },
+  product: {
+    type: Boolean,
+    default: false
   }
 })
 

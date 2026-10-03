@@ -19,6 +19,7 @@ const mountAdmin = async () => {
     history: createMemoryHistory(),
     routes: [
       { path: '/', component: page },
+      { path: '/workflows/publish', component: page },
       {
         path: '/admin',
         component: AdminLayout,

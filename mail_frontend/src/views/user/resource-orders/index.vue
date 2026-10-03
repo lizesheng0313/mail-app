@@ -158,6 +158,8 @@ import { onMounted, ref } from 'vue'
 import { getMyPurchases, requestWorkflowRefund } from '@/api/workflowMarket'
 import ActionButton from '@/components/ActionButton/index.vue'
 import BaseModal from '@/components/BaseModal/index.vue'
+import { showConfirm } from '@/utils/dialog'
+import { showMessage } from '@/utils/message'
 
 const loading = ref(false)
 const orders = ref([])
@@ -226,7 +228,9 @@ const canRequestRefund = (item) => (
 )
 
 const getRefundText = (item) => {
-  if (item.refund_status === 'pending') return '退款处理中，等待半方确认撤单'
+  if (item.refund_status === 'pending') {
+    return item.market_visibility === 'share_only' ? '退款处理中，等待店主处理' : '退款处理中，等待处理'
+  }
   if (item.refund_status === 'rejected') {
     return item.refund_admin_reply || item.refund_seller_reply || '退款未通过'
   }
@@ -236,13 +240,14 @@ const getRefundText = (item) => {
 const getRefundClass = (item) => (item.refund_status === 'rejected' ? 'text-rose-600' : 'text-amber-600')
 
 const requestRefund = async (item) => {
-  if (!window.confirm(`确认申请退款《${item.workflow_name || '该商品'}》？`)) return
+  if (!await showConfirm(`确认申请退款《${item.workflow_name || '该商品'}》？`, '申请退款')) return
   try {
     const res = await requestWorkflowRefund(item.id)
-    window.alert(res?.message || '退款申请已提交')
+    if (res?.code !== 0) throw new Error(res?.message || '退款申请失败')
+    showMessage(res?.message || '退款申请已提交', 'success')
     await fetchOrders()
   } catch (error) {
-    window.alert(error?.response?.data?.detail || error?.message || '退款申请失败')
+    showMessage(error?.response?.data?.detail || error?.message || '退款申请失败', 'error')
   }
 }
 

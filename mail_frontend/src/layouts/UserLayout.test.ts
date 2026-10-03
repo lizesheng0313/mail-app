@@ -1,14 +1,25 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { defineComponent, ref } from 'vue'
 import { createMemoryHistory, createRouter } from 'vue-router'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+const apiGetMock = vi.hoisted(() => vi.fn())
+const userStoreState = vi.hoisted(() => ({
+  user: { id: 1, email: 'user@example.com', is_admin: false } as any,
+  isAuthenticated: true
+}))
 
 vi.mock('vue-i18n', () => ({ useI18n: () => ({ t: (key: string) => key }) }))
-vi.mock('@/services/api', () => ({ isTauri: () => false }))
+vi.mock('@/services/api', () => ({
+  isTauri: () => false,
+  default: {
+    get: apiGetMock
+  }
+}))
 vi.mock('@/stores/user', () => ({
   useUserStore: () => ({
-    user: { email: 'user@example.com', is_admin: false },
-    isAuthenticated: true,
+    user: userStoreState.user,
+    isAuthenticated: userStoreState.isAuthenticated,
     logout: vi.fn()
   })
 }))
@@ -19,6 +30,14 @@ vi.mock('@/components/BaseModal/index.vue', () => ({ default: { template: '<div 
 import UserLayout from './UserLayout.vue'
 
 const cleanups: Array<() => void> = []
+beforeEach(() => {
+  userStoreState.user = { id: 1, email: 'user@example.com', is_admin: false }
+  userStoreState.isAuthenticated = true
+  apiGetMock.mockReset().mockResolvedValue({
+    code: 0,
+    data: { user_id: 1, yesterday_income: 0, yesterday_orders: 0 }
+  })
+})
 afterEach(() => cleanups.splice(0).forEach((cleanup) => cleanup()))
 
 const createWorkbench = async (path: string) => {
@@ -45,6 +64,7 @@ const createWorkbench = async (path: string) => {
           { path: 'external-batch-verify', component: verification, meta: { keepAlive: true } },
           { path: 'email-reach/templates/25/edit', component: page },
           { path: 'finance', component: page },
+          { path: 'earnings', component: page },
           { path: 'purchases', component: page }
         ]
       },
@@ -63,6 +83,23 @@ const createWorkbench = async (path: string) => {
 }
 
 describe('User workspace navigation', () => {
+  it('does not request shared-domain earnings without a registered account', async () => {
+    userStoreState.user = { email: '', is_admin: false }
+    userStoreState.isAuthenticated = false
+
+    await createWorkbench('/user/automation/workflows')
+
+    expect(apiGetMock).not.toHaveBeenCalled()
+  })
+
+  it('loads shared-domain earnings silently for a registered account', async () => {
+    await createWorkbench('/user/automation/workflows')
+
+    expect(apiGetMock).toHaveBeenCalledWith('/hosted-domains/shared-earnings/summary', {
+      suppressErrorMessage: true
+    })
+  })
+
   it('shows the brand as the home link without a duplicate mailbox title', async () => {
     const { wrapper } = await createWorkbench('/user/mailboxes/external')
     expect(wrapper.get('.workspace-content').classes()).toEqual(expect.arrayContaining(['pb-2', 'sm:pb-3']))
@@ -134,6 +171,7 @@ describe('User workspace navigation', () => {
     await account.trigger('click')
     expect(wrapper.find('a[href="/user/resource-orders"]').exists()).toBe(true)
     expect(wrapper.find('a[href="/user/finance"]').exists()).toBe(true)
+    expect(wrapper.find('a[href="/user/earnings"]').exists()).toBe(true)
     expect(wrapper.find('a[href="/user/purchases"]').exists()).toBe(false)
   })
 

@@ -149,7 +149,9 @@ export const resolveRouteSeo = (route: RouteLocationNormalizedLoaded, i18n?: I18
     ...routeSeo,
     ...translatedRouteSeo,
     canonicalPath: routeSeo.canonicalPath || normalizePath(route.path),
-    robots: routeSeo.robots || (shouldNoIndex(route) ? 'noindex, nofollow' : DEFAULT_SEO.robots),
+    robots: route.query.share_token || shouldNoIndex(route)
+      ? 'noindex, nofollow'
+      : (routeSeo.robots || DEFAULT_SEO.robots),
     lang
   }
 }

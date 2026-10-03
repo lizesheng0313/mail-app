@@ -11,8 +11,8 @@
     <router-link
       to="/user/purchases"
       class="border-b-2 px-1 py-2 text-sm font-medium transition-colors"
-      :class="route.path === '/user/purchases' ? 'border-primary-600 text-primary-700' : 'border-transparent text-gray-500 hover:text-gray-700'"
-      :aria-current="route.path === '/user/purchases' ? 'page' : undefined"
+      :class="['/user/purchases', '/user/earnings'].includes(route.path) ? 'border-primary-600 text-primary-700' : 'border-transparent text-gray-500 hover:text-gray-700'"
+      :aria-current="['/user/purchases', '/user/earnings'].includes(route.path) ? 'page' : undefined"
     >
       {{ t('userLayout.transactions') }}
     </router-link>

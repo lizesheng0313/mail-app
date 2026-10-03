@@ -145,6 +145,18 @@
               >
                 {{ t('domainsPage.publicDomainBadge') }}
               </span>
+              <button
+                v-else-if="
+                  !isDomainDeleted(domain) &&
+                  !isDomainExpired(domain) &&
+                  String(domain.status || '').toLowerCase() === 'verified'
+                "
+                type="button"
+                class="w-fit text-left text-xs font-medium text-emerald-700 hover:text-emerald-800"
+                @click="openEditModal(domain)"
+              >
+                {{ t('domainsPage.joinSharedPlanBadge') }}
+              </button>
               <span
                 v-if="!isDomainDeleted(domain) && isDomainExpired(domain)"
                 class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-orange-100 text-orange-800 w-fit"
@@ -235,6 +247,28 @@
       @cancel="closeDomainModal"
     >
       <div v-if="!domainModalDetail" class="space-y-4">
+        <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-4">
+          <div class="text-base font-semibold text-emerald-900">
+            {{ t('domainsPage.sharedPlanTitle') }}
+          </div>
+          <p class="mt-1 text-sm leading-6 text-emerald-800">
+            {{ t('domainsPage.sharedPlanDescription') }}
+          </p>
+          <div class="mt-3 grid gap-2 text-xs text-emerald-800 sm:grid-cols-3">
+            <div class="rounded-lg bg-white/70 px-3 py-2">
+              {{ t('domainsPage.sharedPlanPaidOnly') }}
+            </div>
+            <div class="rounded-lg bg-white/70 px-3 py-2">
+              {{ t('domainsPage.sharedPlanNoFreePool') }}
+            </div>
+            <div class="rounded-lg bg-white/70 px-3 py-2">
+              {{ t('domainsPage.sharedPlanShare') }}
+            </div>
+          </div>
+          <p class="mt-3 text-xs leading-5 text-emerald-800">
+            {{ t('domainsPage.sharedPlanSelfUse') }}
+          </p>
+        </div>
         <div class="rounded-lg bg-gray-50 px-4 py-3 text-sm leading-6 text-gray-600">
           {{ t('domainsPage.createHint') }}
         </div>
@@ -260,14 +294,22 @@
           :enabled="createForm.catch_all_enabled"
           @update:enabled="createForm.catch_all_enabled = $event"
         />
-        <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
+        <label
+          :class="createForm.is_public ? 'border-emerald-300 bg-emerald-50' : 'border-gray-200 bg-gray-50'"
+          class="flex cursor-pointer items-start gap-3 rounded-lg border px-4 py-3"
+        >
           <input
             v-model="createForm.is_public"
             type="checkbox"
             class="mt-1 h-4 w-4 accent-primary-600"
           />
           <div class="min-w-0">
-            <div class="text-sm font-medium text-black">{{ t('domainsPage.publicDomainLabel') }}</div>
+            <div class="flex flex-wrap items-center gap-2 text-sm font-medium text-black">
+              <span>{{ t('domainsPage.publicDomainLabel') }}</span>
+              <span class="rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-700">
+                {{ t('domainsPage.sharedPlanRateBadge') }}
+              </span>
+            </div>
             <p class="mt-1 text-xs leading-5 text-gray-500">
               {{ t('domainsPage.publicDomainHelp') }}
             </p>
@@ -439,14 +481,22 @@
           :show-mailbox-line="true"
           @update:enabled="editForm.catch_all_enabled = $event"
         />
-        <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
+        <label
+          :class="editForm.is_public ? 'border-emerald-300 bg-emerald-50' : 'border-gray-200 bg-gray-50'"
+          class="flex cursor-pointer items-start gap-3 rounded-lg border px-4 py-3"
+        >
           <input
             v-model="editForm.is_public"
             type="checkbox"
             class="mt-1 h-4 w-4 accent-primary-600"
           />
           <div class="min-w-0">
-            <div class="text-sm font-medium text-black">{{ t('domainsPage.publicDomainLabel') }}</div>
+            <div class="flex flex-wrap items-center gap-2 text-sm font-medium text-black">
+              <span>{{ t('domainsPage.publicDomainLabel') }}</span>
+              <span class="rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-700">
+                {{ t('domainsPage.sharedPlanRateBadge') }}
+              </span>
+            </div>
             <p class="mt-1 text-xs leading-5 text-gray-500">
               {{ t('domainsPage.publicDomainHelp') }}
             </p>
@@ -766,7 +816,12 @@ const handleCreateDomain = async () => {
         : undefined
     })
     if (response.code === 0) {
-      showMessage(t('domainsPage.createSuccess'), 'success')
+      showMessage(
+        createForm.value.is_public
+          ? t('domainsPage.sharedCreateSuccess')
+          : t('domainsPage.createSuccess'),
+        'success'
+      )
       applyDomainDetailToModal(response.data, true)
       await loadDomains(1)
     }
@@ -921,7 +976,12 @@ const saveEditDomain = async () => {
       is_public: editForm.value.is_public
     })
     if (response.code === 0) {
-      showMessage(t('domainsPage.updateSuccess'), 'success')
+      showMessage(
+        editForm.value.is_public
+          ? t('domainsPage.sharedEnabledSuccess')
+          : t('domainsPage.updateSuccess'),
+        'success'
+      )
       closeEditModal()
       await loadDomains()
     }

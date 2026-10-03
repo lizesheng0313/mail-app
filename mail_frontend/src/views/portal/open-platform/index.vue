@@ -260,6 +260,8 @@
                       </div>
                     </div>
 
+                    <p v-if="endpoint.description" class="whitespace-pre-wrap text-sm leading-6 text-gray-600">{{ endpoint.description }}</p>
+
                     <div class="flex flex-wrap gap-2 text-xs text-gray-500">
                       <span v-if="endpoint.scope" class="rounded-full bg-primary-50 px-3 py-1 text-primary-700">
                         {{ t('openPlatform.scopeLabel') }}: {{ getScopeLabel(endpoint.scope) }}

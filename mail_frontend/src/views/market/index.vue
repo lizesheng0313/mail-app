@@ -430,7 +430,10 @@ const loadWorkflows = async () => {
 
   try {
     if (shareToken.value) {
-      const shareResponse = await getMarketShare(shareToken.value)
+      const shareResponse = await getMarketShare(shareToken.value, {
+        page: page.value,
+        page_size: pageSize.value
+      })
       if (shareResponse.code !== 0) throw new Error(shareResponse.message || '分享链接无效')
       const shareData = shareResponse.data || {}
       sharedStoreName.value = shareData.store_name || ''

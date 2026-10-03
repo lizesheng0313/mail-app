@@ -16,6 +16,7 @@ import {
   ShieldCheckIcon,
   Cog6ToothIcon,
   WalletIcon,
+  BanknotesIcon,
   LinkIcon
 } from '@heroicons/vue/24/outline'
 
@@ -77,6 +78,7 @@ export const createWorkspaceMenu = (
         icon: CubeIcon,
         matchPaths: ['/user/automation/execution-history']
       },
+      { path: '/user/store', label: '我的店铺', icon: ShoppingCartIcon },
       { path: '/user/automation/plugins', label: t('userLayout.myPlugins'), icon: CubeIcon }
     ]
   },
@@ -137,7 +139,8 @@ export const createWorkspaceMenu = (
         label: t('userLayout.financeCenter'),
         icon: WalletIcon,
         matchPaths: ['/user/purchases']
-      }
+      },
+      { path: '/user/earnings', label: t('userLayout.myEarnings'), icon: BanknotesIcon }
     ]
   },
   {

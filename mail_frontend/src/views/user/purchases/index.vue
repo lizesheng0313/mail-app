@@ -37,7 +37,6 @@
         {{ t('purchasesPage.expenseRecords') }}
       </button>
       <button
-        v-if="showSellerTabs"
         @click="activeTab = 'income'"
         :class="[
           'px-5 py-2 rounded-md font-medium text-sm transition-all',
@@ -370,6 +369,7 @@
 <script setup>
 import { ref, reactive, onMounted, watch, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRoute } from 'vue-router'
 import MilkAccountTabs from '@/components/MilkAccountTabs.vue'
 import { showMessage } from '@/utils/message'
 import { showConfirm, showPrompt } from '@/utils/dialog'
@@ -380,6 +380,7 @@ import { useUserStore } from '@/stores/user'
 import { getMyOrders, getSellerRefunds, approveWorkflowRefund, rejectWorkflowRefund, adminGetWorkflowRefunds, adminForceWorkflowRefund } from '@/api/workflowMarket'
 
 const { t } = useI18n()
+const route = useRoute()
 const userStore = useUserStore()
 const isAdminView = computed(() => Boolean(userStore.user?.is_admin))
 const showSellerTabs = ref(isAdminView.value)
@@ -403,7 +404,12 @@ const loadSellerTabVisibility = async () => {
 const transactions = ref([])
 const loading = ref(false)
 const searchKeyword = ref('')
-const activeTab = ref('all') // Tab状态
+const initialTab = route.path === '/user/earnings'
+  ? 'income'
+  : ['all', 'recharge', 'expense', 'income', 'refunds'].includes(String(route.query.tab || ''))
+    ? String(route.query.tab)
+    : 'all'
+const activeTab = ref(initialTab) // Tab状态
 
 // 统计
 const summary = reactive({

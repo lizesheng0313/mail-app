@@ -18,7 +18,7 @@
               <div class="flex items-center gap-2">
                 <p class="text-lg font-semibold text-gray-900">{{ t('home.customGenerateDomainLabel') }}</p>
                 <span class="text-sm font-normal text-gray-500">
-                  {{ t('home.totalDomainsCount', { count: domainTotal }) }}
+                  {{ t('home.totalDomainsCount', { count: eligibleDomainOptions.length }) }}
                 </span>
               </div>
               <p class="mt-1 text-sm text-gray-500">{{ domainHintText }}</p>
@@ -28,6 +28,7 @@
                 {{ t('home.selectedDomainsCount', { count: selectedDomainCount }) }}
               </span>
               <button
+                v-if="!isSpecifiedMode"
                 type="button"
                 class="font-medium text-primary-600 hover:text-primary-700"
                 @click="selectAllCustomDomains"
@@ -387,7 +388,9 @@ const modalTitle = computed(() =>
 const domainHintText = computed(() =>
   isHostedMailbox.value
     ? t('home.customGenerateHostedDomainHint')
-    : t('home.customGenerateDomainHint')
+    : isSpecifiedMode.value
+      ? t('home.customGenerateSharedDomainHint')
+      : t('home.customGenerateDomainHint')
 )
 
 const emptyDomainText = computed(() =>
@@ -402,7 +405,6 @@ const customRuleButtonActiveClass =
 const customGenerateLoading = ref(false)
 const domainLoading = ref(false)
 const domainOptions = ref<any[]>([])
-const domainTotal = ref(0)
 const allSystemDomainsSelected = ref(false)
 const customGenerateBalance = ref(0)
 const domainSearchKeyword = ref('')
@@ -439,6 +441,10 @@ const createDefaultCustomGenerateForm = () => ({
   domain_strategy: 'round_robin'
 })
 const isSpecifiedMode = computed(() => customGenerateForm.value.generation_mode === 'specified')
+const eligibleDomainOptions = computed(() => {
+  if (!isSystemMailbox.value || isSpecifiedMode.value) return domainOptions.value
+  return domainOptions.value.filter((item) => !item.is_public_domain)
+})
 
 const normalizedCustomGenerateQuantity = computed(() =>
   isSpecifiedMode.value ? 1 : Math.max(1, Number(customGenerateForm.value.quantity || 0) || 1)
@@ -481,12 +487,12 @@ const domainStrategyOptions = computed(() => [
 
 const selectedSystemDomains = computed(() =>
   allSystemDomainsSelected.value && !isSpecifiedMode.value
-    ? domainOptions.value
-    : domainOptions.value.filter((item) => customGenerateForm.value.domain_ids.includes(String(item.id)))
+    ? eligibleDomainOptions.value
+    : eligibleDomainOptions.value.filter((item) => customGenerateForm.value.domain_ids.includes(String(item.id)))
 )
 const selectedDomainCount = computed(() =>
   allSystemDomainsSelected.value && !isSpecifiedMode.value
-    ? domainTotal.value
+    ? eligibleDomainOptions.value.length
     : customGenerateForm.value.domain_ids.length
 )
 const allCustomDomainsSelected = computed(() => {
@@ -615,8 +621,8 @@ const customGeneratePreviewText = computed(() => {
 
 const filteredDomainOptions = computed(() => {
   const keyword = String(domainSearchKeyword.value || '').trim().toLowerCase()
-  if (!keyword) return domainOptions.value
-  return domainOptions.value.filter((item) =>
+  if (!keyword) return eligibleDomainOptions.value
+  return eligibleDomainOptions.value.filter((item) =>
     String(item.domain_name || '').toLowerCase().includes(keyword)
   )
 })
@@ -658,7 +664,7 @@ const syncCustomGenerateDomainSelection = () => {
     allSystemDomainsSelected.value = false
   }
   if (allSystemDomainsSelected.value) return
-  const availableIds = new Set(domainOptions.value.map((item) => String(item.id)))
+  const availableIds = new Set(eligibleDomainOptions.value.map((item) => String(item.id)))
   const nextIds = customGenerateForm.value.domain_ids.filter((item) => availableIds.has(String(item)))
   customGenerateForm.value.domain_ids = nextIds
 }
@@ -691,7 +697,6 @@ const loadSystemDomains = async () => {
   const domainsRes: any = await mailboxAPI.getSystemDomains()
   if (domainsRes.code === 0 && domainsRes.data) {
     domainOptions.value = sortDomainsByCreatedAt(domainsRes.data.items || [])
-    domainTotal.value = domainOptions.value.length
     syncCustomGenerateDomainSelection()
   }
 }
@@ -705,7 +710,6 @@ const loadCustomGenerateResources = async () => {
         domainOptions.value = sortDomainsByCreatedAt(
           normalizeHostedDomainRows(domainsRes.data.items || [])
         )
-        domainTotal.value = domainOptions.value.length
         syncCustomGenerateDomainSelection()
       }
       customGenerateBalance.value = 0
@@ -743,7 +747,7 @@ const toggleCustomDomainSelection = (domainId: string) => {
 
   if (allSystemDomainsSelected.value) {
     allSystemDomainsSelected.value = false
-    customGenerateForm.value.domain_ids = domainOptions.value
+    customGenerateForm.value.domain_ids = eligibleDomainOptions.value
       .map((item) => String(item.id))
       .filter((item) => item !== normalizedId)
     return
@@ -950,7 +954,6 @@ const resetCustomGenerateState = () => {
   customGenerateForm.value = createDefaultCustomGenerateForm()
   allSystemDomainsSelected.value = false
   domainOptions.value = []
-  domainTotal.value = 0
   closeConfirmDialog()
 }
 
@@ -1038,6 +1041,7 @@ watch(
       customGenerateForm.value.domain_ids = customGenerateForm.value.domain_ids.slice(0, 1)
       return
     }
+    syncCustomGenerateDomainSelection()
     if (customGenerateForm.value.quantity < 1) {
       customGenerateForm.value.quantity = 1
     }

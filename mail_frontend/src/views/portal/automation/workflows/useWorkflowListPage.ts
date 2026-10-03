@@ -2,7 +2,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { workflowApi } from '@/api/workflow'
-import { createStoreShare, createWorkflowShare, republishWorkflow, unpublishWorkflow } from '@/api/workflowMarket'
+import { createWorkflowShare, republishWorkflow, unpublishWorkflow } from '@/api/workflowMarket'
 import { showMessage } from '@/utils/message'
 
 type WorkflowItem = Record<string, any>
@@ -267,21 +267,7 @@ export function useWorkflowListPage() {
   }
 
   const handleShareStore = async () => {
-    try {
-      const response = await createStoreShare()
-      if (response.code !== 0 || !response.data?.share_token) {
-        throw new Error(response.message || '店铺链接创建失败')
-      }
-      const routeLocation = router.resolve({
-        name: 'workflow-market',
-        query: { share_token: response.data.share_token }
-      })
-      await copyText(new URL(routeLocation.href, window.location.origin).toString())
-      showMessage('店铺分享链接已复制', 'success')
-    } catch (error) {
-      console.error('复制店铺分享链接失败:', error)
-      showMessage(error instanceof Error ? error.message : '店铺分享链接创建失败', 'error')
-    }
+    await router.push('/user/store')
   }
 
   const handleUnpublish = (workflow: WorkflowItem) => {

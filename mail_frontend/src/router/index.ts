@@ -49,6 +49,9 @@ const AdminEmailReachSettings = () => import('@/views/admin/email-reach-settings
 
 // 用户中心组件
 const UserLayout = () => import('@/layouts/UserLayout.vue')
+const UserStore = () => import('@/views/user/store/index.vue')
+const PrivateShop = () => import('@/views/market/private-shop.vue')
+const AdminStoreReview = () => import('@/views/admin/store-review/index.vue')
 const UserPurchases = () => import('@/views/user/purchases/index.vue')
 const UserResourceOrders = () => import('@/views/user/resource-orders/index.vue')
 const UserFinance = () => import('@/views/user/finance/index.vue')
@@ -325,6 +328,12 @@ const router = createRouter({
         }
       }
     },
+    {
+      path: '/shop/:token',
+      name: 'private-shop',
+      component: PrivateShop,
+      meta: { seo: { title: '私人店铺', robots: 'noindex, nofollow' } }
+    },
     // 邮箱分享页面（无需登录）
     {
       path: '/share/:token',
@@ -377,6 +386,11 @@ const router = createRouter({
           component: AutomationWorkflows
         },
         {
+          path: 'store',
+          name: 'user-store',
+          component: UserStore
+        },
+        {
           path: 'automation/execution-history',
           name: 'user-automation-execution-history',
           component: ExecutionHistory
@@ -408,6 +422,11 @@ const router = createRouter({
         {
           path: 'purchases',
           name: 'user-purchases',
+          component: UserPurchases
+        },
+        {
+          path: 'earnings',
+          name: 'user-earnings',
           component: UserPurchases
         },
         {
@@ -606,6 +625,11 @@ const router = createRouter({
           path: 'workflow-review',
           name: 'admin-workflow-review',
           component: WorkflowReview
+        },
+        {
+          path: 'store-review',
+          name: 'admin-store-review',
+          component: AdminStoreReview
         },
         {
           path: 'resource-sources',

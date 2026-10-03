@@ -95,8 +95,46 @@ export function createStoreShare() {
   return api.post('/workflow-market/my/store/share')
 }
 
-export function getMarketShare(shareToken) {
-  return api.get(`/workflow-market/shares/${encodeURIComponent(shareToken)}`)
+export function rotateStoreShare() {
+  return api.post('/workflow-market/my/store/share/rotate')
+}
+
+export function getStoreLinks(params = {}) {
+  return api.get('/workflow-market/my/store/links', { params })
+}
+
+export function revokeStoreLink(linkId) {
+  return api.delete(`/workflow-market/my/store/links/${linkId}`)
+}
+
+export function getMyStore() {
+  return api.get('/workflow-market/my/store')
+}
+
+export function applyForStore(data) {
+  return api.post('/workflow-market/my/store/apply', data)
+}
+
+export function updateMyStore(data) {
+  return api.put('/workflow-market/my/store', data)
+}
+
+export function getAdminStores(params) {
+  return api.get('/workflow-market/admin/stores', { params })
+}
+
+export function reviewAdminStore(ownerUserId, data) {
+  return api.post(`/workflow-market/admin/stores/${ownerUserId}/review`, data)
+}
+
+export function getMarketShare(shareToken, params = {}) {
+  return api.get(`/workflow-market/shares/${encodeURIComponent(shareToken)}`, { params })
+}
+
+export function recordProductShareOpen(shareToken, workflowId) {
+  return api.post(`/workflow-market/shares/${encodeURIComponent(shareToken)}/product-open`, null, {
+    params: { workflow_id: workflowId }
+  })
 }
 
 /**

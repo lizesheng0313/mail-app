@@ -64,7 +64,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { HomeIcon, ShoppingCartIcon, UserIcon } from '@heroicons/vue/24/outline'
@@ -73,6 +73,8 @@ import SidebarLayout from '@/components/SidebarLayout/index.vue'
 import AccountActions from '@/components/AccountActions/index.vue'
 import PublicNavigation from '@/components/PublicNavigation/index.vue'
 import { createWorkspaceMenu, externalMailboxTabs } from '@/config/workspaceNavigation'
+import { hostedDomainAPI } from '@/api/hostedDomain'
+import { showMessage } from '@/utils/message'
 
 const router = useRouter()
 const route = useRoute()
@@ -99,6 +101,34 @@ const mailboxTabs = computed(() => {
     ]
   return []
 })
+
+const notifySharedDomainEarnings = async () => {
+  const registeredUserId = Number(userStore.user?.id || 0)
+  if (!userStore.isAuthenticated || registeredUserId <= 0) return
+
+  try {
+    const response = await hostedDomainAPI.getSharedEarningsSummary()
+    const data = response?.data || {}
+    const yesterdayIncome = Number(data.yesterday_income || 0)
+    if (response?.code !== 0 || yesterdayIncome <= 0 || typeof window === 'undefined') return
+
+    const userId = Number(data.user_id || 0)
+    const today = new Date().toLocaleDateString('en-CA')
+    const noticeKey = `shared-domain-earnings-notice:${userId}:${today}`
+    if (window.localStorage.getItem(noticeKey)) return
+
+    showMessage(
+      t('domainsPage.sharedEarningsNotice', {
+        orders: Number(data.yesterday_orders || 0),
+        income: yesterdayIncome.toFixed(2)
+      }),
+      'success'
+    )
+    window.localStorage.setItem(noticeKey, '1')
+  } catch (error) {
+    console.warn('加载共享域名收益提醒失败:', error)
+  }
+}
 // 当前页面标题
 const currentPageTitle = computed(() => {
   if (activeMailboxType.value)
@@ -110,6 +140,7 @@ const currentPageTitle = computed(() => {
   if (route.path.startsWith('/user/automation/browser-workflows'))
     return route.params.workflowId ? '编辑浏览器工作流' : '浏览器工作流'
   if (route.path === '/user/automation/workflows') return t('userLayout.automationWorkflows')
+  if (route.path === '/user/store') return '我的店铺'
   if (route.path === '/user/automation/execution-history') return '执行记录'
   if (route.path === '/user/automation/triggers') return t('userLayout.automationTriggers')
   if (route.path === '/user/automation/plugins') return t('userLayout.myPlugins')
@@ -140,6 +171,7 @@ const currentPageTitle = computed(() => {
     '/user/external-batch-repair': t('userLayout.batchRepair'),
     '/user/external-proxy-management': t('userLayout.proxyManagement'),
     '/user/purchases': t('userLayout.financeCenter'),
+    '/user/earnings': t('userLayout.myEarnings'),
     '/user/resource-orders': t('userLayout.resourceOrders'),
     '/user/finance': t('userLayout.financeCenter'),
     '/user/settings': t('userLayout.personalSettings'),
@@ -152,4 +184,8 @@ const logout = () => {
   userStore.logout()
   router.push('/login')
 }
+
+onMounted(() => {
+  void notifySharedDomainEarnings()
+})
 </script>

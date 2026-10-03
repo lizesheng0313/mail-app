@@ -10,7 +10,7 @@
             </svg>
           </button>
           <div>
-            <h1 class="text-sm font-medium">{{ isEditMode ? t('publishWorkflow.titleEdit') : t('publishWorkflow.titleCreate') }}</h1>
+            <h1 class="text-sm font-medium">{{ pageTitle }}</h1>
             <p class="text-xs text-gray-500">{{ formData.name || workflowName }}</p>
           </div>
         </div>
@@ -58,7 +58,7 @@
           </div>
 
           <div class="space-y-5">
-            <div>
+            <div v-if="resourceTypeOptions.length > 1">
               <label class="mb-2 block text-sm font-semibold text-gray-900">发布类型 <span class="text-red-500">*</span></label>
               <div class="grid gap-2 md:grid-cols-2">
                 <label
@@ -81,7 +81,7 @@
               </div>
             </div>
 
-            <div>
+            <div v-if="marketVisibilityOptions.length > 1">
               <label class="mb-2 block text-sm font-semibold text-gray-900">展示方式 <span class="text-red-500">*</span></label>
               <div class="grid gap-2 md:grid-cols-2">
                 <label
@@ -356,7 +356,7 @@
                 暂无规格，点击右上角添加规格
               </div>
               <div
-                v-if="formData.deliveryMode !== 'third_party_api'"
+                v-if="isAdmin && formData.deliveryMode !== 'third_party_api'"
                 class="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500"
               >
                 半方这类供货商绑定在“三方接口调用”模式下使用，切过去后每个规格下面会出现“绑定货源”。
@@ -493,12 +493,13 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount, watch, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRouter, useRoute } from 'vue-router'
+import { useRouter } from 'vue-router'
 import { useEditor, EditorContent } from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import { showMessage } from '@/utils/message'
 import { workflowApi } from '@/api/workflow'
+import { getMyStore } from '@/api/workflowMarket'
 import {
   bindResourceProviderProduct,
   deleteResourceSkuMapping,
@@ -511,10 +512,14 @@ import CustomSelect from '@/components/CustomSelect/index.vue'
 import { useUserStore } from '@/stores/user'
 
 const router = useRouter()
-const route = useRoute()
 const userStore = useUserStore()
 const { t } = useI18n()
 const isAdmin = computed(() => Boolean(userStore.user?.is_admin))
+const pageTitle = computed(() => {
+  if (isEditMode.value) return formData.value.resourceType === 'workflow' ? '编辑发布信息' : '编辑商品'
+  if (workflowId.value && formData.value.resourceType === 'workflow') return t('publishWorkflow.titleCreate')
+  return isAdmin.value ? '发布到资源市场' : '发布商品'
+})
 
 // Tiptap 编辑器
 const editor = useEditor({
@@ -564,10 +569,12 @@ const setHeading = (level) => {
 }
 
 // 工作流信息（从 history.state 获取）
-const workflowId = ref(history.state.workflow_id || '')
-const workflowName = ref(history.state.workflow_name || '')
-const workflowDbId = ref(Number(history.state.workflow_db_id || 0))
-const isEditMode = ref(history.state.edit_mode === true)
+const publishState = window.history.state || {}
+const workflowId = ref(publishState.workflow_id || '')
+const workflowName = ref(publishState.workflow_name || '')
+const workflowDbId = ref(Number(publishState.workflow_db_id || 0))
+const isEditMode = ref(publishState.edit_mode === true)
+const isNewProductFlow = ref(!workflowId.value)
 
 const resourceCategoryTree = [
   {
@@ -674,12 +681,20 @@ const selectedPrimaryCategory = computed(
   () => resourceCategoryTree.find((item) => item.value === formData.value.primaryCategory) || null
 )
 
-const secondaryCategoryOptions = computed(() => selectedPrimaryCategory.value?.children || [])
+const secondaryCategoryOptions = computed(() => {
+  const options = selectedPrimaryCategory.value?.children || []
+  return !isAdmin.value && formData.value.primaryCategory === 'mail_resource'
+    ? options.filter((option) => option.value !== 'outlook_mail')
+    : options
+})
 
 const legacyCategory = computed(() => {
   const primary = selectedPrimaryCategory.value
   if (!primary) return formData.value.category || 'other'
-  if (primary.value === 'mail_resource' && formData.value.secondaryCategory === 'outlook_mail') return 'outlook'
+  // 仅 Outlook 邮箱沿用管理员专属分类；其它邮箱相关商品走普通商品分类。
+  if (primary.value === 'mail_resource') {
+    return formData.value.secondaryCategory === 'outlook_mail' ? 'outlook' : 'other'
+  }
   if (primary.value === 'automation_tool') return 'automation'
   return primary.legacyCategory || 'other'
 })
@@ -704,7 +719,7 @@ const pricingOptions = [
   }
 ]
 
-const resourceTypeOptions = [
+const allResourceTypeOptions = [
   {
     label: '工作流',
     value: 'workflow',
@@ -716,6 +731,9 @@ const resourceTypeOptions = [
     desc: '账号、卡密、瑞幸这类售卖商品，购买后进入订单'
   }
 ]
+const resourceTypeOptions = computed(() => isNewProductFlow.value
+  ? allResourceTypeOptions.filter((option) => option.value === 'product')
+  : allResourceTypeOptions)
 
 const periodOptions = [
   { label: t('publishWorkflow.periodMonthly'), value: 'monthly' },
@@ -842,18 +860,18 @@ const inferSkuPrimarySpec = (sku) => {
 
 // 表单数据
 const formData = ref({
-  resourceType: 'workflow',
-  marketVisibility: 'public',
+  resourceType: workflowId.value ? 'workflow' : 'product',
+  marketVisibility: isAdmin.value ? 'public' : 'share_only',
   name: workflowName.value || '',
   description: '',
   category: '',
   primaryCategory: '',
   secondaryCategory: '',
   tags: [],
-  pricingModel: 'free',
+  pricingModel: workflowId.value ? 'free' : 'per_use',
   milkCoinPrice: 0,
   subscriptionPeriod: 'monthly', // monthly 或 yearly
-  deliveryMode: 'workflow',
+  deliveryMode: workflowId.value ? 'workflow' : 'inventory',
   orderFieldPreset: 'none',
   requiresRechargeAccount: false,
   inventoryEnabled: false, // 是否启用库存管理
@@ -863,10 +881,12 @@ const formData = ref({
   longDescription: ''
 })
 
-const marketVisibilityOptions = [
+const marketVisibilityOptions = computed(() => isAdmin.value ? [
   { value: 'public', label: '公开到资源市场', desc: '所有用户都能在资源市场搜索到。' },
   { value: 'share_only', label: '仅通过分享链接', desc: '不进入公共市场，只能通过你的商品或店铺链接打开。' }
-]
+] : [
+  { value: 'share_only', label: '私人店铺链接', desc: '审核通过后由你分享链接，平台不在资源市场推广。' }
+])
 
 const groupedSkus = computed(() => {
   const groups = new Map()
@@ -1144,7 +1164,8 @@ const removeSkuBinding = async (sku, binding) => {
 }
 
 const loadSkuMappings = async (dbId = workflowDbId.value) => {
-  if (!dbId) return
+  // 货源绑定接口仅开放给管理员；私人店主无需加载，也不能因此阻断发布表单。
+  if (!dbId || !isAdmin.value) return
   const res = await getResourceSkuMappings({
     workflow_id: dbId,
     page: 1,
@@ -1446,6 +1467,10 @@ const handleUploadImage = async (file) => {
 
 // 提交表单
 const handleSubmit = async () => {
+  if (!workflowId.value && formData.value.resourceType !== 'product') {
+    showMessage('请先创建工作流，再发布工作流资源', 'warning')
+    return
+  }
   // 验证
   if (!formData.value.name.trim()) {
     showMessage('请填写标题', 'warning')
@@ -1465,6 +1490,10 @@ const handleSubmit = async () => {
   }
   if (formData.value.resourceType === 'product' && formData.value.primaryCategory === 'automation_tool') {
     showMessage('商品不能发布到自动化工具分类，请选择对应商品类目', 'warning')
+    return
+  }
+  if (!isAdmin.value && legacyCategory.value === 'outlook') {
+    showMessage('此分类仅管理员可发布，请选择其他邮箱分类', 'warning')
     return
   }
   if (formData.value.resourceType === 'workflow') {
@@ -1511,9 +1540,15 @@ const handleSubmit = async () => {
 
   submitting.value = true
   try {
+    if (!isAdmin.value) {
+      const store = await getMyStore()
+      if (store.code !== 0 || store.data?.status !== 'active') {
+        throw new Error('请先开通店铺，再发布商品')
+      }
+    }
     const data = {
       resource_type: formData.value.resourceType,
-      market_visibility: formData.value.marketVisibility,
+      market_visibility: isAdmin.value ? formData.value.marketVisibility : 'share_only',
       name: formData.value.name.trim(),
       description: formData.value.description.trim(),
       category: legacyCategory.value,
@@ -1534,6 +1569,29 @@ const handleSubmit = async () => {
       data.subscription_period = formData.value.subscriptionPeriod
     }
 
+    // 新商品在同一张表单内创建底层资源，用户无需先创建空工作流。
+    // 创建成功后保留 ID；本页重试不会重复创建草稿。
+    if (!workflowId.value) {
+      const created = await workflowApi.createWorkflow({
+        name: data.name,
+        description: data.description,
+        steps: [],
+        variables: {},
+        settings: {}
+      })
+      if (created.code !== 0 || !created.data?.workflow_id) {
+        throw new Error(created.message || '创建商品失败')
+      }
+      workflowId.value = created.data.workflow_id
+    }
+    if (!workflowDbId.value) {
+      const detail = await workflowApi.getWorkflow(workflowId.value)
+      if (detail.code !== 0 || !detail.data?.id) {
+        throw new Error(detail.message || '商品草稿已创建，加载失败，请重试发布')
+      }
+      workflowDbId.value = Number(detail.data.id)
+    }
+
     // 根据是否编辑模式调用不同API
     let res
     if (isEditMode.value) {
@@ -1546,14 +1604,19 @@ const handleSubmit = async () => {
 
     if (res.code === 0) {
       await saveSkuSourceBindings(skus)
-      const message = isEditMode.value ? t('publishWorkflow.updateSuccess') : t('publishWorkflow.publishSuccess')
+      const message = isEditMode.value
+        ? t('publishWorkflow.updateSuccess')
+        : t(isAdmin.value ? 'publishWorkflow.publishSuccess' : 'publishWorkflow.publishPrivateSuccess')
       showMessage(message, 'success')
       setTimeout(() => {
-        router.push('/user/automation/workflows')
+        router.push(isAdmin.value ? '/user/automation/workflows' : '/user/store')
       }, 1500)
+    } else {
+      throw new Error(res.message || '发布失败')
     }
   } catch (error) {
     console.error('发布失败:', error)
+    showMessage(error?.message || '发布失败', 'error')
   } finally {
     submitting.value = false
   }
@@ -1561,7 +1624,7 @@ const handleSubmit = async () => {
 
 // 取消
 const handleCancel = () => {
-  router.push('/user/automation/workflows')
+  router.push(isAdmin.value ? '/user/automation/workflows' : '/user/store')
 }
 
 watch(() => formData.value.primaryCategory, (newValue, oldValue) => {
@@ -1603,6 +1666,8 @@ watch(() => formData.value.resourceType, (type) => {
 })
 
 watch(isAdmin, (value) => {
+  if (!value) formData.value.marketVisibility = 'share_only'
+  else if (!workflowId.value) formData.value.marketVisibility = 'public'
   if (!value && formData.value.deliveryMode === 'third_party_api') {
     formData.value.deliveryMode = 'inventory'
   }
@@ -1655,7 +1720,7 @@ const loadWorkflowInfo = async () => {
       // 回显表单数据
       formData.value = {
         resourceType: inferResourceType(wf),
-        marketVisibility: wf.market_visibility || 'public',
+        marketVisibility: isAdmin.value ? (wf.market_visibility || 'public') : 'share_only',
         name: wf.name || workflowName.value || '',
         description: wf.description || '',
         category: wf.category || '',
@@ -1722,10 +1787,6 @@ onMounted(async () => {
   console.log('  - isEditMode:', isEditMode.value)
 
   if (!workflowId.value) {
-    showMessage(t('publishWorkflow.workflowIdMissing'), 'error')
-    setTimeout(() => {
-      router.push('/user/automation/workflows')
-    }, 2000)
     return
   }
 

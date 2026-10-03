@@ -724,6 +724,7 @@
       :message="confirmDialog.message"
       :type="confirmDialog.type"
       :loading="confirmDialog.loading"
+      :show-warning="!isProductListing"
       @confirm="confirmDialog.onConfirm"
       @cancel="confirmDialog.onCancel"
     />
@@ -732,6 +733,7 @@
     <ExecutionResultModal
       :visible="showExecutionResult"
       :execution-data="executionResultData"
+      :product="isProductListing"
       @close="showExecutionResult = false"
     />
 
@@ -785,6 +787,7 @@ import {
   getWorkflowAdminPriceTable,
   getWorkflowDetail,
   purchaseWorkflow,
+  recordProductShareOpen,
   refreshWorkflowAdminPriceCatalog
 } from '@/api/workflowMarket'
 import { createReview, deleteReview } from '@/api/workflowMarket'
@@ -977,6 +980,14 @@ const getResourceType = (item = {}) => {
   }
   if (item.category === 'outlook') {
     return 'account'
+  }
+  if ((item.skus || []).some((sku) => ['account', 'inventory', 'api', 'code', 'link', 'manual'].includes(
+    String(sku?.fulfillment_type || sku?.delivery_mode || '').toLowerCase()
+  ))) {
+    return 'account'
+  }
+  if (item.primary_category && item.primary_category !== 'automation_tool') {
+    return 'service'
   }
   return 'workflow'
 }
@@ -1726,6 +1737,7 @@ const updateWorkflowSeo = () => {
       ...keywordList
     ].join(', '),
     canonicalPath: route.path,
+    robots: shareToken.value ? 'noindex, nofollow' : 'index, follow',
     ogType: 'website'
   })
 }
@@ -1788,6 +1800,7 @@ const buyerUnitPrice = computed(() => {
 })
 
 const isOutlookWorkflow = computed(() => workflow.value?.category === 'outlook')
+const isProductListing = computed(() => getResourceType(workflow.value || {}) !== 'workflow')
 
 const syncExecutionCountState = (nextCount) => {
   const normalizedCount = Math.min(Math.max(Number(nextCount) || 1, 1), maxExecutionCount.value)
@@ -1841,6 +1854,17 @@ const buildExecuteConfirmMessage = (count) => {
   const model = workflow.value.pricing_model
   const price = Number(workflow.value.milk_coin_price || 0)
   const name = workflow.value.name
+
+  if (isProductListing.value && !isOutlookWorkflow.value) {
+    if (model === 'per_use') {
+      return count > 1
+        ? t('marketDetail.confirmPurchaseMultiple', { name, count, totalPrice: totalExecutionPrice.value })
+        : t('marketDetail.confirmPurchase', { name, totalPrice: totalExecutionPrice.value })
+    }
+    return count > 1
+      ? t('marketDetail.confirmPurchaseFreeMultiple', { name, count })
+      : t('marketDetail.confirmPurchaseFree', { name })
+  }
 
   if (model === 'per_use') {
     if (isOutlookWorkflow.value) {
@@ -1919,6 +1943,16 @@ const loadWorkflowDetail = async (showLoading = true) => {
   }
 }
 
+const loadDetailAndRecordOpen = async () => {
+  await loadWorkflowDetail()
+  if (!shareToken.value || Number(workflow.value?.id) !== workflowId.value) return
+  try {
+    await recordProductShareOpen(shareToken.value, workflowId.value)
+  } catch (error) {
+    console.warn('分享链接打开统计失败:', error)
+  }
+}
+
 const loadAdminPriceTable = async ({ analyze = false } = {}) => {
   if (!isAdminPriceTableVisible.value) return
   if (analyze) {
@@ -1982,8 +2016,8 @@ const executeNow = async () => {
 
   // 检查登录状态
   if (!userStore.isAuthenticated) {
-    showMessage(t('marketDetail.loginBeforeExecute'), 'warning')
-    router.push('/login')
+    showMessage(t(isProductListing.value ? 'marketDetail.loginBeforePurchase' : 'marketDetail.loginBeforeExecute'), 'warning')
+    router.push({ path: '/login', query: { redirect: route.fullPath } })
     return
   }
 
@@ -2015,8 +2049,9 @@ const executeNow = async () => {
           confirmDialog.value = {
             visible: true,
             title: t('marketDetail.insufficientCoinsTitle'),
-            message:
-              executionCount > 1
+            message: isProductListing.value
+              ? t('marketDetail.insufficientCoinsPurchase', { totalPrice, balance: userBalance })
+              : executionCount > 1
                 ? t('marketDetail.insufficientCoinsMessageMultiple', {
                     price,
                     count: executionCount,
@@ -2043,13 +2078,14 @@ const executeNow = async () => {
     }
   }
 
-  let title = t('marketDetail.confirmExecuteTitle')
+  let title = t(isProductListing.value ? 'marketDetail.confirmPurchaseTitle' : 'marketDetail.confirmExecuteTitle')
   let message = buildExecuteConfirmMessage(executionCount)
 
   confirmDialog.value = {
     visible: true,
     title,
     message,
+    type: isProductListing.value ? 'info' : 'warning',
     loading: false,
     onConfirm: async () => {
       confirmDialog.value.loading = true
@@ -2098,13 +2134,13 @@ const executeNow = async () => {
           if (Array.isArray(response.data.accounts) && response.data.accounts.length > 0) {
             executionResultData.value = response.data
             showExecutionResult.value = true
-            showMessage(t('marketDetail.executionSuccess'), 'success')
+            showMessage(t(isProductListing.value ? 'marketDetail.purchaseSuccess' : 'marketDetail.executionSuccess'), 'success')
             return
           }
           if (status === 'completed') {
             executionResultData.value = response.data
             showExecutionResult.value = true
-            showMessage(t('marketDetail.executionSuccess'), 'success')
+            showMessage(t(isProductListing.value ? 'marketDetail.purchaseSuccess' : 'marketDetail.executionSuccess'), 'success')
           } else if (status === 'failed') {
             showMessage(t('marketDetail.executionFailed'), 'error')
           } else {
@@ -2157,7 +2193,7 @@ const submitReview = async () => {
   // 检查登录状态
   if (!userStore.isAuthenticated) {
     showMessage(t('marketDetail.loginBeforeReview'), 'warning')
-    router.push('/login')
+    router.push({ path: '/login', query: { redirect: route.fullPath } })
     return
   }
 
@@ -2197,7 +2233,7 @@ const replyToReview = async (review) => {
   // 检查登录状态
   if (!userStore.isAuthenticated) {
     showMessage(t('marketDetail.loginBeforeReply'), 'warning')
-    router.push('/login')
+    router.push({ path: '/login', query: { redirect: route.fullPath } })
     return
   }
 
@@ -2285,7 +2321,7 @@ const deleteReviewById = async (reviewId) => {
 
 onMounted(async () => {
   await Promise.all([
-    loadWorkflowDetail(),
+    loadDetailAndRecordOpen(),
     getFeeConfig()
       .then((feeRes) => {
         if (feeRes.code === 0) {
@@ -2309,10 +2345,10 @@ watch(
 )
 
 watch(
-  () => route.params.id,
-  (newId, oldId) => {
-    if (newId !== oldId) {
-      loadWorkflowDetail()
+  () => [route.params.id, route.query.share_token],
+  ([newId, newToken], [oldId, oldToken]) => {
+    if (newId !== oldId || newToken !== oldToken) {
+      loadDetailAndRecordOpen()
     }
   }
 )
