@@ -171,7 +171,6 @@ const currentPageTitle = computed(() => {
     '/user/external-batch-repair': t('userLayout.batchRepair'),
     '/user/external-proxy-management': t('userLayout.proxyManagement'),
     '/user/purchases': t('userLayout.financeCenter'),
-    '/user/earnings': t('userLayout.myEarnings'),
     '/user/resource-orders': t('userLayout.resourceOrders'),
     '/user/finance': t('userLayout.financeCenter'),
     '/user/settings': t('userLayout.personalSettings'),

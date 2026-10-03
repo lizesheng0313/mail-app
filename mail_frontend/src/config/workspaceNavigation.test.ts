@@ -20,8 +20,7 @@ describe('Workspace navigation', () => {
     expect(account?.items.map((item) => item.path)).toEqual([
       '/user/settings',
       '/user/resource-orders',
-      '/user/finance',
-      '/user/earnings'
+      '/user/finance'
     ])
     expect(isMenuItemActive(account!.items[2], '/user/purchases')).toBe(true)
     expect(guestMenu.flatMap((section) => section.items.map((item) => item.path))).not.toContain('/market')
@@ -57,7 +56,6 @@ describe('Workspace navigation', () => {
       '/user/external-outbox',
       '/user/external-proxy-management',
       '/user/finance',
-      '/user/earnings',
       '/user/settings'
     ])
       expect(paths.has(path), path).toBe(true)

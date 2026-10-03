@@ -743,7 +743,6 @@ const zhTW = {
     financeCenter: '奶片帳戶',
     coinBalanceRecharge: '餘額與儲值',
     transactions: '奶片流水',
-    myEarnings: '我的收益',
     resourceOrders: '購買訂單',
     systemInfo: '系統資訊',
     announcements: '系統公告',

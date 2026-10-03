@@ -71,15 +71,4 @@ describe('Milk coin transaction tabs', () => {
     expect(sellerTabs(wrapper)).toHaveLength(1)
     wrapper.unmount()
   })
-
-  it('opens the personal earnings entry on income records', async () => {
-    mocks.route.path = '/user/earnings'
-    const wrapper = shallowMount(Purchases)
-    await flushPromises()
-
-    expect(mocks.getTransactions).toHaveBeenCalledWith('/milk-coins/transactions', {
-      params: { page: 1, page_size: 20, transaction_type: 'earn' }
-    })
-    wrapper.unmount()
-  })
 })

@@ -744,7 +744,6 @@ const zhCN = {
     financeCenter: '奶片账户',
     coinBalanceRecharge: '余额与充值',
     transactions: '奶片流水',
-    myEarnings: '我的收益',
     resourceOrders: '购买订单',
     systemInfo: '系统信息',
     announcements: '系统公告',

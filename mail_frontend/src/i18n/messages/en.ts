@@ -766,7 +766,6 @@ const en = {
     financeCenter: 'Milk Coin Account',
     coinBalanceRecharge: 'Balance & Top-up',
     transactions: 'Coin Activity',
-    myEarnings: 'My Earnings',
     resourceOrders: 'Purchase Orders',
     systemInfo: 'System Info',
     announcements: 'Announcements',

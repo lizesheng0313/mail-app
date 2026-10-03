@@ -10,8 +10,7 @@ const renderTabs = async (path: string) => {
     history: createMemoryHistory(),
     routes: [
       { path: '/user/finance', component: { template: '<div />' } },
-      { path: '/user/purchases', component: { template: '<div />' } },
-      { path: '/user/earnings', component: { template: '<div />' } }
+      { path: '/user/purchases', component: { template: '<div />' } }
     ]
   })
   await router.push(path)
@@ -30,12 +29,6 @@ describe('Milk account tabs', () => {
 
   it('marks the existing ledger URL as the active tab', async () => {
     const { wrapper } = await renderTabs('/user/purchases')
-    expect(wrapper.get('a[href="/user/purchases"]').attributes('aria-current')).toBe('page')
-    wrapper.unmount()
-  })
-
-  it('keeps the ledger tab active on the personal earnings page', async () => {
-    const { wrapper } = await renderTabs('/user/earnings')
     expect(wrapper.get('a[href="/user/purchases"]').attributes('aria-current')).toBe('page')
     wrapper.unmount()
   })

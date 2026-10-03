@@ -425,11 +425,6 @@ const router = createRouter({
           component: UserPurchases
         },
         {
-          path: 'earnings',
-          name: 'user-earnings',
-          component: UserPurchases
-        },
-        {
           path: 'resource-orders',
           name: 'user-resource-orders',
           component: UserResourceOrders

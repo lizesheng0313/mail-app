@@ -404,11 +404,9 @@ const loadSellerTabVisibility = async () => {
 const transactions = ref([])
 const loading = ref(false)
 const searchKeyword = ref('')
-const initialTab = route.path === '/user/earnings'
-  ? 'income'
-  : ['all', 'recharge', 'expense', 'income', 'refunds'].includes(String(route.query.tab || ''))
-    ? String(route.query.tab)
-    : 'all'
+const initialTab = ['all', 'recharge', 'expense', 'income', 'refunds'].includes(String(route.query.tab || ''))
+  ? String(route.query.tab)
+  : 'all'
 const activeTab = ref(initialTab) // Tab状态
 
 // 统计

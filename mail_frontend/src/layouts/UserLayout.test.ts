@@ -64,7 +64,6 @@ const createWorkbench = async (path: string) => {
           { path: 'external-batch-verify', component: verification, meta: { keepAlive: true } },
           { path: 'email-reach/templates/25/edit', component: page },
           { path: 'finance', component: page },
-          { path: 'earnings', component: page },
           { path: 'purchases', component: page }
         ]
       },
@@ -171,7 +170,7 @@ describe('User workspace navigation', () => {
     await account.trigger('click')
     expect(wrapper.find('a[href="/user/resource-orders"]').exists()).toBe(true)
     expect(wrapper.find('a[href="/user/finance"]').exists()).toBe(true)
-    expect(wrapper.find('a[href="/user/earnings"]').exists()).toBe(true)
+    expect(wrapper.find('a[href="/user/earnings"]').exists()).toBe(false)
     expect(wrapper.find('a[href="/user/purchases"]').exists()).toBe(false)
   })
 
