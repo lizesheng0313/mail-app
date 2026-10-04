@@ -19,23 +19,17 @@ describe('share creation dialog', () => {
     wrapper.unmount()
   })
 
-  it('explains the choices that change link access and timing', async () => {
+  it('shows help only for link count and latest-only mode', () => {
     const wrapper = mount(ShareMailboxModal, {
       props: { visible: true, mailboxIds: [1], mailboxType: 'system' },
       global: { stubs: { Teleport: true } }
     })
 
-    for (const key of [
-      'selectedMailboxesHelp', 'expireModeHelp', 'daysHelp',
-      'linkCountHelp', 'latestOnlyHelp', 'createHelp'
-    ]) {
-      expect(wrapper.find(`button[aria-label="shareMailbox.${key}"]`).exists()).toBe(true)
-    }
-
-    const minutes = wrapper.findAll('button').find((button) => button.text() === 'shareMailbox.minutesMode')
-    await minutes?.trigger('click')
-    expect(wrapper.find('button[aria-label="shareMailbox.minutesHelp"]').exists()).toBe(true)
-    expect(wrapper.find('button[aria-label="shareMailbox.startModeHelp"]').exists()).toBe(true)
+    const helpButtons = wrapper.findAll('button[aria-label$="Help"]')
+    expect(helpButtons.map((button) => button.attributes('aria-label'))).toEqual([
+      'shareMailbox.linkCountHelp',
+      'shareMailbox.latestOnlyHelp'
+    ])
     wrapper.unmount()
   })
 })
