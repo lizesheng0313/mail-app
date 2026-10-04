@@ -40,6 +40,7 @@
         :action-menu-title="t('systemMailbox.moreActions')"
         :actions="getMailboxActions(mailbox)"
         @click="handleMailboxClick(mailbox, batchMode, toggleSelection, onSelect)"
+        @toggle-check="toggleSelection(mailbox.id)"
         @action="handleMailboxAction($event, mailbox)"
       >
         <template #address-leading>

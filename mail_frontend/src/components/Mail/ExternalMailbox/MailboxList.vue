@@ -93,6 +93,7 @@
           isSendEmailView && !hasSendCapability(account) ? 'cursor-not-allowed' : 'cursor-pointer'
         ]"
         @click="handleItemClick(account, batchMode, toggleSelection, onSelect)"
+        @toggle-check="toggleSelection(toAccountId(account))"
       >
         <template #leading>
           <div
