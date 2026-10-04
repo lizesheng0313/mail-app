@@ -61,6 +61,7 @@
                 <label class="text-sm font-semibold text-gray-700">
                   {{ t('shareMailbox.selectedMailboxes', { count: mailboxIds.length }) }}
                 </label>
+                <ShareHelpTip :text="t('shareMailbox.selectedMailboxesHelp')" />
               </div>
               <div
                 class="bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg p-4 max-h-40 overflow-y-auto border border-gray-200"
@@ -77,8 +78,9 @@
             </div>
 
             <!-- 有效期选择 -->
-            <div v-if="guestMode" class="rounded-lg bg-primary-50 px-4 py-3 text-sm text-primary-800">
-              {{ t('shareMailbox.guestValidity') }}
+            <div v-if="guestMode" class="flex items-start gap-2 rounded-lg bg-primary-50 px-4 py-3 text-sm text-primary-800">
+              <span>{{ t('shareMailbox.guestValidity') }}</span>
+              <ShareHelpTip :text="t('shareMailbox.guestValidityHelp')" />
             </div>
             <div v-else>
               <div class="flex items-center gap-2 mb-3">
@@ -98,67 +100,94 @@
                 <label class="text-sm font-semibold text-gray-700">
                   {{ t('shareMailbox.expireMode') }}
                 </label>
+                <ShareHelpTip :text="t('shareMailbox.expireModeHelp')" />
               </div>
               <div class="grid grid-cols-3 gap-3">
-                <button
+                <div
                   v-for="option in expireModeOptions"
                   :key="option.value"
-                  @click="selectedExpireMode = option.value"
-                  :class="[
-                    'px-4 py-3 text-sm font-medium rounded-lg border-2 transition-all duration-200',
-                    selectedExpireMode === option.value
-                      ? 'bg-primary-600 text-white border-primary-600 shadow-lg shadow-primary-200 scale-105'
-                      : 'bg-white text-gray-700 border-gray-200 hover:border-primary-400 hover:shadow-md'
-                  ]"
+                  class="relative"
                 >
-                  {{ option.label }}
-                </button>
+                  <button
+                    type="button"
+                    @click="selectedExpireMode = option.value"
+                    :class="[
+                      'w-full rounded-lg border-2 px-3 py-3 pr-7 text-sm font-medium transition-all duration-200',
+                      selectedExpireMode === option.value
+                        ? 'border-primary-600 bg-primary-600 text-white shadow-lg shadow-primary-200 scale-105'
+                        : 'border-gray-200 bg-white text-gray-700 hover:border-primary-400 hover:shadow-md'
+                    ]"
+                  >
+                    {{ option.label }}
+                  </button>
+                  <span class="absolute right-1 top-1 z-10">
+                    <ShareHelpTip :text="option.help" />
+                  </span>
+                </div>
               </div>
               <div v-if="selectedExpireMode === 'minutes'" class="mt-3 grid grid-cols-2 gap-3">
-                <label class="text-sm text-gray-600">
-                  {{ t('shareMailbox.minutes') }}
+                <div class="text-sm text-gray-600">
+                  <div class="flex items-center gap-1">
+                    <label for="share-expire-minutes">{{ t('shareMailbox.minutes') }}</label>
+                    <ShareHelpTip :text="t('shareMailbox.minutesHelp')" />
+                  </div>
                   <input
+                    id="share-expire-minutes"
                     v-model.number="expireMinutes"
                     type="number"
                     min="1"
+                    max="525600"
                     class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2"
                   />
-                </label>
-                <label class="text-sm text-gray-600">
-                  {{ t('shareMailbox.startMode') }}
+                </div>
+                <div class="text-sm text-gray-600">
+                  <div class="flex items-center gap-1">
+                    <span>{{ t('shareMailbox.startMode') }}</span>
+                    <ShareHelpTip :text="t('shareMailbox.startModeHelp')" />
+                  </div>
                   <CustomSelect
                     v-model="expireStartMode"
                     class="mt-1"
                     :options="expireStartModeOptions"
                   />
-                </label>
+                </div>
               </div>
               <div v-else-if="selectedExpireMode === 'days'" class="mt-3">
-                <label class="block text-sm text-gray-600">
-                  {{ t('shareMailbox.days') }}
-                  <input
-                    v-model.number="selectedExpireDays"
-                    type="number"
-                    min="1"
-                    class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2"
-                  />
-                </label>
+                <div class="flex items-center gap-1 text-sm text-gray-600">
+                  <label for="share-expire-days">{{ t('shareMailbox.days') }}</label>
+                  <ShareHelpTip :text="t('shareMailbox.daysHelp')" />
+                </div>
+                <input
+                  id="share-expire-days"
+                  v-model.number="selectedExpireDays"
+                  type="number"
+                  min="1"
+                  class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2"
+                />
               </div>
               <div class="mt-3 grid grid-cols-2 gap-3">
-                <label class="text-sm text-gray-600">
-                  {{ t('shareMailbox.linkCount') }}
+                <div class="text-sm text-gray-600">
+                  <div class="flex items-center gap-1">
+                    <label for="share-link-count">{{ t('shareMailbox.linkCount') }}</label>
+                    <ShareHelpTip :text="t('shareMailbox.linkCountHelp')" />
+                  </div>
                   <input
+                    id="share-link-count"
                     v-model.number="shareCount"
                     type="number"
                     min="1"
                     max="100"
                     class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2"
                   />
-                </label>
-                <label class="flex items-center gap-2 self-end pb-2 text-sm text-gray-600">
-                  <input v-model="latestOnly" type="checkbox" class="h-4 w-4" />
-                  {{ t('shareMailbox.latestOnly') }}
-                </label>
+                  <p class="mt-1 text-xs text-gray-500">{{ t('shareMailbox.linkCountSummary') }}</p>
+                </div>
+                <div class="flex items-start gap-1 self-end pb-2">
+                  <label class="flex items-start gap-2 text-sm text-gray-600">
+                    <input v-model="latestOnly" type="checkbox" class="mt-0.5 h-4 w-4 shrink-0" />
+                    <span>{{ t('shareMailbox.latestOnly') }}</span>
+                  </label>
+                  <ShareHelpTip :text="t('shareMailbox.latestOnlyHelp')" />
+                </div>
               </div>
             </div>
 
@@ -234,12 +263,13 @@
               >
                 {{ shareUrls.length ? t('common.close') : t('common.cancel') }}
               </button>
-              <button
-                v-if="!shareUrls.length"
-                @click="handleCreateShare"
-                :disabled="creating"
-                class="px-6 py-2.5 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center gap-2 shadow-lg hover:shadow-xl"
-              >
+              <div v-if="!shareUrls.length" class="flex items-center gap-2">
+                <ShareHelpTip :text="t('shareMailbox.createHelp')" />
+                <button
+                  @click="handleCreateShare"
+                  :disabled="creating"
+                  class="px-6 py-2.5 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center gap-2 shadow-lg hover:shadow-xl"
+                >
                 <svg
                   v-if="!creating"
                   class="w-4 h-4"
@@ -269,8 +299,9 @@
                     d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                   ></path>
                 </svg>
-                {{ creating ? t('shareMailbox.creating') : t('shareMailbox.create') }}
-              </button>
+                  {{ creating ? t('shareMailbox.creating') : t('shareMailbox.create') }}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -282,9 +313,12 @@
       >
         <div class="flex items-center justify-between border-b border-gray-200 px-6 py-5">
           <div>
-            <h3 class="text-xl font-semibold text-gray-900">
-              {{ t('shareMailbox.linkGenerated') }}
-            </h3>
+            <div class="flex items-center gap-2">
+              <h3 class="text-xl font-semibold text-gray-900">
+                {{ t('shareMailbox.linkGenerated') }}
+              </h3>
+              <ShareHelpTip :text="t('shareMailbox.generatedLinksHelp')" />
+            </div>
             <p class="mt-1 text-sm text-gray-500">
               {{ t('shareMailbox.generatedCount', { count: shareUrls.length }) }}
             </p>
@@ -358,6 +392,7 @@ import { isTauri, extractApiErrorMessage } from '@/services/api'
 import { showMessage } from '@/utils/message'
 import { useUserStore } from '@/stores/user'
 import CustomSelect from '@/components/CustomSelect/index.vue'
+import ShareHelpTip from './ShareHelpTip.vue'
 import { readSharePreferences, saveSharePreferences } from './sharePreferences'
 
 const props = defineProps({
@@ -382,9 +417,9 @@ const userStore = useUserStore()
 
 // 有效期选项
 const expireModeOptions = computed(() => [
-  { label: t('shareMailbox.minutesMode'), value: 'minutes' },
-  { label: t('shareMailbox.daysMode'), value: 'days' },
-  { label: t('common.permanent'), value: 'permanent' }
+  { label: t('shareMailbox.minutesMode'), value: 'minutes', help: t('shareMailbox.minutesModeHelp') },
+  { label: t('shareMailbox.daysMode'), value: 'days', help: t('shareMailbox.daysModeHelp') },
+  { label: t('common.permanent'), value: 'permanent', help: t('shareMailbox.permanentModeHelp') }
 ])
 const expireStartModeOptions = computed(() => [
   { label: t('shareMailbox.startAtCreated'), value: 'created' },

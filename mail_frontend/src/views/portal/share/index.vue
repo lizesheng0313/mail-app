@@ -169,8 +169,9 @@
           :title="t('mail.myEmails')"
           :emails="emails"
           :selectedId="selectedEmail?.id"
+          :emptyText="shareEmptyText"
           :showPagination="totalPages > 1"
-          :autoRefresh="mailboxType === 'system' ? { countdown: { value: countdown } } : null"
+          :autoRefresh="false"
           @select="handleSelectEmail"
         >
           <template #title-extra>
@@ -180,6 +181,18 @@
               class="px-2 py-1 text-xs text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors whitespace-nowrap"
             >
               {{ t('sharePage.viewAll') }}
+            </button>
+          </template>
+
+          <template #actions>
+            <button
+              type="button"
+              class="rounded p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-50"
+              :disabled="loadingEmails || shareState === 'expired'"
+              :title="t('sharePage.refreshEmails')"
+              @click="loadEmails"
+            >
+              <BaseIcon name="refresh" size="sm" :class="{ 'animate-spin': loadingEmails }" />
             </button>
           </template>
 
@@ -227,7 +240,7 @@
 </template>
 
 <script setup>
-import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import ThreeColumnLayout from '@/components/Mail/Layout/ThreeColumnLayout.vue'
@@ -242,6 +255,7 @@ import BaseIcon from '@/components/BaseIcon/index.vue'
 import { mailboxShareAPI } from '@/api/mailboxShare'
 import { showMessage } from '@/utils/message'
 import { getCurrentLocale } from '@/i18n'
+import { buildWebSocketURL } from '@/services/api'
 import { isShareTerminalState, resolveShareValidity } from './shareDisplay'
 
 const route = useRoute()
@@ -263,6 +277,7 @@ const expireMode = ref(null)
 const expireMinutes = ref(null)
 const expireDays = ref(null)
 const shareState = ref('ready')
+const latestOnly = ref(false)
 const selectedMailbox = ref(null)
 const validityNow = ref(Date.now())
 let validityCountdownTimer = null
@@ -286,6 +301,13 @@ const shareValidityText = computed(() => {
 })
 
 const loadingEmails = ref(false)
+const shareEmptyText = computed(() => {
+  if (loadingEmails.value) return t('sharePage.loadingEmails')
+  if (!latestOnly.value) return t('mail.noEmails')
+  if (shareState.value === 'waiting') return t('sharePage.latestOnlyWaiting')
+  if (shareState.value === 'completed') return t('sharePage.shareCompleted')
+  return t('sharePage.latestOnlyEmpty')
+})
 const fetchingShareEmailIds = ref([])
 const emails = ref([])
 const currentPage = ref(1)
@@ -309,36 +331,73 @@ const openEmailModal = (email) => {
   showEmailModal.value = true
 }
 
-// 自动刷新倒计时（只有系统邮箱才启用）
-const countdown = ref(10)
-let countdownTimer = null
+let shareMailSocket = null
+let shareMailRetryTimer = null
+let shareMailHeartbeatTimer = null
+let shareMailPollTimer = null
+let shareMailRetryDelay = 3000
+let shareMailStopped = false
 
-const startAutoRefresh = () => {
-  // 只有系统邮箱才启用自动刷新
-  if (mailboxType.value !== 'system') {
-    return
-  }
-
-  // 清除旧的定时器
-  if (countdownTimer) clearInterval(countdownTimer)
-
-  countdown.value = 10
-
-  // 每秒倒计时
-  countdownTimer = setInterval(() => {
-    countdown.value--
-    if (countdown.value <= 0) {
-      // 倒计时结束，刷新邮件
-      loadEmails()
-      countdown.value = 10
-    }
-  }, 1000)
+const stopShareMailRealtime = () => {
+  shareMailStopped = true
+  if (shareMailRetryTimer !== null) clearTimeout(shareMailRetryTimer)
+  if (shareMailHeartbeatTimer !== null) clearInterval(shareMailHeartbeatTimer)
+  if (shareMailPollTimer !== null) clearInterval(shareMailPollTimer)
+  shareMailRetryTimer = null
+  shareMailHeartbeatTimer = null
+  shareMailPollTimer = null
+  shareMailSocket?.close()
+  shareMailSocket = null
 }
 
-const stopAutoRefresh = () => {
-  if (countdownTimer) {
-    clearInterval(countdownTimer)
-    countdownTimer = null
+const startShareMailPolling = () => {
+  if (shareMailPollTimer !== null) clearInterval(shareMailPollTimer)
+  shareMailPollTimer = setInterval(() => {
+    if (!loadingEmails.value && !isShareTerminalState(shareState.value) && shareState.value !== 'expired') {
+      void loadEmails()
+    }
+  }, 10000)
+}
+
+const connectShareMailRealtime = () => {
+  if (shareMailStopped || shareMailSocket || !['system', 'hosted'].includes(mailboxType.value)) return
+  const shareToken = String(route.params.token || '')
+  if (!shareToken) return
+  const socket = new WebSocket(buildWebSocketURL('/mail-events/ws'))
+  shareMailSocket = socket
+  socket.onopen = () => socket.send(JSON.stringify({ type: 'auth', share_token: shareToken }))
+  socket.onmessage = (event) => {
+    try {
+      const payload = JSON.parse(String(event.data || '{}'))
+      if (payload.type === 'ready') {
+        shareMailRetryDelay = 3000
+        shareMailHeartbeatTimer = setInterval(() => {
+          if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: 'ping' }))
+        }, 25000)
+        // 重连后补查一次，覆盖离线期间收到的邮件。
+        void loadEmails()
+      } else if (payload.type === 'email.received' && payload.mailbox_type === mailboxType.value) {
+        if (!selectedMailbox.value || selectedMailbox.value.id === Number(payload.mailbox_id)) {
+          void loadEmails()
+        }
+      }
+    } catch (error) {
+      console.error('分享邮件实时通知处理失败:', error)
+    }
+  }
+  socket.onclose = (event) => {
+    if (shareMailSocket !== socket) return
+    shareMailSocket = null
+    if (shareMailHeartbeatTimer !== null) clearInterval(shareMailHeartbeatTimer)
+    shareMailHeartbeatTimer = null
+    if (!shareMailStopped && event.code !== 4401) {
+      const delay = shareMailRetryDelay + Math.floor(Math.random() * 1000)
+      shareMailRetryDelay = Math.min(shareMailRetryDelay * 2, 30000)
+      shareMailRetryTimer = setTimeout(() => {
+        shareMailRetryTimer = null
+        connectShareMailRealtime()
+      }, delay)
+    }
   }
 }
 
@@ -374,12 +433,12 @@ const markShareExpired = () => {
   selectedEmail.value = null
   showEmailModal.value = false
   modalEmail.value = null
-  stopAutoRefresh()
+  stopShareMailRealtime()
   stopValidityCountdown()
 }
 
 const loadShareInfo = async () => {
-  const shareToken = route.params.token
+  const shareToken = String(route.params.token || '')
   if (!shareToken) {
     error.value = t('sharePage.invalidLink')
     loading.value = false
@@ -387,6 +446,7 @@ const loadShareInfo = async () => {
   }
   try {
     const res = await mailboxShareAPI.getShareInfo(shareToken)
+    if (String(route.params.token || '') !== shareToken) return
     if (res.code === 0) {
       mailboxType.value = res.data.mailbox_type
       mailboxes.value = res.data.mailboxes || []
@@ -396,16 +456,21 @@ const loadShareInfo = async () => {
       expireMinutes.value = res.data.expire_minutes
       expireDays.value = res.data.expire_days
       shareState.value = res.data.share_state || 'ready'
+      latestOnly.value = Boolean(res.data.latest_only)
       startValidityCountdown()
       // 默认不选中任何邮箱，显示全部邮件
       selectedMailbox.value = null
       await loadEmails()
-      // 启动自动刷新
-      if (!isShareTerminalState(shareState.value)) startAutoRefresh()
+      if (!isShareTerminalState(shareState.value) && ['system', 'hosted'].includes(mailboxType.value)) {
+        shareMailStopped = false
+        startShareMailPolling()
+        connectShareMailRealtime()
+      }
     } else {
       error.value = res.message || t('sharePage.loadShareFailed')
     }
   } catch (err) {
+    if (String(route.params.token || '') !== shareToken) return
     console.error('加载分享信息失败:', err)
     if (err.response?.status === 404) {
       error.value = t('sharePage.shareNotFound')
@@ -416,13 +481,13 @@ const loadShareInfo = async () => {
       error.value = err.response?.data?.detail || t('sharePage.loadFailed')
     }
   } finally {
-    loading.value = false
+    if (String(route.params.token || '') === shareToken) loading.value = false
   }
 }
 
 const loadEmails = async () => {
   if (isShareTerminalState(shareState.value) || shareState.value === 'expired') return
-  const shareToken = route.params.token
+  const shareToken = String(route.params.token || '')
   loadingEmails.value = true
   try {
     const res = await mailboxShareAPI.getShareEmails(shareToken, {
@@ -430,23 +495,23 @@ const loadEmails = async () => {
       page: currentPage.value,
       page_size: pageSize.value
     })
+    if (String(route.params.token || '') !== shareToken) return
     if (res.code === 0) {
       const nextShareState = res.data.share_state || shareState.value
       const nextEmails = res.data.emails || []
-      if (nextEmails.length || !['waiting', 'completed'].includes(nextShareState)) {
-        emails.value = nextEmails
-      }
+      emails.value = nextEmails
       shareState.value = nextShareState
       emailTotal.value = res.data.pagination?.total || 0
       totalPages.value = res.data.pagination?.total_pages || 1
       if (isShareTerminalState(shareState.value)) {
-        stopAutoRefresh()
+        stopShareMailRealtime()
       }
       // 不自动选中第一封邮件，保持空状态
     } else {
       showMessage(res.message || t('sharePage.loadEmailsFailed'), 'error')
     }
   } catch (err) {
+    if (String(route.params.token || '') !== shareToken) return
     console.error('加载邮件失败:', err)
     if (err.response?.status === 410) {
       markShareExpired()
@@ -589,12 +654,28 @@ const copyMailboxAddress = (email) => {
   showMessage(t('sharePage.copied'), 'success')
 }
 
+watch(() => route.params.token, () => {
+  stopShareMailRealtime()
+  stopValidityCountdown()
+  shareMailStopped = false
+  loading.value = true
+  error.value = ''
+  latestOnly.value = false
+  mailboxes.value = []
+  mailboxCount.value = 0
+  emails.value = []
+  selectedMailbox.value = null
+  selectedEmail.value = null
+  shareState.value = 'ready'
+  void loadShareInfo()
+})
+
 onMounted(() => {
   loadShareInfo()
 })
 
 onUnmounted(() => {
-  stopAutoRefresh()
+  stopShareMailRealtime()
   stopValidityCountdown()
 })
 </script>

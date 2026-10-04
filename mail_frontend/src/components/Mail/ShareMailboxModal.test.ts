@@ -18,4 +18,24 @@ describe('share creation dialog', () => {
     expect(wrapper.text()).not.toContain('shareMailbox.managedTitle')
     wrapper.unmount()
   })
+
+  it('explains the choices that change link access and timing', async () => {
+    const wrapper = mount(ShareMailboxModal, {
+      props: { visible: true, mailboxIds: [1], mailboxType: 'system' },
+      global: { stubs: { Teleport: true } }
+    })
+
+    for (const key of [
+      'selectedMailboxesHelp', 'expireModeHelp', 'daysHelp',
+      'linkCountHelp', 'latestOnlyHelp', 'createHelp'
+    ]) {
+      expect(wrapper.find(`button[aria-label="shareMailbox.${key}"]`).exists()).toBe(true)
+    }
+
+    const minutes = wrapper.findAll('button').find((button) => button.text() === 'shareMailbox.minutesMode')
+    await minutes?.trigger('click')
+    expect(wrapper.find('button[aria-label="shareMailbox.minutesHelp"]').exists()).toBe(true)
+    expect(wrapper.find('button[aria-label="shareMailbox.startModeHelp"]').exists()).toBe(true)
+    wrapper.unmount()
+  })
 })

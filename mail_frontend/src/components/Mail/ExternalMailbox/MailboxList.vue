@@ -638,6 +638,7 @@ const loadAccounts = async (page = 1) => {
     if (res.code === 0) {
       const data = res.data || []
       replaceAccounts(Array.isArray(data) ? data : data.accounts || [], data.pagination)
+      window.dispatchEvent(new Event('external-mailboxes-changed'))
     } else {
       console.error('❌ API返回错误:', res.message)
     }

@@ -227,6 +227,11 @@
                 <div class="border-b border-gray-100 px-5 py-4">
                   <h4 class="text-sm font-semibold text-gray-900">{{ subgroup.label }}</h4>
                   <p v-if="subgroup.description" class="mt-1 text-sm text-gray-600">{{ subgroup.description }}</p>
+                  <div v-if="subgroup.name === 'webhooks'" class="mt-3 space-y-2 rounded-xl bg-emerald-50 p-4 text-sm leading-6 text-emerald-950">
+                    <p>{{ t('openPlatform.webhookGuide') }}</p>
+                    <p>{{ t('openPlatform.webhookSignature') }}</p>
+                    <p>{{ t('openPlatform.webhookRetry') }}</p>
+                  </div>
                 </div>
 
                 <div class="divide-y divide-gray-100">
@@ -526,6 +531,12 @@ const docEndpointGroups = computed<DocEndpointGroup[]>(() => {
           label: t('openPlatform.commonMail.emails'),
           description: groupMap.get('emails')?.description || '',
           items: getItems('emails')
+        },
+        {
+          name: 'webhooks',
+          label: t('userLayout.emailWebhooks'),
+          description: groupMap.get('webhooks')?.description || '',
+          items: getItems('webhooks')
         },
         {
           name: 'verification-codes',

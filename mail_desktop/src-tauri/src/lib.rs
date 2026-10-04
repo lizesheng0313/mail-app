@@ -2,6 +2,7 @@
 mod automation;
 mod browser_workflow;
 mod commands;
+mod desktop_mail_watch;
 mod local_api_server;
 mod mail;
 mod oauth_callback_server;
@@ -18,6 +19,7 @@ use browser_workflow::{
 };
 use commands::{add_external_mailbox, check_for_update, download_and_install_update, download_attachment, fetch_emails, get_attachment_path, is_tauri, open_external_url, open_local_attachment, recover_and_fetch_external_mailbox, recover_external_mailbox_session, refresh_oauth2_token_locally, send_smtp_email};
 use local_api_server::start_local_api_server;
+use desktop_mail_watch::{start_imap_watch, stop_all_imap_watches, stop_imap_watch, DesktopMailWatchState};
 use oauth_callback_server::start_oauth_callback_server;
 use tauri::Manager;
 
@@ -25,6 +27,7 @@ use tauri::Manager;
 pub fn run() {
     tauri::Builder::default()
         .manage(BrowserWorkflowComponentState::default())
+        .manage(DesktopMailWatchState::default())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
@@ -47,6 +50,9 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             add_external_mailbox,
             fetch_emails,
+            start_imap_watch,
+            stop_imap_watch,
+            stop_all_imap_watches,
             recover_and_fetch_external_mailbox,
             recover_external_mailbox_session,
             refresh_oauth2_token_locally,

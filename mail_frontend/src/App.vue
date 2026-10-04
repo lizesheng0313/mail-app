@@ -21,6 +21,7 @@ import SystemMaintenance from '@/components/SystemMaintenance/index.vue'
 import AppUpdater from '@/components/AppUpdater/index.vue'
 import { registerMaintenanceCallback, isTauri } from '@/services/api'
 import { showMessage } from '@/utils/message'
+import { desktopExternalMailSync } from '@/services/desktopExternalMailSync'
 
 const router = useRouter()
 const route = useRoute()
@@ -92,6 +93,7 @@ onMounted(async () => {
 
   if (isTauri() && userStore.isAuthenticated) {
     await desktopOAuthKeepAlive.start()
+    void desktopExternalMailSync.start(Number(userStore.user?.id || 0)).catch(console.warn)
   }
 
   registerMaintenanceCallback(() => {
@@ -100,14 +102,16 @@ onMounted(async () => {
 })
 
 watch(
-  () => userStore.isAuthenticated,
-  async (isAuthenticated) => {
+  () => [userStore.isAuthenticated, userStore.user?.id] as const,
+  async ([isAuthenticated, userId]) => {
     if (!isTauri()) return
 
     if (isAuthenticated) {
       await desktopOAuthKeepAlive.start()
+      void desktopExternalMailSync.start(Number(userId || 0)).catch(console.warn)
     } else {
       desktopOAuthKeepAlive.stop()
+      void desktopExternalMailSync.stop()
     }
   }
 )
@@ -115,5 +119,6 @@ watch(
 onBeforeUnmount(() => {
   unlistenOAuthCallback?.()
   desktopOAuthKeepAlive.stop()
+  void desktopExternalMailSync.stop()
 })
 </script>

@@ -217,7 +217,10 @@ where
 
     for candidate in candidates.iter().cloned() {
         match fetch(candidate.clone()).await {
-            Ok(result) => return Ok(result),
+            Ok(result) => {
+                info!("协议收取成功: protocol={} host={}", candidate.protocol, candidate.host);
+                return Ok(result);
+            }
             Err(err) => error_messages.push(format!("{}: {}", candidate.protocol, err)),
         }
     }

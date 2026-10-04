@@ -4,17 +4,19 @@ use crate::mail::types::{
     RuntimeProxy,
 };
 use chrono::Utc;
-use imap::{types::NameAttribute, Authenticator};
+use imap::{extensions::idle::{SetReadTimeout, WaitOutcome}, types::NameAttribute, Authenticator};
 use log::{error, info, warn};
 use native_tls::TlsStream;
 use serde_json::{json, Value};
 use std::collections::HashSet;
 use std::io::{Read, Write};
 use std::net::TcpStream;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 const TCP_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 const IO_TIMEOUT: Duration = Duration::from_secs(30);
+const IDLE_WAIT_INTERVAL: Duration = Duration::from_secs(25);
 
 // ── 连接错误分类（决定是否回退到其他策略）──────────────────────
 
@@ -300,6 +302,172 @@ fn connect_and_xoauth2(
 }
 
 // ── 公开接口 ──────────────────────────────────────────────────
+
+/// A dedicated desktop connection waits for IMAP notifications. Fetching uses a separate
+/// connection, so the IDLE session never carries message bodies or blocks manual fetches.
+pub fn watch_inbox(
+    email: &str,
+    password: &str,
+    host: &str,
+    port: u16,
+    access_token: Option<&str>,
+    proxy_config: Option<&RuntimeProxy>,
+    cancelled: &AtomicBool,
+    mut on_new_mail: impl FnMut(),
+    mut on_ready: impl FnMut(),
+) -> Result<bool, String> {
+    let (mut session, _) = if let Some(token) = access_token {
+        connect_and_xoauth2(host, port, email, token, proxy_config)?
+    } else {
+        connect_and_login(host, port, email, password, proxy_config)?
+    };
+
+    let result = watch_inbox_session(&mut session, cancelled, &mut on_new_mail, &mut on_ready);
+    let _ = session.logout();
+    result
+}
+
+fn watch_inbox_session<T: Read + Write + SetReadTimeout>(
+    session: &mut imap::Session<T>,
+    cancelled: &AtomicBool,
+    on_new_mail: &mut impl FnMut(),
+    on_ready: &mut impl FnMut(),
+) -> Result<bool, String> {
+
+    let supports_idle = session
+        .capabilities()
+        .map_err(|e| format!("查询 IMAP IDLE 能力失败: {}", e))?
+        .has_str("IDLE");
+    if !supports_idle {
+        return Ok(false);
+    }
+
+    let mut previous = session
+        .select("INBOX")
+        .map_err(|e| format!("选择收件箱失败: {}", e))?;
+    on_ready();
+
+    while !cancelled.load(Ordering::Relaxed) {
+        let outcome = session
+            .idle()
+            .map_err(|e| format!("启动 IMAP IDLE 失败: {}", e))?
+            .wait_with_timeout(IDLE_WAIT_INTERVAL)
+            .map_err(|e| format!("IMAP IDLE 中断: {}", e))?;
+        if cancelled.load(Ordering::Relaxed) {
+            break;
+        }
+        if outcome == WaitOutcome::MailboxChanged {
+            let current = session
+                .select("INBOX")
+                .map_err(|e| format!("重新选择收件箱失败: {}", e))?;
+            if inbox_has_new_mail(&previous, &current) {
+                on_new_mail();
+            }
+            previous = current;
+        }
+    }
+    Ok(true)
+}
+
+fn inbox_has_new_mail(previous: &imap::types::Mailbox, current: &imap::types::Mailbox) -> bool {
+    if previous.uid_validity != current.uid_validity {
+        return true;
+    }
+    match (previous.uid_next, current.uid_next) {
+        (Some(before), Some(after)) => after > before,
+        _ => current.exists > previous.exists,
+    }
+}
+
+#[cfg(test)]
+mod idle_tests {
+    use super::{inbox_has_new_mail, watch_inbox_session};
+    use imap::types::Mailbox;
+    use std::io::{BufRead, BufReader, Write};
+    use std::net::{TcpListener, TcpStream};
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::Arc;
+    use std::time::Duration;
+
+    #[test]
+    fn only_new_uids_trigger_a_fetch() {
+        let before = Mailbox { exists: 3, uid_next: Some(7), uid_validity: Some(1), ..Default::default() };
+        let flags_only = Mailbox { unseen: Some(2), ..before.clone() };
+        let new_mail = Mailbox { exists: 4, uid_next: Some(8), ..before.clone() };
+        assert!(!inbox_has_new_mail(&before, &flags_only));
+        assert!(inbox_has_new_mail(&before, &new_mail));
+    }
+
+    #[test]
+    fn falls_back_to_exists_and_resyncs_after_uid_reset() {
+        let before = Mailbox { exists: 2, uid_validity: Some(1), ..Default::default() };
+        let new_mail = Mailbox { exists: 3, ..before.clone() };
+        let reset = Mailbox { uid_validity: Some(2), ..before.clone() };
+        assert!(inbox_has_new_mail(&before, &new_mail));
+        assert!(inbox_has_new_mail(&before, &reset));
+    }
+
+    #[test]
+    fn idle_notification_from_local_imap_server_triggers_new_mail_callback() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = std::thread::spawn(move || {
+            let (stream, _) = listener.accept().unwrap();
+            stream.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+            let mut reader = BufReader::new(stream.try_clone().unwrap());
+            let mut writer = stream;
+            writer.write_all(b"* OK local IMAP test ready\r\n").unwrap();
+            let mut selected = 0;
+            let mut idle_tag = String::new();
+            loop {
+                let mut line = String::new();
+                if reader.read_line(&mut line).unwrap_or(0) == 0 { break; }
+                if line.trim() == "DONE" {
+                    writer.write_all(format!("{idle_tag} OK IDLE done\r\n").as_bytes()).unwrap();
+                    continue;
+                }
+                let mut parts = line.split_whitespace();
+                let tag = parts.next().unwrap_or("");
+                match parts.next().unwrap_or("").to_ascii_uppercase().as_str() {
+                    "LOGIN" => writer.write_all(format!("{tag} OK LOGIN done\r\n").as_bytes()).unwrap(),
+                    "CAPABILITY" => writer.write_all(format!("* CAPABILITY IMAP4rev1 IDLE\r\n{tag} OK CAPABILITY done\r\n").as_bytes()).unwrap(),
+                    "SELECT" => {
+                        selected += 1;
+                        writer.write_all(format!("* {} EXISTS\r\n* OK [UIDVALIDITY 1] valid\r\n* OK [UIDNEXT {}] next\r\n{tag} OK SELECT done\r\n", selected - 1, selected).as_bytes()).unwrap();
+                    }
+                    "IDLE" => {
+                        idle_tag = tag.to_string();
+                        writer.write_all(b"+ idling\r\n* 1 EXISTS\r\n").unwrap();
+                    }
+                    "LOGOUT" => {
+                        writer.write_all(format!("* BYE closing\r\n{tag} OK LOGOUT done\r\n").as_bytes()).unwrap();
+                        break;
+                    }
+                    other => panic!("unexpected IMAP command: {other}"),
+                }
+            }
+        });
+
+        let stream = TcpStream::connect(address).unwrap();
+        stream.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+        let mut session = imap::Client::new(stream).login("test@example.test", "password").unwrap();
+        let cancelled = Arc::new(AtomicBool::new(false));
+        let mut ready_count = 0;
+        let mut new_mail_count = 0;
+        let stop = cancelled.clone();
+        let result = watch_inbox_session(
+            &mut session,
+            &cancelled,
+            &mut || { new_mail_count += 1; stop.store(true, Ordering::Relaxed); },
+            &mut || { ready_count += 1; },
+        );
+        assert_eq!(result.unwrap(), true);
+        assert_eq!(ready_count, 1);
+        assert_eq!(new_mail_count, 1);
+        let _ = session.logout();
+        server.join().unwrap();
+    }
+}
 
 /// IMAP 登录验证
 pub async fn verify_login(

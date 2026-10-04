@@ -12,6 +12,7 @@ import {
   ListBulletIcon,
   NoSymbolIcon,
   BellSlashIcon,
+  BellIcon,
   ShoppingCartIcon,
   ShieldCheckIcon,
   Cog6ToothIcon,
@@ -125,7 +126,8 @@ export const createWorkspaceMenu = (
   {
     name: t('workspace.developer'),
     items: [
-      { path: '/user/developer/api-keys', label: t('userLayout.apiKeys'), icon: KeyIcon }
+      { path: '/user/developer/api-keys', label: t('userLayout.apiKeys'), icon: KeyIcon },
+      { path: '/user/developer/webhooks', label: t('userLayout.emailWebhooks'), icon: BellIcon }
     ]
   },
   {

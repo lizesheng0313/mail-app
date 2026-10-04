@@ -1,5 +1,6 @@
 <template>
   <div class="h-full min-h-0">
+    <WebhookManager v-if="section === 'webhooks'" />
     <section v-if="section === 'api-keys'" class="flex h-full min-h-0 flex-col gap-3">
       <div
         v-if="!userStore.isAuthenticated"
@@ -252,6 +253,7 @@ import BaseModal from '@/components/BaseModal/index.vue'
 import ConfirmDialog from '@/components/ConfirmDialog/index.vue'
 import CustomSelect from '@/components/CustomSelect/index.vue'
 import openPlatformApi from '@/services/openPlatformApi'
+import WebhookManager from './WebhookManager.vue'
 import { useUserStore } from '@/stores/user'
 import { showMessage } from '@/utils/message'
 import { getCurrentLocale } from '@/i18n'
@@ -311,12 +313,13 @@ const fallbackAvailableScopes = [
   'email.delete',
   'email.body.read',
   'verification_code.read',
+  'webhook.manage',
   'workflow.execute'
 ]
 
 const section = computed(() => {
   const current = String(route.params.section || 'api-keys')
-  return current === 'api-keys' ? current : 'api-keys'
+  return current === 'webhooks' ? current : 'api-keys'
 })
 
 const fallbackRecommendedScopes = [
@@ -328,6 +331,7 @@ const fallbackRecommendedScopes = [
   'email.read',
   'email.body.read',
   'verification_code.read',
+  'webhook.manage',
   'workflow.execute'
 ]
 
@@ -352,7 +356,8 @@ const fallbackScopeLabelMap = computed<Record<string, string>>(() => ({
   'email.body.read': t('openPlatform.scopes.emailBodyRead'),
   'email.delete': t('openPlatform.scopes.emailDelete'),
   'verification_code.read': t('openPlatform.scopes.codeRead'),
-  'workflow.execute': t('openPlatform.scopes.workflowExecute')
+  'workflow.execute': t('openPlatform.scopes.workflowExecute'),
+  'webhook.manage': t('openPlatform.scopes.webhookManage')
 }))
 
 const filteredApiKeys = computed(() => {
@@ -420,7 +425,7 @@ const isApiKeyActive = (value?: string) => value === 'active'
 
 const ensureValidSection = () => {
   const current = String(route.params.section || '')
-  if (current !== 'api-keys') {
+  if (!['api-keys', 'webhooks'].includes(current)) {
     router.replace('/user/developer/api-keys')
   }
 }
@@ -627,7 +632,9 @@ const copyCreatedKey = async () => {
 }
 
 const loadSectionData = async () => {
-  await Promise.all([loadScopeOptions(), loadApiKeys()])
+  if (section.value === 'api-keys') {
+    await Promise.all([loadScopeOptions(), loadApiKeys()])
+  }
 }
 
 watch(

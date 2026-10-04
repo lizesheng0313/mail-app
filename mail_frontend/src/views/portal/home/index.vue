@@ -166,7 +166,6 @@
           :selectedId="mailStore.selectedEmail?.id"
           :showPagination="true"
           :searchable="true"
-          :autoRefresh="autoRefresh"
           @select="handleSelectEmail"
           @batch-delete="handleBatchDeleteEmails"
           @batch-mode-start="handleEmailBatchStart"
@@ -263,7 +262,6 @@
           :selected-id="selectedHostedEmailId"
           :show-pagination="true"
           :searchable="true"
-          :auto-refresh="autoRefresh"
           @select="handleSelectHostedEmail"
           @batch-delete="handleBatchDeleteHostedEmails"
           @batch-mode-start="handleEmailBatchStart"
@@ -552,7 +550,7 @@ import BaseIcon from '@/components/BaseIcon/index.vue'
 import ConfirmDialog from '@/components/ConfirmDialog/index.vue'
 import { useAutoRefresh } from '@/composables/useAutoRefresh'
 import { showMessage } from '@/utils/message'
-import { isTauri, getServerUrl } from '@/services/api'
+import { isTauri, getServerUrl, buildWebSocketURL } from '@/services/api'
 import { runDesktopOAuthMailboxAction } from '@/services/desktopOAuthMailbox'
 import { DESKTOP_DOWNLOAD_URLS } from '@/config/desktopRelease'
 import { normalizeOAuthRecoveryErrorMessage } from '@/utils/oauthRecovery'
@@ -583,7 +581,8 @@ import CustomGenerateModal from '@/components/Mail/SystemMailbox/CustomGenerateM
 import { getCurrentLocale } from '@/i18n'
 import {
   countGuestMailboxesCreatedToday,
-  GUEST_MAILBOX_DAILY_LIMIT
+  GUEST_MAILBOX_DAILY_LIMIT,
+  loadStoredGuestMailboxes
 } from '@/utils/guestMailboxes'
 import { trackProductEvent } from '@/services/productAnalytics'
 
@@ -1015,33 +1014,15 @@ const pollBrowserTitleAlerts = async () => {
     rememberBrowserBaseTitle()
   }
 
-  try {
-    const systemEmails = await loadTitleAlertEmailsByType('system')
-    registerTitleAlertEmails('system', systemEmails)
-  } catch (error) {
-    console.error('轮询系统邮件标题提醒失败:', error)
-  }
-
   if (!userStore.isAuthenticated) {
     applyBrowserTitleAlert()
     return
   }
 
-  const [hostedResult, externalResult] = await Promise.allSettled([
-    loadTitleAlertEmailsByType('hosted'),
-    loadTitleAlertEmailsByType('external')
-  ])
-
-  if (hostedResult.status === 'fulfilled') {
-    registerTitleAlertEmails('hosted', hostedResult.value)
-  } else {
-    console.error('轮询域名邮件标题提醒失败:', hostedResult.reason)
-  }
-
-  if (externalResult.status === 'fulfilled') {
-    registerTitleAlertEmails('external', externalResult.value)
-  } else {
-    console.error('轮询第三方邮件标题提醒失败:', externalResult.reason)
+  try {
+    registerTitleAlertEmails('external', await loadTitleAlertEmailsByType('external'))
+  } catch (error) {
+    console.error('轮询第三方邮件标题提醒失败:', error)
   }
 }
 
@@ -1134,27 +1115,8 @@ const restartExternalRelayPolling = () => {
 }
 
 const syncAutoRefreshStates = () => {
-  if (!userStore.isAuthenticated) {
-    stopExternalRelayPolling()
-    if (mailboxType.value === 'system') {
-      if (!autoRefresh.isRunning.value) {
-        autoRefresh.start()
-      }
-    } else {
-      autoRefresh.stop()
-    }
-    return
-  }
-
-  if (mailboxType.value === 'external') {
-    autoRefresh.stop()
-    ensureExternalRelayPolling()
-  } else {
-    stopExternalRelayPolling()
-    if (!autoRefresh.isRunning.value) {
-      autoRefresh.start()
-    }
-  }
+  if (mailboxType.value === 'external' && userStore.isAuthenticated) ensureExternalRelayPolling()
+  else stopExternalRelayPolling()
 }
 
 const setExternalMailboxFetchingIds = (ids: number[]) => {
@@ -2444,8 +2406,8 @@ const handleEmailBatchStart = () => {
   }
 }
 
-const SYSTEM_EMAIL_REFRESH_INTERVAL = 5
 const MANUAL_REFRESH_MIN_SPIN_MS = 1200
+let pendingSystemMailEventRefresh = false
 
 const refreshSystemEmails = async (options?: { minSpinMs?: number }) => {
   if (refreshingSystemEmails.value) {
@@ -2505,6 +2467,10 @@ const refreshSystemEmails = async (options?: { minSpinMs?: number }) => {
       await new Promise((resolve) => setTimeout(resolve, minSpinMs - elapsed))
     }
     refreshingSystemEmails.value = false
+    if (pendingSystemMailEventRefresh) {
+      pendingSystemMailEventRefresh = false
+      void refreshSystemEmails()
+    }
   }
 }
 
@@ -2547,9 +2513,113 @@ const refreshHostedEmails = async () => {
   await loadHostedEmails(hostedEmailPage.value || 1)
 }
 
+const refreshSystemEmailsAfterPush = async () => {
+  if (refreshingSystemEmails.value) {
+    pendingSystemMailEventRefresh = true
+    return
+  }
+  await refreshSystemEmails()
+}
+
+let mailRealtimeSocket: WebSocket | null = null
+let mailRealtimeRetryTimer: number | null = null
+let mailRealtimeHeartbeatTimer: number | null = null
+let mailRealtimeRetryDelay = 3000
+let mailRealtimeClosed = false
+
+const closeMailRealtime = () => {
+  if (mailRealtimeRetryTimer !== null) {
+    window.clearTimeout(mailRealtimeRetryTimer)
+    mailRealtimeRetryTimer = null
+  }
+  if (mailRealtimeHeartbeatTimer !== null) {
+    window.clearInterval(mailRealtimeHeartbeatTimer)
+    mailRealtimeHeartbeatTimer = null
+  }
+  mailRealtimeSocket?.close()
+  mailRealtimeSocket = null
+}
+
+const refreshFromMailEvent = async (type: 'system' | 'hosted', emailId: number) => {
+  if (document.hidden) {
+    try {
+      const emails = await loadTitleAlertEmailsByType(type)
+      if (!titleAlertInitialized[type]) {
+        for (const email of emails) {
+          const id = Number(email?.id)
+          if (id > 0 && id !== emailId) titleAlertSeenEmailIds[type].add(id)
+        }
+        titleAlertInitialized[type] = true
+      }
+      registerTitleAlertEmails(type, emails)
+    } catch (error) {
+      console.error('加载新邮件标题提醒失败:', error)
+    }
+  }
+  if (mailboxType.value === type) {
+    if (type === 'system') await refreshSystemEmailsAfterPush()
+    else await refreshHostedEmails()
+  }
+}
+
+const connectMailRealtime = () => {
+  if (mailRealtimeClosed || mailRealtimeSocket) return
+  const token = localStorage.getItem('token') || ''
+  const guestMailboxes = loadStoredGuestMailboxes().map(({ id, claim_token }) => ({ id, claim_token }))
+  if (!token && guestMailboxes.length === 0) return
+
+  const socket = new WebSocket(buildWebSocketURL('/mail-events/ws'))
+  mailRealtimeSocket = socket
+  socket.onopen = () => {
+    socket.send(JSON.stringify({ type: 'auth', token, guest_mailboxes: guestMailboxes }))
+  }
+  socket.onmessage = (event) => {
+    try {
+      const payload = JSON.parse(String(event.data || '{}'))
+      if (payload.type === 'ready') {
+        mailRealtimeRetryDelay = 3000
+        if (mailRealtimeHeartbeatTimer === null) {
+          mailRealtimeHeartbeatTimer = window.setInterval(() => {
+            try {
+              if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: 'ping' }))
+            } catch { /* 断线由 onclose 处理 */ }
+          }, 25000)
+        }
+        // 断线期间的邮件靠重连时补查一次，连接期间只响应推送。
+        if (mailboxType.value === 'system') void refreshSystemEmailsAfterPush()
+        if (mailboxType.value === 'hosted') void refreshHostedEmails()
+      } else if (payload.type === 'email.received' && ['system', 'hosted'].includes(payload.mailbox_type)) {
+        void refreshFromMailEvent(payload.mailbox_type, Number(payload.email_id || 0))
+      }
+    } catch (error) {
+      console.error('解析新邮件实时通知失败:', error)
+    }
+  }
+  socket.onclose = (event) => {
+    if (mailRealtimeSocket !== socket) return
+    mailRealtimeSocket = null
+    if (mailRealtimeHeartbeatTimer !== null) {
+      window.clearInterval(mailRealtimeHeartbeatTimer)
+      mailRealtimeHeartbeatTimer = null
+    }
+    if (!mailRealtimeClosed && event.code !== 4401) {
+      const delay = mailRealtimeRetryDelay + Math.floor(Math.random() * 1000)
+      mailRealtimeRetryDelay = Math.min(mailRealtimeRetryDelay * 2, 30000)
+      mailRealtimeRetryTimer = window.setTimeout(() => {
+        mailRealtimeRetryTimer = null
+        connectMailRealtime()
+      }, delay)
+    }
+  }
+}
+
+const restartMailRealtime = () => {
+  closeMailRealtime()
+  connectMailRealtime()
+}
+
 const handleImmediateRefreshSystemEmails = async () => {
   hideRefreshTooltip()
-  autoRefresh.restart()
   await refreshSystemEmails({ minSpinMs: MANUAL_REFRESH_MIN_SPIN_MS })
 }
 
@@ -2869,15 +2939,6 @@ const handleAIUiSyncEvent = (event: Event) => {
   }
 }
 
-// 自动刷新（10秒）- 只在系统邮箱Tab时才刷新
-const autoRefresh = useAutoRefresh(async () => {
-  if (mailboxType.value === 'hosted') {
-    await refreshHostedEmails()
-    return
-  }
-  await refreshSystemEmails()
-}, SYSTEM_EMAIL_REFRESH_INTERVAL)
-
 const titleAlertRefresh = useAutoRefresh(async () => {
   await pollBrowserTitleAlerts()
 }, TITLE_ALERT_POLL_INTERVAL)
@@ -2906,6 +2967,11 @@ watch([mailboxType, currentView, selectedExternalMailboxId], () => {
   }
 })
 
+watch(
+  () => [userStore.isAuthenticated, mailboxStore.guestMailboxes.map((item: any) => item.id).join(',')],
+  () => { if (!mailRealtimeClosed) restartMailRealtime() }
+)
+
 watch(() => props.initialMailboxType, type => {
   if (type !== mailboxType.value) switchMailboxType(type)
 })
@@ -2926,6 +2992,7 @@ onMounted(async () => {
     'external-mailbox-recovered',
     handleRecoveredMailboxEvent as EventListener
   )
+  window.addEventListener('external-mailbox-synced', handleDesktopMailboxSynced as EventListener)
   window.addEventListener(AI_UI_SYNC_EVENT, handleAIUiSyncEvent as EventListener)
   window.addEventListener(
     'external-mail-fetch-progress',
@@ -2962,6 +3029,7 @@ onMounted(async () => {
     if (!result.success) {
       showMessage(result.error || t('home.allocateMailboxFailed'), 'error')
     }
+    connectMailRealtime()
     return
   }
 
@@ -2970,15 +3038,19 @@ onMounted(async () => {
     await loadExternalMailboxAuthTypes()
   }
   syncAutoRefreshStates()
+  connectMailRealtime()
   await nextTick()
   await resumeExternalHistoryFetchPolling()
 })
 
 onBeforeUnmount(() => {
+  mailRealtimeClosed = true
+  closeMailRealtime()
   window.removeEventListener(
     'external-mailbox-recovered',
     handleRecoveredMailboxEvent as EventListener
   )
+  window.removeEventListener('external-mailbox-synced', handleDesktopMailboxSynced as EventListener)
   window.removeEventListener(AI_UI_SYNC_EVENT, handleAIUiSyncEvent as EventListener)
   window.removeEventListener(
     'external-mail-fetch-progress',
@@ -3157,6 +3229,14 @@ const handleRecoveredMailboxEvent = (event: Event) => {
   if (selectedExternalMailboxId.value === mailboxId) {
     selectedExternalAuthType.value = 'password'
   }
+}
+
+const handleDesktopMailboxSynced = (event: Event) => {
+  const mailboxId = Number((event as CustomEvent<{ mailboxId?: number }>)?.detail?.mailboxId || 0)
+  if (!mailboxId || mailboxType.value !== 'external') return
+  if (selectedExternalMailboxId.value && selectedExternalMailboxId.value !== mailboxId) return
+  void (selectedExternalMailboxId.value ? loadExternalMailboxEmails() : loadAllExternalEmails())
+  void externalMailboxListRef.value?.loadAccounts?.()
 }
 
 const handleOAuthMailboxReauthorize = async (account: any) => {
