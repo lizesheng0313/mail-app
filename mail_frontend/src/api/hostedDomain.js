@@ -2,6 +2,18 @@ import api from '@/services/api'
 
 export const hostedDomainAPI = {
   listDomains: (params = {}) => api.get('/hosted-domains', { params }),
+  listAllDomains: async () => {
+    const items = []
+    let page = 1
+    let response
+    do {
+      response = await api.get('/hosted-domains', { params: { page, limit: 100 } })
+      if (response.code !== 0) return response
+      items.push(...(response.data?.items || []))
+      page += 1
+    } while (page <= Number(response.data?.pagination?.pages || 0))
+    return { ...response, data: { ...response.data, items } }
+  },
   getDomainDetail: (domainId) => api.get(`/hosted-domains/${domainId}`),
   createAdminQuickBindSession: (data) => api.post('/hosted-domains/admin-quick-bind-session', data),
   getSharedEarningsSummary: () =>

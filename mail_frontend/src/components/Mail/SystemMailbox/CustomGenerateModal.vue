@@ -441,10 +441,7 @@ const createDefaultCustomGenerateForm = () => ({
   domain_strategy: 'round_robin'
 })
 const isSpecifiedMode = computed(() => customGenerateForm.value.generation_mode === 'specified')
-const eligibleDomainOptions = computed(() => {
-  if (!isSystemMailbox.value || isSpecifiedMode.value) return domainOptions.value
-  return domainOptions.value.filter((item) => !item.is_public_domain)
-})
+const eligibleDomainOptions = computed(() => domainOptions.value)
 
 const normalizedCustomGenerateQuantity = computed(() =>
   isSpecifiedMode.value ? 1 : Math.max(1, Number(customGenerateForm.value.quantity || 0) || 1)
@@ -705,7 +702,7 @@ const loadCustomGenerateResources = async () => {
   domainLoading.value = true
   try {
     if (isHostedMailbox.value) {
-      const domainsRes: any = await hostedDomainAPI.listDomains()
+      const domainsRes: any = await hostedDomainAPI.listAllDomains()
       if (domainsRes.code === 0 && domainsRes.data) {
         domainOptions.value = sortDomainsByCreatedAt(
           normalizeHostedDomainRows(domainsRes.data.items || [])
@@ -884,8 +881,8 @@ const performSystemCustomGenerate = async () => {
   }
 
   if (useAllSystemDomains) {
-    // 全选只传一个开关，域名 ID 由后端生成时自行读取。
-    payload.select_all = true
+    // 按页面顺序传递全部域名，确保轮流分配与扣费预估使用同一顺序。
+    payload.domain_ids = eligibleDomainOptions.value.map((item) => String(item.id))
   } else {
     payload.domain_ids = customGenerateForm.value.domain_ids
   }

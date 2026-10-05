@@ -146,7 +146,6 @@ const currentPageTitle = computed(() => {
   if (route.path === '/user/automation/plugins') return t('userLayout.myPlugins')
   if (route.path === '/user/automation/plugins/store') return t('userLayout.pluginStore')
   if (route.path.startsWith('/user/developer/api-keys')) return t('userLayout.apiKeys')
-  if (route.path.startsWith('/user/developer/webhooks')) return t('userLayout.emailWebhooks')
   if (route.path === '/user/email-reach/dashboard') return t('userLayout.emailReachDashboard')
   if (route.path === '/user/email-reach/templates') return t('userLayout.emailReachTemplates')
   if (route.path === '/user/email-reach/templates/create') return '新建模板'

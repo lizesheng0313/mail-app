@@ -15,7 +15,7 @@
     <AdminDataTable
       title="店铺列表"
       :loading="loading"
-      :column-count="5"
+      :column-count="6"
       :pagination="{ page, total, pageSize, totalPages }"
       @page-change="changePage"
     >
@@ -23,6 +23,7 @@
         <tr>
           <th class="px-5 py-3 text-left text-xs font-medium text-gray-700">店铺</th>
           <th class="px-5 py-3 text-left text-xs font-medium text-gray-700">申请人</th>
+          <th class="px-5 py-3 text-left text-xs font-medium text-gray-700">默认收款账户</th>
           <th class="px-5 py-3 text-left text-xs font-medium text-gray-700">简介</th>
           <th class="px-5 py-3 text-left text-xs font-medium text-gray-700">申请时间</th>
           <th class="px-5 py-3 text-left text-xs font-medium text-gray-700">操作</th>
@@ -32,11 +33,19 @@
         <tr v-for="item in items" :key="item.owner_user_id" class="hover:bg-gray-50">
           <td class="px-5 py-4 text-sm font-medium text-gray-900">{{ item.name }}</td>
           <td class="px-5 py-4 text-sm text-gray-700">{{ item.username || `用户 ${item.owner_user_id}` }}</td>
+          <td class="px-5 py-4 text-sm text-gray-700">
+            <div v-if="item.account_no" class="min-w-[160px] space-y-0.5">
+              <div class="font-medium text-gray-900">{{ accountTypeLabel(item.account_type) }} · {{ item.account_name }}</div>
+              <div class="select-all font-mono text-xs">{{ item.account_no }}</div>
+              <div v-if="item.bank_name" class="text-xs text-gray-500">{{ item.bank_name }} {{ item.bank_branch }}</div>
+            </div>
+            <span v-else class="text-amber-700">未绑定</span>
+          </td>
           <td class="max-w-sm px-5 py-4 text-sm text-gray-600">{{ item.intro || '—' }}</td>
           <td class="whitespace-nowrap px-5 py-4 text-sm text-gray-600">{{ formatTime(item.created_at_ms) }}</td>
           <td class="px-5 py-4">
             <div v-if="status === 'pending' || status === 'active'" class="flex min-w-[230px] items-center gap-2">
-              <button v-if="status === 'pending'" class="rounded-md bg-primary-600 px-3 py-1.5 text-sm text-white hover:bg-primary-700" :disabled="busyId === item.owner_user_id" @click="act(item, 'approve')">通过</button>
+              <button v-if="status === 'pending'" class="rounded-md bg-primary-600 px-3 py-1.5 text-sm text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50" :disabled="busyId === item.owner_user_id || !item.account_no" :title="!item.account_no ? '申请人尚未绑定默认收款账户' : ''" @click="act(item, 'approve')">通过</button>
               <input v-model.trim="reasons[item.owner_user_id]" maxlength="500" :placeholder="status === 'pending' ? '拒绝原因' : '暂停原因'" class="min-w-0 w-32 rounded-md border border-gray-300 px-2 py-1.5 text-sm" />
               <button class="rounded-md border border-red-200 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50" :disabled="busyId === item.owner_user_id" @click="act(item, status === 'pending' ? 'reject' : 'suspend')">{{ status === 'pending' ? '拒绝' : '暂停' }}</button>
             </div>
@@ -44,7 +53,7 @@
             <span v-else class="text-xs text-gray-500">{{ item.review_reason || '—' }}</span>
           </td>
         </tr>
-        <tr v-if="!items.length"><td colspan="5" class="px-5 py-12 text-center text-sm text-gray-500">暂无店铺</td></tr>
+        <tr v-if="!items.length"><td colspan="6" class="px-5 py-12 text-center text-sm text-gray-500">暂无店铺</td></tr>
       </template>
     </AdminDataTable>
   </div>
@@ -67,6 +76,7 @@ const reasons = reactive({})
 const loading = ref(false)
 const busyId = ref(null)
 const formatTime = (value) => value ? new Date(Number(value)).toLocaleString() : '—'
+const accountTypeLabel = type => ({ alipay: '支付宝', wechat: '微信', bank: '银行卡' })[type] || type
 
 const load = async () => {
   loading.value = true

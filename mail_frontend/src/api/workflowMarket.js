@@ -163,6 +163,10 @@ export function getMyPurchases(params) {
   return api.get('/workflow-market/my/purchases', { params })
 }
 
+export function refreshMyPurchaseDelivery(purchaseId) {
+  return api.post(`/workflow-market/my/purchases/${purchaseId}/delivery/refresh`)
+}
+
 export function requestWorkflowRefund(purchaseId, reason = '') {
   return api.post(`/workflow-market/my/purchases/${purchaseId}/refund`, { reason })
 }

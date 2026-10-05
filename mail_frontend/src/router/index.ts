@@ -567,9 +567,13 @@ const router = createRouter({
           redirect: '/user/developer/api-keys'
         },
         {
-          path: 'developer/:section',
+          path: 'developer/api-keys',
           name: 'user-developer',
           component: UserDeveloper
+        },
+        {
+          path: 'developer/:section',
+          redirect: '/user/developer/api-keys'
         }
       ]
     },

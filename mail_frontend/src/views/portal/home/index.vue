@@ -1448,7 +1448,7 @@ const loadHostedDomainSummary = async (
 ) => {
   try {
     const [domainsResponse, mailboxesResponse] = await Promise.all([
-      hostedDomainAPI.listDomains(),
+      hostedDomainAPI.listAllDomains(),
       mailboxAPI.getMailboxes({
         mailbox_type: 'hosted',
         page,

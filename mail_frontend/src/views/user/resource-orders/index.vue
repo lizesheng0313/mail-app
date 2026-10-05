@@ -59,8 +59,8 @@
               </td>
               <td class="whitespace-nowrap px-5 py-4 text-sm text-gray-700">{{ getOrderUsageText(item) }}</td>
               <td class="whitespace-nowrap px-5 py-4">
-                <span class="rounded-full px-2.5 py-1 text-xs font-medium" :class="getStatusClass(item.status)">
-                  {{ getStatusText(item.status) }}
+                <span class="rounded-full px-2.5 py-1 text-xs font-medium" :class="getStatusClass(item)">
+                  {{ getStatusText(item) }}
                 </span>
                 <div v-if="getRefundText(item)" class="mt-2 max-w-[220px] text-xs leading-5" :class="getRefundClass(item)">
                   {{ getRefundText(item) }}
@@ -103,7 +103,7 @@
         <div class="grid gap-3 rounded-lg bg-gray-50 p-4 sm:grid-cols-2">
           <div>
             <div class="text-xs text-gray-500">执行状态</div>
-            <div class="mt-1 font-medium text-gray-900">{{ getExecutionStatusText(selectedDelivery?.status) }}</div>
+            <div class="mt-1 font-medium text-gray-900">{{ getExecutionStatusText(selectedDelivery) }}</div>
           </div>
           <div>
             <div class="text-xs text-gray-500">执行时间</div>
@@ -120,15 +120,14 @@
         </div>
 
         <template v-if="hasDeliveryContent()">
-          <a
-            v-if="deliveryLink()"
-            :href="deliveryLink()"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="inline-flex rounded-md bg-primary-600 px-4 py-2 font-medium text-white hover:bg-primary-700"
-          >
-            打开供货链接
-          </a>
+          <div v-if="deliveryLink()" class="rounded-lg border border-primary-100 bg-primary-50 p-4">
+            <div class="text-xs font-medium text-primary-700">下单链接</div>
+            <div class="mt-2 break-all text-primary-900">{{ deliveryLink() }}</div>
+            <div class="mt-3 flex gap-3">
+              <a :href="deliveryLink()" target="_blank" rel="noopener noreferrer" class="inline-flex rounded-md bg-primary-600 px-3 py-2 font-medium text-white hover:bg-primary-700">打开链接</a>
+              <button type="button" class="rounded-md border border-primary-300 px-3 py-2 font-medium text-primary-700" @click="copyText(deliveryLink())">复制链接</button>
+            </div>
+          </div>
           <div v-if="selectedDelivery?.delivery?.pickup_code" class="rounded-lg border border-primary-100 bg-primary-50 p-4">
             <div class="text-xs text-primary-700">取餐码 / 提货码</div>
             <div class="mt-1 break-all text-base font-semibold text-primary-900">{{ selectedDelivery.delivery.pickup_code }}</div>
@@ -142,12 +141,22 @@
             <div v-if="card.cardNo" class="mt-2 break-all">卡号：{{ card.cardNo }}</div>
             <div v-if="card.cardPwd" class="mt-1 break-all">卡密：{{ card.cardPwd }}</div>
             <div v-if="card.expireTime" class="mt-1">有效期：{{ card.expireTime }}</div>
-            <a v-if="card.jumpLink" :href="card.jumpLink" target="_blank" rel="noopener noreferrer" class="mt-3 inline-block font-medium text-primary-700 hover:text-primary-800">打开卡券链接</a>
+            <div class="mt-3 flex gap-3">
+              <a v-if="getCardLink(card)" :href="getCardLink(card)" target="_blank" rel="noopener noreferrer" class="font-medium text-primary-700 hover:text-primary-800">打开下单链接</a>
+              <button type="button" class="font-medium text-primary-700" @click="copyText([card.cardNo, card.cardPwd].filter(Boolean).join(' '))">复制卡券</button>
+            </div>
           </div>
         </template>
         <div v-else class="rounded-lg border border-amber-200 bg-amber-50 p-4 leading-6 text-amber-800">
-          订单已执行，但没有返回可展示的供货链接、提货码、卡券或资源内容。
+          {{ selectedDelivery?.fail_reason || (Number(selectedDelivery?.order_status) === 10 ? '供货商仍在处理订单，稍后点击“刷新交付”查看下单链接或卡券。' : '暂未收到下单链接或卡券，请点击“刷新交付”；不要重复下单。') }}
         </div>
+        <button
+          v-if="selectedDelivery?.provider_order_no"
+          type="button"
+          class="w-full rounded-md border border-primary-300 px-4 py-2 font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-50"
+          :disabled="refreshingDelivery"
+          @click="refreshDelivery"
+        >{{ refreshingDelivery ? '查询中...' : '刷新交付' }}</button>
       </div>
     </BaseModal>
   </div>
@@ -155,16 +164,19 @@
 
 <script setup>
 import { onMounted, ref } from 'vue'
-import { getMyPurchases, requestWorkflowRefund } from '@/api/workflowMarket'
+import { getMyPurchases, refreshMyPurchaseDelivery, requestWorkflowRefund } from '@/api/workflowMarket'
 import ActionButton from '@/components/ActionButton/index.vue'
 import BaseModal from '@/components/BaseModal/index.vue'
 import { showConfirm } from '@/utils/dialog'
 import { showMessage } from '@/utils/message'
+import { getCardLink, getDeliveryLink, hasResourceDelivery } from '@/utils/resourceDelivery'
 
 const loading = ref(false)
 const orders = ref([])
 const deliveryDialogVisible = ref(false)
 const selectedDelivery = ref(null)
+const selectedOrder = ref(null)
+const refreshingDelivery = ref(false)
 
 const fetchOrders = async () => {
   loading.value = true
@@ -205,7 +217,16 @@ const getOrderUsageText = (item) => {
   return getPricingText(item.pricing_model)
 }
 
-const getStatusText = (status) => {
+const getStatusText = (item) => {
+  const status = item.status
+  if (status === 'active' && item.resource_kind === 'product') {
+    const result = item.last_execution_result
+    if (Number(result?.order_status) === 10) return '供货中'
+    if (Number(result?.order_status) === 30) return '供货失败'
+    if (Number(result?.order_status) === 20) {
+      return hasResourceDelivery(result.delivery) ? '已交付' : '待交付'
+    }
+  }
   const map = {
     active: '有效',
     expired: '已过期',
@@ -215,7 +236,13 @@ const getStatusText = (status) => {
   return map[status] || status || '-'
 }
 
-const getStatusClass = (status) => {
+const getStatusClass = (item) => {
+  const status = item.status
+  if (status === 'active' && item.resource_kind === 'product') {
+    const providerStatus = Number(item.last_execution_result?.order_status)
+    if (providerStatus === 10 || (providerStatus === 20 && !hasResourceDelivery(item.last_execution_result?.delivery))) return 'bg-amber-100 text-amber-700'
+    if (providerStatus === 30) return 'bg-red-100 text-red-700'
+  }
   if (status === 'active') return 'bg-green-100 text-green-700'
   if (status === 'refunded') return 'bg-orange-100 text-orange-700'
   return 'bg-gray-100 text-gray-600'
@@ -269,7 +296,11 @@ const hasExecutionResult = (item) => {
   )
 }
 
-const getExecutionStatusText = (status) => {
+const getExecutionStatusText = (result) => {
+  if (Number(result?.order_status) === 10) return '供货处理中'
+  if (Number(result?.order_status) === 20) return hasResourceDelivery(result?.delivery) ? '已交付' : '待交付'
+  if (Number(result?.order_status) === 30) return '供货失败'
+  const status = result?.status
   const map = {
     success: '成功',
     completed: '已完成',
@@ -279,6 +310,7 @@ const getExecutionStatusText = (status) => {
 }
 
 const showDelivery = (item) => {
+  selectedOrder.value = item
   selectedDelivery.value = item.last_execution_result || {}
   deliveryDialogVisible.value = true
 }
@@ -286,11 +318,7 @@ const showDelivery = (item) => {
 const closeDelivery = () => {
   deliveryDialogVisible.value = false
   selectedDelivery.value = null
-}
-
-const getDeliveryLink = (delivery) => {
-  const data = delivery?.delivery || {}
-  return data.jump_link || data.delivery_link || data.pickup_link || data.order_link || ''
+  selectedOrder.value = null
 }
 
 const formatResultValue = (value) => {
@@ -302,16 +330,40 @@ const formatResultValue = (value) => {
   }
 }
 
-const deliveryLink = () => getDeliveryLink(selectedDelivery.value)
+const deliveryLink = () => getDeliveryLink(selectedDelivery.value?.delivery)
 
 const hasDeliveryContent = () => {
   const delivery = selectedDelivery.value?.delivery || {}
-  return Boolean(
-    getDeliveryLink(selectedDelivery.value)
-    || delivery.pickup_code
-    || delivery.cards?.length
-    || selectedDelivery.value?.inventory_account
-  )
+  return hasResourceDelivery(delivery) || Boolean(selectedDelivery.value?.inventory_account)
+}
+
+const copyText = async (value) => {
+  try {
+    await navigator.clipboard.writeText(String(value || ''))
+    showMessage('已复制', 'success')
+  } catch {
+    showMessage('复制失败', 'error')
+  }
+}
+
+const refreshDelivery = async () => {
+  if (!selectedOrder.value?.id || refreshingDelivery.value) return
+  refreshingDelivery.value = true
+  try {
+    const res = await refreshMyPurchaseDelivery(selectedOrder.value.id)
+    if (res?.code !== 0) throw new Error(res?.message || '查询供货结果失败')
+    selectedDelivery.value = { ...selectedDelivery.value, ...res.data }
+    const providerStatus = Number(res.data?.order_status)
+    showMessage(
+      providerStatus === 10 ? '供货商仍在处理' : providerStatus === 30 ? '供货失败，请申请售后' : '供货结果已更新',
+      providerStatus === 30 ? 'warning' : providerStatus === 10 ? 'info' : 'success'
+    )
+    await fetchOrders()
+  } catch (error) {
+    showMessage(error?.response?.data?.detail || error?.message || '查询供货结果失败', 'error')
+  } finally {
+    refreshingDelivery.value = false
+  }
 }
 
 onMounted(fetchOrders)

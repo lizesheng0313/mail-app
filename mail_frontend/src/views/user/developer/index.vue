@@ -1,7 +1,6 @@
 <template>
   <div class="h-full min-h-0">
-    <WebhookManager v-if="section === 'webhooks'" />
-    <section v-if="section === 'api-keys'" class="flex h-full min-h-0 flex-col gap-3">
+    <section class="flex h-full min-h-0 flex-col gap-3">
       <div
         v-if="!userStore.isAuthenticated"
         class="rounded-lg border border-yellow-200 bg-yellow-50 p-6 text-sm text-yellow-800"
@@ -244,7 +243,6 @@
 
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import ActionButton from '@/components/ActionButton/index.vue'
 import AdminDataTable from '@/components/AdminDataTable/index.vue'
@@ -253,7 +251,6 @@ import BaseModal from '@/components/BaseModal/index.vue'
 import ConfirmDialog from '@/components/ConfirmDialog/index.vue'
 import CustomSelect from '@/components/CustomSelect/index.vue'
 import openPlatformApi from '@/services/openPlatformApi'
-import WebhookManager from './WebhookManager.vue'
 import { useUserStore } from '@/stores/user'
 import { showMessage } from '@/utils/message'
 import { getCurrentLocale } from '@/i18n'
@@ -270,8 +267,6 @@ type ApiKeyItem = {
   expires_at?: number
 }
 
-const route = useRoute()
-const router = useRouter()
 const userStore = useUserStore()
 const { t } = useI18n()
 
@@ -313,14 +308,8 @@ const fallbackAvailableScopes = [
   'email.delete',
   'email.body.read',
   'verification_code.read',
-  'webhook.manage',
   'workflow.execute'
 ]
-
-const section = computed(() => {
-  const current = String(route.params.section || 'api-keys')
-  return current === 'webhooks' ? current : 'api-keys'
-})
 
 const fallbackRecommendedScopes = [
   'mailbox.read',
@@ -331,7 +320,6 @@ const fallbackRecommendedScopes = [
   'email.read',
   'email.body.read',
   'verification_code.read',
-  'webhook.manage',
   'workflow.execute'
 ]
 
@@ -357,7 +345,6 @@ const fallbackScopeLabelMap = computed<Record<string, string>>(() => ({
   'email.delete': t('openPlatform.scopes.emailDelete'),
   'verification_code.read': t('openPlatform.scopes.codeRead'),
   'workflow.execute': t('openPlatform.scopes.workflowExecute'),
-  'webhook.manage': t('openPlatform.scopes.webhookManage')
 }))
 
 const filteredApiKeys = computed(() => {
@@ -422,13 +409,6 @@ const getApiKeyStatusClass = (value?: string) => {
 }
 
 const isApiKeyActive = (value?: string) => value === 'active'
-
-const ensureValidSection = () => {
-  const current = String(route.params.section || '')
-  if (!['api-keys', 'webhooks'].includes(current)) {
-    router.replace('/user/developer/api-keys')
-  }
-}
 
 const syncPage = () => {
   const maxPage = Math.max(1, Math.ceil(filteredApiKeys.value.length / pageSize.value))
@@ -509,11 +489,11 @@ const loadScopeOptions = async () => {
   if (response.code !== 0) return
 
   availableScopes.value = Array.isArray(response.data?.available_scopes) && response.data.available_scopes.length
-    ? response.data.available_scopes.filter((scope: string) => scope !== 'ai.chat')
+    ? response.data.available_scopes.filter((scope: string) => scope !== 'ai.chat' && scope !== 'webhook.manage')
     : [...fallbackAvailableScopes]
 
   recommendedScopes.value = Array.isArray(response.data?.recommended_scopes) && response.data.recommended_scopes.length
-    ? response.data.recommended_scopes.filter((scope: string) => scope !== 'ai.chat')
+    ? response.data.recommended_scopes.filter((scope: string) => scope !== 'ai.chat' && scope !== 'webhook.manage')
     : [...fallbackRecommendedScopes]
 
   const scopeOptions = [
@@ -523,7 +503,7 @@ const loadScopeOptions = async () => {
   localizedScopeLabelMap.value = scopeOptions.reduce((acc: Record<string, string>, option: any) => {
     const value = String(option?.value || '').trim()
     const label = String(option?.label || '').trim()
-    if (value && label) {
+    if (value && value !== 'webhook.manage' && label) {
       acc[value] = label
     }
     return acc
@@ -631,23 +611,6 @@ const copyCreatedKey = async () => {
   showMessage(t('developer.copied'), 'success')
 }
 
-const loadSectionData = async () => {
-  if (section.value === 'api-keys') {
-    await Promise.all([loadScopeOptions(), loadApiKeys()])
-  }
-}
-
-watch(
-  () => route.params.section,
-  async () => {
-    ensureValidSection()
-    if (userStore.isAuthenticated) {
-      await loadSectionData()
-    }
-  },
-  { immediate: true }
-)
-
 watch(
   () => userStore.isAuthenticated,
   async (value) => {
@@ -658,7 +621,8 @@ watch(
       closeDeleteDialog()
       return
     }
-    await loadSectionData()
-  }
+    await Promise.all([loadScopeOptions(), loadApiKeys()])
+  },
+  { immediate: true }
 )
 </script>

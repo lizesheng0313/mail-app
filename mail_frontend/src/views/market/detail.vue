@@ -735,6 +735,7 @@
       :execution-data="executionResultData"
       :product="isProductListing"
       @close="showExecutionResult = false"
+      @view-orders="router.push('/user/resource-orders')"
     />
 
     <!-- 执行历史弹窗 -->
@@ -2126,6 +2127,17 @@ const executeNow = async () => {
         if (response.data?.inventory_type === 'outlook' || isOutlookWorkflow.value) {
           await mailboxStore.fetchMailboxes()
           showMessage(response.message || t('marketDetail.outlookDelivered'), 'success')
+          return
+        }
+
+        if (isProductListing.value) {
+          executionResultData.value = response.data || {}
+          showExecutionResult.value = true
+          const pending = Number(response.data?.order_status ?? response.data?.result?.order_status) === 10
+          showMessage(
+            pending ? t('executionResult.productProcessingTitle') : t('marketDetail.purchaseSuccess'),
+            pending ? 'info' : 'success'
+          )
           return
         }
 
