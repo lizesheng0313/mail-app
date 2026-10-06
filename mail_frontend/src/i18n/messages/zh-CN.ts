@@ -844,6 +844,14 @@ const zhCN = {
     unbindConfirmTitle: '解绑确认'
   },
   domainsPage: {
+    earningsTitle: '我的域名收益',
+    earningsDescription: '共享域名产生的收益会自动存入你的账户。',
+    yesterdayEarnings: '昨日收益',
+    totalEarnings: '累计收益',
+    earningsPromptLabel: '收益到账弹窗提醒',
+    earningsPromptHelp: '关闭后仍会正常入账，可随时在这里重新打开。',
+    earningsPromptSaved: '收益提醒设置已保存',
+    earningsPromptSaveFailed: '保存失败，请重试',
     searchPlaceholder: '搜索域名...',
     query: '查询',
     addDomain: '添加域名',
@@ -955,6 +963,20 @@ const zhCN = {
     publicDomainHelp: '开启后，其他用户可以付费指定使用这个域名；该域名不会进入免费随机池。',
     publicDomainBadge: '共享域名',
     sharedEarningsNotice: '昨日通过你的共享域名创建了 {orders} 个邮箱，收益 {income} 奶片'
+  },
+  importantNotifications: {
+    stopEarningsPrompt: '以后不再提示此类收益通知',
+    important: '账户消息',
+    announcement: '重要公告',
+    generic: '重要通知',
+    sharedEarningsTitle: '共享域名收益到账',
+    sharedEarningsDescription: '你的共享域名被用于创建 {orders} 个邮箱。',
+    received: '本次收到',
+    coinUnit: '奶片',
+    deposited: '已存入我的账户',
+    acknowledge: '我知道了',
+    retry: '确认失败，请重试',
+    more: '还有 {count} 条重要消息'
   },
   purchasesPage: {
     allTransactions: '全部交易',

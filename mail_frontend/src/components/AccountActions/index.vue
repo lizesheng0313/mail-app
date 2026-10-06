@@ -185,6 +185,7 @@
       <!-- 用户下拉菜单 -->
       <div class="relative" ref="userMenuRef">
         <button
+          data-important-notification-target="account"
           :aria-label="t('workspace.accountMenu')"
           :aria-expanded="showUserMenu"
           @click="toggleUserMenu"
@@ -311,6 +312,7 @@ const personalNotifications = ref<any[]>([])
 const announcementsLoading = ref(false)
 const markAllReadLoading = ref(false)
 const unreadCount = ref(0)
+let unreadRequestSerial = 0
 const notificationPanelTotal = computed(
   () => personalNotifications.value.length + announcements.value.length
 )
@@ -426,44 +428,30 @@ const loadPersonalNotifications = async () => {
 // 加载未读数量
 const loadUnreadCount = async () => {
   if (!userStore.isAuthenticated) return
-
-  let nextUnreadCount = 0
-
-  try {
-    const result: any = await api.get('/announcements/unread/count')
-    if (result.code === 0) {
-      const announcementUnreadCount = result.data.count || 0
-
-      if (announcementUnreadCount > 0) {
-        const listResult: any = await api.get('/announcements/', {
-          params: { page: 1, page_size: 10 },
-          suppressErrorMessage: true
-        } as any)
-
-        if (listResult.code === 0) {
-          const visibleAnnouncements = filterVisibleAnnouncements(listResult.data.items || [])
-          if (visibleAnnouncements.length > 0) {
-            nextUnreadCount += announcementUnreadCount
-          } else if (!showAnnouncements.value) {
-            announcements.value = []
-          }
-        }
-      }
-    }
-  } catch (error) {
-    console.error('加载公告未读数量失败:', error)
-  }
+  const requestSerial = ++unreadRequestSerial
 
   try {
-    const result: any = await getNotificationUnreadCount()
-    if (result.code === 0) {
-      nextUnreadCount += result.data.count || 0
-    }
-  } catch (error) {
-    console.error('加载个人通知未读数量失败:', error)
-  }
+    const [announcementResult, notificationResult]: any[] = await Promise.all([
+      api.get('/announcements/unread/count'),
+      getNotificationUnreadCount()
+    ])
+    if (
+      requestSerial !== unreadRequestSerial ||
+      announcementResult.code !== 0 ||
+      notificationResult.code !== 0
+    )
+      return
 
-  unreadCount.value = nextUnreadCount
+    unreadCount.value =
+      Number(announcementResult.data?.count || 0) + Number(notificationResult.data?.count || 0)
+  } catch (error) {
+    console.error('加载未读数量失败:', error)
+  }
+}
+
+const refreshAfterImportantNotification = () => {
+  if (showAnnouncements.value) void loadAnnouncements()
+  else void loadUnreadCount()
 }
 
 // 标记全部为已读
@@ -542,6 +530,7 @@ let unreadTimer: ReturnType<typeof setInterval> | undefined
 
 onMounted(() => {
   document.addEventListener('click', handleClickOutside)
+  window.addEventListener('important-notification:acknowledged', refreshAfterImportantNotification)
   // 初始加载未读数量
   loadUnreadCount()
   // 每5分钟刷新一次未读数量
@@ -556,5 +545,6 @@ onMounted(() => {
 onUnmounted(() => {
   if (unreadTimer) clearInterval(unreadTimer)
   document.removeEventListener('click', handleClickOutside)
+  window.removeEventListener('important-notification:acknowledged', refreshAfterImportantNotification)
 })
 </script>

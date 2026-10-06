@@ -878,6 +878,14 @@ const en = {
     unbindConfirmTitle: 'Confirm unlink'
   },
   domainsPage: {
+    earningsTitle: 'My domain earnings',
+    earningsDescription: 'Earnings from shared domains are added to your account automatically.',
+    yesterdayEarnings: 'Yesterday',
+    totalEarnings: 'Total earned',
+    earningsPromptLabel: 'Earnings popup reminders',
+    earningsPromptHelp: 'Earnings still accrue when this is off. Turn reminders back on here anytime.',
+    earningsPromptSaved: 'Earnings reminder preference saved',
+    earningsPromptSaveFailed: 'Could not save. Please try again.',
     searchPlaceholder: 'Search domains...',
     query: 'Search',
     addDomain: 'Add Domain',
@@ -992,6 +1000,20 @@ const en = {
     publicDomainHelp: 'Other users can pay to create an exact-name mailbox with this domain. It is never used for free random generation.',
     publicDomainBadge: 'Shared Domain',
     sharedEarningsNotice: 'Yesterday, {orders} mailboxes were created with your shared domains and earned {income} coins.'
+  },
+  importantNotifications: {
+    stopEarningsPrompt: 'Do not show these earnings reminders again',
+    important: 'ACCOUNT UPDATE',
+    announcement: 'IMPORTANT ANNOUNCEMENT',
+    generic: 'IMPORTANT UPDATE',
+    sharedEarningsTitle: 'Shared domain earnings received',
+    sharedEarningsDescription: 'Your shared domains were used to create {orders} mailboxes.',
+    received: 'Received',
+    coinUnit: 'coins',
+    deposited: 'Added to my account',
+    acknowledge: 'Got it',
+    retry: 'Could not confirm. Please try again.',
+    more: '{count} more important updates'
   },
   purchasesPage: {
     allTransactions: 'All Transactions',

@@ -18,6 +18,23 @@ export function getUnreadCount() {
   return api.get('/notifications/unread-count')
 }
 
+/** 打开系统时需要逐条确认的重要通知。 */
+export function getPendingImportantNotifications() {
+  return api.get('/notifications/important/pending')
+}
+
+export function acknowledgeImportantNotification(notificationId, options = {}) {
+  return api.put(`/notifications/important/${notificationId}/acknowledge`, options)
+}
+
+export function getSharedEarningsNoticePreference() {
+  return api.get('/notifications/important/preferences/shared-earnings')
+}
+
+export function setSharedEarningsNoticePreference(enabled) {
+  return api.put('/notifications/important/preferences/shared-earnings', { enabled })
+}
+
 /**
  * 标记通知为已读
  */

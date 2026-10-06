@@ -1,5 +1,47 @@
 <template>
   <div class="flex h-full min-h-0 flex-col gap-3">
+    <section
+      class="shrink-0 rounded-lg border bg-white p-4 shadow-sm"
+      :aria-label="t('domainsPage.earningsTitle')"
+    >
+      <div class="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h2 class="text-base font-semibold text-black">{{ t('domainsPage.earningsTitle') }}</h2>
+          <p class="mt-1 text-sm text-gray-500">{{ t('domainsPage.earningsDescription') }}</p>
+        </div>
+        <div class="flex flex-wrap gap-x-6 gap-y-2 text-sm">
+          <div>
+            <span class="text-gray-500">{{ t('domainsPage.yesterdayEarnings') }}</span>
+            <strong class="ml-2 text-primary-700">{{ formatEarnings(earningsSummary?.yesterday_income) }}</strong>
+          </div>
+          <div>
+            <span class="text-gray-500">{{ t('domainsPage.totalEarnings') }}</span>
+            <strong class="ml-2 text-primary-700">{{ formatEarnings(earningsSummary?.total_income) }}</strong>
+          </div>
+        </div>
+      </div>
+      <div class="mt-4 flex flex-wrap items-center justify-between gap-3 border-t pt-3">
+        <div>
+          <div class="text-sm font-medium text-black">{{ t('domainsPage.earningsPromptLabel') }}</div>
+          <p class="mt-0.5 text-xs text-gray-500">{{ t('domainsPage.earningsPromptHelp') }}</p>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          :aria-checked="earningsPromptEnabled"
+          :aria-label="t('domainsPage.earningsPromptLabel')"
+          :disabled="!earningsPreferenceLoaded || earningsPreferenceSaving"
+          class="relative h-6 w-11 rounded-full transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600 disabled:opacity-50"
+          :class="earningsPromptEnabled ? 'bg-primary-600' : 'bg-gray-300'"
+          @click="toggleEarningsPrompt"
+        >
+          <span
+            class="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform"
+            :class="earningsPromptEnabled ? 'translate-x-5' : ''"
+          ></span>
+        </button>
+      </div>
+    </section>
     <div class="shrink-0 bg-white rounded-lg shadow-sm border p-4">
       <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div class="flex items-center space-x-4">
@@ -613,12 +655,55 @@ import BaseModal from '@/components/BaseModal/index.vue'
 import ConfirmDialog from '@/components/ConfirmDialog/index.vue'
 import CatchAllSettingCard from '@/views/user/domains/components/CatchAllSettingCard.vue'
 import { hostedDomainAPI } from '@/api/hostedDomain'
+import {
+  getSharedEarningsNoticePreference,
+  setSharedEarningsNoticePreference
+} from '@/api/notification'
 import { showMessage } from '@/utils/message'
 import { formatTimestamp } from '@/utils/timeUtils.js'
 
 const { t } = useI18n()
 
 const loading = ref(false)
+const earningsSummary = ref<{ yesterday_income: number; total_income: number } | null>(null)
+const earningsPromptEnabled = ref(true)
+const earningsPreferenceLoaded = ref(false)
+const earningsPreferenceSaving = ref(false)
+const formatEarnings = (value: number | undefined) =>
+  value === undefined ? '—' : `${Number(value).toFixed(2)} ${t('importantNotifications.coinUnit')}`
+
+const loadEarningsSettings = async () => {
+  const [summary, preference] = await Promise.allSettled([
+    hostedDomainAPI.getSharedEarningsSummary(),
+    getSharedEarningsNoticePreference()
+  ])
+  if (summary.status === 'fulfilled' && summary.value?.code === 0)
+    earningsSummary.value = summary.value.data
+  if (preference.status === 'fulfilled' && preference.value?.code === 0) {
+    earningsPromptEnabled.value = Boolean(preference.value.data?.enabled)
+    earningsPreferenceLoaded.value = true
+  }
+}
+
+const toggleEarningsPrompt = async () => {
+  if (!earningsPreferenceLoaded.value || earningsPreferenceSaving.value) return
+  earningsPreferenceSaving.value = true
+  const next = !earningsPromptEnabled.value
+  try {
+    const response: any = await setSharedEarningsNoticePreference(next)
+    if (response?.code !== 0) throw new Error('save failed')
+    earningsPromptEnabled.value = next
+    showMessage(t('domainsPage.earningsPromptSaved'), 'success')
+  } catch {
+    showMessage(t('domainsPage.earningsPromptSaveFailed'), 'error')
+  } finally {
+    earningsPreferenceSaving.value = false
+  }
+}
+
+const onEarningsPreferenceChanged = (event: Event) => {
+  earningsPromptEnabled.value = Boolean((event as CustomEvent<{ enabled: boolean }>).detail?.enabled)
+}
 const deleting = ref(false)
 const creatingDomain = ref(false)
 const savingEdit = ref(false)
@@ -1103,10 +1188,13 @@ const handlePageSizeChange = (limit: number) => {
 onMounted(async () => {
   ;(window as any).feimaomao = openTransferModal
   ;(window as any).feimaomaoinput = openAdminQuickBindModal
+  window.addEventListener('shared-earnings-notice:preference-changed', onEarningsPreferenceChanged)
+  void loadEarningsSettings()
   await loadDomains()
 })
 
 onBeforeUnmount(() => {
+  window.removeEventListener('shared-earnings-notice:preference-changed', onEarningsPreferenceChanged)
   if ((window as any).feimaomao === openTransferModal) {
     delete (window as any).feimaomao
   }

@@ -61,20 +61,20 @@
       </div>
     </div>
   </SidebarLayout>
+  <ImportantNotificationCenter v-if="userStore.isAuthenticated" />
 </template>
 
 <script setup>
-import { computed, onMounted } from 'vue'
+import { computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { HomeIcon, ShoppingCartIcon, UserIcon } from '@heroicons/vue/24/outline'
 import { useUserStore } from '@/stores/user'
 import SidebarLayout from '@/components/SidebarLayout/index.vue'
 import AccountActions from '@/components/AccountActions/index.vue'
+import ImportantNotificationCenter from '@/components/ImportantNotificationCenter/index.vue'
 import PublicNavigation from '@/components/PublicNavigation/index.vue'
 import { createWorkspaceMenu, externalMailboxTabs } from '@/config/workspaceNavigation'
-import { hostedDomainAPI } from '@/api/hostedDomain'
-import { showMessage } from '@/utils/message'
 
 const router = useRouter()
 const route = useRoute()
@@ -102,33 +102,6 @@ const mailboxTabs = computed(() => {
   return []
 })
 
-const notifySharedDomainEarnings = async () => {
-  const registeredUserId = Number(userStore.user?.id || 0)
-  if (!userStore.isAuthenticated || registeredUserId <= 0) return
-
-  try {
-    const response = await hostedDomainAPI.getSharedEarningsSummary()
-    const data = response?.data || {}
-    const yesterdayIncome = Number(data.yesterday_income || 0)
-    if (response?.code !== 0 || yesterdayIncome <= 0 || typeof window === 'undefined') return
-
-    const userId = Number(data.user_id || 0)
-    const today = new Date().toLocaleDateString('en-CA')
-    const noticeKey = `shared-domain-earnings-notice:${userId}:${today}`
-    if (window.localStorage.getItem(noticeKey)) return
-
-    showMessage(
-      t('domainsPage.sharedEarningsNotice', {
-        orders: Number(data.yesterday_orders || 0),
-        income: yesterdayIncome.toFixed(2)
-      }),
-      'success'
-    )
-    window.localStorage.setItem(noticeKey, '1')
-  } catch (error) {
-    console.warn('加载共享域名收益提醒失败:', error)
-  }
-}
 // 当前页面标题
 const currentPageTitle = computed(() => {
   if (activeMailboxType.value)
@@ -183,8 +156,4 @@ const logout = () => {
   userStore.logout()
   router.push('/login')
 }
-
-onMounted(() => {
-  void notifySharedDomainEarnings()
-})
 </script>

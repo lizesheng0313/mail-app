@@ -843,6 +843,14 @@ const zhTW = {
     unbindConfirmTitle: '解除綁定確認'
   },
   domainsPage: {
+    earningsTitle: '我的網域收益',
+    earningsDescription: '共享網域產生的收益會自動存入你的帳戶。',
+    yesterdayEarnings: '昨日收益',
+    totalEarnings: '累計收益',
+    earningsPromptLabel: '收益入帳彈窗提醒',
+    earningsPromptHelp: '關閉後仍會正常入帳，可隨時在這裡重新開啟。',
+    earningsPromptSaved: '收益提醒設定已儲存',
+    earningsPromptSaveFailed: '儲存失敗，請重試',
     searchPlaceholder: '搜尋網域...',
     query: '查詢',
     addDomain: '添加網域',
@@ -954,6 +962,20 @@ const zhTW = {
     publicDomainHelp: '開啟後，其他使用者可以付費指定使用這個網域；該網域不會進入免費隨機池。',
     publicDomainBadge: '共享網域',
     sharedEarningsNotice: '昨日透過你的共享網域建立了 {orders} 個郵箱，收益 {income} 奶片'
+  },
+  importantNotifications: {
+    stopEarningsPrompt: '以後不再提示此類收益通知',
+    important: '帳戶訊息',
+    announcement: '重要公告',
+    generic: '重要通知',
+    sharedEarningsTitle: '共享網域收益入帳',
+    sharedEarningsDescription: '你的共享網域被用於建立 {orders} 個郵箱。',
+    received: '本次收到',
+    coinUnit: '奶片',
+    deposited: '已存入我的帳戶',
+    acknowledge: '我知道了',
+    retry: '確認失敗，請重試',
+    more: '還有 {count} 條重要訊息'
   },
   purchasesPage: {
     allTransactions: '全部交易',

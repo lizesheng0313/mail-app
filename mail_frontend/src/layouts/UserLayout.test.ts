@@ -33,10 +33,7 @@ const cleanups: Array<() => void> = []
 beforeEach(() => {
   userStoreState.user = { id: 1, email: 'user@example.com', is_admin: false }
   userStoreState.isAuthenticated = true
-  apiGetMock.mockReset().mockResolvedValue({
-    code: 0,
-    data: { user_id: 1, yesterday_income: 0, yesterday_orders: 0 }
-  })
+  apiGetMock.mockReset().mockResolvedValue({ code: 0, data: { items: [] } })
 })
 afterEach(() => cleanups.splice(0).forEach((cleanup) => cleanup()))
 
@@ -82,7 +79,7 @@ const createWorkbench = async (path: string) => {
 }
 
 describe('User workspace navigation', () => {
-  it('does not request shared-domain earnings without a registered account', async () => {
+  it('does not request important notices without a registered account', async () => {
     userStoreState.user = { email: '', is_admin: false }
     userStoreState.isAuthenticated = false
 
@@ -91,12 +88,10 @@ describe('User workspace navigation', () => {
     expect(apiGetMock).not.toHaveBeenCalled()
   })
 
-  it('loads shared-domain earnings silently for a registered account', async () => {
+  it('loads pending important notices for a registered account', async () => {
     await createWorkbench('/user/automation/workflows')
 
-    expect(apiGetMock).toHaveBeenCalledWith('/hosted-domains/shared-earnings/summary', {
-      suppressErrorMessage: true
-    })
+    expect(apiGetMock).toHaveBeenCalledWith('/notifications/important/pending')
   })
 
   it('shows the brand as the home link without a duplicate mailbox title', async () => {

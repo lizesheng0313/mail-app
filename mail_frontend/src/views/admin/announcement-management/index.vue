@@ -83,6 +83,12 @@
               版本更新
             </span>
             <span
+              v-else-if="item.scene === 'prominent'"
+              class="px-2 py-1 text-xs rounded-full bg-emerald-100 text-emerald-700"
+            >
+              醒目公告
+            </span>
+            <span
               v-else
               :class="[
                 'px-2 py-1 text-xs rounded-full',
@@ -132,7 +138,9 @@
       v-if="showCreateModal"
       class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black bg-opacity-50 p-3"
     >
-      <div class="max-h-[calc(100dvh-1.5rem)] w-full max-w-2xl overflow-y-auto rounded-lg bg-white shadow-xl">
+      <div
+        class="max-h-[calc(100dvh-1.5rem)] w-full max-w-2xl overflow-y-auto rounded-lg bg-white shadow-xl"
+      >
         <div class="flex items-center justify-between px-6 py-4 border-b">
           <h3 class="text-lg font-semibold">
             {{ editingItem ? '编辑公告/更新' : '发布公告/更新' }}
@@ -168,6 +176,9 @@
               :options="sceneOptions"
               placeholder="选择发布类型"
             />
+            <p v-if="formData.scene === 'prominent'" class="mt-2 text-xs leading-5 text-gray-500">
+              用户打开系统时，会在页面中央看到完整公告；点击“我知道了”后不再提醒。公告仍会保留在右上角通知中。
+            </p>
           </div>
 
           <!-- 类型 -->
@@ -284,6 +295,7 @@ const typeOptions = [
 
 const sceneOptions = [
   { value: 'general', label: '普通公告' },
+  { value: 'prominent', label: '醒目公告（打开后置顶提示）' },
   { value: 'release_note', label: '版本更新' }
 ]
 
