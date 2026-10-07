@@ -37,7 +37,7 @@ const ROUTE_SEO_KEY_MAP: Record<string, string> = {
   download: 'download'
 }
 
-const NOINDEX_PREFIXES = ['/auth/google', '/share/', '/payment', '/purchase']
+const NOINDEX_PREFIXES = ['/auth/google', '/share/', '/payment']
 
 const normalizePath = (path: string) => {
   if (!path || path === '/') return '/'

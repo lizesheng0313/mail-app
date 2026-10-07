@@ -38,9 +38,6 @@ export const emailAPI = {
     ...(guestClaimToken ? { headers: { 'X-Guest-Mailbox-Token': guestClaimToken } } : {})
   }),
 
-  // 翻译邮件正文
-  translateEmail: (data) => api.post('/ai/translate-email', data),
-
   // 标记邮件为已读
   markAsRead: (id, type = 'system', guestClaimToken = '') => api.put(`/unified-emails/emails/${id}/read`, null, {
     params: { type },

@@ -5,16 +5,6 @@
       <div class="editor-pane">
         <div class="pane-header">
           <span class="title">编辑</span>
-          <el-button
-            v-if="showAiButton"
-            type="primary"
-            size="small"
-            :loading="generating"
-            @click="handleGenerateWithAI"
-          >
-            <i class="el-icon-magic-stick"></i>
-            AI一键生成
-          </el-button>
         </div>
         <textarea
           ref="textarea"
@@ -60,15 +50,10 @@ export default {
       type: Boolean,
       default: true
     },
-    showAiButton: {
-      type: Boolean,
-      default: false
-    }
   },
   data() {
     return {
       localContent: this.content,
-      generating: false,
       saving: false
     }
   },
@@ -95,10 +80,6 @@ export default {
       this.$emit('update:content', this.localContent)
     },
 
-    handleGenerateWithAI() {
-      this.$emit('generate-ai')
-    },
-
     handleSave() {
       this.$emit('save', this.localContent)
     },
@@ -109,10 +90,6 @@ export default {
 
     setContent(content) {
       this.localContent = content
-    },
-
-    setGenerating(loading) {
-      this.generating = loading
     },
 
     setSaving(loading) {

@@ -632,7 +632,6 @@ const resourceCategoryTree = [
     children: [
       { label: '文档办公', value: 'document' },
       { label: '网盘存储', value: 'storage' },
-      { label: 'AI 工具', value: 'ai_tools' },
       { label: '设计工具', value: 'design' },
       { label: '开发工具', value: 'dev_tools' }
     ]

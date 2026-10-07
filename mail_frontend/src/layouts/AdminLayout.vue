@@ -467,7 +467,6 @@ const autoExpandMenu = () => {
     '/admin/email-reach-templates',
     '/admin/email-reach-risk',
     '/admin/email-reach-unsubscribes',
-    '/admin/email-reach-image-reviews',
     '/admin/email-reach-settings'
   ].includes(path)) {
     expandedMenus.emailReach = true
@@ -515,7 +514,6 @@ const pageTitle = computed(() => {
     '/admin/email-reach-templates': '邮件触达模板管理',
     '/admin/email-reach-risk': '邮件触达风险名单',
     '/admin/email-reach-unsubscribes': '邮件触达退订记录',
-    '/admin/email-reach-image-reviews': '邮件触达图片审核',
     '/admin/email-reach-settings': '邮件触达发信配置'
   }
   return titles[route.path] || '管理后台'
@@ -542,7 +540,6 @@ const pageDescription = computed(() => {
     '/admin/email-reach-users': '查看所有使用邮件触达的客户和发件情况',
     '/admin/email-reach-templates': '查看所有客户模板和审核拒绝记录',
     '/admin/email-reach-unsubscribes': '查看所有客户的退订记录',
-    '/admin/email-reach-image-reviews': '查看客户上传图片的审核结果',
     '/admin/email-reach-settings': '配置当前发件账号并查看失败统计'
   }
   return descriptions[route.path] || '系统管理中心'

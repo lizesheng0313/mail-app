@@ -385,9 +385,9 @@ const deleteConfirmMessage = computed(() => {
 const getScopeLabel = (scope: string) => localizedScopeLabelMap.value[scope] || fallbackScopeLabelMap.value[scope] || scope
 
 const getScopeSummary = (item: ApiKeyItem) => {
-  const scopes = (item.scopes || []).filter((scope) => scope !== 'ai.chat')
+  const scopes = (item.scopes || []).filter((scope) => availableScopes.value.includes(scope))
   const labels = item.scope_labels?.length
-    ? item.scope_labels.filter((_, index) => (item.scopes || [])[index] !== 'ai.chat')
+    ? item.scope_labels.filter((_, index) => availableScopes.value.includes((item.scopes || [])[index]))
     : scopes.map(getScopeLabel)
 
   if (labels.length === 0) return '-'
@@ -489,11 +489,11 @@ const loadScopeOptions = async () => {
   if (response.code !== 0) return
 
   availableScopes.value = Array.isArray(response.data?.available_scopes) && response.data.available_scopes.length
-    ? response.data.available_scopes.filter((scope: string) => scope !== 'ai.chat' && scope !== 'webhook.manage')
+    ? response.data.available_scopes.filter((scope: string) => scope !== 'webhook.manage')
     : [...fallbackAvailableScopes]
 
   recommendedScopes.value = Array.isArray(response.data?.recommended_scopes) && response.data.recommended_scopes.length
-    ? response.data.recommended_scopes.filter((scope: string) => scope !== 'ai.chat' && scope !== 'webhook.manage')
+    ? response.data.recommended_scopes.filter((scope: string) => scope !== 'webhook.manage')
     : [...fallbackRecommendedScopes]
 
   const scopeOptions = [

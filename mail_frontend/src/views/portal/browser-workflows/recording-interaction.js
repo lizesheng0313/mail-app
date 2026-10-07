@@ -30,7 +30,7 @@ function structuralSelector(path, options = {}) {
 }
 
 const TECHNICAL_DESCRIPTION_PATTERN = /(?:nth-of-type|querySelector|query_selector|css\s*选择器|元素定位|定位器|selector|dom[_ -]?path|^\s*[a-z][a-z0-9-]*\s*:)/i
-const GENERIC_DESCRIPTION_PATTERN = /^(?:录制步骤|当前步骤|基于浏览器录制生成|基于用户实际操作生成|ai\s*根据)/i
+const GENERIC_DESCRIPTION_PATTERN = /^(?:录制步骤|当前步骤|基于浏览器录制生成|基于用户实际操作生成)/i
 const COMMON_LABEL_TRANSLATIONS = [
   [/\bmessages?\b/gi, '消息'],
   [/\bsubmit\b/gi, '提交'],

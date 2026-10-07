@@ -571,12 +571,8 @@ import {
   verifyExternalMailboxThroughRelay
 } from '@/utils/externalMailboxRelay'
 import {
-  AI_UI_SYNC_EVENT,
-  extractMailboxType,
-  extractToolIds,
-  normalizeAIToolTrace
-} from '@/utils/aiUiSync'
-import { hostedDomainAPI } from '@/api/hostedDomain'
+  hostedDomainAPI
+} from '@/api/hostedDomain'
 import CustomGenerateModal from '@/components/Mail/SystemMailbox/CustomGenerateModal.vue'
 import { getCurrentLocale } from '@/i18n'
 import {
@@ -2758,187 +2754,6 @@ const removeHostedEmailsByMailboxIds = (mailboxIds: number[] = []) => {
   }
 }
 
-const applySystemMailboxListResult = (result: any) => {
-  mailboxStore.replaceMailboxes(result?.items || [], result?.pagination)
-}
-
-const applyHostedMailboxListResult = (result: any) => {
-  hostedDomainMailboxes.value = result?.items || []
-}
-
-const applyExternalMailboxListResult = (result: any) => {
-  externalMailboxListRef.value?.replaceAccounts?.(result?.items || [], result?.pagination)
-}
-
-const applySystemEmailListResult = (result: any, mailboxId?: number | null) => {
-  mailStore.replaceEmails(result?.items || [], result?.pagination)
-  if (mailboxId !== undefined) {
-    selectedMailboxId.value = mailboxId || null
-  }
-  mailboxType.value = 'system'
-  currentView.value = 'emails'
-  mobileActivePane.value = 'middle'
-}
-
-const applyHostedEmailListResult = (result: any, mailboxId?: number | null) => {
-  hostedEmails.value = normalizeHostedEmailRows(Array.isArray(result?.items) ? result.items : [])
-  hostedEmailPage.value = Number(result?.pagination?.page || 1)
-  hostedEmailPageSize.value = Number(
-    result?.pagination?.page_size || hostedEmailPageSize.value || 20
-  )
-  hostedEmailTotal.value = Number(result?.pagination?.total || hostedEmails.value.length)
-  if (mailboxId !== undefined) {
-    selectedHostedMailboxId.value = mailboxId || null
-  }
-  mailboxType.value = 'hosted'
-  currentView.value = 'emails'
-  mobileActivePane.value = 'middle'
-}
-
-const applyExternalEmailListResult = (result: any, mailboxId?: number | null) => {
-  externalEmails.value = Array.isArray(result?.items) ? [...result.items] : []
-  externalEmailPage.value = Number(result?.pagination?.page || 1)
-  externalEmailPageSize.value = Number(
-    result?.pagination?.page_size || externalEmailPageSize.value || 20
-  )
-  externalEmailTotal.value = Number(result?.pagination?.total || externalEmails.value.length)
-  if (mailboxId !== undefined) {
-    selectedExternalMailboxId.value = mailboxId || null
-    if (mailboxId) {
-      selectedExternalAuthType.value = externalMailboxAuthTypeMap.value[mailboxId] || 'password'
-    }
-  }
-  mailboxType.value = 'external'
-  currentView.value = 'emails'
-  mobileActivePane.value = 'middle'
-}
-
-const applyEmailDetailResult = (
-  result: any,
-  mailboxTypeValue: 'system' | 'hosted' | 'external'
-) => {
-  if (!result?.id) return
-
-  mailStore.selectedEmail = result
-  currentView.value = 'emails'
-  mobileActivePane.value = 'right'
-
-  if (mailboxTypeValue === 'hosted') {
-    mailboxType.value = 'hosted'
-    selectedHostedEmailId.value = Number(result.id)
-    if (result.mailbox_id) {
-      selectedHostedMailboxId.value = Number(result.mailbox_id)
-    }
-    return
-  }
-
-  if (mailboxTypeValue === 'external') {
-    mailboxType.value = 'external'
-    selectedExternalEmailId.value = Number(result.id)
-    if (result.mailbox_id) {
-      selectedExternalMailboxId.value = Number(result.mailbox_id)
-      selectedExternalAuthType.value =
-        externalMailboxAuthTypeMap.value[Number(result.mailbox_id)] ||
-        selectedExternalAuthType.value
-    }
-    return
-  }
-
-  mailboxType.value = 'system'
-  if (result.mailbox_id) {
-    selectedMailboxId.value = Number(result.mailbox_id)
-  }
-}
-
-const aiToolUiHandlers: Record<string, (item: any) => void> = {
-  'mailboxes.create': (item) => {
-    if (item?.result?.id) {
-      mailboxStore.upsertMailboxes([item.result])
-    }
-  },
-  'mailboxes.list': (item) => {
-    if (extractMailboxType(item) === 'hosted') {
-      applyHostedMailboxListResult(item?.result)
-      mailboxType.value = 'hosted'
-      currentView.value = 'emails'
-      return
-    }
-    applySystemMailboxListResult(item?.result)
-    mailboxType.value = 'system'
-    currentView.value = 'emails'
-  },
-  'mailboxes.delete': (item) => {
-    const mailboxIds = extractToolIds(item, 'mailbox_id', 'mailbox_ids')
-    if (extractMailboxType(item) === 'hosted') {
-      handleHostedMailboxesDeleted(mailboxIds)
-      return
-    }
-    handleSystemMailboxesDeleted(mailboxIds)
-  },
-  'external_mailboxes.list': (item) => {
-    applyExternalMailboxListResult(item?.result)
-    mailboxType.value = 'external'
-    currentView.value = 'emails'
-  },
-  'external_mailboxes.delete': (item) => {
-    const mailboxIds = extractToolIds(item, 'mailbox_id', 'mailbox_ids')
-    handleExternalMailboxesDeleted(mailboxIds)
-  },
-  'emails.list': (item) => {
-    const mailboxTypeValue = extractMailboxType(item)
-    const mailboxId = Number(item?.arguments?.mailbox_id || item?.result?.mailbox_id || 0) || null
-    if (mailboxTypeValue === 'external') {
-      applyExternalEmailListResult(item?.result, mailboxId)
-      return
-    }
-    if (mailboxTypeValue === 'hosted') {
-      applyHostedEmailListResult(item?.result, mailboxId)
-      return
-    }
-    applySystemEmailListResult(item?.result, mailboxId)
-  },
-  'emails.detail': (item) => {
-    applyEmailDetailResult(item?.result, extractMailboxType(item))
-  },
-  'emails.delete': (item) => {
-    const emailIds = extractToolIds(item, 'email_id', 'email_ids')
-    if (extractMailboxType(item) === 'external') {
-      handleExternalEmailsDeleted(emailIds)
-      return
-    }
-    if (extractMailboxType(item) === 'hosted') {
-      handleHostedEmailsDeleted(emailIds)
-      return
-    }
-    handleSystemEmailsDeleted(emailIds)
-  },
-  'verification_codes.latest': (item) => {
-    const detail = item?.result?.email_detail
-    if (detail?.id) {
-      applyEmailDetailResult(detail, extractMailboxType(item))
-    }
-  },
-  'verification_codes.detail': (item) => {
-    applyEmailDetailResult(item?.result, extractMailboxType(item))
-  }
-}
-
-const handleAIUiSyncEvent = (event: Event) => {
-  const detail = (event as CustomEvent<any>)?.detail
-  const toolTrace = normalizeAIToolTrace(detail)
-  if (!toolTrace.length) return
-
-  for (const item of toolTrace) {
-    if (item?.needs_confirmation || !item?.result || item?.result?.blocked) {
-      continue
-    }
-    const handler = aiToolUiHandlers[String(item?.name || '')]
-    if (handler) {
-      handler(item)
-    }
-  }
-}
-
 const titleAlertRefresh = useAutoRefresh(async () => {
   await pollBrowserTitleAlerts()
 }, TITLE_ALERT_POLL_INTERVAL)
@@ -2976,7 +2791,7 @@ watch(() => props.initialMailboxType, type => {
   if (type !== mailboxType.value) switchMailboxType(type)
 })
 
-// AI 操作切换邮箱时同步菜单，继续使用原有邮箱处理逻辑。
+// 切换邮箱时同步菜单，继续使用原有邮箱处理逻辑。
 watch(mailboxType, type => {
   if (type !== props.initialMailboxType) {
     void router.replace(`/user/mailboxes/${type}`)
@@ -2993,7 +2808,6 @@ onMounted(async () => {
     handleRecoveredMailboxEvent as EventListener
   )
   window.addEventListener('external-mailbox-synced', handleDesktopMailboxSynced as EventListener)
-  window.addEventListener(AI_UI_SYNC_EVENT, handleAIUiSyncEvent as EventListener)
   window.addEventListener(
     'external-mail-fetch-progress',
     handleExternalHistoryFetchSocketProgress as EventListener
@@ -3051,7 +2865,6 @@ onBeforeUnmount(() => {
     handleRecoveredMailboxEvent as EventListener
   )
   window.removeEventListener('external-mailbox-synced', handleDesktopMailboxSynced as EventListener)
-  window.removeEventListener(AI_UI_SYNC_EVENT, handleAIUiSyncEvent as EventListener)
   window.removeEventListener(
     'external-mail-fetch-progress',
     handleExternalHistoryFetchSocketProgress as EventListener

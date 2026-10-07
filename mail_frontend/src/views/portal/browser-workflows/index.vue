@@ -2018,7 +2018,7 @@ function handleExecutionMessage(payload) {
     }
     recordingCaptureMode.value = 'step'
     executionPanelVisible.value = true
-    showMessage(stepAnalysis.value.length ? '浏览器已完成当前步骤，AI分析结果已返回' : '当前步骤没有可分析的操作', stepAnalysis.value.length ? 'success' : 'warning')
+    showMessage(stepAnalysis.value.length ? '浏览器已完成当前步骤，录制结果已返回' : '当前步骤没有可分析的操作', stepAnalysis.value.length ? 'success' : 'warning')
     return
   }
   if (payload?.type === 'assistant_nodes_added') {

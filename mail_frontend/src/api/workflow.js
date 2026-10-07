@@ -117,11 +117,6 @@ export const workflowApi = {
     })
   },
 
-  // AI生成工作流详情说明
-  generateWorkflowDescription(workflowId) {
-    return api.post(`/workflows/${workflowId}/generate-description`)
-  },
-
   // 发布工作流到市场（首次发布）
   publishWorkflowToMarket(workflowId, data) {
     return api.post(`/workflows/${workflowId}/publish`, data)

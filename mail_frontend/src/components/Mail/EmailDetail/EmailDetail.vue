@@ -49,15 +49,6 @@
             >
               退信
             </span>
-            <button
-              v-if="canTranslate"
-              type="button"
-              class="inline-flex h-7 items-center rounded-full border border-primary-200 px-2.5 text-xs font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-60"
-              :disabled="isTranslatingCurrent"
-              @click="showingTranslation ? showOriginal() : translateEmail()"
-            >
-              {{ showingTranslation ? t('emailDetail.viewOriginal') : (isTranslatingCurrent ? t('emailDetail.translating') : t('emailDetail.translate')) }}
-            </button>
           </div>
           <div class="space-y-2 text-sm">
             <div class="flex">
@@ -114,11 +105,8 @@
 
         <!-- 邮件内容 -->
         <div class="email-content">
-          <div v-if="showingTranslation && translatedContent" class="whitespace-pre-wrap text-gray-700">
-            {{ translatedContent }}
-          </div>
           <EmailHtmlRenderer
-            v-else-if="hasHtmlContent"
+            v-if="hasHtmlContent"
             :html="htmlContent"
           />
           <div v-else-if="hasTextContent" class="whitespace-pre-wrap text-gray-700">
@@ -145,7 +133,6 @@ import { showMessage } from '@/utils/message'
 import HoverTooltip from '@/components/HoverTooltip/index.vue'
 import FloatingMiniapp from '@/components/FloatingMiniapp/index.vue'
 import EmailHtmlRenderer from '@/components/Mail/EmailHtmlRenderer.vue'
-import { useEmailTranslation } from '@/composables/useEmailTranslation'
 
 interface Email {
   id: number
@@ -179,18 +166,9 @@ defineEmits<{
 
 const title = computed(() => props.title || t('emailDetail.title'))
 const emptyText = computed(() => props.emptyText || t('emailDetail.emptyText'))
-const emailForTranslation = computed(() => props.email)
-const {
-  canTranslate,
-  displaySubject,
-  htmlContent,
-  isTranslatingCurrent,
-  showOriginal,
-  showingTranslation,
-  textContent,
-  translateEmail,
-  translatedContent,
-} = useEmailTranslation(emailForTranslation, t)
+const displaySubject = computed(() => props.email?.subject || '')
+const htmlContent = computed(() => props.email?.contentHtml || props.email?.content_html || props.email?.content || props.email?.content_text || '')
+const textContent = computed(() => String(props.email?.content || props.email?.content_text || htmlContent.value).trim())
 
 const attachments = computed(() => {
   return props.email?.attachments || []

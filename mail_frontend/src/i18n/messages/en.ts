@@ -804,7 +804,7 @@ const en = {
       'Connect your own domain, complete DNS verification, and create receiving addresses.',
     emailReachDashboardDescription: 'Review sending volume, unsubscribes, and overall engagement.',
     emailReachTemplatesDescription:
-      'Manage transactional and marketing templates with AI generation and AI review.',
+      'Manage transactional and marketing templates.',
     emailReachQuotaDescription: 'Review remaining quota, top-up pricing, and purchase entries.',
     emailReachMembersDescription: 'Import members and configure custom fields, tags, and groups.',
     emailReachTasksDescription: 'Manage event-triggered tasks and bulk sending tasks in one place.',
@@ -1222,12 +1222,6 @@ const en = {
     desktopDownloadOnly: 'Please download attachments on desktop',
     openInBrowserHint:
       'This embedded page may not be interactive. Click here to open it in your system browser',
-    translate: 'Translate',
-    translating: 'Translating...',
-    viewOriginal: 'View original',
-    translatedTo: 'Translated to {language}',
-    translateSuccess: 'Translation complete',
-    translateFailed: 'Translation failed'
   },
   sendEmail: {
     title: 'Bulk Send Email',
@@ -1274,8 +1268,6 @@ const en = {
       selectedSenderCount: '{count} senders selected',
       senderSelectionHint: 'Select one or more sender mailboxes',
       recipientCount: '{count} recipients',
-      aiShow: 'AI Assistant',
-      aiHide: 'Hide AI',
       downloadRecipientTemplate: 'Download Recipient Template',
       importExcel: 'Import Excel',
       fullscreenEnter: 'Fullscreen Compose',
@@ -1294,54 +1286,12 @@ const en = {
       noAttachment: 'No attachments',
       richMode: 'Editor',
       htmlMode: 'HTML',
-      polishing: 'Polishing...',
-      polish: 'Polish',
       htmlPlaceholder: 'Enter HTML email content...',
       undo: 'Undo',
       redo: 'Redo',
       divider: 'Divider',
       code: 'Code',
       clear: 'Clear',
-      aiTitle: 'AI Mail Assistant',
-      aiSubtitle: 'Generate an email from a simple instruction',
-      aiCompose: 'Draft for Me',
-      aiPolish: 'Rewrite Draft',
-      aiComposePlaceholder:
-        'Example: write a quote follow-up email and remind the client to confirm this week.',
-      aiPolishPlaceholder:
-        'Example: make it more formal, shorter, translate to English, or strengthen the closing CTA.',
-      aiGenerating: 'Processing...',
-      aiGenerate: 'Generate',
-      aiRewrite: 'Rewrite',
-      aiTone: 'Tone',
-      aiLength: 'Length',
-      toneFormal: 'Formal',
-      toneFriendly: 'Friendly',
-      toneSales: 'Sales',
-      lengthShort: 'Short',
-      lengthMedium: 'Medium',
-      lengthLong: 'Long',
-      quickQuoteFollowup: 'Quote Follow-up',
-      quickQuoteFollowupPrompt:
-        'Write a follow-up email after sending a quote, asking the client to confirm requirements, budget, and next steps.',
-      quickOutbound: 'Outbound',
-      quickOutboundPrompt:
-        'Write a short outbound email to a cold prospect, briefly introducing the product value and inviting a reply.',
-      quickReminder: 'Reminder',
-      quickReminderPrompt:
-        'Write a polite reminder email asking the recipient to review the previous email and respond.',
-      quickMeeting: 'Meeting Invite',
-      quickMeetingPrompt:
-        'Write a meeting invitation email that explains the purpose and asks for a convenient time.',
-      quickFormal: 'More Formal',
-      quickFormalPrompt: 'Make this email more formal and clearer.',
-      quickShorter: 'Shorter',
-      quickShorterPrompt: 'Condense this email and make it shorter.',
-      quickTranslate: 'To English',
-      quickTranslatePrompt: 'Translate this email into English.',
-      quickCta: 'Strong CTA',
-      quickCtaPrompt:
-        'Strengthen the closing call to action so the recipient is more likely to reply.',
       bodyEditorPlaceholder: 'Enter the email body...',
       loadAccountsFailed: 'Failed to load accounts',
       readFileFailed: 'Failed to read file',
@@ -1365,15 +1315,7 @@ const en = {
       recordSyncFailedAfterSend: 'The email was sent, but saving the sent record failed',
       recordSyncFailedAfterFailure:
         'The email failed to send, and saving the sent record also failed',
-      aiPolishSuccess: 'AI polish completed',
-      aiPolishFailed: 'AI polish failed',
-      aiPolishRetryFailed: 'AI polish failed, please try again later',
-      aiComposeSuccess: 'AI draft completed',
-      aiComposeFailed: 'AI drafting failed',
-      aiComposeRetryFailed: 'AI drafting failed, please try again later',
       fullscreenFailed: 'Failed to enter fullscreen',
-      promptTone: 'Tone: {label}',
-      promptLength: 'Length: {label}'
     }
   },
   shareMailbox: {
@@ -1689,7 +1631,6 @@ const en = {
     loadingPackages: 'Loading plans...',
     noPackages: 'No plans available',
     recommended: 'Recommended',
-    mailboxCount: '{count} mailboxes',
     originalPrice: 'Original price {price} coins',
     discount: 'Save {percent}%',
     stableReliable: 'Stable and reliable',
@@ -1703,20 +1644,15 @@ const en = {
     subscribed: 'You have already subscribed to this plugin',
     renew: 'Renew',
     choosePluginPlan: 'Choose a plugin plan',
-    choosePackage: 'Choose the plan that fits you',
     pluginSubtitle: 'Flexible plans, pay as you need, ready immediately',
-    mailboxSubtitle: 'Stable, secure, efficient, and flexible',
     missingPluginId: 'Missing plugin ID',
     loadPluginPricingFailed: 'Failed to load plugin pricing',
     renewPluginTitle: 'Renew plugin plan',
     buyPluginTitle: 'Buy plugin plan',
-    buyMailboxTitle: 'Buy mailbox plan',
     confirmPluginMessage: 'Plan: {name}\nValidity: {days} days\nPrice: {price} coins',
     confirmPluginRenewHint:
       '\n\nThe current plan is still active. The new purchase will renew automatically after it expires.',
-    confirmMailboxMessage: 'Plan: {name}\nMailbox count: {count}\nPrice: {price} coins',
     buyPluginSuccess: 'Purchase successful. The plugin is now active.',
-    buyMailboxSuccess: 'Purchase successful. The mailbox has been created.',
     buyFailed: 'Purchase failed',
     buyFailedWithReason: 'Purchase failed: {reason}',
     alipay: 'Alipay',
@@ -1729,7 +1665,6 @@ const en = {
     paid: 'I have paid',
     paymentPluginSuccess:
       'Payment successful. You now have {days} days of access to {name}. Redirecting...',
-    paymentMailboxSuccess: 'Payment successful. You now have {count} mailboxes. Redirecting...',
     paymentNotFound: 'No payment was detected. Please confirm whether the payment was completed.',
     queryFailed: 'Query failed',
     monthly: '1 month',
@@ -2570,7 +2505,6 @@ const en = {
   publishWorkflow: {
     titleCreate: 'Publish Workflow',
     titleEdit: 'Edit Publish Info',
-    generateWithAI: 'AI Generate',
     generating: 'Generating...',
     submit: 'Submit',
     submitting: 'Submitting...',
@@ -2631,8 +2565,6 @@ const en = {
     screenshotUploadSuccess: 'Screenshots uploaded successfully',
     imageTooLarge: 'Image is too large. Max size is {size}MB',
     workflowIdMissing: 'Workflow ID is missing',
-    aiSuccess: 'AI generation succeeded',
-    aiFailed: 'AI generation failed',
     selectCategoryWarning: 'Select a category',
     priceWarning: 'Paid workflows must have a price greater than 0',
     periodWarning: 'Select a subscription period',
@@ -2667,9 +2599,9 @@ const en = {
           'mailbox management,external mailbox,email automation,multi mailbox,mail tools,workflow marketplace'
       },
       openPlatform: {
-        title: 'Open Platform - APIs, Tool Specs, and AI Integration',
+        title: 'Open Platform - API Docs',
         description:
-          'Browse public APIs, tool descriptions, and AI integration guides for the FeiMao Mail open platform.',
+          'Browse mailbox, email, domain, and webhook APIs for the FeiMao Mail open platform.',
         keywords: ''
       },
       about: {

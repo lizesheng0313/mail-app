@@ -269,23 +269,14 @@
                 <div class="mb-3 flex items-center justify-between gap-3">
                   <div class="text-sm font-semibold text-slate-900">商品价格表</div>
                   <div class="flex items-center gap-3">
-                    <div class="text-xs text-slate-500">{{ adminPriceTableHintText }}</div>
                     <button
                       v-if="suggestedPlanBatchPayload.length"
                       type="button"
                       class="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
-                      :disabled="adminPriceTableLoading || adminPriceTableAnalyzing || applyingAllSuggestedPlans"
+                      :disabled="adminPriceTableLoading || applyingAllSuggestedPlans"
                       @click="openApplyAllSuggestedPlansConfirm"
                     >
                       {{ applyingAllSuggestedPlans ? '全部适配中...' : `一键适配全部方案（${suggestedPlanBatchPayload.length}组）` }}
-                    </button>
-                    <button
-                      type="button"
-                      class="rounded-md border border-primary-200 bg-primary-50 px-3 py-1.5 text-xs font-semibold text-primary-700 transition hover:border-primary-300 hover:bg-primary-100 disabled:cursor-not-allowed disabled:opacity-60"
-                      :disabled="adminPriceTableLoading || adminPriceTableAnalyzing"
-                      @click="runAdminPriceTableAnalysis"
-                    >
-                      {{ adminPriceTableActionText }}
                     </button>
                     <button
                       type="button"
@@ -379,7 +370,7 @@
                             <span v-if="row.is_dynamic_redeem_sku" class="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">动态通兑</span>
                           </div>
                           <div v-if="row.is_dynamic_redeem_sku" class="mt-1 text-xs font-semibold text-slate-600">
-                            售价 {{ formatTablePrice(row.sell_price) }}；当前分析会重新读取商品详情并调用 DeepSeek
+                            售价 {{ formatTablePrice(row.sell_price) }}
                           </div>
                         </td>
                         <td class="whitespace-nowrap px-3 py-2">{{ formatTablePrice(row.sell_price) }}</td>
@@ -788,8 +779,7 @@ import {
   getWorkflowAdminPriceTable,
   getWorkflowDetail,
   purchaseWorkflow,
-  recordProductShareOpen,
-  refreshWorkflowAdminPriceCatalog
+  recordProductShareOpen
 } from '@/api/workflowMarket'
 import { createReview, deleteReview } from '@/api/workflowMarket'
 import { workflowApi } from '@/api/workflow'
@@ -819,9 +809,6 @@ const loading = ref(true)
 const canReview = ref(false)
 const reviews = ref([])
 const adminPriceTableLoading = ref(false)
-const adminPriceTableAnalyzing = ref(false)
-const adminPriceTableAnalyzed = ref(false)
-const adminPriceTableAnalysisStage = ref('')
 const isAdminPriceTableFullscreen = ref(false)
 const applyingAllSuggestedPlans = ref(false)
 const creatingLossLeaderSkus = ref(false)
@@ -921,7 +908,7 @@ const secondaryCategoryLabels = {
   show_entertainment: '演出娱乐',
   document: '文档办公',
   storage: '网盘存储',
-  ai_tools: 'AI 工具',
+  ai_tools: '其它',
   design: '设计工具',
   dev_tools: '开发工具',
   shopping: '商超购物',
@@ -1178,24 +1165,6 @@ const isThirdPartyProduct = computed(() => {
 })
 
 const isAdminPriceTableVisible = computed(() => Boolean(workflow.value?.is_admin_viewer && isThirdPartyProduct.value))
-const adminPriceTableHintText = computed(() => {
-  if (adminPriceTableAnalyzing.value) {
-    return adminPriceTableAnalysisStage.value === 'catalog'
-      ? '第 1 步：同步当前商品分类及上下架状态'
-      : '第 2 步：分析候选方案'
-  }
-  if (adminPriceTableAnalyzed.value) {
-    return '当前已展示本次 AI 分析结果'
-  }
-  return '默认只加载基础成本利润，点开始分析才跑 AI'
-})
-const adminPriceTableActionText = computed(() => {
-  if (adminPriceTableAnalyzing.value) {
-    return adminPriceTableAnalysisStage.value === 'catalog' ? '同步分类中...' : '分析中...'
-  }
-  return adminPriceTableAnalyzed.value ? '重新分析' : '开始分析'
-})
-
 const isSkuAvailable = (sku) => isThirdPartyProduct.value ? Boolean(sku?.is_available) : true
 
 const selectedSku = computed(() => {
@@ -1954,27 +1923,11 @@ const loadDetailAndRecordOpen = async () => {
   }
 }
 
-const loadAdminPriceTable = async ({ analyze = false } = {}) => {
+const loadAdminPriceTable = async () => {
   if (!isAdminPriceTableVisible.value) return
-  if (analyze) {
-    adminPriceTableAnalyzing.value = true
-  } else {
-    adminPriceTableLoading.value = true
-  }
+  adminPriceTableLoading.value = true
   try {
-    if (analyze) {
-      adminPriceTableAnalysisStage.value = 'catalog'
-      try {
-        await refreshWorkflowAdminPriceCatalog(workflowId.value)
-      } catch (firstError) {
-        const status = Number(firstError?.response?.status || 0)
-        if (status > 0 && status < 500) throw firstError
-        await new Promise((resolve) => setTimeout(resolve, 800))
-        await refreshWorkflowAdminPriceCatalog(workflowId.value)
-      }
-      adminPriceTableAnalysisStage.value = 'analysis'
-    }
-    const res = await getWorkflowAdminPriceTable(workflowId.value, { analyze })
+    const res = await getWorkflowAdminPriceTable(workflowId.value)
     if (res.code === 0 && workflow.value) {
       workflow.value = {
         ...workflow.value,
@@ -1983,31 +1936,13 @@ const loadAdminPriceTable = async ({ analyze = false } = {}) => {
           ? res.data.loss_leader_suggestions
           : [],
       }
-      adminPriceTableAnalyzed.value = Boolean(res.data?.analysis_enabled)
     }
   } catch (error) {
     console.error('加载商品价格表失败:', error)
-    if (analyze) {
-      const detail = error?.response?.data?.detail
-      const fallback = adminPriceTableAnalysisStage.value === 'catalog'
-        ? '商品分类同步失败，请稍后再试'
-        : 'AI 分析失败，请稍后再试'
-      showMessage(detail || fallback, 'error')
-    }
   } finally {
-    if (analyze) {
-      adminPriceTableAnalyzing.value = false
-      adminPriceTableAnalysisStage.value = ''
-    } else {
-      adminPriceTableLoading.value = false
-    }
+    adminPriceTableLoading.value = false
   }
 }
-
-const runAdminPriceTableAnalysis = async () => {
-  await loadAdminPriceTable({ analyze: true })
-}
-
 // 立即执行工作流
 const executeNow = async () => {
   if (!selectedSkuAvailable.value) {

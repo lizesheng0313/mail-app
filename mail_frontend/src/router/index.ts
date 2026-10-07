@@ -44,7 +44,6 @@ const AdminEmailReachUsers = () => import('@/views/admin/email-reach-users/index
 const AdminEmailReachTemplates = () => import('@/views/admin/email-reach-templates/index.vue')
 const AdminEmailReachRisk = () => import('@/views/admin/email-reach-risk/index.vue')
 const AdminEmailReachUnsubscribes = () => import('@/views/admin/email-reach-unsubscribes/index.vue')
-const AdminEmailReachImageReviews = () => import('@/views/admin/email-reach-image-reviews/index.vue')
 const AdminEmailReachSettings = () => import('@/views/admin/email-reach-settings/index.vue')
 
 // 用户中心组件
@@ -152,8 +151,8 @@ const router = createRouter({
       component: OpenPlatformPage,
       meta: {
         seo: {
-          title: '开放平台 - API、工具描述与 AI 接入',
-          description: '查看开放平台接口、工具描述、OpenClaw 接入和 AI 调用方式。',
+          title: '开放平台 - API 文档',
+          description: '查看邮箱、邮件、域名与 Webhook 接口文档。',
           canonicalPath: '/open-platform'
         }
       }
@@ -236,10 +235,6 @@ const router = createRouter({
       name: 'payment',
       component: PaymentPage,
       meta: { requiresAuth: true }
-    },
-    {
-      path: '/purchase',
-      redirect: '/payment'
     },
     {
       path: '/about',
@@ -689,11 +684,6 @@ const router = createRouter({
           path: 'email-reach-unsubscribes',
           name: 'admin-email-reach-unsubscribes',
           component: AdminEmailReachUnsubscribes
-        },
-        {
-          path: 'email-reach-image-reviews',
-          name: 'admin-email-reach-image-reviews',
-          component: AdminEmailReachImageReviews
         },
         {
           path: 'email-reach-settings',

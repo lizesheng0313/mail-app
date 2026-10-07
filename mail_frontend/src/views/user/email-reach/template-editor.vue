@@ -25,14 +25,6 @@
           </div>
           <button
             type="button"
-            class="inline-flex h-[46px] items-center justify-center whitespace-nowrap rounded-xl border border-primary-200 bg-white px-4 text-sm font-medium text-primary-700 transition hover:bg-primary-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-50 disabled:text-slate-300"
-            :disabled="!canOperate || generating"
-            @click="aiModalVisible = true"
-          >
-            {{ generating ? 'AI生成中...' : 'AI辅助生成' }}
-          </button>
-          <button
-            type="button"
             class="inline-flex h-[46px] items-center justify-center whitespace-nowrap rounded-xl bg-primary-600 px-6 text-sm font-medium text-white transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:bg-primary-600 disabled:opacity-50"
             :disabled="saving || !canOperate"
             @click="handleSave"
@@ -240,21 +232,6 @@
     </div>
 
     <BaseModal
-      :model-value="aiModalVisible"
-      title="AI辅助生成"
-      confirm-text="开始生成"
-      :confirm-loading="generating"
-      @update:modelValue="aiModalVisible = $event"
-      @confirm="handleGenerate"
-    >
-      <textarea
-        v-model="form.helper_prompt"
-        class="min-h-[140px] w-full resize-none rounded-lg border border-gray-300 px-3 py-3 text-sm text-gray-700 outline-none focus:border-primary-500"
-        placeholder="例如：突出优惠、适合老客户、语气正式一点"
-      ></textarea>
-    </BaseModal>
-
-    <BaseModal
       :model-value="linkModalVisible"
       title="插入超链接"
       confirm-text="确定"
@@ -340,7 +317,6 @@ const router = useRouter()
 
 const accessLoaded = ref(false)
 const saving = ref(false)
-const generating = ref(false)
 const uploadingImage = ref(false)
 const reviewResult = ref(null)
 const imageInputRef = ref(null)
@@ -350,7 +326,6 @@ const customVariableInput = ref('')
 const customVariables = ref([])
 const syncingContent = ref(false)
 const htmlSource = ref('')
-const aiModalVisible = ref(false)
 const linkModalVisible = ref(false)
 const reviewFailModalVisible = ref(false)
 const editorMode = ref('rich')
@@ -397,7 +372,6 @@ const createDefaultForm = () => ({
   scene: '',
   subject: '',
   content: '',
-  helper_prompt: '',
   variables: []
 })
 
@@ -943,42 +917,6 @@ const handleImageUpload = async (event) => {
   } finally {
     uploadingImage.value = false
     if (event.target) event.target.value = ''
-  }
-}
-
-const handleGenerate = async () => {
-  generating.value = true
-  try {
-    const res = await emailReachApi.generateTemplate({
-      scene: form.name || form.scene || '邮件通知',
-      helper_prompt: form.helper_prompt,
-      existing_subject: form.subject,
-      existing_content: form.content,
-      variables: customVariables.value
-    })
-    if (res.code === 0) {
-      form.subject = res.data.subject || form.subject
-      form.content = String(res.data.content || form.content).trim()
-      customVariables.value = [
-        ...new Set([
-          ...customVariables.value,
-          ...(Array.isArray(res.data.variables) ? res.data.variables : []),
-          ...extractTemplateVariables(`${form.subject || ''}\n${form.content || ''}`)
-        ].filter(Boolean))
-      ]
-      htmlSource.value = form.content
-      if (editor.value) {
-        syncingContent.value = true
-        editor.value.commands.setContent(form.content || '<p></p>', false)
-        syncingContent.value = false
-      }
-      aiModalVisible.value = false
-      showMessage('AI生成成功', 'success')
-      return
-    }
-    showMessage(res.message || 'AI生成失败', 'error')
-  } finally {
-    generating.value = false
   }
 }
 
