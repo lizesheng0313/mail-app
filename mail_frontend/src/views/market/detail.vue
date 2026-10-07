@@ -2,7 +2,6 @@
   <div class="min-h-screen bg-gray-50">
     <!-- 顶部导航 -->
     <PageHeader />
-
     <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
       <!-- 加载状态 -->
       <div v-if="loading" class="text-center py-12">
@@ -424,6 +423,9 @@
                               <template v-else>商品详情无法确认是否覆盖当前规格</template><span v-if="issueIndex < row.suggested_plan_reason.issues.length - 1">；</span>
                             </template>。
                           </div>
+                          <div v-if="hasDifferentSuggestedPlan(row) && row.suggested_plan_reason?.added_product_nos?.length" class="mt-1 text-xs font-medium text-emerald-700">
+                            新增可用编号：{{ row.suggested_plan_reason.added_product_nos.join('、') }}。
+                          </div>
                           <div v-if="row.unavailable_candidates?.length && row.suggested_plan_reason?.no_eligible_replacement" class="mt-1 text-xs font-medium text-red-600">
                             下架编号：{{ row.unavailable_candidates.map((candidate) => candidate.provider_product_no).filter(Boolean).join('、') }}。暂无合格替代方案
                             <template v-if="row.suggested_plan_reason.profit_blocked_replacements?.length">
@@ -437,7 +439,7 @@
                               <template v-if="candidate.reason_type === 'profit_below_threshold'">
                                 成本 {{ formatCandidateCost(candidate) }}，按售价 {{ formatTablePrice(row.sell_price) }} 计算利润 {{ formatProfit(candidate.profit) }}，低于允许亏损上限 {{ formatProfit(candidate.min_profit) }}
                               </template>
-                              <template v-else>未进入当前建议方案</template><span v-if="candidateIndex < row.suggested_plan_reason.omitted_candidates.length - 1">；</span>
+                              <template v-else>按成本排序未进入建议方案</template><span v-if="candidateIndex < row.suggested_plan_reason.omitted_candidates.length - 1">；</span>
                             </template>。
                           </div>
                           <div v-if="!row.candidates?.length && row.partial_coverage?.length" class="mt-1 max-h-32 space-y-0.5 overflow-y-auto text-xs font-medium text-amber-700">

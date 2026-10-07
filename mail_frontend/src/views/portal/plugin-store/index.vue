@@ -431,7 +431,7 @@ const handlePluginAction = (plugin) => {
   } else {
     // 付费插件且未购买，跳转到统一购买页面
     router.push({
-      path: '/purchase',
+      path: '/payment',
       query: {
         type: 'plugin',
         id: plugin.plugin_id

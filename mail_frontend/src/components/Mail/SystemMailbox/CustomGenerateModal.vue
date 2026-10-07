@@ -299,19 +299,18 @@
 
         <div class="rounded-2xl border border-gray-200 bg-white p-4">
           <div
-            v-if="isSystemMailbox"
             class="rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-600"
           >
             {{ t('home.customGenerateUnitPriceValue', { price: customGenerateUnitPriceText }) }}
           </div>
 
-          <div :class="isSystemMailbox ? 'mt-4' : ''" class="rounded-xl bg-gray-50 px-4 py-3">
+          <div class="mt-4 rounded-xl bg-gray-50 px-4 py-3">
             <p class="text-xs text-gray-500">{{ t('home.customGeneratePreviewLabel') }}</p>
             <p class="mt-1 break-all text-sm font-medium text-gray-900">{{ customGeneratePreviewText }}</p>
           </div>
 
           <div
-            v-if="isSystemMailbox && !customGenerateHasEnoughBalance"
+            v-if="!customGenerateHasEnoughBalance"
             class="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3"
           >
             <p class="text-sm text-amber-700">
@@ -519,15 +518,6 @@ const customGenerateValidityDisplay = computed(() => {
 })
 
 const customGeneratePricingSummary = computed(() => {
-  if (!isSystemMailbox.value) {
-    return {
-      unitPriceText: '0',
-      totalCostText: '0.00',
-      balanceRequired: 0,
-      isRange: false
-    }
-  }
-
   const selectedDomains = selectedSystemDomains.value
   if (!selectedDomains.length) {
     return {
@@ -701,6 +691,7 @@ const loadSystemDomains = async () => {
 const loadCustomGenerateResources = async () => {
   domainLoading.value = true
   try {
+    const balancePromise = getBalance()
     if (isHostedMailbox.value) {
       const domainsRes: any = await hostedDomainAPI.listAllDomains()
       if (domainsRes.code === 0 && domainsRes.data) {
@@ -709,12 +700,12 @@ const loadCustomGenerateResources = async () => {
         )
         syncCustomGenerateDomainSelection()
       }
-      customGenerateBalance.value = 0
+      const balanceRes = await balancePromise
+      customGenerateBalance.value = balanceRes.code === 0 ? Number(balanceRes.data?.balance || 0) : 0
       return
     }
 
     const domainsPromise = loadSystemDomains()
-    const balancePromise = getBalance()
     await domainsPromise
     // 域名列表先展示，余额查询不再阻塞列表和全选按钮。
     domainLoading.value = false
@@ -836,7 +827,8 @@ const performHostedCustomGenerate = async () => {
 
     const payload: Record<string, any> = {
       route_mode: 'direct',
-      is_public: false
+      is_public: false,
+      charge_custom: true
     }
 
     if (customGenerateForm.value.generation_mode === 'random') {
@@ -858,7 +850,7 @@ const performHostedCustomGenerate = async () => {
   return {
     items: createdItems,
     quantity: createdItems.length,
-    cost: 0
+    cost: createdItems.reduce((sum, item) => sum + Number(item.cost || 0), 0)
   }
 }
 
@@ -917,7 +909,7 @@ const performCustomGenerate = async () => {
     const successCount = Number(data?.quantity || data?.items?.length || 0)
 
     if (isHostedMailbox.value) {
-      showMessage(t('home.customGenerateSuccessHosted', { count: successCount }), 'success')
+      showMessage(t('home.customGenerateSuccessHosted', { count: successCount, cost: Number(data?.cost || 0).toFixed(2) }), 'success')
     } else {
       const cost = String(data?.cost_text || Number(data?.cost || 0).toFixed(2))
       showMessage(
@@ -975,7 +967,7 @@ const handleConfirmDialogConfirm = async () => {
 const handleCustomGenerate = async () => {
   if (!canSubmitCustomGenerate.value) return
 
-  if (isSystemMailbox.value && !customGenerateHasEnoughBalance.value) {
+  if (!customGenerateHasEnoughBalance.value) {
     confirmDialog.value = {
       visible: true,
       title: t('home.customGenerateInsufficientTitle'),
@@ -996,7 +988,8 @@ const handleCustomGenerate = async () => {
     title: t('home.customGenerateConfirmTitle'),
     message: isHostedMailbox.value
       ? t('home.customGenerateConfirmMessageHosted', {
-          quantity: normalizedCustomGenerateQuantity.value
+          quantity: normalizedCustomGenerateQuantity.value,
+          cost: customGenerateTotalCostDisplay.value
         })
       : t('home.customGenerateConfirmMessage', {
           quantity: normalizedCustomGenerateQuantity.value,

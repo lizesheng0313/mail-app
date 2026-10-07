@@ -283,7 +283,7 @@ const cancelUninstall = () => {
 const handleRenew = (plugin) => {
   // 跳转到购买页面
   router.push({
-    path: '/purchase',
+    path: '/payment',
     query: {
       type: 'plugin',
       id: plugin.plugin_id

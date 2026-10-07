@@ -327,7 +327,7 @@ const showUninstallConfirm = ref(false)
 const handlePurchase = () => {
   // 跳转到购买页面
   router.push({
-    path: '/purchase',
+    path: '/payment',
     query: {
       type: 'plugin',
       id: props.plugin.plugin_id

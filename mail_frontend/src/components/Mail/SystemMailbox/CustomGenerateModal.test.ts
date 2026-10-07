@@ -1,7 +1,10 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { listAllDomains } = vi.hoisted(() => ({ listAllDomains: vi.fn() }))
+const { listAllDomains, getBalance } = vi.hoisted(() => ({
+  listAllDomains: vi.fn(),
+  getBalance: vi.fn()
+}))
 
 vi.mock('vue-i18n', () => ({ useI18n: () => ({ t: (key: string) => key }) }))
 vi.mock('vue-router', () => ({ useRouter: () => ({ push: vi.fn() }) }))
@@ -9,7 +12,7 @@ vi.mock('@/api/hostedDomain', () => ({
   hostedDomainAPI: { listAllDomains, createMailbox: vi.fn() }
 }))
 vi.mock('@/api/mailbox', () => ({ mailboxAPI: { getSystemDomains: vi.fn() } }))
-vi.mock('@/api/milkCoin', () => ({ getBalance: vi.fn() }))
+vi.mock('@/api/milkCoin', () => ({ getBalance }))
 vi.mock('@/utils/message', () => ({ showMessage: vi.fn() }))
 vi.mock('@/utils/timeUtils', () => ({ formatTimestamp: () => '2027-01-01' }))
 vi.mock('@/services/api', () => ({ isInsufficientBalanceError: vi.fn() }))
@@ -17,7 +20,11 @@ vi.mock('@/services/api', () => ({ isInsufficientBalanceError: vi.fn() }))
 import CustomGenerateModal from './CustomGenerateModal.vue'
 
 describe('hosted mailbox generation domain picker', () => {
-  beforeEach(() => listAllDomains.mockReset())
+  beforeEach(() => {
+    listAllDomains.mockReset()
+    getBalance.mockReset()
+    getBalance.mockResolvedValue({ code: 0, data: { balance: 10 } })
+  })
 
   it('renders all 30 available owned domains', async () => {
     listAllDomains.mockResolvedValue({
@@ -53,6 +60,7 @@ describe('hosted mailbox generation domain picker', () => {
     expect(domainButtons).toHaveLength(30)
     expect(domainButtons.some((button) => button.text().includes('owned-30.example'))).toBe(true)
     expect(listAllDomains).toHaveBeenCalledOnce()
+    expect(getBalance).toHaveBeenCalledOnce()
     wrapper.unmount()
   })
 })

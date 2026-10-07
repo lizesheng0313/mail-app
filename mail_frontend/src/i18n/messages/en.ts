@@ -253,12 +253,13 @@ const en = {
     customGenerateConfirmTitle: 'Confirm generation',
     customGenerateConfirmMessage:
       'This will generate {quantity} mailboxes as {mode} and consume {cost} coins.',
-    customGenerateConfirmMessageHosted: 'This will generate {quantity} domain mailboxes.',
+    customGenerateConfirmMessageHosted:
+      'Generate {quantity} domain mailboxes for an estimated {cost} coins?',
     customGenerateNoDomains: 'No system domains are available right now',
     customGenerateNoHostedDomains: 'No verified domains are available right now',
     customGenerateSpecifiedDomainSingle: 'Exact mailbox generation supports only one domain',
     customGenerateSuccess: '{count} {mode} mailboxes created, {cost} coins consumed',
-    customGenerateSuccessHosted: '{count} domain mailboxes created',
+    customGenerateSuccessHosted: '{count} domain mailboxes created for {cost} coins',
     customGenerateFailed: 'Custom generation failed',
     goRecharge: 'Recharge',
     addingMailbox: 'Signing in...',
@@ -999,7 +1000,8 @@ const en = {
     publicDomainLabel: 'Join the shared domain plan',
     publicDomainHelp: 'Other users can pay to create an exact-name mailbox with this domain. It is never used for free random generation.',
     publicDomainBadge: 'Shared Domain',
-    sharedEarningsNotice: 'Yesterday, {orders} mailboxes were created with your shared domains and earned {income} coins.'
+    sharedEarningsNotice:
+      'Yesterday, {orders} mailboxes were created with your shared domains and earned {income} coins.'
   },
   importantNotifications: {
     stopEarningsPrompt: 'Do not show these earnings reminders again',
