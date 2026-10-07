@@ -270,6 +270,14 @@
                   <div class="text-sm font-semibold text-slate-900">商品价格表</div>
                   <div class="flex items-center gap-3">
                     <button
+                      type="button"
+                      class="rounded-md border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
+                      :disabled="adminPriceTableLoading || applyingAllSuggestedPlans"
+                      @click="loadAdminPriceTable(true)"
+                    >
+                      {{ adminPriceTableAnalyzing ? '分析中...' : '重新分析' }}
+                    </button>
+                    <button
                       v-if="suggestedPlanBatchPayload.length"
                       type="button"
                       class="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
@@ -809,6 +817,7 @@ const loading = ref(true)
 const canReview = ref(false)
 const reviews = ref([])
 const adminPriceTableLoading = ref(false)
+const adminPriceTableAnalyzing = ref(false)
 const isAdminPriceTableFullscreen = ref(false)
 const applyingAllSuggestedPlans = ref(false)
 const creatingLossLeaderSkus = ref(false)
@@ -1923,11 +1932,12 @@ const loadDetailAndRecordOpen = async () => {
   }
 }
 
-const loadAdminPriceTable = async () => {
+const loadAdminPriceTable = async (analyze = false) => {
   if (!isAdminPriceTableVisible.value) return
   adminPriceTableLoading.value = true
+  adminPriceTableAnalyzing.value = analyze
   try {
-    const res = await getWorkflowAdminPriceTable(workflowId.value)
+    const res = await getWorkflowAdminPriceTable(workflowId.value, analyze ? { analyze: true } : {})
     if (res.code === 0 && workflow.value) {
       workflow.value = {
         ...workflow.value,
@@ -1936,11 +1946,16 @@ const loadAdminPriceTable = async () => {
           ? res.data.loss_leader_suggestions
           : [],
       }
+      if (analyze) showMessage('分析完成', 'success')
+    } else if (analyze) {
+      showMessage(res?.message || '分析失败，请重试', 'error')
     }
   } catch (error) {
     console.error('加载商品价格表失败:', error)
+    if (analyze) showMessage(error?.response?.data?.message || '分析失败，请重试', 'error')
   } finally {
     adminPriceTableLoading.value = false
+    adminPriceTableAnalyzing.value = false
   }
 }
 // 立即执行工作流
