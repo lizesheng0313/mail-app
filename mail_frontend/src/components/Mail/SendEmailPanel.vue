@@ -72,6 +72,22 @@
               <div v-if="pageMode" class="ml-auto flex flex-shrink-0 items-center gap-2">
                 <button
                   type="button"
+                  :aria-pressed="showAiPanel"
+                  @click="showAiPanel = !showAiPanel"
+                  :class="[
+                    'inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border px-3 text-sm font-medium transition-colors',
+                    showAiPanel
+                      ? 'border-primary-200 bg-primary-50 text-primary-700'
+                      : 'border-slate-200 bg-white text-slate-600 hover:border-primary-200 hover:bg-primary-50 hover:text-primary-700'
+                  ]"
+                >
+                  <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3l1.6 4.8L18 9.5l-4.4 1.7L12 16l-1.6-4.8L6 9.5l4.4-1.7L12 3zM19 14l.8 2.4L22 17l-2.2.6L19 20l-.8-2.4L16 17l2.2-.6L19 14z" />
+                  </svg>
+                  {{ showAiPanel ? tc('aiHide') : tc('aiShow') }}
+                </button>
+                <button
+                  type="button"
                   @click="toggleComposeFullscreen"
                   class="inline-flex h-9 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-600 transition-colors hover:border-primary-200 hover:bg-primary-50 hover:text-primary-700"
                 >
@@ -116,7 +132,7 @@
                     {{ tc('recipientCount', { count: recipientCount }) }}
                   </span>
                 </div>
-                <span class="text-xs text-gray-400">{{ tc('recipientHint') }}</span>
+                <span v-if="!isCompactAiPanel" class="text-xs text-gray-400">{{ tc('recipientHint') }}</span>
               </div>
               <div
                 :class="[
@@ -340,6 +356,19 @@
                       </button>
                     </div>
                   </div>
+                  <button
+                    v-if="!pageMode"
+                    @click="polishContent"
+                    :disabled="polishing || !bodyContentText.trim()"
+                    :class="[
+                      'inline-flex items-center gap-1 rounded-xl px-3 py-2 text-sm font-medium transition-colors',
+                      bodyContentText.trim() && !polishing
+                        ? 'border border-primary-200 bg-primary-50 text-primary-700 hover:bg-primary-100'
+                        : 'cursor-not-allowed border border-gray-200 bg-gray-100 text-gray-400'
+                    ]"
+                  >
+                    {{ polishing ? tc('polishing') : tc('polish') }}
+                  </button>
                 </div>
               </div>
               <div
@@ -477,6 +506,121 @@
             </div>
           </div>
 
+          <aside
+            v-if="pageMode && showAiPanel"
+            :class="aiPanelClass"
+          >
+            <div class="border-b border-slate-100 bg-white p-4">
+              <div class="mb-4 flex items-center gap-3">
+                <div class="flex h-9 w-9 items-center justify-center rounded-2xl bg-primary-50 text-primary-700">
+                  <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3l1.6 4.8L18 9.5l-4.4 1.7L12 16l-1.6-4.8L6 9.5l4.4-1.7L12 3zM19 14l.8 2.4L22 17l-2.2.6L19 20l-.8-2.4L16 17l2.2-.6L19 14z" />
+                  </svg>
+                </div>
+                <div>
+                  <p class="text-base font-semibold text-slate-900">{{ tc('aiTitle') }}</p>
+                  <p v-if="!isCompactAiPanel" class="mt-1 text-xs text-slate-500">{{ tc('aiSubtitle') }}</p>
+                </div>
+              </div>
+              <div class="rounded-full bg-slate-100 p-1">
+                <div class="grid grid-cols-2 gap-1">
+                  <button
+                    type="button"
+                    @click="aiMode = 'compose'"
+                    class="rounded-full px-3 py-2 text-sm font-semibold transition-colors"
+                    :class="aiMode === 'compose' ? 'bg-white text-primary-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'"
+                  >
+                    {{ tc('aiCompose') }}
+                  </button>
+                  <button
+                    type="button"
+                    @click="aiMode = 'polish'"
+                    class="rounded-full px-3 py-2 text-sm font-semibold transition-colors"
+                    :class="aiMode === 'polish' ? 'bg-white text-primary-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'"
+                  >
+                    {{ tc('aiPolish') }}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div :class="aiPanelBodyClass">
+              <div :class="aiPromptCardClass">
+                <textarea
+                  v-model="aiPrompt"
+                  :placeholder="aiMode === 'compose' ? tc('aiComposePlaceholder') : tc('aiPolishPlaceholder')"
+                  :class="aiPromptTextareaClass"
+                ></textarea>
+
+                <div v-if="visibleAiQuickOptions.length > 0" :class="isCompactAiPanel ? 'mt-3 grid grid-cols-2 gap-2' : 'mt-3 grid grid-cols-4 gap-2'">
+                  <button
+                    v-for="option in visibleAiQuickOptions"
+                    :key="option.label"
+                    type="button"
+                    @click="applyAiQuickOption(option)"
+                    class="min-w-0 rounded-full bg-slate-100 px-2 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-primary-50 hover:text-primary-700"
+                  >
+                    {{ option.label }}
+                  </button>
+                </div>
+
+                <div class="mt-4 flex items-center justify-between gap-3 border-t border-slate-100 pt-3">
+                  <button
+                    type="button"
+                    @click="aiPrompt = ''"
+                    class="text-xs font-medium text-slate-400 transition-colors hover:text-primary-700"
+                  >
+                    {{ tc('clear') }}
+                  </button>
+                  <button
+                    @click="runAiAction"
+                    :disabled="aiBusy || (aiMode === 'compose' && !aiPrompt.trim()) || (aiMode === 'polish' && !bodyContentText.trim())"
+                    :class="[
+                      'inline-flex items-center justify-center rounded-full px-4 py-2 text-sm font-semibold transition-colors',
+                      !aiBusy && !((aiMode === 'compose' && !aiPrompt.trim()) || (aiMode === 'polish' && !bodyContentText.trim()))
+                        ? 'bg-primary-600 text-white hover:bg-primary-700'
+                        : 'cursor-not-allowed bg-slate-200 text-slate-400'
+                    ]"
+                  >
+                    {{ aiBusy ? tc('aiGenerating') : aiMode === 'compose' ? tc('aiGenerate') : tc('aiRewrite') }}
+                  </button>
+                </div>
+              </div>
+
+              <div v-if="!isCompactAiPanel" class="mt-4 rounded-[22px] border border-slate-200 bg-white p-3">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-medium text-slate-500">{{ tc('aiTone') }}</span>
+                  <div class="flex rounded-full bg-slate-100 p-1">
+                    <button
+                      v-for="tone in aiToneOptions"
+                      :key="tone.value"
+                      type="button"
+                      @click="aiTone = tone.value"
+                      class="rounded-full px-2.5 py-1 text-xs font-medium transition-colors"
+                      :class="aiTone === tone.value ? 'bg-white text-primary-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'"
+                    >
+                      {{ tone.label }}
+                    </button>
+                  </div>
+                </div>
+                <div class="mt-3 flex items-center justify-between">
+                  <span class="text-xs font-medium text-slate-500">{{ tc('aiLength') }}</span>
+                  <div class="flex rounded-full bg-slate-100 p-1">
+                    <button
+                      v-for="length in aiLengthOptions"
+                      :key="length.value"
+                      type="button"
+                      @click="aiLength = length.value"
+                      class="rounded-full px-2.5 py-1 text-xs font-medium transition-colors"
+                      :class="aiLength === length.value ? 'bg-white text-primary-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'"
+                    >
+                      {{ length.label }}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </aside>
         </div>
       </section>
     </div>
@@ -498,7 +642,7 @@ import { isTauri } from '@/services/api'
 import api from '@/services/api'
 import { buildDesktopSendableSmtpAccountMap, normalizeSmtpEmail } from '@/utils/smtpCapability'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const tc = (key: string, params?: Record<string, unknown>) => t(`sendEmail.compose.${key}`, params)
 
 async function getTauriInvoke() {
@@ -585,6 +729,7 @@ const smtpAccounts = ref<SmtpAccount[]>([])
 const externalAccounts = ref<ExternalAccount[]>([])
 const sending = ref(false)
 const showCcBcc = ref(false)
+const polishing = ref(false)
 const importCount = ref(0)
 const fileInput = ref<HTMLInputElement | null>(null)
 const attachmentInput = ref<HTMLInputElement | null>(null)
@@ -599,9 +744,46 @@ const ccInput = ref('')
 const bccInput = ref('')
 const ccInputRef = ref<HTMLInputElement | null>(null)
 const bccInputRef = ref<HTMLInputElement | null>(null)
+const aiMode = ref<'compose' | 'polish'>('compose')
+const aiPrompt = ref('')
+const aiTone = ref<'formal' | 'friendly' | 'sales'>('formal')
+const aiLength = ref<'short' | 'medium' | 'long'>('medium')
+const aiGenerating = ref(false)
 const pageMode = computed(() => Boolean(props.pageMode))
+const showAiPanel = ref(false)
 const isComposeFullscreen = ref(false)
+const aiBusy = computed(() => aiGenerating.value || polishing.value)
 const useComposeOverlay = computed(() => pageMode.value && isComposeFullscreen.value)
+const isCompactAiPanel = computed(() => pageMode.value && showAiPanel.value && !isComposeFullscreen.value)
+const aiToneOptions = computed(() => [
+  { value: 'formal', label: tc('toneFormal') },
+  { value: 'friendly', label: tc('toneFriendly') },
+  { value: 'sales', label: tc('toneSales') },
+])
+const aiLengthOptions = computed(() => [
+  { value: 'short', label: tc('lengthShort') },
+  { value: 'medium', label: tc('lengthMedium') },
+  { value: 'long', label: tc('lengthLong') },
+])
+const aiComposeQuickOptions = computed(() => [
+  { label: tc('quickQuoteFollowup'), prompt: tc('quickQuoteFollowupPrompt') },
+  { label: tc('quickOutbound'), prompt: tc('quickOutboundPrompt') },
+  { label: tc('quickReminder'), prompt: tc('quickReminderPrompt') },
+  { label: tc('quickMeeting'), prompt: tc('quickMeetingPrompt') },
+])
+const aiPolishQuickOptions = computed(() => [
+  { label: tc('quickFormal'), prompt: tc('quickFormalPrompt') },
+  { label: tc('quickShorter'), prompt: tc('quickShorterPrompt') },
+  { label: tc('quickTranslate'), prompt: tc('quickTranslatePrompt') },
+  { label: tc('quickCta'), prompt: tc('quickCtaPrompt') },
+])
+const visibleAiQuickOptions = computed(() => {
+  const options = aiMode.value === 'compose' ? aiComposeQuickOptions.value : aiPolishQuickOptions.value
+  if (!pageMode.value) return options
+  return isComposeFullscreen.value ? options : options.slice(0, 2)
+})
+const selectedToneLabel = computed(() => aiToneOptions.value.find((item) => item.value === aiTone.value)?.label || '')
+const selectedLengthLabel = computed(() => aiLengthOptions.value.find((item) => item.value === aiLength.value)?.label || '')
 const bodyPanelClass = computed(() => {
   if (!pageMode.value) return 'min-h-[260px]'
   return isComposeFullscreen.value
@@ -619,6 +801,29 @@ const htmlTextareaClass = computed(() => {
   if (!pageMode.value) return 'min-h-[240px] resize-y'
   return 'h-full min-h-0 flex-1 resize-none'
 })
+const aiPanelClass = computed(() => {
+  if (isComposeFullscreen.value) {
+    return 'flex h-full min-h-0 self-stretch flex-col overflow-hidden rounded-[30px] border border-slate-200 bg-[#fbfcfb] shadow-sm'
+  }
+  return isCompactAiPanel.value
+    ? 'flex h-full min-h-0 self-stretch flex-col overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm'
+    : 'flex h-full min-h-0 self-stretch flex-col overflow-hidden rounded-[28px] border border-slate-200 bg-[#fbfcfb] shadow-sm'
+})
+const aiPanelBodyClass = computed(() => {
+  return isCompactAiPanel.value
+    ? 'flex min-h-0 flex-1 flex-col overflow-y-auto p-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
+    : 'min-h-0 flex-1 overflow-y-auto p-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
+})
+const aiPromptCardClass = computed(() => {
+  return isCompactAiPanel.value
+    ? 'flex min-h-0 flex-1 flex-col rounded-[26px] border border-slate-200 bg-white p-3 shadow-sm'
+    : 'rounded-[26px] border border-slate-200 bg-white p-3 shadow-sm'
+})
+const aiPromptTextareaClass = computed(() => {
+  return isCompactAiPanel.value
+    ? 'min-h-[150px] flex-1 w-full resize-none border-none bg-transparent px-1 py-1 text-sm leading-6 text-slate-700 outline-none placeholder:text-slate-400 focus:ring-0'
+    : 'min-h-[150px] w-full resize-none border-none bg-transparent px-1 py-1 text-sm leading-6 text-slate-700 outline-none placeholder:text-slate-400 focus:ring-0'
+})
 const composeSectionClass = computed(() => {
   if (!pageMode.value) {
     return 'compose-section rounded-[28px] border border-gray-200 bg-white shadow-sm'
@@ -630,11 +835,21 @@ const composeSectionClass = computed(() => {
 
   return 'compose-section flex h-full min-h-0 flex-col overflow-hidden bg-white'
 })
-const composeGridClass = computed(() =>
-  pageMode.value
-    ? 'grid min-h-0 flex-1 grid-cols-1 items-stretch overflow-hidden pt-4'
-    : 'space-y-6 px-5 py-5 sm:px-6'
-)
+const composeGridClass = computed(() => {
+  if (!pageMode.value) return 'space-y-6 px-5 py-5 sm:px-6'
+  if (!showAiPanel.value) {
+    return 'grid min-h-0 flex-1 grid-cols-1 items-stretch overflow-hidden pt-4'
+  }
+  if (useComposeOverlay.value) {
+    return isDesktop.value
+      ? 'grid min-h-0 flex-1 items-stretch gap-4 overflow-hidden pt-4 grid-cols-[minmax(0,1fr)_360px]'
+      : 'grid min-h-0 flex-1 items-stretch gap-4 overflow-hidden pt-4 lg:grid-cols-[minmax(0,1fr)_360px]'
+  }
+  return isDesktop.value
+    ? 'grid min-h-0 flex-1 items-stretch gap-4 overflow-hidden pt-4 grid-cols-[minmax(0,1fr)_320px]'
+    : 'grid min-h-0 flex-1 items-stretch gap-4 overflow-hidden pt-4 lg:grid-cols-[minmax(0,1fr)_320px]'
+})
+
 const selectedAccountIds = computed(() => props.selectedMailboxIds || [])
 const isDesktop = computed(() => isTauri())
 const normalizeMailboxId = (value: unknown) => {
@@ -898,6 +1113,13 @@ const removeBccRecipient = (index: number) => {
   bccRecipients.value.splice(index, 1)
 }
 
+const applyAiQuickOption = (option: { label: string; prompt: string }) => {
+  aiPrompt.value = option.prompt
+  if (aiPolishQuickOptions.value.some((item) => item.label === option.label)) {
+    aiMode.value = 'polish'
+  }
+}
+
 const loadData = async () => {
   loading.value = true
   try {
@@ -956,6 +1178,7 @@ const loadReplyDraft = (payload: ReplyDraftPayload) => {
   form.value.subject = /^re\s*:/i.test(replySubject) ? replySubject : (replySubject ? `Re: ${replySubject}` : '')
   attachments.value = []
   historicalAttachmentHints.value = []
+  aiPrompt.value = ''
   clearBodyContent()
 }
 
@@ -1260,6 +1483,7 @@ const sendEmail = async () => {
       importCount.value = 0
       attachments.value = []
       historicalAttachmentHints.value = []
+      aiPrompt.value = ''
       clearBodyContent()
     } else {
       const firstFailure = failedDetails[0]
@@ -1285,6 +1509,73 @@ const sendEmail = async () => {
   } finally {
     sending.value = false
   }
+}
+
+const polishContent = async () => {
+  if (!bodyContentText.value.trim() || polishing.value) return
+
+  polishing.value = true
+  try {
+    const response: any = await api.post('/ai/polish-email', {
+      content: bodyContentText.value,
+      subject: form.value.subject || null,
+    })
+
+    if (response.code === 0 && response.data?.content) {
+      setBodyFromText(String(response.data.content || ''))
+      if (response.data.subject) {
+        form.value.subject = response.data.subject
+      }
+      showMessage(tc('aiPolishSuccess'), 'success')
+    } else {
+      showMessage(response.message || tc('aiPolishFailed'), 'error')
+    }
+  } catch (error) {
+    showMessage(tc('aiPolishRetryFailed'), 'error')
+  } finally {
+    polishing.value = false
+  }
+}
+
+const composeEmailWithAI = async () => {
+  if (!aiPrompt.value.trim() || aiGenerating.value) return
+
+  aiGenerating.value = true
+  try {
+    const prompt = [
+      aiPrompt.value.trim(),
+      tc('promptTone', { label: selectedToneLabel.value }),
+      tc('promptLength', { label: selectedLengthLabel.value })
+    ].join('\n')
+
+    const response: any = await api.post('/ai/compose-email', {
+      prompt,
+      tone: selectedToneLabel.value,
+      language: locale.value.startsWith('en') ? 'English' : '中文',
+      subject: form.value.subject || null,
+      content: bodyContentText.value || null,
+    })
+
+    if (response.code === 0 && response.data?.content) {
+      form.value.subject = String(response.data.subject || form.value.subject || '')
+      setBodyFromText(String(response.data.content || bodyContentText.value || ''))
+      showMessage(tc('aiComposeSuccess'), 'success')
+    } else {
+      showMessage(response.message || tc('aiComposeFailed'), 'error')
+    }
+  } catch (error) {
+    showMessage(tc('aiComposeRetryFailed'), 'error')
+  } finally {
+    aiGenerating.value = false
+  }
+}
+
+const runAiAction = async () => {
+  if (aiMode.value === 'polish') {
+    await polishContent()
+    return
+  }
+  await composeEmailWithAI()
 }
 
 const syncComposeOverlay = () => {

@@ -133,6 +133,25 @@
           class="mail-template-editor"
         />
 
+        <div class="border-t border-slate-100 bg-slate-50 px-4 py-3">
+          <label class="mb-2 block text-sm font-medium text-slate-900">AI辅助说明</label>
+          <div class="flex items-start gap-3">
+            <textarea
+              v-model="form.helper_prompt"
+              rows="3"
+              class="min-h-[88px] flex-1 rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm leading-6 text-slate-700 focus:border-primary-500 focus:outline-none"
+              placeholder="例如：语气更正式、突出优惠、适合老客户、保留下单变量"
+            />
+            <button
+              type="button"
+              class="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 px-4 text-sm font-medium text-slate-700 hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+              :disabled="!canOperate || generating"
+              @click="handleGenerate"
+            >
+              {{ generating ? 'AI生成中...' : 'AI辅助生成' }}
+            </button>
+          </div>
+        </div>
       </div>
 
       <div v-if="reviewResult" class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
@@ -174,6 +193,7 @@ const props = defineProps({
 const emit = defineEmits(['update:visible', 'saved'])
 
 const saving = ref(false)
+const generating = ref(false)
 const uploadingImage = ref(false)
 const reviewResult = ref(null)
 const imageInputRef = ref(null)
@@ -200,6 +220,7 @@ const createDefaultForm = () => ({
   scene: '',
   subject: '',
   content: '',
+  helper_prompt: '',
   recipient_source: 'registered_users',
   variables: []
 })
@@ -368,6 +389,40 @@ const handleImageUpload = async (event) => {
   } finally {
     uploadingImage.value = false
     if (event.target) event.target.value = ''
+  }
+}
+
+const handleGenerate = async () => {
+  generating.value = true
+  try {
+    const res = await emailReachApi.generateTemplate({
+      scene: form.scene || form.name || '邮件通知',
+      recipient_source: form.recipient_source,
+      helper_prompt: form.helper_prompt,
+      existing_subject: form.subject,
+      existing_content: form.content,
+      variables: allVariables.value.map((item) => item.replace(/[{}]/g, ''))
+    })
+    if (res.code === 0) {
+      form.subject = res.data.subject || form.subject
+      form.content = String(res.data.content || form.content).trim()
+      customVariables.value = mergeVariables(
+        customVariables.value,
+        Array.isArray(res.data.variables) ? res.data.variables : [],
+        extractTemplateVariables(`${form.subject || ''}\n${form.content || ''}`)
+      )
+      form.variables = customVariables.value
+      if (editor.value) {
+        syncingContent.value = true
+        editor.value.commands.setContent(form.content || '<p></p>', false)
+        syncingContent.value = false
+      }
+      showMessage('AI生成成功', 'success')
+      return
+    }
+    showMessage(res.message || 'AI生成失败', 'error')
+  } finally {
+    generating.value = false
   }
 }
 

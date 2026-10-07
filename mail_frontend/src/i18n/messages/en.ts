@@ -805,7 +805,7 @@ const en = {
       'Connect your own domain, complete DNS verification, and create receiving addresses.',
     emailReachDashboardDescription: 'Review sending volume, unsubscribes, and overall engagement.',
     emailReachTemplatesDescription:
-      'Manage transactional and marketing templates.',
+      'Manage transactional and marketing templates with AI generation and AI review.',
     emailReachQuotaDescription: 'Review remaining quota, top-up pricing, and purchase entries.',
     emailReachMembersDescription: 'Import members and configure custom fields, tags, and groups.',
     emailReachTasksDescription: 'Manage event-triggered tasks and bulk sending tasks in one place.',
@@ -1224,6 +1224,12 @@ const en = {
     desktopDownloadOnly: 'Please download attachments on desktop',
     openInBrowserHint:
       'This embedded page may not be interactive. Click here to open it in your system browser',
+    translate: 'Translate',
+    translating: 'Translating...',
+    viewOriginal: 'View original',
+    translatedTo: 'Translated to {language}',
+    translateSuccess: 'Translation complete',
+    translateFailed: 'Translation failed'
   },
   sendEmail: {
     title: 'Bulk Send Email',
@@ -1270,6 +1276,8 @@ const en = {
       selectedSenderCount: '{count} senders selected',
       senderSelectionHint: 'Select one or more sender mailboxes',
       recipientCount: '{count} recipients',
+      aiShow: 'AI Assistant',
+      aiHide: 'Hide AI',
       downloadRecipientTemplate: 'Download Recipient Template',
       importExcel: 'Import Excel',
       fullscreenEnter: 'Fullscreen Compose',
@@ -1288,12 +1296,54 @@ const en = {
       noAttachment: 'No attachments',
       richMode: 'Editor',
       htmlMode: 'HTML',
+      polishing: 'Polishing...',
+      polish: 'Polish',
       htmlPlaceholder: 'Enter HTML email content...',
       undo: 'Undo',
       redo: 'Redo',
       divider: 'Divider',
       code: 'Code',
       clear: 'Clear',
+      aiTitle: 'AI Mail Assistant',
+      aiSubtitle: 'Generate an email from a simple instruction',
+      aiCompose: 'Draft for Me',
+      aiPolish: 'Rewrite Draft',
+      aiComposePlaceholder:
+        'Example: write a quote follow-up email and remind the client to confirm this week.',
+      aiPolishPlaceholder:
+        'Example: make it more formal, shorter, translate to English, or strengthen the closing CTA.',
+      aiGenerating: 'Processing...',
+      aiGenerate: 'Generate',
+      aiRewrite: 'Rewrite',
+      aiTone: 'Tone',
+      aiLength: 'Length',
+      toneFormal: 'Formal',
+      toneFriendly: 'Friendly',
+      toneSales: 'Sales',
+      lengthShort: 'Short',
+      lengthMedium: 'Medium',
+      lengthLong: 'Long',
+      quickQuoteFollowup: 'Quote Follow-up',
+      quickQuoteFollowupPrompt:
+        'Write a follow-up email after sending a quote, asking the client to confirm requirements, budget, and next steps.',
+      quickOutbound: 'Outbound',
+      quickOutboundPrompt:
+        'Write a short outbound email to a cold prospect, briefly introducing the product value and inviting a reply.',
+      quickReminder: 'Reminder',
+      quickReminderPrompt:
+        'Write a polite reminder email asking the recipient to review the previous email and respond.',
+      quickMeeting: 'Meeting Invite',
+      quickMeetingPrompt:
+        'Write a meeting invitation email that explains the purpose and asks for a convenient time.',
+      quickFormal: 'More Formal',
+      quickFormalPrompt: 'Make this email more formal and clearer.',
+      quickShorter: 'Shorter',
+      quickShorterPrompt: 'Condense this email and make it shorter.',
+      quickTranslate: 'To English',
+      quickTranslatePrompt: 'Translate this email into English.',
+      quickCta: 'Strong CTA',
+      quickCtaPrompt:
+        'Strengthen the closing call to action so the recipient is more likely to reply.',
       bodyEditorPlaceholder: 'Enter the email body...',
       loadAccountsFailed: 'Failed to load accounts',
       readFileFailed: 'Failed to read file',
@@ -1317,7 +1367,15 @@ const en = {
       recordSyncFailedAfterSend: 'The email was sent, but saving the sent record failed',
       recordSyncFailedAfterFailure:
         'The email failed to send, and saving the sent record also failed',
+      aiPolishSuccess: 'AI polish completed',
+      aiPolishFailed: 'AI polish failed',
+      aiPolishRetryFailed: 'AI polish failed, please try again later',
+      aiComposeSuccess: 'AI draft completed',
+      aiComposeFailed: 'AI drafting failed',
+      aiComposeRetryFailed: 'AI drafting failed, please try again later',
       fullscreenFailed: 'Failed to enter fullscreen',
+      promptTone: 'Tone: {label}',
+      promptLength: 'Length: {label}'
     }
   },
   shareMailbox: {

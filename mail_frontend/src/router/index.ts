@@ -44,6 +44,7 @@ const AdminEmailReachUsers = () => import('@/views/admin/email-reach-users/index
 const AdminEmailReachTemplates = () => import('@/views/admin/email-reach-templates/index.vue')
 const AdminEmailReachRisk = () => import('@/views/admin/email-reach-risk/index.vue')
 const AdminEmailReachUnsubscribes = () => import('@/views/admin/email-reach-unsubscribes/index.vue')
+const AdminEmailReachImageReviews = () => import('@/views/admin/email-reach-image-reviews/index.vue')
 const AdminEmailReachSettings = () => import('@/views/admin/email-reach-settings/index.vue')
 
 // 用户中心组件
@@ -684,6 +685,11 @@ const router = createRouter({
           path: 'email-reach-unsubscribes',
           name: 'admin-email-reach-unsubscribes',
           component: AdminEmailReachUnsubscribes
+        },
+        {
+          path: 'email-reach-image-reviews',
+          name: 'admin-email-reach-image-reviews',
+          component: AdminEmailReachImageReviews
         },
         {
           path: 'email-reach-settings',

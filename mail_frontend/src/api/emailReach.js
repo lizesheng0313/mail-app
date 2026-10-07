@@ -109,6 +109,10 @@ export const emailReachApi = {
     return api.get('/email-reach/admin/template-review-logs', { params })
   },
 
+  getAdminImageReviewLogs(params = {}) {
+    return api.get('/email-reach/admin/image-review-logs', { params })
+  },
+
   getAdminAccounts(params = {}) {
     return api.get('/email-reach/admin/accounts', { params })
   },
@@ -269,6 +273,9 @@ export const emailReachApi = {
     return api.post('/email-reach/unsubscribes', data)
   },
 
+  generateTemplate(data) {
+    return api.post('/email-reach/ai/generate-template', data)
+  }
 }
 
 export default emailReachApi

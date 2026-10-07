@@ -17,6 +17,15 @@
             </h2>
             <div class="flex flex-shrink-0 items-center gap-2">
               <button
+                v-if="canTranslate"
+                type="button"
+                class="inline-flex h-8 items-center rounded-full border border-primary-200 px-3 text-xs font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-60"
+                :disabled="isTranslatingCurrent"
+                @click="showingTranslation ? showOriginal() : translateEmail()"
+              >
+                {{ showingTranslation ? t('emailDetail.viewOriginal') : (isTranslatingCurrent ? t('emailDetail.translating') : t('emailDetail.translate')) }}
+              </button>
+              <button
                 @click="closeModal"
                 class="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded hover:bg-gray-100"
               >
@@ -45,8 +54,11 @@
 
           <!-- 邮件内容 -->
           <div class="flex-1 overflow-y-auto p-6">
+            <div v-if="showingTranslation && translatedContent" class="whitespace-pre-wrap text-gray-900">
+              {{ translatedContent }}
+            </div>
             <EmailHtmlRenderer
-              v-if="hasHtmlContent"
+              v-else-if="hasHtmlContent"
               :html="htmlContent"
               min-height="400px"
             />
@@ -64,6 +76,7 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { formatTimestamp } from '@/utils/timeUtils'
 import EmailHtmlRenderer from '@/components/Mail/EmailHtmlRenderer.vue'
+import { useEmailTranslation } from '@/composables/useEmailTranslation'
 interface Email {
   id: number
   subject?: string
@@ -85,9 +98,18 @@ const emit = defineEmits<{
   'update:visible': [value: boolean]
 }>()
 const { t } = useI18n()
-const displaySubject = computed(() => props.email?.subject || '')
-const htmlContent = computed(() => props.email?.contentHtml || props.email?.content_html || props.email?.content || props.email?.content_text || '')
-const textContent = computed(() => String(props.email?.content || props.email?.content_text || htmlContent.value).trim())
+const emailForTranslation = computed(() => props.email)
+const {
+  canTranslate,
+  displaySubject,
+  htmlContent,
+  isTranslatingCurrent,
+  showOriginal,
+  showingTranslation,
+  textContent,
+  translateEmail,
+  translatedContent,
+} = useEmailTranslation(emailForTranslation, t)
 
 const closeModal = () => {
   emit('update:visible', false)
