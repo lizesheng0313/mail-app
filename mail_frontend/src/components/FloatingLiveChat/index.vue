@@ -536,7 +536,10 @@ let historyRequestVersion = 0
 let conversationsRequest: Promise<void> | null = null
 let historyCursor = 0
 let summaryRequest: Promise<void> | null = null
-let guestConversationPoll: ReturnType<typeof setInterval> | null = null
+let chatStatePoll: ReturnType<typeof setInterval> | null = null
+const readMessageIds = new Map<string, number>()
+const pendingReadKeys = new Set<string>()
+const receivedSocketMessageIds = new Set<number>()
 const SOCKET_IO_PATH = '/mail-api/v1/live-chat/socket.io'
 const MAX_CHAT_IMAGES = 4
 const MESSAGE_BOTTOM_THRESHOLD_PX = 48
@@ -888,6 +891,9 @@ const loadConversations = async () => {
       ])
       if (response?.code === 0) {
         conversations.value = Array.isArray(response.data?.items) ? response.data.items : []
+        unreadCount.value = Number(response.data?.unread_count ?? conversations.value.reduce(
+          (total, item) => total + Number(item.unread_count || 0), 0,
+        ))
       }
       if (guestResponse?.code === 0) {
         const guestItems = Array.isArray(guestResponse.data?.items) ? guestResponse.data.items : []
@@ -960,8 +966,6 @@ const toggleVisible = async () => {
     await scrollToBottom()
     if (userStore.isAuthenticated && (!activeGuestConversationId.value || historyLoaded)) {
       await markMessagesRead()
-    } else {
-      unreadCount.value = 0
     }
   }
 }
@@ -1078,7 +1082,7 @@ const loadSummary = async () => {
       })
       if (response.code === 0) {
         onlineCount.value = Number(response.data?.online_count || 0)
-        unreadCount.value = userStore.isAuthenticated && !visible.value
+        unreadCount.value = userStore.isAuthenticated
           ? Number(response.data?.unread_count || 0)
           : 0
       }
@@ -1093,51 +1097,57 @@ const loadSummary = async () => {
 }
 
 const markMessagesRead = async (messageId?: number) => {
-  if (!userStore.isAuthenticated) return
+  if (!userStore.isAuthenticated || !historyLoaded || !isChatPaneVisible() || !isMessageNearBottom()) return
+  const lastMessageId = Number(messageId || messages.value[messages.value.length - 1]?.id || 0)
+  if (lastMessageId <= 0) return
+  const guestId = activeGuestConversationId.value
+  const customerId = activeConversationUserId.value
+  const readKey = guestId ? `guest:${guestId}` : `user:${isAdmin.value ? customerId : selfUserId.value}`
+  if (lastMessageId <= (readMessageIds.get(readKey) || 0) || pendingReadKeys.has(readKey)) return
+  pendingReadKeys.add(readKey)
 
-  if (activeGuestConversationId.value) {
-    const guestId = activeGuestConversationId.value
+  if (guestId) {
     try {
       const response: any = await api.post(
         `/live-chat/guest/conversations/${guestId}/read`,
-        null,
+        { last_read_message_id: lastMessageId },
         { suppressErrorMessage: true } as any,
       )
       if (response?.code !== 0) return
+      readMessageIds.set(readKey, lastMessageId)
       const active = guestConversations.value.find((conversation) => conversation.guest_id === guestId)
       if (active) {
         guestUnreadCount.value = Math.max(0, guestUnreadCount.value - Number(active.unread_count || 0))
         active.unread_count = 0
       }
-    } catch {}
-    return
-  }
-
-  const lastMessageId = Number(messageId || messages.value[messages.value.length - 1]?.id || 0)
-  if (lastMessageId <= 0) {
-    unreadCount.value = 0
+    } catch {} finally {
+      pendingReadKeys.delete(readKey)
+    }
     return
   }
 
   try {
-    await api.post(
+    const response: any = await api.post(
       '/live-chat/read',
       {
         last_read_message_id: lastMessageId,
-        ...(isAdmin.value && activeConversationUserId.value
-          ? { conversation_user_id: activeConversationUserId.value }
+        ...(isAdmin.value && customerId
+          ? { conversation_user_id: customerId }
           : {}),
       },
       { suppressErrorMessage: true }
     )
-  } catch {}
-
-  unreadCount.value = 0
-  if (isAdmin.value && activeConversationUserId.value) {
+    if (response?.code !== 0) return
+    readMessageIds.set(readKey, lastMessageId)
     const active = conversations.value.find(
-      (conversation) => conversation.user.id === activeConversationUserId.value,
+      (conversation) => conversation.user.id === customerId,
     )
+    unreadCount.value = Number(response.data?.unread_count ?? (
+      isAdmin.value ? Math.max(0, unreadCount.value - Number(active?.unread_count || 0)) : 0
+    ))
     if (active) active.unread_count = 0
+  } catch {} finally {
+    pendingReadKeys.delete(readKey)
   }
 }
 
@@ -1200,7 +1210,7 @@ const loadHistory = async (force = false) => {
         historyCursor = Number(response.data?.next_before_message_id || messages.value[0]?.id || 0)
         hasMoreHistory.value = Boolean(response.data?.has_more)
         onlineCount.value = Number(response.data?.online_count || 0)
-        unreadCount.value = userStore.isAuthenticated && !visible.value
+        unreadCount.value = userStore.isAuthenticated
           ? Number(response.data?.unread_count || 0)
           : 0
         historyLoaded = true
@@ -1267,7 +1277,27 @@ const handleMessageScroll = () => {
   if (element.scrollTop <= 60) {
     void loadOlderHistory()
   }
+  if (isMessageNearBottom()) void markMessagesRead()
 }
+
+const isChatPaneVisible = () => visible.value && document.visibilityState !== 'hidden' && (
+  !isAdmin.value || ((!isCompactViewport() || mobileShowConversation.value) && (
+    activeConversationUserId.value > 0 || activeGuestConversationId.value > 0
+  ))
+)
+
+const refreshChatState = async () => {
+  if (!userStore.isAuthenticated || document.visibilityState === 'hidden') return
+  if (isAdmin.value) await loadConversations()
+  else await loadSummary()
+  if (isChatPaneVisible() && isMessageNearBottom() && !loadingHistory.value) {
+    await loadHistory(true)
+    await scrollToBottom()
+    await markMessagesRead()
+  }
+}
+
+const handlePageResume = () => { void refreshChatState() }
 
 const handleSocketPayload = async (payload: SocketPayload) => {
   if (typeof payload.online_count === 'number') {
@@ -1280,6 +1310,9 @@ const handleSocketPayload = async (payload: SocketPayload) => {
   }
 
   if (payload.type === 'message' && payload.message) {
+    if (receivedSocketMessageIds.has(payload.message.id)) return
+    receivedSocketMessageIds.add(payload.message.id)
+    if (receivedSocketMessageIds.size > 500) receivedSocketMessageIds.delete(receivedSocketMessageIds.values().next().value!)
     const conversationUserId = getMessageConversationUserId(payload.message)
     const isIncomingCustomerMessage = !payload.message.user.is_admin && !isSelf(payload.message)
     if (isAdmin.value && conversationUserId !== activeConversationUserId.value) {
@@ -1291,7 +1324,7 @@ const handleSocketPayload = async (payload: SocketPayload) => {
     }
     const shouldFollowNewMessage = isMessageNearBottom()
     upsertMessage(payload.message)
-    if (visible.value) {
+    if (isChatPaneVisible()) {
       if (shouldFollowNewMessage) {
         await scrollToBottom()
         if (userStore.isAuthenticated) {
@@ -1341,6 +1374,7 @@ const connectSocket = async () => {
   nextSocket.on('connect', () => {
     socketConnecting = false
     connectionStatus.value = 'connected'
+    void refreshChatState()
   })
 
   nextSocket.on('chat_event', (payload: SocketPayload) => {
@@ -1361,9 +1395,6 @@ const connectSocket = async () => {
 
   nextSocket.on('disconnect', () => {
     socketConnecting = false
-    if (socket === nextSocket) {
-      socket = null
-    }
     if (manualClose) {
       manualClose = false
       return
@@ -1451,10 +1482,10 @@ const formatTime = (timestamp: number) => {
   const sameDay = date.getDate() === now.getDate()
 
   if (sameYear && sameMonth && sameDay) {
-    return date.toLocaleTimeString('zh-CN', {
+    return `今天 ${date.toLocaleTimeString('zh-CN', {
       hour: '2-digit',
       minute: '2-digit'
-    })
+    })}`
   }
 
   const yesterday = new Date(now)
@@ -1475,7 +1506,7 @@ const formatTime = (timestamp: number) => {
 
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const day = String(date.getDate()).padStart(2, '0')
-  return `${month}-${day} ${timePart}`
+  return `${date.getFullYear()}-${month}-${day} ${timePart}`
 }
 
 watch(
@@ -1490,6 +1521,9 @@ watch(
     historyCursor = 0
     hasMoreHistory.value = false
     unreadCount.value = 0
+    readMessageIds.clear()
+    pendingReadKeys.clear()
+    receivedSocketMessageIds.clear()
     guestUnreadCount.value = 0
     conversations.value = []
     guestConversations.value = []
@@ -1507,7 +1541,8 @@ watch(
         void loadHistory(true)
       }
     } else {
-      void loadSummary()
+      if (isAdmin.value) void loadConversations()
+      else void loadSummary()
     }
     void connectSocket()
   },
@@ -1517,24 +1552,18 @@ watch(
 onMounted(() => {
   loadLauncherPosition()
   window.addEventListener('resize', keepLauncherInViewport)
+  window.addEventListener('focus', handlePageResume)
+  document.addEventListener('visibilitychange', handlePageResume)
   if (isAdmin.value) void loadConversations()
-  guestConversationPoll = setInterval(() => {
-    if (!isAdmin.value) return
-    void (async () => {
-      await loadConversations()
-      if (visible.value && activeGuestConversationId.value && !loadingHistory.value) {
-        const wasNearBottom = isMessageNearBottom()
-        await loadHistory(true)
-        if (wasNearBottom && historyLoaded) await markMessagesRead()
-      }
-    })()
-  }, 5000)
+  chatStatePoll = setInterval(handlePageResume, 5000)
 })
 
 onBeforeUnmount(() => {
   stopLauncherDrag()
   window.removeEventListener('resize', keepLauncherInViewport)
-  if (guestConversationPoll) clearInterval(guestConversationPoll)
+  window.removeEventListener('focus', handlePageResume)
+  document.removeEventListener('visibilitychange', handlePageResume)
+  if (chatStatePoll) clearInterval(chatStatePoll)
   cleanupSocket()
 })
 </script>

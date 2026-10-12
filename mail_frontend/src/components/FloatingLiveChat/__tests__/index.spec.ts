@@ -92,7 +92,7 @@ const conversations = [
 const configureApi = () => {
   mocks.apiGet.mockImplementation(async (url: string) => {
     if (url === '/live-chat/conversations') {
-      return { code: 0, data: { items: conversations } }
+      return { code: 0, data: { items: structuredClone(conversations) } }
     }
     if (url === '/live-chat/summary') {
       return { code: 0, data: { online_count: 2, unread_count: 0 } }
@@ -125,6 +125,32 @@ const setViewport = (isCompact: boolean) => {
   })) as any
 }
 
+const configureUnreadInbox = () => {
+  const contacts = structuredClone(conversations)
+  contacts[1].unread_count = 3
+  const unread = () => contacts.reduce((total, contact) => total + contact.unread_count, 0)
+  mocks.apiGet.mockImplementation(async (url: string, options?: any) => {
+    if (url === '/live-chat/conversations') {
+      return { code: 0, data: { items: structuredClone(contacts), unread_count: unread() } }
+    }
+    if (url === '/live-chat/messages') {
+      const customerId = options?.params?.conversation_user_id || 101
+      return { code: 0, data: {
+        unread_count: unread(), has_more: false,
+        items: [{ id: customerId + 400, content: '客户问题', created_at_ms: Date.now(), user: contacts.find(item => item.user.id === customerId)!.user }],
+      } }
+    }
+    return { code: 0, data: { items: [], unread_count: 0 } }
+  })
+  mocks.apiPost.mockImplementation(async (url: string, payload: any) => {
+    if (url === '/live-chat/read') {
+      contacts.find(contact => contact.user.id === payload.conversation_user_id)!.unread_count = 0
+    }
+    return { code: 0, data: { unread_count: unread() } }
+  })
+  return contacts
+}
+
 describe('FloatingLiveChat admin conversation layout', () => {
   let wrapper: ReturnType<typeof mount> | null = null
 
@@ -151,6 +177,7 @@ describe('FloatingLiveChat admin conversation layout', () => {
   afterEach(() => {
     wrapper?.unmount()
     wrapper = null
+    vi.useRealTimers()
   })
 
   it('renders customer contacts on the left and the selected chat on the right', async () => {
@@ -275,6 +302,11 @@ describe('FloatingLiveChat admin conversation layout', () => {
     )
     expect(chatEventRegistration).toBeTruthy()
 
+    const originalGet = mocks.apiGet.getMockImplementation()!
+    mocks.apiGet.mockImplementation((url: string) => url === '/live-chat/conversations'
+      ? Promise.resolve({ code: 0, data: { items: structuredClone(conversations), unread_count: 3 } })
+      : originalGet(url))
+
     await chatEventRegistration![1]({
       type: 'message',
       message: {
@@ -294,7 +326,7 @@ describe('FloatingLiveChat admin conversation layout', () => {
     })
     await flushPromises()
 
-    expect(wrapper.get('[data-testid="chat-launcher-unread"]').text()).toBe('1')
+    expect(wrapper.get('[data-testid="chat-launcher-unread"]').text()).toBe('3')
   })
 
   it('keeps the launcher available and lets the user drag it', async () => {
@@ -465,5 +497,144 @@ describe('FloatingLiveChat admin conversation layout', () => {
     expect(mocks.apiDelete).toHaveBeenCalledWith('/live-chat/conversations/101')
     expect(wrapper.find('[data-testid="admin-conversation-item-101"]').exists()).toBe(false)
     expect(wrapper.get('[data-testid="admin-conversation-list"]').text()).toContain('客户乙')
+  })
+
+  it('counts existing unread customer messages immediately after login', async () => {
+    configureUnreadInbox()
+    wrapper = mount(FloatingLiveChat)
+    await flushPromises()
+    expect(wrapper.get('[data-testid="chat-launcher-unread"]').text()).toBe('5')
+    expect(mocks.apiPost).not.toHaveBeenCalled()
+  })
+
+  it('only clears the selected customer and retains other customers on the launcher', async () => {
+    configureUnreadInbox()
+    wrapper = mount(FloatingLiveChat)
+    await flushPromises()
+    await wrapper.get('[data-testid="chat-launcher"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.get('[data-testid="admin-conversation-unread-102"]').text()).toBe('3')
+    await wrapper.get('[aria-label="关闭在线客服"]').trigger('click')
+    expect(wrapper.get('[data-testid="chat-launcher-unread"]').text()).toBe('3')
+    await wrapper.get('[data-testid="chat-launcher"]').trigger('click')
+    await flushPromises()
+    await wrapper.get('[data-testid="admin-conversation-item-102"]').trigger('click')
+    await flushPromises()
+    await wrapper.get('[aria-label="关闭在线客服"]').trigger('click')
+    expect(wrapper.find('[data-testid="chat-launcher-unread"]').exists()).toBe(false)
+  })
+
+  it('preserves unread badges when the read acknowledgement fails', async () => {
+    configureUnreadInbox()
+    mocks.apiPost.mockRejectedValue(new Error('offline'))
+    wrapper = mount(FloatingLiveChat)
+    await flushPromises()
+    await wrapper.get('[data-testid="chat-launcher"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.get('[data-testid="admin-conversation-unread-101"]').text()).toBe('2')
+    await wrapper.get('[aria-label="关闭在线客服"]').trigger('click')
+    expect(wrapper.get('[data-testid="chat-launcher-unread"]').text()).toBe('5')
+  })
+
+  it('recovers unread counts by polling even if no socket event arrives', async () => {
+    vi.useFakeTimers()
+    const contacts = configureUnreadInbox()
+    wrapper = mount(FloatingLiveChat)
+    await flushPromises()
+    contacts[1].unread_count = 4
+    await vi.advanceTimersByTimeAsync(5000)
+    await flushPromises()
+    expect(wrapper.get('[data-testid="chat-launcher-unread"]').text()).toBe('6')
+    expect(mocks.apiPost).not.toHaveBeenCalled()
+  })
+
+  it('does not mark messages read while only the mobile contact list is visible', async () => {
+    vi.useFakeTimers()
+    configureUnreadInbox()
+    setViewport(true)
+    wrapper = mount(FloatingLiveChat)
+    await flushPromises()
+    await wrapper.get('[data-testid="chat-launcher"]').trigger('click')
+    await flushPromises()
+    await vi.advanceTimersByTimeAsync(5000)
+    await flushPromises()
+    await wrapper.get('[aria-label="关闭在线客服"]').trigger('click')
+    expect(wrapper.get('[data-testid="chat-launcher-unread"]').text()).toBe('5')
+    expect(mocks.apiPost).not.toHaveBeenCalled()
+  })
+
+  it('refreshes unread counts when the page resumes and the socket reconnects', async () => {
+    const contacts = configureUnreadInbox()
+    wrapper = mount(FloatingLiveChat)
+    await flushPromises()
+    contacts[1].unread_count = 5
+    window.dispatchEvent(new Event('focus'))
+    await flushPromises()
+    expect(wrapper.get('[data-testid="chat-launcher-unread"]').text()).toBe('7')
+    const disconnect = mocks.socket.on.mock.calls.find(([name]) => name === 'disconnect')![1]
+    const connect = mocks.socket.on.mock.calls.find(([name]) => name === 'connect')![1]
+    disconnect()
+    contacts[1].unread_count = 6
+    connect()
+    await flushPromises()
+    expect(wrapper.get('[data-testid="chat-launcher-unread"]').text()).toBe('8')
+    expect(mocks.io).toHaveBeenCalledTimes(1)
+  })
+
+  it('ignores a repeated socket delivery of the same customer message', async () => {
+    const contacts = configureUnreadInbox()
+    wrapper = mount(FloatingLiveChat)
+    await flushPromises()
+    contacts[0].unread_count = 3
+    const event = mocks.socket.on.mock.calls.find(([name]) => name === 'chat_event')![1]
+    const payload = { type: 'message', message: {
+      id: 600, content: '新的问题', created_at_ms: Date.now(), user: contacts[0].user,
+    } }
+    event(payload)
+    await flushPromises()
+    const refreshes = mocks.apiGet.mock.calls.length
+    event(payload)
+    await flushPromises()
+    expect(wrapper.get('[data-testid="chat-launcher-unread"]').text()).toBe('6')
+    expect(mocks.apiGet.mock.calls).toHaveLength(refreshes)
+  })
+
+  it('keeps messages unread when they arrive while the browser page is hidden', async () => {
+    configureUnreadInbox()
+    wrapper = mount(FloatingLiveChat)
+    await flushPromises()
+    await wrapper.get('[data-testid="chat-launcher"]').trigger('click')
+    await flushPromises()
+    mocks.apiPost.mockClear()
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' })
+    try {
+      const event = mocks.socket.on.mock.calls.find(([name]) => name === 'chat_event')![1]
+      event({ type: 'message', message: {
+        id: 601, content: '后台收到的新消息', created_at_ms: Date.now(), user: conversations[0].user,
+      } })
+      await flushPromises()
+      expect(mocks.apiPost).not.toHaveBeenCalled()
+    } finally {
+      Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' })
+    }
+  })
+
+  it('distinguishes todays message from the customers June history', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-11T18:00:00'))
+    configureUnreadInbox()
+    const originalGet = mocks.apiGet.getMockImplementation()!
+    mocks.apiGet.mockImplementation((url: string, options: any) => url === '/live-chat/messages'
+      ? Promise.resolve({ code: 0, data: { items: [
+          { id: 83, content: '旧消息', created_at_ms: new Date('2026-06-25T14:11:00').getTime(), user: conversations[0].user },
+          { id: 167, content: '新消息', created_at_ms: new Date('2026-10-11T14:50:00').getTime(), user: conversations[0].user },
+        ], unread_count: 5 } })
+      : originalGet(url, options))
+    wrapper = mount(FloatingLiveChat)
+    await flushPromises()
+    await wrapper.get('[data-testid="chat-launcher"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).toContain('2026-06-25 14:11')
+    expect(wrapper.text()).toContain('今天 14:50')
   })
 })

@@ -68,7 +68,7 @@ describe('admin support conversation list', () => {
     expect(wrapper.findAll('button').some(button => button.text().trim() === '游客会话')).toBe(false)
     expect(mocks.post).toHaveBeenCalledWith(
       '/live-chat/guest/conversations/4/read',
-      null,
+      { last_read_message_id: 9 },
       expect.anything(),
     )
     expect(wrapper.find('[data-testid="admin-conversation-unread--4"]').exists()).toBe(false)
