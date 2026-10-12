@@ -410,13 +410,13 @@
                             当前下单不亏损
                           </div>
                           <div v-if="hasDifferentSuggestedPlan(row) && lossMakingCandidates(row).length" class="text-red-700">
-                            表格方案亏损：
+                            新方案亏损（未适配）：
                             <div v-for="item in lossMakingCandidates(row)" :key="item.provider_product_no">
                               编号 {{ item.provider_product_no }} 每单亏 {{ formatProfit(item.loss) }} 元
                             </div>
                           </div>
                           <div v-else-if="hasDifferentSuggestedPlan(row) && hasAvailableCandidate(displayPlanCandidates(row))" class="text-emerald-700">
-                            表格方案不亏损
+                            新方案不亏损（未适配）
                           </div>
                           <div v-if="!hasDifferentSuggestedPlan(row) && !currentLossMakingCandidates(row).length && hasAvailableCandidate(currentPlanCandidates(row))" class="text-emerald-700">
                             不亏损
