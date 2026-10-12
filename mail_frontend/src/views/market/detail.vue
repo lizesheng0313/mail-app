@@ -438,7 +438,7 @@
                             {{ displayPlanCandidates(row)[index - 1]?.provider_product_no || '-' }}
                             <span v-if="displayPlanCandidates(row)[index - 1]?.is_available === false" class="ml-1 whitespace-nowrap text-xs font-medium text-red-600">（已下架）</span>
                           </td>
-                          <td class="whitespace-nowrap px-3 py-2">
+                          <td class="break-words px-3 py-2 leading-5">
                             {{ displayPlanCandidates(row)[index - 1] ? formatCandidateCost(displayPlanCandidates(row)[index - 1]) : '-' }}
                           </td>
                           <td
