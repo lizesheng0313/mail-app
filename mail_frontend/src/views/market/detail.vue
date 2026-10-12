@@ -343,7 +343,7 @@
                   </div>
                 </div>
                 <div class="overflow-auto rounded-md border border-slate-200 bg-white" :class="isAdminPriceTableFullscreen ? 'min-h-0 flex-1' : ''">
-                  <table class="min-w-[1900px] w-full table-fixed text-left text-sm">
+                  <table class="min-w-[2200px] w-full table-fixed text-left text-sm">
                     <thead class="bg-slate-50 text-slate-500">
                       <tr>
                         <th class="sticky top-0 z-10 w-28 whitespace-nowrap bg-slate-50 px-3 py-2 font-medium">商品类别</th>
@@ -425,9 +425,9 @@
                             当前{{ currentPlanCandidates(row).length ? '编号已下架' : '无可用编号' }}，无法下单
                           </div>
                         </td>
-                        <td class="px-2 py-2 font-semibold text-emerald-700">
+                        <td class="w-52 max-w-52 break-words px-2 py-2 align-top font-semibold text-emerald-700">
                           <div>{{ sourcePlanDisplay(row) }}</div>
-                          <div v-if="hasDifferentSuggestedPlan(row)" class="mt-1 text-xs font-medium text-amber-900">方案变化，待适配</div>
+                          <div v-if="hasDifferentSuggestedPlan(row)" class="mt-1 break-words text-xs font-medium leading-5 text-amber-900">方案变化，待适配</div>
                           <div v-if="row.unavailable_candidates?.length && row.suggested_plan_reason?.no_eligible_replacement" class="mt-1 text-xs font-medium text-red-700">
                             下架：{{ row.unavailable_candidates.map((candidate) => candidate.provider_product_no).filter(Boolean).join('、') }}；暂无合格替代
                             <span v-if="row.suggested_plan_reason.profit_blocked_replacements?.length">（替代编号亏损过高）</span>
