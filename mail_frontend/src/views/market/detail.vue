@@ -343,13 +343,14 @@
                   </div>
                 </div>
                 <div class="overflow-auto rounded-md border border-slate-200 bg-white" :class="isAdminPriceTableFullscreen ? 'min-h-0 flex-1' : ''">
-                  <table class="min-w-[1900px] w-full table-fixed text-left text-sm">
+                  <table class="min-w-[2000px] w-full table-fixed text-left text-sm">
                     <thead class="bg-slate-50 text-slate-500">
                       <tr>
                         <th class="sticky top-0 z-10 w-28 whitespace-nowrap bg-slate-50 px-3 py-2 font-medium">商品类别</th>
                         <th class="sticky top-0 z-10 w-24 whitespace-nowrap bg-slate-50 px-3 py-2 font-medium">一级规格</th>
                         <th class="sticky top-0 z-10 w-[420px] bg-slate-50 px-3 py-2 font-medium">二级规格</th>
                         <th class="sticky top-0 z-10 w-20 whitespace-nowrap bg-slate-50 px-3 py-2 font-medium">售出价</th>
+                        <th class="sticky top-0 z-10 w-28 whitespace-nowrap bg-slate-50 px-3 py-2 font-medium">推荐售价</th>
                         <th class="sticky top-0 z-10 w-20 whitespace-nowrap bg-slate-50 px-2 py-2 font-medium">方案</th>
                         <th class="sticky top-0 z-10 w-20 whitespace-nowrap bg-slate-50 px-2 py-2 font-medium">编号1</th>
                         <th class="sticky top-0 z-10 w-44 whitespace-nowrap bg-slate-50 px-2 py-2 font-medium">编号1成本</th>
@@ -365,10 +366,10 @@
                     </thead>
                     <tbody class="divide-y divide-slate-100 text-slate-700">
                       <tr v-if="adminPriceTableLoading">
-                        <td colspan="15" class="px-3 py-5 text-center text-slate-400">价格表加载中...</td>
+                        <td colspan="16" class="px-3 py-5 text-center text-slate-400">价格表加载中...</td>
                       </tr>
-                      <template v-for="(row, rowIndex) in workflow.admin_price_table || []" :key="row.local_sku_id">
-                      <tr v-if="!adminPriceTableLoading" :class="row.is_dynamic_redeem_sku ? 'bg-amber-50/70' : ''">
+                      <template v-for="row in workflow.admin_price_table || []" :key="row.local_sku_id">
+                      <tr v-if="!adminPriceTableLoading" :class="hasDifferentSuggestedPlan(row) ? 'bg-amber-100/80' : row.is_dynamic_redeem_sku ? 'bg-amber-50/70' : ''">
                         <td class="whitespace-nowrap px-3 py-2">{{ displayCategoryLabel(workflow.primary_category || workflow.category) }}</td>
                         <td class="whitespace-nowrap px-3 py-2">{{ row.primary_spec_name || '-' }}</td>
                         <td class="break-words px-3 py-2 font-medium">
@@ -380,51 +381,48 @@
                             售价 {{ formatTablePrice(row.sell_price) }}
                           </div>
                         </td>
-                        <td class="whitespace-nowrap px-3 py-2">{{ formatTablePrice(row.sell_price) }}</td>
+                        <td class="whitespace-nowrap px-3 py-2" :class="lossMakingCandidates(row).length ? 'font-bold text-red-700' : ''">
+                          {{ formatTablePrice(row.sell_price) }}
+                        </td>
+                        <td class="whitespace-nowrap px-3 py-2 font-semibold">
+                          <span v-if="row.price_advice?.status === 'ok'" :class="Number(row.price_advice.recommended_sell_price) === Number(row.sell_price) ? 'text-slate-500' : 'text-amber-800'">
+                            {{ formatTablePrice(row.price_advice.recommended_sell_price) }}
+                          </span>
+                          <span v-else-if="needsPriceAdvice(row) && row.price_advice?.status === 'official_price_missing'" class="text-amber-800">待核官方价</span>
+                          <span v-else-if="needsPriceAdvice(row) && row.price_advice?.status === 'no_valid_price'" class="text-red-700">无可行价</span>
+                          <span v-else class="text-slate-400">-</span>
+                        </td>
                         <td class="min-w-[220px] px-2 py-2 font-semibold text-emerald-700">
                           {{ sourcePlanDisplay(row) }}
+                          <span v-if="hasDifferentSuggestedPlan(row)" class="ml-1 whitespace-nowrap rounded bg-amber-200 px-1.5 py-0.5 text-xs text-amber-950">方案变化·待适配</span>
                         </td>
                         <template v-for="index in 3" :key="index">
                           <td class="break-all px-3 py-2">
-                            {{ row.candidates?.[index - 1]?.provider_product_no || '-' }}
-                            <span v-if="row.candidates?.[index - 1]?.is_available === false" class="ml-1 whitespace-nowrap text-xs font-medium text-red-600">（已下架）</span>
+                            {{ displayPlanCandidates(row)[index - 1]?.provider_product_no || '-' }}
+                            <span v-if="displayPlanCandidates(row)[index - 1]?.is_available === false" class="ml-1 whitespace-nowrap text-xs font-medium text-red-600">（已下架）</span>
                           </td>
                           <td class="whitespace-nowrap px-3 py-2">
-                            {{ row.candidates?.[index - 1] ? formatCandidateCost(row.candidates[index - 1]) : '-' }}
+                            {{ displayPlanCandidates(row)[index - 1] ? formatCandidateCost(displayPlanCandidates(row)[index - 1]) : '-' }}
                           </td>
                           <td
                             class="whitespace-nowrap px-3 py-2 font-semibold"
                             :class="candidateProfit(row, index - 1) >= 0 ? 'text-emerald-600' : 'text-red-600'"
                           >
-                            {{ row.candidates?.[index - 1] ? formatProfit(candidateProfit(row, index - 1)) : '-' }}
+                            {{ displayPlanCandidates(row)[index - 1] ? formatProfit(candidateProfit(row, index - 1)) : '-' }}
                           </td>
                         </template>
                         <td class="w-[520px] max-w-[520px] px-3 py-2 align-top">
-                          <div v-if="hasDifferentSuggestedPlan(row)" class="mt-1 text-xs font-semibold text-emerald-700">
-                            当前完整方案：
-                            {{ currentPlanProductNos(row).join('、') || '无' }}
-                            →
-                            建议完整方案：{{ row.suggested_plan_candidates.map((candidate) => candidate.provider_product_no).filter(Boolean).join('、') }}
+                          <div v-if="lossMakingCandidates(row).length" class="mt-1 text-xs font-semibold text-red-700">
+                            亏损：<span v-for="(item, index) in lossMakingCandidates(row)" :key="item.provider_product_no">编号 {{ item.provider_product_no }} 每单亏 {{ formatProfit(item.loss) }} 元<span v-if="index < lossMakingCandidates(row).length - 1">；</span></span>。
                           </div>
-                          <div v-if="hasDifferentSuggestedPlan(row) && row.suggested_plan_reason?.type === 'lower_cost'" class="mt-1 text-xs font-medium text-emerald-700">
-                            替换原因：
-                            <template v-for="(replacement, replacementIndex) in row.suggested_plan_reason.replacements || []" :key="replacement.from_product_no">
-                              编号 {{ replacement.from_product_no }}<template v-if="replacement.from_source_name">（{{ replacement.from_source_name }}）</template>
-                              替换为 {{ replacement.to_product_no }}<template v-if="replacement.to_source_name">（{{ replacement.to_source_name }}）</template>
-                              <template v-if="replacement.saving > 0">，每单省 {{ formatProfit(replacement.saving) }}</template><span v-if="replacementIndex < row.suggested_plan_reason.replacements.length - 1">；</span>
-                            </template>。
+                          <div v-if="row.price_advice?.status === 'ok' && Number(row.price_advice.recommended_sell_price) !== Number(row.sell_price)" class="mt-1 text-xs font-semibold text-amber-900">
+                            推荐售价 {{ formatTablePrice(row.price_advice.recommended_sell_price) }} 元（官方价 {{ formatTablePrice(row.price_advice.official_price) }} 元以内；各编号预计利润 {{ formatProfit(row.price_advice.min_profit) }}～{{ formatProfit(row.price_advice.max_profit) }} 元）。
                           </div>
-                          <div v-else-if="hasDifferentSuggestedPlan(row) && row.suggested_plan_reason?.type === 'unusable'" class="mt-1 text-xs font-medium text-emerald-700">
-                            替换原因：
-                            <template v-for="(issue, issueIndex) in row.suggested_plan_reason.issues || []" :key="issue.product_no">
-                              编号 {{ issue.product_no }}
-                              <template v-if="issue.type === 'unavailable'">当前不可用</template>
-                              <template v-else-if="issue.type === 'missing_products'">未覆盖：{{ issue.missing_products.join('、') }}</template>
-                              <template v-else>商品详情无法确认是否覆盖当前规格</template><span v-if="issueIndex < row.suggested_plan_reason.issues.length - 1">；</span>
-                            </template>。
+                          <div v-else-if="needsPriceAdvice(row) && row.price_advice?.status === 'official_price_missing'" class="mt-1 text-xs font-medium text-amber-800">
+                            待核对官方售价，暂不能给出不高于官方价的推荐售价。
                           </div>
-                          <div v-if="hasDifferentSuggestedPlan(row) && row.suggested_plan_reason?.added_product_nos?.length" class="mt-1 text-xs font-medium text-emerald-700">
-                            新增可用编号：{{ row.suggested_plan_reason.added_product_nos.join('、') }}。
+                          <div v-else-if="needsPriceAdvice(row) && row.price_advice?.status === 'no_valid_price'" class="mt-1 text-xs font-medium text-red-700">
+                            官方价以内没有能让所有编号每单利润都在 0.3～1.5 元的售价，请调整货源。
                           </div>
                           <div v-if="row.unavailable_candidates?.length && row.suggested_plan_reason?.no_eligible_replacement" class="mt-1 text-xs font-medium text-red-600">
                             下架编号：{{ row.unavailable_candidates.map((candidate) => candidate.provider_product_no).filter(Boolean).join('、') }}。暂无合格替代方案
@@ -432,31 +430,12 @@
                               ，可替换编号均亏损超过 {{ formatProfit(-0.04) }}，不建议替换
                             </template>。
                           </div>
-                          <div v-if="hasDifferentSuggestedPlan(row) && row.suggested_plan_reason?.omitted_candidates?.length" class="mt-1 text-xs font-medium text-emerald-700">
-                            未纳入建议方案：
-                            <template v-for="(candidate, candidateIndex) in row.suggested_plan_reason.omitted_candidates" :key="candidate.provider_product_no">
-                              编号 {{ candidate.provider_product_no }}
-                              <template v-if="candidate.reason_type === 'profit_below_threshold'">
-                                成本 {{ formatCandidateCost(candidate) }}，按售价 {{ formatTablePrice(row.sell_price) }} 计算利润 {{ formatProfit(candidate.profit) }}，低于允许亏损上限 {{ formatProfit(candidate.min_profit) }}
-                              </template>
-                              <template v-else>按成本排序未进入建议方案</template><span v-if="candidateIndex < row.suggested_plan_reason.omitted_candidates.length - 1">；</span>
-                            </template>。
-                          </div>
-                          <div v-if="!row.candidates?.length && row.partial_coverage?.length" class="mt-1 max-h-32 space-y-0.5 overflow-y-auto text-xs font-medium text-amber-700">
+                          <div v-if="!displayPlanCandidates(row).length && row.partial_coverage?.length" class="mt-1 max-h-32 space-y-0.5 overflow-y-auto text-xs font-medium text-amber-700">
                             <div v-for="item in row.partial_coverage" :key="item.provider_product_no">
                               编号 {{ item.provider_product_no }} 少：{{ item.missing_products.join('、') }}
                             </div>
                           </div>
-                          <div v-if="hasDifferentSuggestedPlan(row) && row.recommended_title" class="mt-1 text-xs font-semibold text-emerald-700">
-                            建议标题：{{ row.recommended_title }}
-                          </div>
-                          <div v-if="hasDifferentSuggestedPlan(row)" class="mt-1 text-xs font-semibold text-emerald-700">
-                            建议方案：
-                            <span v-for="(candidate, index) in row.suggested_plan_candidates" :key="candidate.provider_product_no">
-                              {{ index + 1 }}. {{ candidate.provider_product_no }}（{{ formatCandidateCost(candidate) }}）<span v-if="index < row.suggested_plan_candidates.length - 1">，</span>
-                            </span>
-                          </div>
-                          <div v-if="!row.candidates?.length && row.missing_products?.length" class="mt-1 text-xs font-medium text-amber-700">
+                          <div v-if="!displayPlanCandidates(row).length && row.missing_products?.length" class="mt-1 text-xs font-medium text-amber-700">
                             未覆盖饮品：{{ row.missing_products.join('、') }}
                           </div>
                           <div
@@ -477,56 +456,12 @@
                               仍缺：{{ row.closest_missing_products.join('、') }}
                             </div>
                           </div>
-                          <span
-                            v-if="row.candidates?.length && !row.suggested_plan_candidates?.length && !row.closest_reference_candidates?.length"
-                            class="text-slate-400"
-                          >-</span>
-                        </td>
-                      </tr>
-                      <tr
-                        v-if="!adminPriceTableLoading && isLastPrimaryRow(row, rowIndex)"
-                        :key="`${row.local_sku_id}-source-summary`"
-                        class="bg-emerald-50/60"
-                      >
-                        <td colspan="15" class="px-4 py-3 text-base text-slate-700">
-                          <div class="text-lg font-semibold text-emerald-700">
-                            {{ row.primary_spec_name || '默认规格' }}货源方案：共 {{ primarySummaryPlans(row.primary_spec_name).length }} 组
-                          </div>
-                          <div v-if="primarySummaryPlans(row.primary_spec_name).length" class="mt-2 space-y-1.5 text-lg">
-                            <div v-for="(plan, planIndex) in primarySummaryPlans(row.primary_spec_name)" :key="plan.signature" class="font-medium">
-                              <div>
-                                方案{{ planIndex + 1 }}：
-                                <span v-for="(source, sourceIndex) in plan.candidates" :key="source.provider_product_no">
-                                  {{ source.provider_product_no }}<span v-if="sourceIndex < plan.candidates.length - 1"> + </span>
-                                </span>
-                                <template v-if="plan.candidates.length && plan.candidates.every((source) => source.is_available === false)">
-                                  删除
-                                </template>
-                                <span v-for="replacement in replacementsForPlan(row.primary_spec_name, planIndex)" :key="replacement.key" class="text-emerald-700">
-                                  → 新方案{{ planIndex + 1 }}：
-                                  <span v-for="(source, sourceIndex) in replacement.candidates" :key="source.provider_product_no">
-                                    {{ source.provider_product_no }}<span v-if="sourceIndex < replacement.candidates.length - 1"> + </span>
-                                  </span>
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                          <div v-if="primaryUnboundSuggestedPlans(row.primary_spec_name).length" class="mt-3 border-t border-emerald-100 pt-2 text-lg">
-                            <div class="font-semibold text-emerald-700">
-                              建议新增方案
-                            </div>
-                            <div class="mt-1.5 space-y-1.5">
-                              <div v-for="(plan, planIndex) in primaryUnboundSuggestedPlans(row.primary_spec_name)" :key="plan.signature" class="font-medium text-emerald-700">
-                                方案{{ primarySourcePlans(row.primary_spec_name).length + planIndex + 1 }}：{{ plan.provider_product_nos.join(' + ') }}
-                              </div>
-                            </div>
-                          </div>
-                          <div v-if="!primarySourcePlans(row.primary_spec_name).length && !primarySuggestedPlans(row.primary_spec_name).length" class="mt-1 text-slate-400">当前一级规格还没有绑定货源</div>
+                          <span v-if="!lossMakingCandidates(row).length && !row.unavailable_candidates?.length && !row.partial_coverage?.length && !row.missing_products?.length && !row.closest_reference_candidates?.length" class="text-slate-400">-</span>
                         </td>
                       </tr>
                       </template>
                       <tr v-if="!adminPriceTableLoading && !(workflow.admin_price_table || []).length">
-                        <td colspan="15" class="px-3 py-5 text-center text-slate-400">当前商品还没有可展示的编号绑定</td>
+                        <td colspan="16" class="px-3 py-5 text-center text-slate-400">当前商品还没有可展示的编号绑定</td>
                       </tr>
                     </tbody>
                   </table>
@@ -1231,7 +1166,7 @@ const formatProfit = (profit) => {
 }
 
 const candidateProfit = (row, index) => {
-  const candidate = row?.candidates?.[index]
+  const candidate = displayPlanCandidates(row)[index]
   if (!candidate) return 0
   if (candidate.profit !== undefined && candidate.profit !== null) {
     return Number(candidate.profit || 0)
@@ -1261,6 +1196,23 @@ const hasDifferentSuggestedPlan = (row) => {
   return Boolean(suggested) && suggested !== current
 }
 
+const displayPlanCandidates = (row) => (
+  hasDifferentSuggestedPlan(row) ? row.suggested_plan_candidates || [] : row?.candidates || []
+)
+
+const lossMakingCandidates = (row) => displayPlanCandidates(row)
+  .map((candidate, index) => ({
+    provider_product_no: candidate?.provider_product_no,
+    loss: -candidateProfit(row, index),
+  }))
+  .filter((item) => item.provider_product_no && item.loss > 0)
+
+const needsPriceAdvice = (row) => displayPlanCandidates(row).some(
+  (candidate, index) => candidate?.is_available !== false
+    && candidate?.provider_product_no
+    && (candidateProfit(row, index) < 0.3 || candidateProfit(row, index) > 1.5),
+)
+
 const primarySourcePlans = (primarySpecName) => {
   const rows = workflow.value?.admin_price_table || []
   const plans = new Map()
@@ -1277,48 +1229,6 @@ const primarySourcePlans = (primarySpecName) => {
     }
   }
   return Array.from(plans.values())
-}
-
-// 页面总览每个杯型只展示一组完整方案；普通规格的逐行候选仍按原逻辑保留。
-const primarySummaryPlans = (primarySpecName) => {
-  const redeemRow = (workflow.value?.admin_price_table || []).find((row) => (
-    String(row?.primary_spec_name || '') === String(primarySpecName || '')
-    && row?.is_dynamic_redeem_sku
-  ))
-  const redeemCandidates = currentPlanCandidates(redeemRow)
-  if (redeemCandidates.length) {
-    return [{
-      signature: redeemCandidates.map((candidate) => String(candidate.provider_product_no)).sort().join('|'),
-      candidates: redeemCandidates,
-    }]
-  }
-  return primarySourcePlans(primarySpecName)
-}
-
-const primarySuggestedPlans = (primarySpecName) => {
-  const currentSignatures = new Set(
-    primarySourcePlans(primarySpecName).map((plan) => plan.signature),
-  )
-  const plans = new Map()
-  for (const row of workflow.value?.admin_price_table || []) {
-    if (String(row?.primary_spec_name || '') !== String(primarySpecName || '')) continue
-    for (const candidates of [row.suggested_plan_candidates || []]) {
-      const validCandidates = candidates.filter((candidate) => candidate?.provider_product_no)
-      if (!validCandidates.length) continue
-      const sortedCandidates = validCandidates.slice().sort(
-        (left, right) => Number(left?.cost_price || 0) - Number(right?.cost_price || 0),
-      )
-      const providerProductNos = sortedCandidates.map((candidate) => String(candidate.provider_product_no))
-      const signature = providerProductNos.slice().sort().join('|')
-      if (currentSignatures.has(signature) || plans.has(signature)) continue
-      plans.set(signature, {
-        signature,
-        provider_product_nos: providerProductNos,
-        total_cost: sortedCandidates.reduce((total, candidate) => total + Number(candidate?.cost_price || 0), 0),
-      })
-    }
-  }
-  return Array.from(plans.values()).sort((left, right) => left.total_cost - right.total_cost)
 }
 
 const primaryPlanReplacements = (primarySpecName) => {
@@ -1377,10 +1287,6 @@ const primaryUnboundSuggestedPlans = (primarySpecName) => {
   }
   return Array.from(plans.values()).sort((left, right) => left.total_cost - right.total_cost)
 }
-
-const replacementsForPlan = (primarySpecName, planIndex) => (
-  primaryPlanReplacements(primarySpecName).filter((item) => item.oldIndex === planIndex)
-)
 
 const sourcePlanSignature = (productNos = []) => productNos
   .map((productNo) => String(productNo || '').trim())
@@ -1569,17 +1475,17 @@ const sourcePlanDisplay = (row) => {
     const suggestedSignature = suggested.slice().sort().join('|')
     const existingIndex = primarySourcePlans(row?.primary_spec_name)
       .findIndex((plan) => plan.signature === suggestedSignature)
-    if (existingIndex >= 0) return `建议方案${existingIndex + 1}`
+    if (existingIndex >= 0) return `方案${existingIndex + 1}`
 
     const replacement = primaryPlanReplacements(row?.primary_spec_name)
       .find((item) => item.signature === suggestedSignature)
-    if (replacement) return `建议方案${replacement.oldIndex + 1}`
+    if (replacement) return `方案${replacement.oldIndex + 1}`
 
-    // 真正的新组合才按底部“建议新增方案”的顺序分配新编号。
+    // 真正的新组合才分配新的方案编号。
     const suggestedIndex = primaryUnboundSuggestedPlans(row?.primary_spec_name)
       .findIndex((plan) => plan.signature === suggestedSignature)
     const baseIndex = primarySourcePlans(row?.primary_spec_name).length
-    return `建议方案${baseIndex + Math.max(0, suggestedIndex) + 1}`
+    return `方案${baseIndex + Math.max(0, suggestedIndex) + 1}`
   }
   if (!suggested.length || current.slice().sort().join('|') === suggested.slice().sort().join('|')) {
     return sourcePlanLabel(row)
@@ -1587,14 +1493,7 @@ const sourcePlanDisplay = (row) => {
   const currentSignature = current.slice().sort().join('|')
   const oldPlanIndex = primarySourcePlans(row?.primary_spec_name)
     .findIndex((plan) => plan.signature === currentSignature)
-  return oldPlanIndex >= 0 ? `新方案${oldPlanIndex + 1}` : '新方案'
-}
-
-const isLastPrimaryRow = (row, rowIndex) => {
-  const rows = workflow.value?.admin_price_table || []
-  const currentPrimary = String(row?.primary_spec_name || '')
-  const nextPrimary = String(rows[rowIndex + 1]?.primary_spec_name || '')
-  return rowIndex === rows.length - 1 || currentPrimary !== nextPrimary
+  return oldPlanIndex >= 0 ? `方案${oldPlanIndex + 1}` : '方案'
 }
 
 const displayCategoryLabel = (category) => {
