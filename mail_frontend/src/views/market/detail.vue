@@ -381,7 +381,7 @@
                             售价 {{ formatTablePrice(row.sell_price) }}
                           </div>
                         </td>
-                        <td class="whitespace-nowrap px-3 py-2" :class="lossMakingCandidates(row).length ? 'font-bold text-red-700' : ''">
+                        <td class="whitespace-nowrap px-3 py-2" :class="currentLossMakingCandidates(row).length || lossMakingCandidates(row).length ? 'font-bold text-red-700' : ''">
                           {{ formatTablePrice(row.sell_price) }}
                         </td>
                         <td class="whitespace-nowrap px-3 py-2 font-semibold">
@@ -412,8 +412,11 @@
                           </td>
                         </template>
                         <td class="w-[520px] max-w-[520px] px-3 py-2 align-top">
-                          <div v-if="lossMakingCandidates(row).length" class="mt-1 text-xs font-semibold text-red-700">
-                            亏损：<span v-for="(item, index) in lossMakingCandidates(row)" :key="item.provider_product_no">编号 {{ item.provider_product_no }} 每单亏 {{ formatProfit(item.loss) }} 元<span v-if="index < lossMakingCandidates(row).length - 1">；</span></span>。
+                          <div v-if="currentLossMakingCandidates(row).length" class="mt-1 text-xs font-semibold text-red-700">
+                            当前下单方案亏损：<span v-for="(item, index) in currentLossMakingCandidates(row)" :key="item.provider_product_no">编号 {{ item.provider_product_no }} 每单亏 {{ formatProfit(item.loss) }} 元<span v-if="index < currentLossMakingCandidates(row).length - 1">；</span></span>。
+                          </div>
+                          <div v-if="hasDifferentSuggestedPlan(row) && lossMakingCandidates(row).length" class="mt-1 text-xs font-semibold text-red-700">
+                            分析方案也亏损：<span v-for="(item, index) in lossMakingCandidates(row)" :key="item.provider_product_no">编号 {{ item.provider_product_no }} 每单亏 {{ formatProfit(item.loss) }} 元<span v-if="index < lossMakingCandidates(row).length - 1">；</span></span>。
                           </div>
                           <div v-if="row.price_advice?.status === 'ok' && Number(row.price_advice.recommended_sell_price) !== Number(row.sell_price)" class="mt-1 text-xs font-semibold text-amber-900">
                             推荐售价 {{ formatTablePrice(row.price_advice.recommended_sell_price) }} 元（官方价 {{ formatTablePrice(row.price_advice.official_price) }} 元以内；各编号预计利润 {{ formatProfit(row.price_advice.min_profit) }}～{{ formatProfit(row.price_advice.max_profit) }} 元）。
@@ -456,7 +459,7 @@
                               仍缺：{{ row.closest_missing_products.join('、') }}
                             </div>
                           </div>
-                          <span v-if="!lossMakingCandidates(row).length && !row.unavailable_candidates?.length && !row.partial_coverage?.length && !row.missing_products?.length && !row.closest_reference_candidates?.length" class="text-slate-400">-</span>
+                          <span v-if="!currentLossMakingCandidates(row).length && !lossMakingCandidates(row).length && !row.unavailable_candidates?.length && !row.partial_coverage?.length && !row.missing_products?.length && !row.closest_reference_candidates?.length" class="text-slate-400">-</span>
                         </td>
                       </tr>
                       </template>
@@ -1165,14 +1168,15 @@ const formatProfit = (profit) => {
   return String(normalizedProfit)
 }
 
-const candidateProfit = (row, index) => {
-  const candidate = displayPlanCandidates(row)[index]
+const profitForCandidate = (row, candidate) => {
   if (!candidate) return 0
   if (candidate.profit !== undefined && candidate.profit !== null) {
     return Number(candidate.profit || 0)
   }
   return Number((Number(row.sell_price || 0) - Number(candidate.cost_price || 0)).toFixed(4))
 }
+
+const candidateProfit = (row, index) => profitForCandidate(row, displayPlanCandidates(row)[index])
 
 // 新接口提供真实绑定方案；旧数据仍回退到表格候选，避免历史资源无法展示。
 const currentPlanCandidates = (row) => {
@@ -1200,12 +1204,16 @@ const displayPlanCandidates = (row) => (
   hasDifferentSuggestedPlan(row) ? row.suggested_plan_candidates || [] : row?.candidates || []
 )
 
-const lossMakingCandidates = (row) => displayPlanCandidates(row)
-  .map((candidate, index) => ({
+const lossesForCandidates = (row, candidates) => candidates
+  .filter((candidate) => candidate?.is_available !== false)
+  .map((candidate) => ({
     provider_product_no: candidate?.provider_product_no,
-    loss: -candidateProfit(row, index),
+    loss: -profitForCandidate(row, candidate),
   }))
   .filter((item) => item.provider_product_no && item.loss > 0)
+
+const lossMakingCandidates = (row) => lossesForCandidates(row, displayPlanCandidates(row))
+const currentLossMakingCandidates = (row) => lossesForCandidates(row, currentPlanCandidates(row))
 
 const needsPriceAdvice = (row) => displayPlanCandidates(row).some(
   (candidate, index) => candidate?.is_available !== false
