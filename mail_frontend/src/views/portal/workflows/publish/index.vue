@@ -227,9 +227,9 @@
             <div class="flex items-center justify-between">
               <div class="flex items-center gap-3">
                 <label class="text-sm font-semibold text-gray-900">规格</label>
-                <div v-if="showCupTabs" class="flex items-center gap-1 rounded-lg bg-gray-100 p-1">
+                <div v-if="formData.resourceType === 'product'" class="flex flex-wrap items-center gap-1 rounded-lg bg-gray-100 p-1">
                   <button
-                    v-for="option in cupSpecOptions"
+                    v-for="option in primarySpecTabs"
                     :key="option.id"
                     type="button"
                     class="rounded-md px-3 py-1 text-xs font-medium transition"
@@ -240,16 +240,34 @@
                   </button>
                 </div>
               </div>
-              <button type="button" class="text-sm font-medium text-primary-700 hover:text-primary-800" @click="addSku">
-                添加规格
-              </button>
+              <div class="flex flex-wrap items-center gap-2">
+                <button v-if="showCupTabs" type="button" class="text-xs font-medium text-primary-700" @click="useCustomSpecGroups = true">
+                  自定义分类
+                </button>
+                <template v-if="formData.resourceType === 'product' && !showCupTabs">
+                  <input v-model.trim="newPrimarySpecName" type="text" maxlength="40" placeholder="新分类名称" class="h-8 w-32 rounded border border-gray-300 px-2 text-xs" />
+                  <button type="button" class="text-xs font-medium text-primary-700" @click="addPrimarySpec">添加分类</button>
+                </template>
+                <button type="button" class="text-sm font-medium text-primary-700 hover:text-primary-800" @click="addSku">
+                  添加规格
+                </button>
+              </div>
             </div>
 
             <div class="space-y-3">
               <div v-for="group in visibleSkuGroups" :key="group.id" class="space-y-2">
                 <div class="flex items-center gap-2 border-b border-gray-100 pb-1 text-sm font-semibold text-gray-700">
                   <span class="h-2 w-2 rounded-full bg-primary-500"></span>
-                  {{ group.name }}
+                  <input
+                    v-if="formData.resourceType === 'product' && !showCupTabs"
+                    :value="group.name"
+                    type="text"
+                    maxlength="40"
+                    aria-label="一级分类名称"
+                    class="min-w-0 flex-1 rounded border border-transparent px-1 py-0.5 font-semibold focus:border-gray-300 focus:outline-none"
+                    @change="renamePrimarySpec(group.id, $event.target.value)"
+                  />
+                  <span v-else>{{ group.name }}</span>
                   <span class="text-xs font-normal text-gray-400">{{ group.items.length }} 个规格</span>
                 </div>
                 <div
@@ -900,29 +918,80 @@ const groupedSkus = computed(() => {
 })
 
 const selectedPrimarySpecId = ref('cup-large')
+const newPrimarySpecName = ref('')
+const useCustomSpecGroups = ref(false)
 const cupSpecOptions = [
   { id: 'cup-large', name: '大杯', sort: 1 },
   { id: 'cup-super', name: '超大杯', sort: 2 }
 ]
-const showCupTabs = computed(() => (
-  formData.value.resourceType === 'product'
-  && (formData.value.primaryCategory === 'food_drink' || groupedSkus.value.some((group) => ['cup-large', 'cup-super'].includes(group.id)))
+const hasCustomSpecGroups = computed(() => groupedSkus.value.some(
+  (group) => !['cup-large', 'cup-super', 'primary-default'].includes(group.id)
 ))
+const showCupTabs = computed(() => formData.value.resourceType === 'product'
+  && !useCustomSpecGroups.value
+  && !hasCustomSpecGroups.value
+  && (formData.value.primaryCategory === 'food_drink'
+    || groupedSkus.value.some((group) => ['cup-large', 'cup-super'].includes(group.id))))
+const primarySpecTabs = computed(() => showCupTabs.value ? cupSpecOptions : groupedSkus.value)
 const visibleSkuGroups = computed(() => {
-  if (!showCupTabs.value) return groupedSkus.value
-  const activeId = selectedPrimarySpecId.value || 'cup-large'
+  if (!showCupTabs.value) {
+    const active = groupedSkus.value.find((group) => group.id === selectedPrimarySpecId.value)
+    return active ? [active] : groupedSkus.value
+  }
+  const activeId = cupSpecOptions.some((option) => option.id === selectedPrimarySpecId.value)
+    ? selectedPrimarySpecId.value : 'cup-large'
   const activeGroup = groupedSkus.value.find((group) => group.id === activeId)
   return activeGroup ? [activeGroup] : [{ ...cupSpecOptions.find((item) => item.id === activeId), items: [] }]
 })
 
-watch(groupedSkus, (groups) => {
-  if (groups.length && !groups.some((group) => group.id === selectedPrimarySpecId.value)) {
+watch([groupedSkus, showCupTabs], ([groups, cupTabs]) => {
+  if (cupTabs) {
+    if (!cupSpecOptions.some((option) => option.id === selectedPrimarySpecId.value)) {
+      selectedPrimarySpecId.value = 'cup-large'
+    }
+  } else if (groups.length && !groups.some((group) => group.id === selectedPrimarySpecId.value)) {
     selectedPrimarySpecId.value = groups[0].id
   }
 }, { immediate: true })
 
 const selectPrimarySpec = (primarySpecId) => {
   selectedPrimarySpecId.value = primarySpecId
+}
+
+const addPrimarySpec = () => {
+  const name = newPrimarySpecName.value.trim()
+  if (!name) return
+  const existing = groupedSkus.value.find((group) => group.name === name)
+  if (existing) {
+    selectedPrimarySpecId.value = existing.id
+    newPrimarySpecName.value = ''
+    return
+  }
+  const id = `primary-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`
+  const sort = Math.max(0, ...groupedSkus.value.map((group) => Number(group.sort || 0))) + 1
+  const initialSku = formData.value.skus.length === 1 && groupedSkus.value[0]?.id === 'primary-default'
+    ? formData.value.skus[0] : null
+  if (initialSku) {
+    initialSku.primarySpecId = id
+    initialSku.primarySpecName = name
+    initialSku.primarySpecSort = sort
+    if (initialSku.name === '白色') initialSku.name = '新规格'
+  } else {
+    formData.value.skus.push(createSku({
+      name: '新规格', allowBatchPurchase: true,
+      primarySpecId: id, primarySpecName: name, primarySpecSort: sort
+    }))
+  }
+  selectedPrimarySpecId.value = id
+  newPrimarySpecName.value = ''
+}
+
+const renamePrimarySpec = (id, rawName) => {
+  const name = String(rawName || '').trim()
+  if (!name) return
+  formData.value.skus.forEach((sku) => {
+    if (inferSkuPrimarySpec(sku).id === id) sku.primarySpecName = name
+  })
 }
 
 const isSkuBound = (sku) => Boolean(sku.sourceBindings?.length || sku.pendingProviderProducts?.length)
@@ -1208,7 +1277,7 @@ const saveSkuSourceBindings = async (normalizedSkus) => {
 }
 
 const addSku = () => {
-  const activePrimary = cupSpecOptions.find((option) => option.id === selectedPrimarySpecId.value)
+  const activePrimary = primarySpecTabs.value.find((option) => option.id === selectedPrimarySpecId.value)
   formData.value.skus.push(createSku({
     name: formData.value.skus.length === 0 ? '白色' : '黑色',
     allowBatchPurchase: true,
