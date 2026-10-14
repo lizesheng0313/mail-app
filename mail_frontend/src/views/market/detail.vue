@@ -186,7 +186,7 @@
                   <span class="text-sm font-medium text-gray-700">{{
                     t('marketDetail.quantityLabel')
                   }}</span>
-                  <span class="text-xs text-gray-500">
+                  <span v-if="workflow.inventory_enabled" class="text-xs text-gray-500">
                     {{
                       t('marketDetail.remainingInventory', { count: workflow.inventory_count || 0 })
                     }}
