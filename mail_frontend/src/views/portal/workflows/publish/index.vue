@@ -445,7 +445,7 @@
             </span>
             <span
               v-for="product in currentSourceSku.pendingProviderProducts"
-              :key="`pending-${product.id}`"
+              :key="`pending-${product.source_id}-${product.source_kind}-${product.provider_product_no}`"
               class="inline-flex items-center gap-2 rounded-full bg-primary-50 py-1 pl-1 pr-3 text-xs text-primary-700"
             >
               <img
@@ -455,7 +455,7 @@
               />
               <span v-else class="h-6 w-6 rounded-full bg-primary-100"></span>
               {{ product.provider_product_title }} / {{ money(product.cost_price) }}
-              <button type="button" class="text-red-500" @click="removePendingProvider(currentSourceSku, product.id)">×</button>
+              <button type="button" class="text-red-500" @click="removePendingProvider(currentSourceSku, product)">×</button>
             </span>
           </div>
         </div>
@@ -473,7 +473,7 @@
         <div class="max-h-[60vh] overflow-auto rounded-xl border border-gray-100" @scroll="handleProviderScroll">
           <button
             v-for="product in providerProducts"
-            :key="product.id"
+            :key="`${product.source_id}-${product.source_kind}-${product.provider_product_no}`"
             type="button"
             class="flex w-full items-center justify-between gap-3 border-b border-gray-100 px-3 py-3 text-left hover:bg-primary-50"
             @click="addPendingProvider(currentSourceSku, product)"
@@ -1164,7 +1164,7 @@ const loadProviderProducts = async ({ reset = false } = {}) => {
         order_fields: normalizeProviderOrderFields(item.order_fields)
       }))
       providerProducts.value = reset ? items : [...providerProducts.value, ...items]
-      providerHasMore.value = items.length >= providerPageSize
+      providerHasMore.value = Boolean(res.data.has_next_page)
       if (providerHasMore.value) {
         providerPage.value += 1
       }
@@ -1201,8 +1201,11 @@ const closeSourceModal = () => {
 
 const addPendingProvider = (sku, product) => {
   const productNo = String(product.provider_product_no || '')
-  const exists = (sku.sourceBindings || []).some(item => String(item.provider_product_no || '') === productNo)
-    || (sku.pendingProviderProducts || []).some(item => Number(item.id) === Number(product.id))
+  const sameSource = (item) => Number(item.source_id) === Number(product.source_id)
+    && String(item.source_kind || 'standard') === String(product.source_kind || 'standard')
+    && String(item.provider_product_no || '') === productNo
+  const exists = (sku.sourceBindings || []).some(sameSource)
+    || (sku.pendingProviderProducts || []).some(sameSource)
   if (exists) {
     showMessage('这个货源已经在当前规格里了', 'warning')
     return
@@ -1216,8 +1219,12 @@ const addPendingProvider = (sku, product) => {
   ]
 }
 
-const removePendingProvider = (sku, productId) => {
-  sku.pendingProviderProducts = (sku.pendingProviderProducts || []).filter(item => Number(item.id) !== Number(productId))
+const removePendingProvider = (sku, product) => {
+  sku.pendingProviderProducts = (sku.pendingProviderProducts || []).filter(item =>
+    Number(item.source_id) !== Number(product.source_id)
+    || String(item.source_kind || 'standard') !== String(product.source_kind || 'standard')
+    || String(item.provider_product_no || '') !== String(product.provider_product_no || '')
+  )
 }
 
 const removeSkuBinding = async (sku, binding) => {
@@ -1265,7 +1272,9 @@ const saveSkuSourceBindings = async (normalizedSkus) => {
       const res = await bindResourceProviderProduct({
         workflow_id: workflowDbId.value,
         local_sku_id: localSkuId,
-        provider_product_id: product.id,
+        source_id: product.source_id,
+        source_kind: product.source_kind,
+        provider_product_no: product.provider_product_no,
         sell_price: normalizedSkus[index]?.sell_price || normalizedSkus[index]?.price || 0
       })
       if (res.code !== 0) {
