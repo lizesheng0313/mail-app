@@ -872,8 +872,6 @@ const zhTW = {
     delete: '刪除',
     empty: '暫無網域資料',
     creating: '添加中...',
-    createHint:
-      '輸入網域後會立即生成需要配置的 DNS 記錄。完成驗證後，這個網域就可以在首頁生成郵箱地址。',
     optional: '可選',
     detailTitle: '網域詳情',
     addTitle: '添加網域',
@@ -909,10 +907,8 @@ const zhTW = {
     copyHostRecord: '複製主機記錄',
     copyValue: '複製記錄值',
     catchAllTitle: '未匹配郵箱代收',
-    catchAllCreateDesc: '開啟後，未建立地址的郵件會統一收到 {mailbox}；關閉後不收。',
+    catchAllCreateDesc: '開啟後，未建立郵箱的來信也會存入 {mailbox}。',
     catchAllDetailDesc: '開啟後，驗證通過才會啟用 {mailbox} 代收；未驗證前不會代收。',
-    catchAllDnsDesc:
-      '子網域或多級網域是否能代收，取決於 DNS 是否已把對應子網域或通配子網域的 MX 指向目前收件伺服器。',
     catchAllMailbox: '代收郵箱：{mailbox}',
     currentCatchAllMailbox: '目前代收郵箱：{mailbox}',
     verifying: '驗證中',
@@ -959,7 +955,7 @@ const zhTW = {
     joinSharedPlanBadge: '加入共享可賺收益',
     sharedPlanSelfUse: '自己使用自己的網域時，請在「網域郵箱」中免費建立，不扣奶片，也不產生分成。',
     publicDomainLabel: '加入共享網域計劃',
-    publicDomainHelp: '開啟後，其他使用者可以付費指定使用這個網域；該網域不會進入免費隨機池。',
+    publicDomainHelp: '他人付費使用此網域建立郵箱，你可得一半奶片；不參與免費隨機分配。',
     publicDomainBadge: '共享網域',
     sharedEarningsNotice: '昨日透過你的共享網域建立了 {orders} 個郵箱，收益 {income} 奶片'
   },

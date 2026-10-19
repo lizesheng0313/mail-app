@@ -1,7 +1,7 @@
 <template>
   <div id="app">
     <RouterView />
-    <FloatingLiveChat v-if="showFloatingTools && userStore.isAuthenticated" />
+    <FloatingLiveChat v-if="userStore.isAuthenticated" :active="showFloatingTools" />
     <GuestLiveChat v-else-if="showFloatingTools" />
     <SystemMaintenance ref="maintenanceRef" />
     <AppUpdater ref="updaterRef" />

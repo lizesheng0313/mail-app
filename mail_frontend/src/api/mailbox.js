@@ -4,6 +4,7 @@
 
 import api from '@/services/api'
 import { getGuestVisitorId } from '@/utils/guestIdentity'
+import { getStoredGuestClaimTokens } from '@/utils/guestMailboxes'
 
 export const mailboxAPI = {
   // 获取临时邮箱（未注册用户）
@@ -13,7 +14,7 @@ export const mailboxAPI = {
   }),
 
   getGuestQuota: () => api.get('/mailboxes/temp/quota', {
-    headers: { 'X-Guest-Visitor-Id': getGuestVisitorId() },
+    headers: { 'X-Guest-Visitor-Id': getGuestVisitorId(), 'X-Guest-Mailbox-Tokens': getStoredGuestClaimTokens().join(',') },
     skipAuth: true
   }),
 

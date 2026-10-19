@@ -14,7 +14,7 @@ const mocks = vi.hoisted(() => ({
   },
 }))
 
-vi.mock('@/services/api', () => ({ default: mocks, getApiBaseURL: () => '/mail-api/v1' }))
+vi.mock('@/services/api', () => ({ default: mocks, getApiBaseURL: () => '/mail-api/v1', handleSessionUnauthorized: vi.fn() }))
 vi.mock('@/stores/user', () => ({ useUserStore: () => ({ isAuthenticated: true, user: { id: 1, is_admin: true } }) }))
 vi.mock('@/utils/message', () => ({ showMessage: mocks.showMessage }))
 vi.mock('@/utils/imageUpload', () => ({ uploadImageFile: vi.fn() }))

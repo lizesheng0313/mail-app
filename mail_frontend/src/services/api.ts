@@ -3,6 +3,7 @@ import { showMessage } from '@/utils/message'
 import { getCurrentLocale, i18n } from '@/i18n'
 import { getClientPlatform, isTauri } from '@/services/clientPlatform'
 import { classifySessionError } from '@/services/sessionAuth'
+import { getBrowserInstanceId } from '@/services/sessionIdentity'
 
 const normalizeMessageValue = (value: any): string => {
   if (value === undefined || value === null) return ''
@@ -56,6 +57,22 @@ export const shouldSuppressErrorMessage = (config: any) =>
   config?.suppressErrorMessage === true ||
   config?.suppressErrorMessage === 'silent'
 const t = (key: string) => String(i18n.global.t(key))
+
+export const handleSessionUnauthorized = (payload: any, tokenSnapshot: string) => {
+  const detail = extractApiErrorMessage(payload, '').trim().toLowerCase()
+  const disabled = detail === '账户已被禁用' || detail === 'this account has been disabled'
+  const replaced = classifySessionError(payload) === 'replaced'
+  const message = t(disabled ? 'common.accountDisabled' : replaced ? 'common.sessionReplaced' : 'common.sessionExpired')
+  if (!tokenSnapshot || tokenSnapshot !== (localStorage.getItem('token') || '')) return message
+
+  if (disabled || replaced) sessionStorage.setItem('login_error_message', message)
+  localStorage.removeItem('token')
+  localStorage.removeItem('user')
+  localStorage.removeItem('isAuthenticated')
+  showMessage(message, 'error')
+  setTimeout(() => { window.location.href = '/login' }, 500)
+  return message
+}
 
 export const BALANCE_INSUFFICIENT_CODE = 10001
 
@@ -175,6 +192,11 @@ api.interceptors.request.use(
       config.headers = {} as any
     }
     config.headers['X-Client-Type'] = getClientPlatform()
+    try {
+      config.headers['X-Visitor-Id'] = getBrowserInstanceId()
+    } catch {
+      // Monitoring must not interrupt requests if browser storage is unavailable.
+    }
     config.headers['Accept-Language'] = getCurrentLocale()
     
     return config
@@ -220,50 +242,7 @@ api.interceptors.response.use(
         return Promise.reject(error)
       }
       const requestTokenSnapshot = String((error.config as any)?.__authTokenSnapshot || '')
-      const currentToken = localStorage.getItem('token') || ''
-      const shouldInvalidateCurrentSession =
-        Boolean(requestTokenSnapshot) && requestTokenSnapshot === currentToken
-
-      const backendDetail = extractApiErrorMessage(error.response?.data, '').trim().toLowerCase()
-      const sessionErrorKind = classifySessionError(error.response?.data)
-      const isAccountDisabled =
-        backendDetail === '账户已被禁用' ||
-        backendDetail === 'this account has been disabled'
-      const isSessionReplaced = sessionErrorKind === 'replaced'
-      const authErrorMessage = isAccountDisabled
-        ? t('common.accountDisabled')
-        : isSessionReplaced
-          ? t('common.sessionReplaced')
-        : t('common.sessionExpired')
-
-      // 旧请求晚返回 401 时，不要把当前已切换的新会话一并清掉。
-      if (!shouldInvalidateCurrentSession) {
-        return Promise.reject({
-          response: {
-            data: {
-              code: 1,
-              message: authErrorMessage,
-              data: null
-            }
-          }
-        })
-      }
-
-      if (isAccountDisabled || isSessionReplaced) {
-        sessionStorage.setItem('login_error_message', authErrorMessage)
-      }
-
-      // 未授权，清除本地存储并跳转到登录页
-      localStorage.removeItem('token')
-      localStorage.removeItem('user')
-      localStorage.removeItem('isAuthenticated')
-
-      showMessage(authErrorMessage, 'error')
-
-      // 刷新页面并跳转到登录页
-      setTimeout(() => {
-        window.location.href = '/login'
-      }, 500)
+      const authErrorMessage = handleSessionUnauthorized(error.response?.data, requestTokenSnapshot)
 
       return Promise.reject({
         response: {

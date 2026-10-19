@@ -3,6 +3,7 @@ import axios from 'axios'
 import { getCurrentLocale, i18n } from '@/i18n'
 import { extractApiErrorMessage, getServerUrl } from '@/services/api'
 import { showMessage } from '@/utils/message'
+import { getBrowserInstanceId } from '@/services/sessionIdentity'
 
 const shouldSuppressErrorMessage = (config: any) =>
   config?.silentErrorMessage === true || config?.suppressErrorMessage === 'silent'
@@ -37,6 +38,12 @@ openPlatformApi.interceptors.request.use(
       config.headers = {} as any
     }
     config.headers['Accept-Language'] = getCurrentLocale()
+    try {
+      config.headers['X-Visitor-Id'] = getBrowserInstanceId()
+      config.headers['X-Client-Type'] = 'web'
+    } catch {
+      // Keep API access available when browser storage is unavailable.
+    }
     return config
   },
   (error) => Promise.reject(error)

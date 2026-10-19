@@ -2,6 +2,7 @@ import { onBeforeUnmount, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { monitoringAPI } from '@/api/monitoring'
 import { useUserStore } from '@/stores/user'
+import { onOnlineSessionSocketReady, sendOnlineSessionHeartbeat } from '@/services/onlineSessionTransport'
 import {
   getBrowserInstanceId,
   getClientPlatform,
@@ -33,6 +34,10 @@ export function useOnlineSession() {
   let heartbeatTimer: number | null = null
   let currentUserId: number | null = null
   let channel: BroadcastChannel | null = null
+  let stopSocketReadyListener: (() => void) | null = null
+  let heartbeatRequest: Promise<void> | null = null
+  let sessionVersion = 0
+  let pageLeaving = false
 
   const buildPayload = (userId?: number | null) => ({
     session_id: tabSessionId,
@@ -64,20 +69,33 @@ export function useOnlineSession() {
     }
   }
 
-  const startHeartbeat = () => {
-    clearHeartbeat()
-    heartbeatTimer = window.setInterval(async () => {
-      if (!currentUserId) return
+  const refreshOnlineSession = () => {
+    if (!currentUserId || pageLeaving) return Promise.resolve()
+    if (heartbeatRequest) return heartbeatRequest
+    const payload = buildPayload(currentUserId)
+    const request = (async () => {
       try {
-        await monitoringAPI.heartbeatOnlineSession(buildPayload(currentUserId))
+        await sendOnlineSessionHeartbeat(payload)
       } catch (error) {
         console.error('在线心跳失败:', error)
       }
+    })().finally(() => {
+      if (heartbeatRequest === request) heartbeatRequest = null
+    })
+    heartbeatRequest = request
+    return request
+  }
+
+  const startHeartbeat = () => {
+    clearHeartbeat()
+    heartbeatTimer = window.setInterval(() => {
+      void refreshOnlineSession()
     }, HEARTBEAT_INTERVAL_MS)
   }
 
   const enterSession = async (userId: number) => {
     currentUserId = userId
+    const version = ++sessionVersion
     postSyncMessage({
       type: 'auth-switch',
       browser_instance_id: browserInstanceId,
@@ -85,23 +103,23 @@ export function useOnlineSession() {
       user_id: userId,
       ts: Date.now()
     })
-    await monitoringAPI.enterOnlineSession(buildPayload(userId))
-    startHeartbeat()
+    await refreshOnlineSession()
+    if (currentUserId === userId && sessionVersion === version && !pageLeaving) startHeartbeat()
   }
 
   const leaveSession = async (userId?: number | null) => {
     clearHeartbeat()
     const targetUserId = userId ?? currentUserId
-    if (!targetUserId) {
-      currentUserId = null
-      return
-    }
+    currentUserId = null
+    sessionVersion += 1
+    if (!targetUserId) return
+    // 先等正在进行的上报结束，避免旧心跳在退出后把会话重新标为在线。
+    await heartbeatRequest
+    if (currentUserId === targetUserId) return
     try {
       await monitoringAPI.leaveOnlineSession(buildPayload(targetUserId))
     } catch (error) {
       console.error('离开在线会话失败:', error)
-    } finally {
-      currentUserId = null
     }
   }
 
@@ -129,11 +147,26 @@ export function useOnlineSession() {
   }
 
   const handlePageHide = () => {
-    if (!currentUserId) return
+    if (!currentUserId || pageLeaving) return
+    pageLeaving = true
+    clearHeartbeat()
     leaveWithBeacon(currentUserId)
   }
 
+  const handlePageShow = () => {
+    if (!pageLeaving) return
+    pageLeaving = false
+    if (!currentUserId) return
+    void refreshOnlineSession()
+    startHeartbeat()
+  }
+
+  const handleVisibilityChange = () => {
+    if (document.visibilityState === 'visible') void refreshOnlineSession()
+  }
+
   onMounted(() => {
+    stopSocketReadyListener = onOnlineSessionSocketReady(() => { void refreshOnlineSession() })
     if (typeof BroadcastChannel !== 'undefined') {
       channel = new BroadcastChannel(AUTH_SYNC_CHANNEL)
       channel.onmessage = (event) => {
@@ -144,28 +177,25 @@ export function useOnlineSession() {
     }
 
     window.addEventListener('pagehide', handlePageHide)
-    window.addEventListener('beforeunload', handlePageHide)
+    window.addEventListener('pageshow', handlePageShow)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
   })
 
   onBeforeUnmount(() => {
+    pageLeaving = true
     clearHeartbeat()
+    stopSocketReadyListener?.()
     channel?.close()
     channel = null
     window.removeEventListener('storage', handleStorage)
     window.removeEventListener('pagehide', handlePageHide)
-    window.removeEventListener('beforeunload', handlePageHide)
+    window.removeEventListener('pageshow', handlePageShow)
+    document.removeEventListener('visibilitychange', handleVisibilityChange)
   })
 
   watch(
     () => route.fullPath,
-    async () => {
-      if (!currentUserId) return
-      try {
-        await monitoringAPI.heartbeatOnlineSession(buildPayload(currentUserId))
-      } catch (error) {
-        console.error('切页刷新在线状态失败:', error)
-      }
-    }
+    () => { void refreshOnlineSession() }
   )
 
   watch(
@@ -178,6 +208,7 @@ export function useOnlineSession() {
         if (currentUserId && currentUserId !== userId) {
           await leaveSession(currentUserId)
         }
+        if (!userStore.isAuthenticated || userStore.user?.id !== userId) return
         await enterSession(userId)
         return
       }

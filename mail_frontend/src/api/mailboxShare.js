@@ -3,22 +3,13 @@
  */
 import request from '@/services/api'
 import { getStoredGuestClaimTokens } from '@/utils/guestMailboxes'
-
-const SHARE_VISITOR_STORAGE_KEY = 'mailbox_share_visitor_id'
+import { getBrowserInstanceId } from '@/services/sessionIdentity'
 
 export const getShareVisitorId = () => {
   if (typeof window === 'undefined') return ''
 
   try {
-    const existing = window.localStorage.getItem(SHARE_VISITOR_STORAGE_KEY)
-    if (existing) return existing
-
-    const generated =
-      typeof window.crypto?.randomUUID === 'function'
-        ? window.crypto.randomUUID()
-        : `${Date.now()}-${Math.random().toString(36).slice(2)}`
-    window.localStorage.setItem(SHARE_VISITOR_STORAGE_KEY, generated)
-    return generated
+    return getBrowserInstanceId()
   } catch {
     return ''
   }

@@ -35,12 +35,6 @@ export const monitoringAPI = {
   getGuestConversionFunnel: (days = 7) =>
     api.get('/monitoring/guest-conversion-funnel', { params: { days } }),
 
-  // 进入在线会话
-  enterOnlineSession: (payload) => api.post('/monitoring/online-session/enter', payload),
-
-  // 在线心跳
-  heartbeatOnlineSession: (payload) => api.post('/monitoring/online-session/heartbeat', payload),
-
   // 离开在线会话
   leaveOnlineSession: (payload) => api.post('/monitoring/online-session/leave', payload),
 

@@ -908,8 +908,6 @@ const en = {
     delete: 'Delete',
     empty: 'No domains',
     creating: 'Adding...',
-    createHint:
-      'After you enter a domain, the required DNS records are generated immediately. Once verified, you can create mailbox addresses for it on the home page.',
     optional: 'Optional',
     detailTitle: 'Domain Details',
     addTitle: 'Add Domain',
@@ -945,12 +943,9 @@ const en = {
     copyHostRecord: 'Copy host record',
     copyValue: 'Copy value',
     catchAllTitle: 'Catch-All for Unmatched Addresses',
-    catchAllCreateDesc:
-      'When enabled, emails sent to uncreated addresses are routed to {mailbox}; when disabled, they are not received.',
+    catchAllCreateDesc: 'When enabled, mail for addresses you haven’t created goes to {mailbox}.',
     catchAllDetailDesc:
       'When enabled, {mailbox} is used only after verification passes; before verification, it does not receive mail.',
-    catchAllDnsDesc:
-      'Whether subdomains or multi-level subdomains can be received depends on whether the corresponding MX records point to the current mail server.',
     catchAllMailbox: 'Catch-all mailbox: {mailbox}',
     currentCatchAllMailbox: 'Current catch-all mailbox: {mailbox}',
     verifying: 'Verifying',
@@ -998,7 +993,7 @@ const en = {
     joinSharedPlanBadge: 'Share this domain to earn',
     sharedPlanSelfUse: 'To use your own domain, create the mailbox for free under Domain Mailboxes. No coins are charged and no revenue share is generated.',
     publicDomainLabel: 'Join the shared domain plan',
-    publicDomainHelp: 'Other users can pay to create an exact-name mailbox with this domain. It is never used for free random generation.',
+    publicDomainHelp: 'Earn half the coins when others pay to create mailboxes with your domain. Excluded from free random generation.',
     publicDomainBadge: 'Shared Domain',
     sharedEarningsNotice:
       'Yesterday, {orders} mailboxes were created with your shared domains and earned {income} coins.'

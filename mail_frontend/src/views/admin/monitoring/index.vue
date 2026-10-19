@@ -12,11 +12,8 @@
         <div class="bg-white rounded-lg shadow-sm border p-6">
           <div class="flex items-center justify-between">
             <div>
-              <p class="text-sm text-black">今日收到邮件</p>
-              <p class="text-2xl font-bold text-black">{{ overview.today_stats?.received_emails || 0 }}</p>
-              <p class="text-xs" :class="getGrowthClass(overview.growth_rates?.received_emails)">
-                {{ formatGrowthRate(overview.growth_rates?.received_emails) }}
-              </p>
+              <p class="text-sm text-black">系统邮箱今日收件</p>
+              <p class="text-2xl font-bold text-black">{{ overview.today_stats?.system_received_today || 0 }}</p>
             </div>
             <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
               <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -64,9 +61,10 @@
         <div class="bg-white rounded-lg shadow-sm border p-6">
           <div class="flex items-center justify-between">
             <div>
-              <p class="text-sm text-black">平均申请数</p>
+              <p class="text-sm text-black">系统邮箱平均申请数</p>
               <p class="text-2xl font-bold text-black">{{ formatNumber(userStats.today_user_apply_stats?.avg_mailboxes_per_person) }}</p>
               <p class="text-xs text-black">个/人</p>
+              <p v-if="userStats.today_user_apply_stats?.unknown_applicant_mailboxes" class="mt-1 text-xs text-gray-500">{{ userStats.today_user_apply_stats.unknown_applicant_mailboxes }} 个历史申请待补身份，未纳入平均数</p>
             </div>
             <div class="w-12 h-12 bg-pink-100 rounded-lg flex items-center justify-center">
               <svg class="w-6 h-6 text-pink-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -74,6 +72,13 @@
               </svg>
             </div>
           </div>
+        </div>
+      </div>
+
+      <div v-if="monitoringSection === 'overview'" class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
+        <div v-for="metric in overviewMailboxMetrics" :key="metric.key" class="rounded-lg border bg-white p-6 shadow-sm">
+          <p class="text-sm text-black">{{ metric.label }}</p>
+          <p class="mt-2 text-2xl font-bold text-black">{{ overview.today_stats?.[metric.key] || 0 }}</p>
         </div>
       </div>
 
@@ -133,7 +138,7 @@
           />
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           <div class="rounded-lg bg-orange-50 border border-orange-100 p-4">
             <p class="text-sm text-black">当前在线用户（去重）</p>
             <p class="mt-2 text-2xl font-bold text-black">{{ businessStats.summary?.online_users_now || 0 }}</p>
@@ -156,9 +161,15 @@
           </div>
 
           <div class="rounded-lg bg-violet-50 border border-violet-100 p-4">
-            <p class="text-sm text-black">API 今日使用人数</p>
+            <p class="text-sm text-black">开放平台 API 今日使用人数</p>
             <p class="mt-2 text-2xl font-bold text-black">{{ businessStats.summary?.api_active_users_today || 0 }}</p>
             <p class="mt-1 text-xs text-black">调用量 {{ businessStats.summary?.api_calls_today || 0 }}</p>
+          </div>
+
+          <div class="rounded-lg bg-violet-50 border border-violet-100 p-4">
+            <p class="text-sm text-black">普通业务 API 今日调用量</p>
+            <p class="mt-2 text-2xl font-bold text-black">{{ businessStats.summary?.business_api_calls_today || 0 }}</p>
+            <p class="mt-1 text-xs text-black">已登录站内用户 {{ businessStats.summary?.business_api_active_users_today || 0 }}</p>
           </div>
 
           <div class="rounded-lg bg-cyan-50 border border-cyan-100 p-4">
@@ -174,40 +185,96 @@
           </div>
 
           <div class="rounded-lg bg-amber-50 border border-amber-100 p-4">
-            <p class="text-sm text-black">临时邮箱今日收件</p>
+            <p class="text-sm text-black">系统邮箱今日收件</p>
             <p class="mt-2 text-2xl font-bold text-black">{{ businessStats.summary?.system_received_today || 0 }}</p>
             <p class="mt-1 text-xs text-black">使用人数 {{ businessStats.summary?.system_enabled_users || 0 }}</p>
           </div>
 
           <div class="rounded-lg bg-slate-50 border border-slate-100 p-4">
-            <p class="text-sm text-black">API 已启用用户</p>
+            <p class="text-sm text-black">开放平台 API 已启用用户</p>
             <p class="mt-2 text-2xl font-bold text-black">{{ businessStats.summary?.api_enabled_users || 0 }}</p>
             <p class="mt-1 text-xs text-black">今日活跃 Key {{ businessStats.summary?.api_active_keys_today || 0 }}</p>
           </div>
         </div>
 
-        <div v-if="businessStats.trend?.length" class="mt-6 overflow-x-auto">
+        <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div v-for="kind in mailboxApplicationKinds" :key="kind.key" class="rounded-lg border bg-gray-50 p-4">
+            <p class="text-sm text-black">{{ kind.label }}今日申请</p>
+            <p class="mt-2 text-2xl font-bold text-black">{{ businessStats.summary?.[`${kind.key}_created_today`] || 0 }}</p>
+            <p class="mt-1 text-xs text-black">申请人数 {{ businessStats.summary?.[`${kind.key}_created_users_today`] || 0 }}</p>
+          </div>
+        </div>
+
+        <div class="mt-4 rounded-lg border p-4">
+          <h4 class="text-sm font-semibold text-black">小程序账号归属邮箱今日收件</h4>
+          <p class="mt-1 text-xs text-gray-500">包含微信账号及其绑定账号名下的邮箱；以下数字是对应邮箱类型收件中的子项。</p>
+          <div class="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div v-for="kind in mailboxReceiptKinds" :key="kind.key">
+              <p class="text-sm text-black">{{ kind.label }}</p>
+              <p class="mt-1 text-2xl font-bold text-black">{{ businessStats.summary?.[`miniapp_${kind.key}_received_today`] || 0 }}</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-6 overflow-x-auto" data-testid="api-breakdown">
+          <h4 class="mb-2 text-sm font-semibold text-black">API 鉴权与调用结果</h4>
+          <p class="mb-3 text-xs text-gray-500">文档、元信息和日志查询接口均计入。成功为 HTTP 状态小于 400 且业务码为 0；其余计为失败。</p>
+          <table class="min-w-full divide-y divide-gray-200 text-sm">
+            <thead class="bg-gray-50">
+              <tr>
+                <th v-for="label in ['接口类别', '鉴权方式', '今日成功', '今日失败', '区间成功', '区间失败']" :key="label" class="px-4 py-3 text-left font-medium text-black">{{ label }}</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+              <tr v-for="item in businessStats.api_breakdown || []" :key="`${item.api_scope}:${item.auth_mode}`">
+                <td class="px-4 py-3">{{ item.api_scope === 'open' ? '开放平台' : '普通业务' }}</td>
+                <td class="px-4 py-3">{{ apiAuthLabels[item.auth_mode] || '其他' }}</td>
+                <td class="px-4 py-3">{{ item.success_calls_today }}</td>
+                <td class="px-4 py-3">{{ item.failed_calls_today }}</td>
+                <td class="px-4 py-3">{{ item.success_calls }}</td>
+                <td class="px-4 py-3">{{ item.failed_calls }}</td>
+              </tr>
+              <tr v-if="!businessStats.api_breakdown?.length"><td colspan="6" class="px-4 py-6 text-center text-gray-500">暂无 API 请求记录</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div v-if="businessStats.trend?.length" class="mt-6 overflow-x-auto" data-testid="business-trend">
           <table class="min-w-full divide-y divide-gray-200 text-sm">
             <thead class="bg-gray-50">
               <tr>
                 <th class="px-4 py-3 text-left font-medium text-black">日期</th>
                 <th class="px-4 py-3 text-left font-medium text-black">桌面端人数</th>
+                <th class="px-4 py-3 text-left font-medium text-black">系统申请</th>
+                <th class="px-4 py-3 text-left font-medium text-black">域名申请</th>
                 <th class="px-4 py-3 text-left font-medium text-black">域名收件</th>
                 <th class="px-4 py-3 text-left font-medium text-black">第三方收件</th>
-                <th class="px-4 py-3 text-left font-medium text-black">临时收件</th>
-                <th class="px-4 py-3 text-left font-medium text-black">API 调用</th>
-                <th class="px-4 py-3 text-left font-medium text-black">API 用户</th>
+                <th class="px-4 py-3 text-left font-medium text-black">系统收件</th>
+                <th class="px-4 py-3 text-left font-medium text-black">小程序系统收件</th>
+                <th class="px-4 py-3 text-left font-medium text-black">小程序域名收件</th>
+                <th class="px-4 py-3 text-left font-medium text-black">小程序第三方收件</th>
+                <th class="px-4 py-3 text-left font-medium text-black">开放平台 API 调用</th>
+                <th class="px-4 py-3 text-left font-medium text-black">开放平台 API 用户</th>
+                <th class="px-4 py-3 text-left font-medium text-black">普通业务 API 调用</th>
+                <th class="px-4 py-3 text-left font-medium text-black">普通业务 API 站内用户</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-100 bg-white">
               <tr v-for="item in businessStats.trend || []" :key="item.date">
                 <td class="px-4 py-3 text-black">{{ item.date }}</td>
                 <td class="px-4 py-3 text-black">{{ item.desktop_active_users || 0 }}</td>
+                <td class="px-4 py-3 text-black">{{ item.system_created || 0 }}</td>
+                <td class="px-4 py-3 text-black">{{ item.hosted_created || 0 }}</td>
                 <td class="px-4 py-3 text-black">{{ item.hosted_received || 0 }}</td>
                 <td class="px-4 py-3 text-black">{{ item.external_received || 0 }}</td>
                 <td class="px-4 py-3 text-black">{{ item.system_received || 0 }}</td>
+                <td class="px-4 py-3 text-black">{{ item.miniapp_system_received || 0 }}</td>
+                <td class="px-4 py-3 text-black">{{ item.miniapp_hosted_received || 0 }}</td>
+                <td class="px-4 py-3 text-black">{{ item.miniapp_external_received || 0 }}</td>
                 <td class="px-4 py-3 text-black">{{ item.api_calls || 0 }}</td>
                 <td class="px-4 py-3 text-black">{{ item.api_active_users || 0 }}</td>
+                <td class="px-4 py-3 text-black">{{ item.business_api_calls || 0 }}</td>
+                <td class="px-4 py-3 text-black">{{ item.business_api_active_users || 0 }}</td>
               </tr>
             </tbody>
           </table>
@@ -230,9 +297,9 @@
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
           <div class="rounded-lg bg-teal-50 border border-teal-100 p-4">
-            <p class="text-sm text-black">有分享记录的用户</p>
+            <p class="text-sm text-black">历史分享创建人数</p>
             <p class="mt-2 text-2xl font-bold text-black">{{ businessStats.summary?.share_users_total || 0 }}</p>
-            <p class="mt-1 text-xs text-black">当前保留的分享记录，按账号去重</p>
+            <p class="mt-1 text-xs text-black">按账号或游客 UUID 去重，含已撤销分享</p>
           </div>
 
           <div class="rounded-lg bg-sky-50 border border-sky-100 p-4">
@@ -268,16 +335,35 @@
           </div>
 
           <div class="rounded-lg bg-amber-50 border border-amber-100 p-4">
-            <p class="text-sm text-black">今日无登录访问次数</p>
+            <p class="text-sm text-black">今日分享访问请求</p>
             <p class="mt-2 text-2xl font-bold text-black">{{ businessStats.summary?.share_visits_today || 0 }}</p>
-            <p class="mt-1 text-xs text-black">打开分享页的次数</p>
+            <p class="mt-1 text-xs text-black">信息、读信和成功拉取请求</p>
           </div>
 
           <div class="rounded-lg bg-pink-50 border border-pink-100 p-4">
-            <p class="text-sm text-black">今日无登录访客</p>
+            <p class="text-sm text-black">今日分享访客</p>
             <p class="mt-2 text-2xl font-bold text-black">{{ businessStats.summary?.share_visitors_today || 0 }}</p>
             <p class="mt-1 text-xs text-black">按浏览器匿名标识去重</p>
           </div>
+        </div>
+
+        <div class="mt-6 overflow-x-auto" data-testid="share-channels">
+          <h4 class="mb-2 text-sm font-semibold text-black">分享来源</h4>
+          <table class="min-w-full divide-y divide-gray-200 text-sm">
+            <thead class="bg-gray-50"><tr>
+              <th v-for="label in ['来源', '今日创建', '今日访问请求', '区间创建', '区间访问请求']" :key="label" class="px-4 py-3 text-left font-medium text-black">{{ label }}</th>
+            </tr></thead>
+            <tbody class="divide-y divide-gray-100">
+              <tr v-for="item in businessStats.share_channels || []" :key="item.source_channel">
+                <td class="px-4 py-3">{{ shareSourceLabels[item.source_channel] || '未知' }}</td>
+                <td class="px-4 py-3">{{ item.created_today }}</td>
+                <td class="px-4 py-3">{{ item.visits_today }}</td>
+                <td class="px-4 py-3">{{ item.created }}</td>
+                <td class="px-4 py-3">{{ item.visits }}</td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="mt-2 text-xs text-gray-500">创建来源与访问来源分别统计；旧记录未保存来源时列为未知。撤销分享后历史计数保留。</p>
         </div>
 
         <div v-if="businessStats.trend?.length" class="mt-6 overflow-x-auto">
@@ -290,8 +376,8 @@
                 <th class="px-4 py-3 text-left font-medium text-black">区间再次</th>
                 <th class="px-4 py-3 text-left font-medium text-black">创建链接</th>
                 <th class="px-4 py-3 text-left font-medium text-black">打开链接</th>
-                <th class="px-4 py-3 text-left font-medium text-black">访问次数</th>
-                <th class="px-4 py-3 text-left font-medium text-black">无登录访客</th>
+                <th class="px-4 py-3 text-left font-medium text-black">访问请求</th>
+                <th class="px-4 py-3 text-left font-medium text-black">分享访客</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-100 bg-white">
@@ -307,7 +393,8 @@
               </tr>
             </tbody>
           </table>
-          <p class="mt-2 text-xs text-gray-500">区间首次：在所选时间段内第一次创建分享；区间再次：此前某天已创建过分享。每天的创建用户 = 区间首次 + 区间再次。已删除的分享记录不计入。</p>
+          <p class="mt-2 text-xs text-gray-500">区间首次：在所选时间段内第一次创建分享；区间再次：此前某天已创建过分享。每天的创建用户 = 区间首次 + 区间再次。撤销分享后历史记录仍计入。</p>
+          <p class="mt-1 text-xs text-gray-500">访问请求包含获取分享信息、读取邮件和成功拉取邮件；每次有效调用计一次，包括自动刷新。</p>
         </div>
       </div>
       </template>
@@ -341,7 +428,7 @@
         <!-- 邮箱申请趋势图 -->
         <div class="bg-white rounded-lg shadow-sm border p-6">
           <div class="flex items-center justify-between mb-4">
-            <h3 class="text-lg font-semibold text-black">邮箱申请趋势</h3>
+            <h3 class="text-lg font-semibold text-black">系统邮箱申请趋势</h3>
             <CustomSelect
               v-model="userStatsDays"
               :options="[
@@ -520,6 +607,19 @@ const pageAnalytics = ref<any>({})
 const geoDistribution = ref<any>({})  // 新增地理分布数据
 const businessStats = ref<any>({ summary: {}, trend: [] })
 const guestConversionFunnel = ref<any>({ stages: [], signals: [], mailbox_create_failures: 0 })
+const overviewMailboxMetrics = [
+  { key: 'system_created_today', label: '系统邮箱今日申请' },
+  { key: 'hosted_created_today', label: '域名邮箱今日申请' },
+  { key: 'hosted_received_today', label: '域名邮箱今日收件' },
+  { key: 'external_received_today', label: '第三方邮箱今日收件' }
+]
+const mailboxApplicationKinds = [
+  { key: 'system', label: '系统邮箱' },
+  { key: 'hosted', label: '域名邮箱' }
+]
+const mailboxReceiptKinds = [...mailboxApplicationKinds, { key: 'external', label: '第三方邮箱' }]
+const apiAuthLabels: Record<string, string> = { api_key: 'API Key', bearer_token: 'Bearer', miniapp: '小程序', public: '匿名', other: '其他' }
+const shareSourceLabels: Record<string, string> = { api: 'API', web: '网页', miniapp: '小程序', unknown: '未知' }
 
 // 图表参数
 const userStatsDays = ref('7')

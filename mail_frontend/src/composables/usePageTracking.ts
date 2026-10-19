@@ -1,7 +1,7 @@
 import { onMounted, onUnmounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { monitoringAPI } from '@/api/monitoring'
-import { getClientPlatform, getTabSessionId } from '@/services/sessionIdentity'
+import { getBrowserInstanceId, getClientPlatform, getTabSessionId } from '@/services/sessionIdentity'
 
 /**
  * 页面访问统计组合式函数
@@ -21,6 +21,7 @@ export function usePageTracking() {
         page,
         user_agent: userAgent,
         session_id: sessionId,
+        visitor_id: getBrowserInstanceId(),
         client_platform: clientPlatform
       })
     } catch (error) {

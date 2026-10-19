@@ -873,8 +873,6 @@ const zhCN = {
     delete: '删除',
     empty: '暂无域名数据',
     creating: '添加中...',
-    createHint:
-      '输入域名后会立即生成需要配置的 DNS 记录。完成验证后，这个域名就可以在首页生成邮箱地址。',
     optional: '可选',
     detailTitle: '域名详情',
     addTitle: '添加域名',
@@ -910,10 +908,8 @@ const zhCN = {
     copyHostRecord: '复制主机记录',
     copyValue: '复制记录值',
     catchAllTitle: '未匹配邮箱代收',
-    catchAllCreateDesc: '开启后，未创建地址的邮件会统一收到 {mailbox}；关闭后不收。',
+    catchAllCreateDesc: '开启后，未创建邮箱的来信也会存入 {mailbox}。',
     catchAllDetailDesc: '开启后，验证通过才会启用 {mailbox} 代收；未验证前不会代收。',
-    catchAllDnsDesc:
-      '子域名或多级域名是否能代收，取决于 DNS 是否已经把对应子域名或通配子域名的 MX 指到当前收件服务器。',
     catchAllMailbox: '代收邮箱：{mailbox}',
     currentCatchAllMailbox: '当前代收邮箱：{mailbox}',
     verifying: '验证中',
@@ -960,7 +956,7 @@ const zhCN = {
     joinSharedPlanBadge: '加入共享可赚收益',
     sharedPlanSelfUse: '自己使用自己的域名时，请在“域名邮箱”中免费创建，不扣奶片，也不产生分成。',
     publicDomainLabel: '加入共享域名计划',
-    publicDomainHelp: '开启后，其他用户可以付费指定使用这个域名；该域名不会进入免费随机池。',
+    publicDomainHelp: '他人付费使用此域名创建邮箱，你得一半奶片；不参与免费随机分配。',
     publicDomainBadge: '共享域名',
     sharedEarningsNotice: '昨日通过你的共享域名创建了 {orders} 个邮箱，收益 {income} 奶片'
   },

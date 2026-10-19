@@ -1,94 +1,50 @@
 <template>
-  <div class="flex h-full min-h-0 flex-col gap-3">
+  <div class="flex h-full min-h-0 flex-col gap-2">
     <section
-      class="shrink-0 rounded-lg border bg-white p-4 shadow-sm"
+      class="flex shrink-0 flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border bg-white px-4 py-2.5 shadow-sm"
       :aria-label="t('domainsPage.earningsTitle')"
     >
-      <div class="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h2 class="text-base font-semibold text-black">{{ t('domainsPage.earningsTitle') }}</h2>
-          <p class="mt-1 text-sm text-gray-500">{{ t('domainsPage.earningsDescription') }}</p>
+      <h2
+        class="text-sm font-semibold text-black"
+        :title="t('domainsPage.earningsDescription')"
+      >
+        {{ t('domainsPage.earningsTitle') }}
+      </h2>
+      <p class="sr-only">{{ t('domainsPage.earningsDescription') }}</p>
+      <div class="flex flex-wrap items-center gap-x-5 gap-y-1 text-sm">
+        <div class="whitespace-nowrap">
+          <span class="text-gray-500">{{ t('domainsPage.yesterdayEarnings') }}</span>
+          <strong class="ml-2 tabular-nums text-primary-700">{{ formatEarnings(earningsSummary?.yesterday_income) }}</strong>
         </div>
-        <div class="flex flex-wrap gap-x-6 gap-y-2 text-sm">
-          <div>
-            <span class="text-gray-500">{{ t('domainsPage.yesterdayEarnings') }}</span>
-            <strong class="ml-2 text-primary-700">{{ formatEarnings(earningsSummary?.yesterday_income) }}</strong>
-          </div>
-          <div>
-            <span class="text-gray-500">{{ t('domainsPage.totalEarnings') }}</span>
-            <strong class="ml-2 text-primary-700">{{ formatEarnings(earningsSummary?.total_income) }}</strong>
-          </div>
+        <div class="whitespace-nowrap">
+          <span class="text-gray-500">{{ t('domainsPage.totalEarnings') }}</span>
+          <strong class="ml-2 tabular-nums text-primary-700">{{ formatEarnings(earningsSummary?.total_income) }}</strong>
         </div>
       </div>
-      <div class="mt-4 flex flex-wrap items-center justify-between gap-3 border-t pt-3">
-        <div>
-          <div class="text-sm font-medium text-black">{{ t('domainsPage.earningsPromptLabel') }}</div>
-          <p class="mt-0.5 text-xs text-gray-500">{{ t('domainsPage.earningsPromptHelp') }}</p>
-        </div>
+      <div class="ml-auto flex items-center gap-2" :title="t('domainsPage.earningsPromptHelp')">
+        <span class="text-xs text-gray-500">{{ t('domainsPage.earningsPromptLabel') }}</span>
+        <p id="domain-earnings-prompt-help" class="sr-only">{{ t('domainsPage.earningsPromptHelp') }}</p>
         <button
           type="button"
           role="switch"
           :aria-checked="earningsPromptEnabled"
           :aria-label="t('domainsPage.earningsPromptLabel')"
+          aria-describedby="domain-earnings-prompt-help"
           :disabled="!earningsPreferenceLoaded || earningsPreferenceSaving"
-          class="relative h-6 w-11 rounded-full transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600 disabled:opacity-50"
+          class="relative h-5 w-9 shrink-0 rounded-full transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600 disabled:opacity-50"
           :class="earningsPromptEnabled ? 'bg-primary-600' : 'bg-gray-300'"
           @click="toggleEarningsPrompt"
         >
           <span
-            class="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform"
-            :class="earningsPromptEnabled ? 'translate-x-5' : ''"
+            class="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform"
+            :class="earningsPromptEnabled ? 'translate-x-4' : ''"
           ></span>
         </button>
       </div>
     </section>
-    <div class="shrink-0 bg-white rounded-lg shadow-sm border p-4">
-      <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div class="flex items-center space-x-4">
-          <BaseInput
-            v-model="searchQuery"
-            :placeholder="t('domainsPage.searchPlaceholder')"
-            class="w-64"
-            size="sm"
-            @enter="applyFilters"
-          >
-            <template #left-icon>
-              <svg
-                class="h-4 w-4 text-gray-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                />
-              </svg>
-            </template>
-          </BaseInput>
-
-          <button
-            @click="applyFilters"
-            class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-md text-sm"
-          >
-            {{ t('domainsPage.query') }}
-          </button>
-        </div>
-
-        <button
-          @click="openCreateModal"
-          class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-md text-sm"
-        >
-          {{ t('domainsPage.addDomain') }}
-        </button>
-      </div>
-    </div>
 
     <AdminDataTable
       class="min-h-0 flex-1"
-      :title="t('domainsPage.listTitle')"
       :fill-empty-height="!domains.length"
       :loading="loading"
       :column-count="6"
@@ -97,24 +53,60 @@
       @page-change="handlePageChange"
       @page-size-change="handlePageSizeChange"
     >
+      <template #header>
+        <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <h2 class="shrink-0 text-base font-semibold text-black">{{ t('domainsPage.listTitle') }}</h2>
+          <div class="order-last flex min-w-0 basis-full items-center gap-2 sm:order-none sm:basis-auto">
+            <div class="min-w-0 flex-1 sm:w-56 sm:flex-none">
+              <BaseInput
+                v-model="searchQuery"
+                :placeholder="t('domainsPage.searchPlaceholder')"
+                :aria-label="t('domainsPage.searchPlaceholder')"
+                size="sm"
+                @enter="applyFilters"
+              >
+                <template #left-icon>
+                  <svg class="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </template>
+              </BaseInput>
+            </div>
+            <button
+              type="button"
+              class="shrink-0 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+              @click="applyFilters"
+            >
+              {{ t('domainsPage.query') }}
+            </button>
+          </div>
+          <button
+            type="button"
+            class="ml-auto shrink-0 rounded-md bg-primary-600 px-3 py-2 text-sm text-white hover:bg-primary-700"
+            @click="openCreateModal"
+          >
+            {{ t('domainsPage.addDomain') }}
+          </button>
+        </div>
+      </template>
       <template #thead>
         <tr>
-          <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
+          <th class="px-4 py-2 text-left text-xs font-medium text-black uppercase tracking-wider">
             {{ t('domainsPage.domain') }}
           </th>
-          <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
+          <th class="px-4 py-2 text-left text-xs font-medium text-black uppercase tracking-wider">
             {{ t('domainsPage.description') }}
           </th>
-          <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
+          <th class="px-4 py-2 text-left text-xs font-medium text-black uppercase tracking-wider">
             {{ t('domainsPage.status') }}
           </th>
-          <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
+          <th class="px-4 py-2 text-left text-xs font-medium text-black uppercase tracking-wider">
             {{ t('domainsPage.createdAt') }}
           </th>
-          <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
+          <th class="px-4 py-2 text-left text-xs font-medium text-black uppercase tracking-wider">
             {{ t('domainsPage.expiresAt') }}
           </th>
-          <th class="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
+          <th class="px-4 py-2 text-left text-xs font-medium text-black uppercase tracking-wider">
             {{ t('domainsPage.actions') }}
           </th>
         </tr>
@@ -122,7 +114,7 @@
 
       <template #tbody>
         <tr v-for="domain in domains" :key="domain.id" class="hover:bg-gray-50">
-          <td class="px-6 py-4 whitespace-nowrap">
+          <td class="px-4 py-2.5 whitespace-nowrap">
             <div class="flex items-center">
               <div v-if="isDomainDeleted(domain) || isDomainExpired(domain)" class="mr-2">
                 <svg
@@ -151,11 +143,11 @@
               </div>
             </div>
           </td>
-          <td class="px-6 py-4 whitespace-nowrap text-sm text-black">
+          <td class="px-4 py-2.5 whitespace-nowrap text-sm text-black">
             {{ domain.display_name || '-' }}
           </td>
-          <td class="px-6 py-4 whitespace-nowrap">
-            <div class="flex flex-col space-y-1">
+          <td class="px-4 py-2.5 whitespace-nowrap">
+            <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
               <span
                 v-if="isDomainDeleted(domain)"
                 class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full w-fit bg-red-100 text-red-800"
@@ -207,10 +199,10 @@
               </span>
             </div>
           </td>
-          <td class="px-6 py-4 whitespace-nowrap text-sm text-black">
+          <td class="px-4 py-2.5 whitespace-nowrap text-sm text-black">
             {{ formatDate(domain.created_at) }}
           </td>
-          <td class="px-6 py-4 whitespace-nowrap text-sm">
+          <td class="px-4 py-2.5 whitespace-nowrap text-sm">
             <span
               v-if="domain.expires_at"
               :class="isDomainExpired(domain) ? 'text-red-600 font-medium' : 'text-black'"
@@ -219,7 +211,7 @@
             </span>
             <span v-else class="text-black">-</span>
           </td>
-          <td class="px-6 py-4 whitespace-nowrap text-sm">
+          <td class="px-4 py-2.5 whitespace-nowrap text-sm">
             <div class="flex items-center space-x-2">
               <ActionButton
                 v-if="
@@ -289,31 +281,6 @@
       @cancel="closeDomainModal"
     >
       <div v-if="!domainModalDetail" class="space-y-4">
-        <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-4">
-          <div class="text-base font-semibold text-emerald-900">
-            {{ t('domainsPage.sharedPlanTitle') }}
-          </div>
-          <p class="mt-1 text-sm leading-6 text-emerald-800">
-            {{ t('domainsPage.sharedPlanDescription') }}
-          </p>
-          <div class="mt-3 grid gap-2 text-xs text-emerald-800 sm:grid-cols-3">
-            <div class="rounded-lg bg-white/70 px-3 py-2">
-              {{ t('domainsPage.sharedPlanPaidOnly') }}
-            </div>
-            <div class="rounded-lg bg-white/70 px-3 py-2">
-              {{ t('domainsPage.sharedPlanNoFreePool') }}
-            </div>
-            <div class="rounded-lg bg-white/70 px-3 py-2">
-              {{ t('domainsPage.sharedPlanShare') }}
-            </div>
-          </div>
-          <p class="mt-3 text-xs leading-5 text-emerald-800">
-            {{ t('domainsPage.sharedPlanSelfUse') }}
-          </p>
-        </div>
-        <div class="rounded-lg bg-gray-50 px-4 py-3 text-sm leading-6 text-gray-600">
-          {{ t('domainsPage.createHint') }}
-        </div>
         <BaseInput
           v-model="createForm.domain_name"
           :label="t('domainsPage.domain')"
@@ -520,7 +487,6 @@
         <CatchAllSettingCard
           :domain-name="editForm.domain_name"
           :enabled="editForm.catch_all_enabled"
-          :show-mailbox-line="true"
           @update:enabled="editForm.catch_all_enabled = $event"
         />
         <label

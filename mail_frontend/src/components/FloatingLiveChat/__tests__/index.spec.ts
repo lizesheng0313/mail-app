@@ -6,6 +6,8 @@ const mocks = vi.hoisted(() => {
     connected: true,
     on: vi.fn(),
     emit: vi.fn(),
+    timeout: vi.fn().mockReturnThis(),
+    emitWithAck: vi.fn().mockResolvedValue({ ok: true }),
     removeAllListeners: vi.fn(),
     disconnect: vi.fn()
   }
@@ -31,7 +33,8 @@ vi.mock('@/services/api', () => ({
     post: mocks.apiPost,
     delete: mocks.apiDelete
   },
-  getApiBaseURL: () => '/mail-api/v1'
+  getApiBaseURL: () => '/mail-api/v1',
+  handleSessionUnauthorized: vi.fn(),
 }))
 
 vi.mock('@/stores/user', () => ({
@@ -55,6 +58,7 @@ vi.mock('socket.io-client', () => ({
 }))
 
 import FloatingLiveChat from '../index.vue'
+import { sendOnlineSessionHeartbeat } from '@/services/onlineSessionTransport'
 
 const conversations = [
   {
@@ -169,6 +173,8 @@ describe('FloatingLiveChat admin conversation layout', () => {
     mocks.apiPost.mockReset()
     mocks.apiDelete.mockReset()
     mocks.socket.on.mockClear()
+    mocks.socket.emitWithAck.mockClear()
+    mocks.socket.disconnect.mockClear()
     mocks.io.mockClear()
     configureApi()
     setViewport(false)
@@ -536,16 +542,186 @@ describe('FloatingLiveChat admin conversation layout', () => {
     expect(wrapper.get('[data-testid="chat-launcher-unread"]').text()).toBe('5')
   })
 
-  it('recovers unread counts by polling even if no socket event arrives', async () => {
+  it('does not poll conversations or history while the socket is connected', async () => {
     vi.useFakeTimers()
+    configureUnreadInbox()
+    wrapper = mount(FloatingLiveChat)
+    await flushPromises()
+    await wrapper.get('[data-testid="chat-launcher"]').trigger('click')
+    await flushPromises()
+    mocks.apiGet.mockClear()
+    mocks.apiPost.mockClear()
+
+    await vi.advanceTimersByTimeAsync(120000)
+    await flushPromises()
+    expect(mocks.apiGet).not.toHaveBeenCalled()
+    expect(mocks.apiPost).not.toHaveBeenCalled()
+  })
+
+  it('shares its authenticated connection with online heartbeats and unregisters it on cleanup', async () => {
+    wrapper = mount(FloatingLiveChat)
+    await flushPromises()
+    const connect = mocks.socket.on.mock.calls.find(([name]) => name === 'connect')![1]
+    connect()
+    await flushPromises()
+    const payload = {
+      session_id: 'tab-id', browser_instance_id: 'browser-id', user_id: 1,
+      page_path: '/', client_platform: 'web', device_type: 'desktop', user_agent: 'test-agent',
+    }
+    expect(await sendOnlineSessionHeartbeat(payload)).toBe(true)
+    expect(mocks.socket.emitWithAck).toHaveBeenCalledWith('online_session_heartbeat', payload)
+
+    wrapper.unmount()
+    wrapper = null
+    expect(await sendOnlineSessionHeartbeat(payload)).toBe(false)
+  })
+
+  it('does not poll a regular users summary while the socket is connected', async () => {
+    vi.useFakeTimers()
+    mocks.userStore.user = { id: 2, is_admin: false }
+    wrapper = mount(FloatingLiveChat)
+    await flushPromises()
+    expect(mocks.apiGet.mock.calls.filter(([url]) => url === '/live-chat/summary')).toHaveLength(1)
+    mocks.apiGet.mockClear()
+
+    await vi.advanceTimersByTimeAsync(120000)
+    await flushPromises()
+    expect(mocks.apiGet).not.toHaveBeenCalled()
+  })
+
+  it('keeps the shared socket when the chat is hidden on a route and does not mark hidden messages read', async () => {
+    configureUnreadInbox()
+    wrapper = mount(FloatingLiveChat)
+    await flushPromises()
+    const connect = mocks.socket.on.mock.calls.find(([name]) => name === 'connect')![1]
+    connect()
+    await wrapper.get('[data-testid="chat-launcher"]').trigger('click')
+    await flushPromises()
+    mocks.apiPost.mockClear()
+    mocks.socket.disconnect.mockClear()
+
+    await wrapper.setProps({ active: false })
+    expect(wrapper.attributes('style')).toContain('display: none')
+    const event = mocks.socket.on.mock.calls.find(([name]) => name === 'chat_event')![1]
+    event({ type: 'message', message: {
+      id: 602, content: '隐藏客服时的新消息', created_at_ms: Date.now(), user: conversations[0].user,
+    } })
+    await flushPromises()
+    expect(mocks.apiPost).not.toHaveBeenCalled()
+    expect(await sendOnlineSessionHeartbeat({
+      session_id: 'tab-id', browser_instance_id: 'browser-id', user_id: 1,
+      page_path: '/browser-workflows', client_platform: 'web', device_type: 'desktop', user_agent: 'test-agent',
+    })).toBe(true)
+    await wrapper.setProps({ active: true })
+    expect(wrapper.attributes('style')).not.toContain('display: none')
+    expect(mocks.io).toHaveBeenCalledTimes(1)
+    expect(mocks.socket.disconnect).not.toHaveBeenCalled()
+  })
+
+  it('recovers unread counts with low frequency polling while disconnected', async () => {
+    vi.useFakeTimers()
+    mocks.socket.connected = false
     const contacts = configureUnreadInbox()
     wrapper = mount(FloatingLiveChat)
     await flushPromises()
+    mocks.apiGet.mockClear()
     contacts[1].unread_count = 4
-    await vi.advanceTimersByTimeAsync(5000)
+    await vi.advanceTimersByTimeAsync(29999)
+    expect(mocks.apiGet).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(1)
     await flushPromises()
     expect(wrapper.get('[data-testid="chat-launcher-unread"]').text()).toBe('6')
     expect(mocks.apiPost).not.toHaveBeenCalled()
+
+    mocks.socket.connected = true
+    mocks.apiGet.mockClear()
+    await vi.advanceTimersByTimeAsync(60000)
+    expect(mocks.apiGet).not.toHaveBeenCalled()
+  })
+
+  it('does not poll while disconnected in a hidden browser page', async () => {
+    vi.useFakeTimers()
+    mocks.socket.connected = false
+    wrapper = mount(FloatingLiveChat)
+    await flushPromises()
+    mocks.apiGet.mockClear()
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' })
+    try {
+      await vi.advanceTimersByTimeAsync(60000)
+      expect(mocks.apiGet).not.toHaveBeenCalled()
+    } finally {
+      Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' })
+    }
+  })
+
+  it('refreshes guest unread counts from a socket notification without polling', async () => {
+    wrapper = mount(FloatingLiveChat)
+    await flushPromises()
+    const originalGet = mocks.apiGet.getMockImplementation()!
+    mocks.apiGet.mockImplementation((url: string, options: any) => {
+      if (url === '/live-chat/guest/conversations') {
+        return Promise.resolve({ code: 0, data: {
+          items: [{ id: 4, last_message: '新游客消息', updated_at_ms: Date.now(), unread_count: 1 }],
+          unread_count: 1,
+        } })
+      }
+      return originalGet(url, options)
+    })
+    const changed = mocks.socket.on.mock.calls.find(([name]) => name === 'chat_state_changed')![1]
+    await changed({ guest_conversation_id: 4, message_id: 9 })
+    await flushPromises()
+    expect(wrapper.get('[data-testid="chat-launcher-unread"]').text()).toBe('3')
+    expect(mocks.apiPost).not.toHaveBeenCalled()
+  })
+
+  it('refreshes unread counts when another tab marks messages read', async () => {
+    mocks.userStore.user = { id: 2, is_admin: false }
+    mocks.apiGet.mockResolvedValue({ code: 0, data: { unread_count: 3 } })
+    wrapper = mount(FloatingLiveChat)
+    await flushPromises()
+    expect(wrapper.get('[data-testid="chat-launcher-unread"]').text()).toBe('3')
+    mocks.apiGet.mockResolvedValue({ code: 0, data: { unread_count: 0 } })
+    const changed = mocks.socket.on.mock.calls.find(([name]) => name === 'chat_state_changed')![1]
+    await changed({})
+    await flushPromises()
+    expect(wrapper.find('[data-testid="chat-launcher-unread"]').exists()).toBe(false)
+  })
+
+  it('updates an open guest conversation from push and acknowledges the displayed message', async () => {
+    const guestMessages = [{ id: 9, sender_type: 'guest', content: '游客的第一条消息', created_at_ms: Date.now() }]
+    const originalGet = mocks.apiGet.getMockImplementation()!
+    mocks.apiGet.mockImplementation((url: string, options: any) => {
+      if (url === '/live-chat/guest/conversations') {
+        return Promise.resolve({ code: 0, data: {
+          items: [{ id: 4, last_message: guestMessages.at(-1)!.content, updated_at_ms: Date.now(), unread_count: 1 }],
+          unread_count: 1,
+        } })
+      }
+      if (url === '/live-chat/guest/conversations/4/messages') {
+        return Promise.resolve({ code: 0, data: { items: structuredClone(guestMessages) } })
+      }
+      return originalGet(url, options)
+    })
+    wrapper = mount(FloatingLiveChat)
+    await flushPromises()
+    await wrapper.get('[data-testid="chat-launcher"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.get('[data-testid="admin-chat-pane"]').text()).toContain('游客的第一条消息')
+    mocks.apiGet.mockClear()
+    mocks.apiPost.mockClear()
+
+    guestMessages.push({ id: 10, sender_type: 'guest', content: '游客推送的新消息', created_at_ms: Date.now() })
+    const changed = mocks.socket.on.mock.calls.find(([name]) => name === 'chat_state_changed')![1]
+    await changed({ guest_conversation_id: 4, message_id: 10 })
+    await flushPromises()
+    expect(wrapper.get('[data-testid="admin-chat-pane"]').text()).toContain('游客推送的新消息')
+    expect(mocks.apiPost).toHaveBeenCalledWith(
+      '/live-chat/guest/conversations/4/read', { last_read_message_id: 10 }, expect.anything(),
+    )
+
+    mocks.apiGet.mockClear()
+    await changed({ guest_conversation_id: 4, message_id: 0 })
+    expect(mocks.apiGet.mock.calls.some(([url]) => url.endsWith('/messages'))).toBe(false)
   })
 
   it('does not mark messages read while only the mobile contact list is visible', async () => {
@@ -579,6 +755,21 @@ describe('FloatingLiveChat admin conversation layout', () => {
     await flushPromises()
     expect(wrapper.get('[data-testid="chat-launcher-unread"]').text()).toBe('8')
     expect(mocks.io).toHaveBeenCalledTimes(1)
+  })
+
+  it('coalesces focus and visibility refreshes into one history request', async () => {
+    configureUnreadInbox()
+    wrapper = mount(FloatingLiveChat)
+    await flushPromises()
+    await wrapper.get('[data-testid="chat-launcher"]').trigger('click')
+    await flushPromises()
+    mocks.apiGet.mockClear()
+
+    window.dispatchEvent(new Event('focus'))
+    document.dispatchEvent(new Event('visibilitychange'))
+    await flushPromises()
+    expect(mocks.apiGet.mock.calls.filter(([url]) => url === '/live-chat/messages')).toHaveLength(1)
+    expect(mocks.apiGet.mock.calls.filter(([url]) => url === '/live-chat/conversations')).toHaveLength(1)
   })
 
   it('ignores a repeated socket delivery of the same customer message', async () => {

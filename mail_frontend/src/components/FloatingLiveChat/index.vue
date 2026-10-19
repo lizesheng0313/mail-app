@@ -1,5 +1,5 @@
 <template>
-  <div class="fixed bottom-4 right-4 z-50 flex flex-col items-end gap-3 sm:bottom-6 sm:right-6">
+  <div v-show="active" class="fixed bottom-4 right-4 z-50 flex flex-col items-end gap-3 sm:bottom-6 sm:right-6">
     <Transition name="floating-panel">
       <div
         v-if="visible"
@@ -432,14 +432,16 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { io, type Socket } from 'socket.io-client'
 
-withDefaults(defineProps<{ showLauncher?: boolean }>(), {
-  showLauncher: true
+const props = withDefaults(defineProps<{ showLauncher?: boolean; active?: boolean }>(), {
+  showLauncher: true,
+  active: true
 })
 
 import api, { getApiBaseURL } from '@/services/api'
 import { useUserStore } from '@/stores/user'
 import { uploadImageFile } from '@/utils/imageUpload'
 import { showMessage } from '@/utils/message'
+import { bindOnlineSessionSocket, unbindOnlineSessionSocket } from '@/services/onlineSessionTransport'
 
 type LiveChatUser = {
   id: number
@@ -536,11 +538,13 @@ let historyRequestVersion = 0
 let conversationsRequest: Promise<void> | null = null
 let historyCursor = 0
 let summaryRequest: Promise<void> | null = null
+let chatStateRequest: Promise<void> | null = null
 let chatStatePoll: ReturnType<typeof setInterval> | null = null
 const readMessageIds = new Map<string, number>()
 const pendingReadKeys = new Set<string>()
 const receivedSocketMessageIds = new Set<number>()
 const SOCKET_IO_PATH = '/mail-api/v1/live-chat/socket.io'
+const CHAT_STATE_FALLBACK_INTERVAL_MS = 30000
 const MAX_CHAT_IMAGES = 4
 const MESSAGE_BOTTOM_THRESHOLD_PX = 48
 const LAUNCHER_POSITION_KEY = 'live_chat_launcher_position'
@@ -1155,6 +1159,7 @@ const cleanupSocket = () => {
   if (socket) {
     const currentSocket = socket
     socket = null
+    unbindOnlineSessionSocket(currentSocket)
     manualClose = true
     currentSocket.removeAllListeners()
     currentSocket.disconnect()
@@ -1280,7 +1285,7 @@ const handleMessageScroll = () => {
   if (isMessageNearBottom()) void markMessagesRead()
 }
 
-const isChatPaneVisible = () => visible.value && document.visibilityState !== 'hidden' && (
+const isChatPaneVisible = () => props.active && visible.value && document.visibilityState !== 'hidden' && (
   !isAdmin.value || ((!isCompactViewport() || mobileShowConversation.value) && (
     activeConversationUserId.value > 0 || activeGuestConversationId.value > 0
   ))
@@ -1288,13 +1293,21 @@ const isChatPaneVisible = () => visible.value && document.visibilityState !== 'h
 
 const refreshChatState = async () => {
   if (!userStore.isAuthenticated || document.visibilityState === 'hidden') return
-  if (isAdmin.value) await loadConversations()
-  else await loadSummary()
-  if (isChatPaneVisible() && isMessageNearBottom() && !loadingHistory.value) {
-    await loadHistory(true)
-    await scrollToBottom()
-    await markMessagesRead()
-  }
+  if (chatStateRequest) return chatStateRequest
+
+  chatStateRequest = (async () => {
+    if (isAdmin.value) await loadConversations()
+    else await loadSummary()
+    if (isChatPaneVisible() && isMessageNearBottom() && !loadingHistory.value) {
+      await loadHistory(true)
+      await scrollToBottom()
+      await markMessagesRead()
+    }
+  })().finally(() => {
+    chatStateRequest = null
+  })
+
+  return chatStateRequest
 }
 
 const handlePageResume = () => { void refreshChatState() }
@@ -1352,6 +1365,7 @@ const connectSocket = async () => {
   if (socket && socket.connected) return
 
   const token = localStorage.getItem('token')
+  const connectionUserId = normalizeUserId(userStore.user?.id)
   socketConnecting = true
 
   cleanupSocket()
@@ -1374,11 +1388,34 @@ const connectSocket = async () => {
   nextSocket.on('connect', () => {
     socketConnecting = false
     connectionStatus.value = 'connected'
+    bindOnlineSessionSocket(nextSocket, connectionUserId, token || '')
     void refreshChatState()
   })
 
   nextSocket.on('chat_event', (payload: SocketPayload) => {
     void handleSocketPayload(payload)
+  })
+
+  // 游客消息与其他标签页的已读状态也通过推送同步。
+  nextSocket.on('chat_state_changed', async (payload: {
+    guest_conversation_id?: number
+    message_id?: number
+  }) => {
+    if (!userStore.isAuthenticated) return
+    if (!isAdmin.value) {
+      await loadSummary()
+      return
+    }
+    await loadConversations()
+    if (
+      payload?.message_id &&
+      payload.guest_conversation_id === activeGuestConversationId.value &&
+      isChatPaneVisible() && isMessageNearBottom() && !loadingHistory.value
+    ) {
+      await loadHistory(true)
+      await scrollToBottom()
+      await markMessagesRead()
+    }
   })
 
   // 复用全局 Socket.IO 连接，把后台历史收件进度转给邮箱首页。
@@ -1510,9 +1547,9 @@ const formatTime = (timestamp: number) => {
 }
 
 watch(
-  () => userStore.isAuthenticated,
-  (isAuthenticated, previousValue) => {
-    if (isAuthenticated === previousValue && historyLoaded) return
+  () => [userStore.isAuthenticated, normalizeUserId(userStore.user?.id)] as const,
+  ([isAuthenticated, userId], previousValue) => {
+    if (isAuthenticated === previousValue?.[0] && userId === previousValue?.[1] && historyLoaded) return
     cleanupSocket()
     historyLoaded = false
     historyRequest = null
@@ -1554,8 +1591,10 @@ onMounted(() => {
   window.addEventListener('resize', keepLauncherInViewport)
   window.addEventListener('focus', handlePageResume)
   document.addEventListener('visibilitychange', handlePageResume)
-  if (isAdmin.value) void loadConversations()
-  chatStatePoll = setInterval(handlePageResume, 5000)
+  // 在线时由 Socket.IO 推送更新；断线期间才低频补查。
+  chatStatePoll = setInterval(() => {
+    if (!socket?.connected) void refreshChatState()
+  }, CHAT_STATE_FALLBACK_INTERVAL_MS)
 })
 
 onBeforeUnmount(() => {

@@ -6,15 +6,12 @@
         <p class="mt-1 text-xs leading-5 text-gray-500">
           {{ t('domainsPage.catchAllCreateDesc', { mailbox: getCatchAllMailbox(domainName) }) }}
         </p>
-        <p class="mt-1 text-xs leading-5 text-gray-500">
-          {{ t('domainsPage.catchAllDnsDesc') }}
-        </p>
-        <p v-if="showMailboxLine && enabled" class="mt-1 text-xs leading-5 text-gray-600">
-          {{ t('domainsPage.catchAllMailbox', { mailbox: getCatchAllMailbox(domainName) }) }}
-        </p>
       </div>
       <button
         type="button"
+        role="switch"
+        :aria-checked="enabled"
+        :aria-label="t('domainsPage.catchAllTitle')"
         class="relative mt-0.5 inline-block h-6 w-11 flex-shrink-0 cursor-pointer"
         @click="emit('update:enabled', !enabled)"
       >
@@ -39,11 +36,9 @@ withDefaults(
   defineProps<{
     domainName?: string
     enabled: boolean
-    showMailboxLine?: boolean
   }>(),
   {
-    domainName: '',
-    showMailboxLine: false
+    domainName: ''
   }
 )
 

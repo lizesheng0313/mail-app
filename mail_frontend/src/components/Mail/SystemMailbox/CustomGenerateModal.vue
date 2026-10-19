@@ -352,6 +352,7 @@ import CustomSelect from '@/components/CustomSelect/index.vue'
 import { mailboxAPI } from '@/api/mailbox'
 import { hostedDomainAPI } from '@/api/hostedDomain'
 import { getBalance } from '@/api/milkCoin'
+import { useUserStore } from '@/stores/user'
 import { showMessage } from '@/utils/message'
 import { isInsufficientBalanceError } from '@/services/api'
 import { formatTimestamp } from '@/utils/timeUtils'
@@ -371,6 +372,8 @@ const props = defineProps({
 const emit = defineEmits(['update:visible', 'success'])
 const { t } = useI18n()
 const router = useRouter()
+const userStore = useUserStore()
+const isAdmin = computed(() => Boolean(userStore.user?.is_admin))
 
 const localVisible = computed({
   get: () => props.visible,
@@ -498,7 +501,7 @@ const allCustomDomainsSelected = computed(() => {
   return filteredDomainOptions.value.every((item) => selectedIds.has(String(item.id)))
 })
 
-const resolveDomainUnitPrice = (domain: any) => (Number(domain?.expires_at || 0) > 0 ? 0.1 : 0.2)
+const resolveDomainUnitPrice = (domain: any) => isAdmin.value ? 0 : (Number(domain?.expires_at || 0) > 0 ? 0.1 : 0.2)
 
 const customGenerateValidityDisplay = computed(() => {
   if (!isSystemMailbox.value) return '-'
@@ -833,6 +836,7 @@ const performHostedCustomGenerate = async () => {
 
     if (customGenerateForm.value.generation_mode === 'random') {
       payload.auto_local_part = true
+      payload.random_length = resolvedRandomLength.value
     } else {
       payload.local_part = buildHostedLocalPart(index)
     }
