@@ -39,28 +39,23 @@
     <div class="monitoring-charts">
       <section class="monitoring-panel">
         <div class="monitoring-panel-header">
-          <div class="monitoring-panel-heading">
-            <h3 class="monitoring-panel-title">每日成功接入邮箱</h3>
-          </div>
-          <div class="flex shrink-0 gap-1">
-            <button
-              v-for="mode in dailyModes"
-              :key="mode.value"
-              type="button"
-              class="rounded-md px-3 py-1.5 text-xs font-medium"
-              :class="
-                dailyMode === mode.value
-                  ? 'bg-primary-50 text-primary-700'
-                  : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
-              "
-              :aria-pressed="dailyMode === mode.value"
-              @click="dailyMode = mode.value"
-            >
-              {{ mode.label }}
-            </button>
-          </div>
+          <h3 class="monitoring-panel-title">每日接入邮箱 · 按邮箱公司</h3>
         </div>
-        <DailyTrendChart :rows="dailyRows" :series="dailySeries" label="每日成功接入邮箱" />
+        <DailyTrendChart
+          :rows="dailyRows"
+          :series="providerSeries"
+          label="每日接入邮箱 · 按邮箱公司"
+        />
+      </section>
+      <section class="monitoring-panel">
+        <div class="monitoring-panel-header">
+          <h3 class="monitoring-panel-title">每日接入邮箱 · 按接入方式</h3>
+        </div>
+        <DailyTrendChart
+          :rows="stats.daily || []"
+          :series="authSeries"
+          label="每日接入邮箱 · 按接入方式"
+        />
       </section>
       <section class="monitoring-panel">
         <div class="monitoring-panel-header">
@@ -86,10 +81,9 @@ import { showMessage } from '@/utils/message'
 
 const days = ref('30')
 const loading = ref(false)
-const dailyMode = ref('provider')
-const dailyModes = [
-  { value: 'auth', label: '按接入方式' },
-  { value: 'provider', label: '按邮箱公司' }
+const authSeries: TrendSeries[] = [
+  { key: 'oauth_mailboxes', label: 'OAuth', type: 'line', unit: '个' },
+  { key: 'password_mailboxes', label: '密码 / 授权码', type: 'line', unit: '个' }
 ]
 const ownerSeries: TrendSeries[] = [{ key: 'unique_owners', label: '接入用户', unit: '人' }]
 const stats = ref<any>({ summary: {}, providers: [], daily: [], period: {} })
@@ -107,23 +101,13 @@ const dailyRows = computed(() =>
     )
   }))
 )
-const dailySeries = computed<TrendSeries[]>(() =>
-  dailyMode.value === 'provider'
-    ? providers.value.map((provider: any) => ({
-        key: `provider_${provider.key}`,
-        label: provider.name,
-        type: 'line',
-        unit: '个'
-      }))
-    : [
-        { key: 'oauth_mailboxes', label: 'OAuth', type: 'line', unit: '个' },
-        {
-          key: 'password_mailboxes',
-          label: '密码 / 授权码',
-          type: 'line',
-          unit: '个'
-        }
-      ]
+const providerSeries = computed<TrendSeries[]>(() =>
+  providers.value.map((provider: any) => ({
+    key: `provider_${provider.key}`,
+    label: provider.name,
+    type: 'line',
+    unit: '个'
+  }))
 )
 
 const formatNumber = (value: number | string | undefined | null) => {

@@ -36,29 +36,35 @@ vi.mock('@/api/monitoring', () => ({
 
 import ExternalMonitoring from './external-mailboxes.vue'
 
-it('switches the daily mailbox breakdown without hiding zero days or treating users as mailboxes', async () => {
+it('shows company and connection method trends independently while preserving zero days and user counts', async () => {
   const wrapper = mount(ExternalMonitoring, {
     global: {
       stubs: { CustomSelect: true, DailyTrendChart: true }
     }
   })
   await flushPromises()
-  const chart = wrapper.findAllComponents(DailyTrendChart)[0]
-  let option = buildDailyTrendOption(chart.props('rows'), chart.props('series')) as any
+  const charts = wrapper.findAllComponents(DailyTrendChart)
+  const providerChart = charts.find(
+    (chart) => chart.props('label') === '每日接入邮箱 · 按邮箱公司'
+  )!
+  let option = buildDailyTrendOption(
+    providerChart.props('rows'),
+    providerChart.props('series')
+  ) as any
   expect(option.xAxis.data).toEqual(['2026-10-18', '2026-10-19'])
   expect(option.series.map((series: any) => [series.name, series.type, series.data])).toEqual([
     ['Google', 'line', [3, 0]]
   ])
-  await wrapper
-    .findAll('button')
-    .find((button) => button.text() === '按接入方式')!
-    .trigger('click')
-  option = buildDailyTrendOption(chart.props('rows'), chart.props('series')) as any
+  const authChart = charts.find((chart) => chart.props('label') === '每日接入邮箱 · 按接入方式')!
+  option = buildDailyTrendOption(authChart.props('rows'), authChart.props('series')) as any
+  expect(option.xAxis.data).toEqual(['2026-10-18', '2026-10-19'])
   expect(option.series.map((series: any) => [series.type, series.data])).toEqual([
     ['line', [2, 0]],
     ['line', [1, 0]]
   ])
-  expect(wrapper.findAllComponents(DailyTrendChart)).toHaveLength(2)
-  expect(wrapper.findAllComponents(DailyTrendChart)[1].props('series')[0].key).toBe('unique_owners')
+  const ownerChart = charts.find((chart) => chart.props('label') === '每日成功接入用户')!
+  option = buildDailyTrendOption(ownerChart.props('rows'), ownerChart.props('series')) as any
+  expect(option.series[0].data).toEqual([2, 0])
+  expect(charts).toHaveLength(3)
   wrapper.unmount()
 })
