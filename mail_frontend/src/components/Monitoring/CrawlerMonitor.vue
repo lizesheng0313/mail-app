@@ -2,9 +2,9 @@
   <section class="monitoring-panel">
     <div class="monitoring-panel-header">
       <div class="monitoring-panel-heading">
-        <h3 class="monitoring-panel-title">网页助手队列与工作流历史</h3>
+        <h3 class="monitoring-panel-title">自动化执行监控</h3>
         <p class="monitoring-panel-description">
-          队列仅含网页助手任务；历史执行记录统计全站所有类型工作流，不限日期。
+          触发器负责判断何时发起执行，工作流负责执行配置的步骤。下方展示实时队列和历史执行记录。
         </p>
       </div>
       <button
@@ -30,7 +30,8 @@
         {{ loading ? '刷新中' : '刷新' }}
       </button>
     </div>
-    <div class="monitoring-metrics" :aria-busy="loading">
+    <h4 class="mb-3 text-sm font-semibold text-gray-900">网页助手实时队列</h4>
+    <div class="monitoring-metrics monitoring-metrics-compact" :aria-busy="loading">
       <MetricCard
         label="网页助手运行中"
         :value="loading ? '—' : status?.active_count || 0"
@@ -41,21 +42,28 @@
         :value="loading ? '—' : status?.queue_count || 0"
         detail="队列任务"
       />
-      <MetricCard
-        label="历史已完成执行"
-        :value="loading ? '—' : completedWorkflowsCount.toLocaleString('zh-CN')"
-        detail="全站累计执行记录，非工作流个数"
-      />
-      <MetricCard
-        label="历史失败执行"
-        :value="loading ? '—' : failedWorkflowsCount.toLocaleString('zh-CN')"
-        detail="全站累计失败执行记录"
-        value-class="text-red-600"
-      />
     </div>
-    <p class="monitoring-panel-description mt-3">
-      每条执行记录计一次。同一工作流收到不同邮件可多次触发；“已完成”表示流程执行状态，不能据此判断第三方业务结果。
-    </p>
+    <div class="monitoring-subsection">
+      <h4 class="mb-3 text-sm font-semibold text-gray-900">服务端工作流执行记录 · 历史累计</h4>
+      <div class="monitoring-metrics monitoring-metrics-compact" :aria-busy="loading">
+        <MetricCard
+          label="已完成的执行记录"
+          :value="loading ? '—' : completedExecutionCount.toLocaleString('zh-CN')"
+          detail="全站服务端执行记录，不限日期"
+        />
+        <MetricCard
+          label="失败的执行记录"
+          :value="loading ? '—' : failedExecutionCount.toLocaleString('zh-CN')"
+          detail="全站服务端执行记录，不限日期"
+          value-class="text-red-600"
+        />
+      </div>
+      <p class="monitoring-panel-description mt-3">
+        这里统计工作流执行记录，不是触发器数量、规则匹配次数或触发日志条数。
+        邮件满足触发器规则后，触发器可发起关联工作流的一次执行；工作流也支持手动执行。
+        “已完成”表示工作流执行状态；此处不含桌面端浏览器工作流的执行记录。
+      </p>
+    </div>
   </section>
 </template>
 
@@ -68,8 +76,8 @@ import MetricCard from './MetricCard.vue'
 // 响应式数据
 const loading = ref(false)
 const status = ref<any>(null)
-const failedWorkflowsCount = ref(0)
-const completedWorkflowsCount = ref(0)
+const failedExecutionCount = ref(0)
+const completedExecutionCount = ref(0)
 
 // 加载爬虫连接池状态
 const loadStatus = async () => {
@@ -87,35 +95,35 @@ const loadStatus = async () => {
   }
 }
 
-// 加载失败工作流总数
-const loadFailedWorkflowsCount = async () => {
+// 加载失败的工作流执行记录数
+const loadFailedExecutionCount = async () => {
   try {
-    // 使用新的统计API，管理员可以查看所有用户的失败工作流
+    // 接口按 workflow_executions.status 统计全站执行记录。
     const response = await workflowApi.getWorkflowCountByStatus('failed')
     if (response.code === 0 && response.data) {
-      failedWorkflowsCount.value = response.data.count || 0
+      failedExecutionCount.value = response.data.count || 0
     }
   } catch (error: any) {
-    console.error('获取失败工作流数量失败:', error)
+    console.error('获取失败执行记录数失败:', error)
   }
 }
 
-// 加载成功工作流总数
-const loadCompletedWorkflowsCount = async () => {
+// 加载已完成的工作流执行记录数
+const loadCompletedExecutionCount = async () => {
   try {
-    // 使用新的统计API，管理员可以查看所有用户的成功工作流
+    // 这里统计执行记录，不是工作流定义数或触发器日志数。
     const response = await workflowApi.getWorkflowCountByStatus('completed')
     if (response.code === 0 && response.data) {
-      completedWorkflowsCount.value = response.data.count || 0
+      completedExecutionCount.value = response.data.count || 0
     }
   } catch (error: any) {
-    console.error('获取成功工作流数量失败:', error)
+    console.error('获取已完成执行记录数失败:', error)
   }
 }
 
 // 刷新状态
 const refreshStatus = async (notify = true) => {
-  await Promise.all([loadStatus(), loadFailedWorkflowsCount(), loadCompletedWorkflowsCount()])
+  await Promise.all([loadStatus(), loadFailedExecutionCount(), loadCompletedExecutionCount()])
   if (notify) showMessage('执行状态已刷新', 'success')
 }
 
