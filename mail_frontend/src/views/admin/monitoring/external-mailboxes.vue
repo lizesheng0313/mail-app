@@ -132,7 +132,6 @@
         <div class="monitoring-panel-header">
           <div class="monitoring-panel-heading">
             <h3 class="monitoring-panel-title">每日成功接入邮箱</h3>
-            <p class="monitoring-panel-description">堆叠柱高为当日接入总数，保留零接入日期。</p>
           </div>
           <div class="flex shrink-0 gap-1">
             <button

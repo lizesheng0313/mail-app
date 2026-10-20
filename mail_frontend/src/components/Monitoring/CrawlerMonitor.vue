@@ -3,9 +3,6 @@
     <div class="monitoring-panel-header">
       <div class="monitoring-panel-heading">
         <h3 class="monitoring-panel-title">自动化执行监控</h3>
-        <p class="monitoring-panel-description">
-          触发器负责判断何时发起执行，工作流负责执行配置的步骤。下方展示实时队列和历史执行记录。
-        </p>
       </div>
       <button
         type="button"
@@ -49,19 +46,16 @@
         <MetricCard
           label="已完成的执行记录"
           :value="loading ? '—' : completedExecutionCount.toLocaleString('zh-CN')"
-          detail="全站服务端执行记录，不限日期"
         />
         <MetricCard
           label="失败的执行记录"
           :value="loading ? '—' : failedExecutionCount.toLocaleString('zh-CN')"
-          detail="全站服务端执行记录，不限日期"
           value-class="text-red-600"
         />
       </div>
       <p class="monitoring-panel-description mt-3">
-        这里统计工作流执行记录，不是触发器数量、规则匹配次数或触发日志条数。
-        邮件满足触发器规则后，触发器可发起关联工作流的一次执行；工作流也支持手动执行。
-        “已完成”表示工作流执行状态；此处不含桌面端浏览器工作流的执行记录。
+        统计全站服务端工作流执行记录，含手动和邮件触发；不含桌面端浏览器工作流。
+        “已完成”仅表示工作流执行状态。
       </p>
     </div>
   </section>

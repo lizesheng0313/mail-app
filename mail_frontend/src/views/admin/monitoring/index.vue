@@ -6,7 +6,6 @@
           <div class="monitoring-panel-header">
             <div class="monitoring-panel-heading">
               <h2 class="monitoring-panel-title">用户与访问概览</h2>
-              <p class="monitoring-panel-description">邮箱、API 和分享指标统一在业务监控查看。</p>
             </div>
           </div>
           <div class="monitoring-metrics">
@@ -111,9 +110,6 @@
         <div class="monitoring-panel-header mb-0">
           <div class="monitoring-panel-heading">
             <h2 class="monitoring-panel-title">业务监控</h2>
-            <p class="monitoring-panel-description">
-              下方邮箱、API、分享趋势使用同一时间范围，包含今天；悬停可看每日数值，点击图例可筛选。
-            </p>
           </div>
           <CustomSelect
             v-model="businessStatsDays"
@@ -211,7 +207,9 @@
             <div class="monitoring-panel-header">
               <div class="monitoring-panel-heading">
                 <h3 class="monitoring-panel-title">{{ chart.label }}</h3>
-                <p class="monitoring-panel-description">{{ chart.description }}</p>
+                <p v-if="chart.description" class="monitoring-panel-description">
+                  {{ chart.description }}
+                </p>
               </div>
             </div>
             <DailyTrendChart
@@ -235,8 +233,7 @@
             <div>
               <h4 class="text-sm font-semibold text-gray-900">站内客户端接口</h4>
               <p class="monitoring-panel-description">
-                网页、桌面端、小程序使用的业务接口，例如收信同步、邮件列表、未读数量查询。原“普通业务
-                API”即此类。
+                网页、桌面端、小程序使用的业务接口，例如收信同步、邮件列表、未读数量查询。
               </p>
               <p class="monitoring-panel-description">
                 <code>/mail-api/v1/</code>；外部程序调用这些地址也计入此类。
@@ -319,7 +316,7 @@
             </p>
             <p class="monitoring-panel-description">
               未标记来源：旧记录未保存入口，或请求未上报客户端标记，无法还原。
-              历史网页记录可能包含桌面端；更新后单列桌面端。撤销分享后历史计数保留。
+              历史网页记录可能包含桌面端。撤销分享后历史计数保留。
             </p>
             <p v-if="!hasShareChannelTrend" class="monitoring-panel-description" role="status">
               来源趋势需后端更新后显示。
@@ -617,7 +614,6 @@ const desktopSeries: TrendSeries[] = [
 const mailboxCharts: TrendPanel[] = [
   {
     label: '每日邮箱申请',
-    description: '按系统邮箱、域名邮箱分别统计；第三方邮箱接入趋势见第三方邮箱监控。',
     series: [
       { key: 'system_created', label: '系统邮箱', type: 'bar', unit: '个' },
       { key: 'hosted_created', label: '域名邮箱', type: 'bar', unit: '个' }
@@ -625,7 +621,6 @@ const mailboxCharts: TrendPanel[] = [
   },
   {
     label: '每日邮箱收件',
-    description: '三类邮箱的收件量分别统计。',
     series: mailboxReceiptKinds.map((kind) => ({
       key: `${kind.key}_received`,
       label: kind.label,
@@ -634,7 +629,7 @@ const mailboxCharts: TrendPanel[] = [
   },
   {
     label: '小程序账号归属邮箱每日收件',
-    description: '是上方各类收件的子项，不与总收件相加。',
+    description: '各类收件的子项，不与总收件相加。',
     series: mailboxReceiptKinds.map((kind) => ({
       key: `miniapp_${kind.key}_received`,
       label: kind.label,
