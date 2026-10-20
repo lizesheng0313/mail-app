@@ -33,8 +33,7 @@
 }
 
 .monitoring-metrics,
-.monitoring-charts,
-.monitoring-providers {
+.monitoring-charts {
   display: grid;
   min-width: 0;
   grid-template-columns: minmax(0, 1fr);
@@ -42,6 +41,7 @@
 }
 
 .monitoring-metrics {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   grid-auto-rows: 1fr;
 }
 
@@ -54,50 +54,9 @@
   min-width: 0;
 }
 
-.monitoring-table-scroll {
-  @apply overflow-x-auto rounded-lg border border-gray-200;
+.monitoring-auth-filter {
+  width: 192px;
   max-width: 100%;
-}
-
-.monitoring-table {
-  @apply w-full border-collapse text-sm;
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-}
-
-.monitoring-table th {
-  @apply border-b border-gray-200 bg-gray-50 px-4 py-3 text-left text-xs font-medium text-gray-500;
-}
-
-.monitoring-table td {
-  @apply border-b border-gray-100 px-4 py-3 text-gray-700;
-}
-
-.monitoring-table tbody tr:last-child td {
-  border-bottom: 0;
-}
-
-.monitoring-table tbody tr:hover {
-  @apply bg-gray-50;
-}
-
-.monitoring-table .monitoring-number {
-  text-align: right;
-}
-
-.monitoring-table th:first-child,
-.monitoring-table td:first-child {
-  position: sticky;
-  left: 0;
-  z-index: 1;
-}
-
-.monitoring-table th:first-child {
-  @apply bg-gray-50;
-}
-
-.monitoring-table td:first-child {
-  @apply bg-white font-medium;
 }
 
 .monitoring-funnel {
@@ -128,24 +87,17 @@
   grid-template-columns: minmax(0, 1fr);
 }
 
-@container monitoring (min-width: 440px) {
-  .monitoring-metrics {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .monitoring-metrics-compact {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
 @container monitoring (min-width: 720px) {
   .monitoring-panel {
     padding: 20px;
   }
 
-  .monitoring-charts,
-  .monitoring-providers {
+  .monitoring-charts {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .monitoring-mailbox-users {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .monitoring-geo {
@@ -161,10 +113,8 @@
   .monitoring-metrics-compact {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-}
 
-@container monitoring (min-width: 1080px) {
-  .monitoring-providers {
+  .monitoring-mailbox-users {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }

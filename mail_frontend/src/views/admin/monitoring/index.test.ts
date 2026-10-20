@@ -25,6 +25,7 @@ vi.mock('./utils/worldMapChart', () => ({ updateWorldMap: vi.fn(), preloadWorldM
 vi.mock('@/components/Monitoring/CrawlerMonitor.vue', () => ({ default: { template: '<div />' } }))
 
 import Monitoring from './index.vue'
+import CustomSelect from '@/components/CustomSelect/index.vue'
 import DailyTrendChart from '@/components/Monitoring/DailyTrendChart.vue'
 import { buildDailyTrendOption } from '@/components/Monitoring/dailyTrendOptions'
 
@@ -48,22 +49,41 @@ describe('independent mailbox monitoring dimensions', () => {
           business_api_calls_today: 31,
           business_api_active_users_today: 2
         },
-        api_breakdown: [
+        api_breakdown_trend: [
           {
+            date: '2026-10-18',
             api_scope: 'open',
             auth_mode: 'api_key',
-            success_calls_today: 3,
-            failed_calls_today: 1,
             success_calls: 8,
             failed_calls: 2
           },
           {
+            date: '2026-10-18',
             api_scope: 'open',
             auth_mode: 'bearer_token',
-            success_calls_today: 2,
-            failed_calls_today: 4,
             success_calls: 7,
             failed_calls: 5
+          },
+          {
+            date: '2026-10-19',
+            api_scope: 'open',
+            auth_mode: 'api_key',
+            success_calls: 3,
+            failed_calls: 1
+          },
+          {
+            date: '2026-10-18',
+            api_scope: 'business',
+            auth_mode: 'miniapp',
+            success_calls: 20,
+            failed_calls: 4
+          },
+          {
+            date: '2026-10-18',
+            api_scope: 'business',
+            auth_mode: 'public',
+            success_calls: 6,
+            failed_calls: 1
           }
         ],
         share_channels: [
@@ -82,6 +102,8 @@ describe('independent mailbox monitoring dimensions', () => {
             date: '2026-10-18',
             system_created: 7,
             hosted_created: 5,
+            system_created_users: 3,
+            hosted_created_users: 2,
             system_received: 10,
             hosted_received: 8,
             external_received: 12,
@@ -101,19 +123,27 @@ describe('independent mailbox monitoring dimensions', () => {
     })
     await flushPromises()
     const text = wrapper.text()
-    const mailboxRows = wrapper
-      .find('[data-testid="mailbox-summary"] tbody')
-      .findAll('tr')
-      .map((row) => row.findAll('td').map((cell) => cell.text()))
-    expect(mailboxRows).toEqual([
-      ['系统邮箱', '7', '0', '0', '0', '3'],
-      ['域名邮箱', '5', '0', '0', '0', '2'],
-      ['第三方邮箱', '—', '—', '0', '0', '4']
-    ])
-    expect(text).not.toContain('第三方邮箱今日申请')
     expect(text).toContain('站内客户端今日请求')
     expect(text).toContain('开放平台今日请求')
     const charts = wrapper.findAllComponents(DailyTrendChart)
+    const applicationChart = charts.find((chart) => chart.props('label') === '每日邮箱申请')!
+    const applicationOption = buildDailyTrendOption(
+      applicationChart.props('rows'),
+      applicationChart.props('series')
+    ) as any
+    expect(applicationOption.series.map((series: any) => [series.type, series.data])).toEqual([
+      ['line', [7, 0]],
+      ['line', [5, 0]]
+    ])
+    const applicantChart = charts.find((chart) => chart.props('label') === '每日邮箱申请人数')!
+    const applicantOption = buildDailyTrendOption(
+      applicantChart.props('rows'),
+      applicantChart.props('series')
+    ) as any
+    expect(applicantOption.series.map((series: any) => series.data)).toEqual([
+      [3, 0],
+      [2, 0]
+    ])
     const receiptChart = charts.find((chart) => chart.props('label') === '每日邮箱收件')!
     const receiptOption = buildDailyTrendOption(
       receiptChart.props('rows'),
@@ -136,21 +166,36 @@ describe('independent mailbox monitoring dimensions', () => {
       [2, 0],
       [4, 0]
     ])
-    const apiChart = charts.find((chart) => chart.props('label') === '每日 API 请求次数')!
-    const apiOption = buildDailyTrendOption(apiChart.props('rows'), apiChart.props('series')) as any
-    expect(apiOption.series.map((series: any) => series.data)).toEqual([
-      [31, 0],
-      [4, 0]
+    const resultChart = (label: string) => {
+      const chart = wrapper
+        .findAllComponents(DailyTrendChart)
+        .find((chart) => chart.props('label') === label)!
+      return buildDailyTrendOption(chart.props('rows'), chart.props('series')) as any
+    }
+    expect(resultChart('开放平台每日请求结果').series.map((series: any) => series.data)).toEqual([
+      [15, 3],
+      [7, 1]
     ])
+    expect(resultChart('站内客户端每日请求结果').series.map((series: any) => series.data)).toEqual([
+      [26, 0],
+      [5, 0]
+    ])
+    const authSelect = wrapper
+      .findAllComponents(CustomSelect)
+      .find((select) => select.props('options').some((option: any) => option.value === 'api_key'))!
+    authSelect.vm.$emit('update:modelValue', 'api_key')
+    await flushPromises()
+    expect(resultChart('开放平台每日请求结果').series.map((series: any) => series.data)).toEqual([
+      [8, 3],
+      [2, 1]
+    ])
+    expect(resultChart('站内客户端每日请求结果').series.map((series: any) => series.data)).toEqual([
+      [0, 0],
+      [0, 0]
+    ])
+    expect(api.getBusinessStats).toHaveBeenCalledTimes(1)
     expect(wrapper.find('[data-testid="business-trend"] table').exists()).toBe(false)
-    expect(wrapper.find('[data-testid="share-trend"] table').exists()).toBe(false)
-    const authRows = wrapper
-      .findAll('[data-testid="api-breakdown"] tbody tr')
-      .map((row) => row.findAll('td').map((cell) => cell.text()))
-    expect(authRows).toEqual([
-      ['开放平台接口', 'API Key', '8', '2'],
-      ['开放平台接口', '用户登录凭证', '7', '5']
-    ])
+    expect(wrapper.find('[data-testid="api-breakdown"] table').exists()).toBe(false)
     expect(wrapper.find('[data-testid="share-channels"] table').exists()).toBe(false)
     const sourceCharts = wrapper
       .find('[data-testid="share-channels"]')
@@ -182,7 +227,10 @@ describe('independent mailbox monitoring dimensions', () => {
       code: 0,
       data: {
         trend: [{ date: '2026-10-18' }],
-        share_channels: [{ source_channel: 'web', created: 50, visits: 100 }]
+        share_channels: [{ source_channel: 'web', created: 50, visits: 100 }],
+        api_breakdown: [
+          { api_scope: 'open', auth_mode: 'api_key', success_calls: 80, failed_calls: 20 }
+        ]
       }
     })
     const wrapper = mount(Monitoring, {
@@ -190,6 +238,10 @@ describe('independent mailbox monitoring dimensions', () => {
     })
     await flushPromises()
     expect(wrapper.find('[data-testid="share-channels"]').exists()).toBe(false)
+    const apiChart = wrapper
+      .findAllComponents(DailyTrendChart)
+      .find((chart) => chart.props('label') === '开放平台每日请求结果')!
+    expect(apiChart.props('rows')).toEqual([])
     wrapper.unmount()
   })
 

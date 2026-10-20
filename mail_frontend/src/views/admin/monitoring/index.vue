@@ -140,124 +140,61 @@
 
         <section class="monitoring-panel">
           <div class="monitoring-panel-header">
-            <div class="monitoring-panel-heading">
-              <h3 class="monitoring-panel-title">邮箱今日汇总</h3>
-            </div>
+            <h3 class="monitoring-panel-title">邮箱监控</h3>
           </div>
-          <div class="monitoring-table-scroll" data-testid="mailbox-summary">
-            <table class="monitoring-table">
-              <thead>
-                <tr>
-                  <th>邮箱类型</th>
-                  <th class="monitoring-number">申请数量</th>
-                  <th class="monitoring-number">申请人数</th>
-                  <th class="monitoring-number">收件数量</th>
-                  <th class="monitoring-number">使用人数</th>
-                  <th class="monitoring-number">小程序收件</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="kind in mailboxReceiptKinds" :key="kind.key">
-                  <td>{{ kind.label }}</td>
-                  <td class="monitoring-number">
-                    {{
-                      kind.key === 'external'
-                        ? '—'
-                        : formatNumber(businessStats.summary?.[`${kind.key}_created_today`])
-                    }}
-                  </td>
-                  <td class="monitoring-number">
-                    {{
-                      kind.key === 'external'
-                        ? '—'
-                        : formatNumber(businessStats.summary?.[`${kind.key}_created_users_today`])
-                    }}
-                  </td>
-                  <td class="monitoring-number">
-                    {{ formatNumber(businessStats.summary?.[`${kind.key}_received_today`]) }}
-                  </td>
-                  <td class="monitoring-number">
-                    {{ formatNumber(businessStats.summary?.[`${kind.key}_enabled_users`]) }}
-                  </td>
-                  <td class="monitoring-number">
-                    {{
-                      formatNumber(businessStats.summary?.[`miniapp_${kind.key}_received_today`])
-                    }}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+          <div class="monitoring-metrics monitoring-mailbox-users">
+            <MetricCard
+              v-for="kind in mailboxReceiptKinds"
+              :key="kind.key"
+              :label="`${kind.label}当前使用人数`"
+              :value="formatNumber(businessStats.summary?.[`${kind.key}_enabled_users`])"
+            />
+          </div>
+          <div class="monitoring-charts monitoring-subsection" data-testid="business-trend">
+            <article v-for="chart in mailboxCharts" :key="chart.label" class="min-w-0">
+              <h4 class="mb-4 text-sm font-semibold text-gray-900">{{ chart.label }}</h4>
+              <DailyTrendChart
+                :rows="businessStats.trend || []"
+                :series="chart.series"
+                :label="chart.label"
+              />
+            </article>
           </div>
         </section>
 
-        <div class="monitoring-charts" data-testid="business-trend">
-          <section v-for="chart in mailboxCharts" :key="chart.label" class="monitoring-panel">
-            <div class="monitoring-panel-header">
-              <div class="monitoring-panel-heading">
-                <h3 class="monitoring-panel-title">{{ chart.label }}</h3>
-              </div>
-            </div>
-            <DailyTrendChart
-              :rows="businessStats.trend || []"
-              :series="chart.series"
-              :label="chart.label"
-            />
-          </section>
-        </div>
-
         <section class="monitoring-panel">
           <div class="monitoring-panel-header">
-            <div class="monitoring-panel-heading">
-              <h3 class="monitoring-panel-title">API 请求监控</h3>
-            </div>
+            <h3 class="monitoring-panel-title">API 请求监控</h3>
           </div>
           <div class="monitoring-metrics">
             <MetricCard v-for="metric in apiMetrics" :key="metric.label" v-bind="metric" />
           </div>
-
           <div class="monitoring-subsection" data-testid="api-breakdown">
-            <h4 class="mb-3 text-sm font-semibold text-gray-900">所选区间 · 鉴权与请求结果</h4>
-            <div class="monitoring-table-scroll">
-              <table class="monitoring-table">
-                <thead>
-                  <tr>
-                    <th>接口类别</th>
-                    <th>鉴权方式</th>
-                    <th class="monitoring-number">成功请求</th>
-                    <th class="monitoring-number">失败请求</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr
-                    v-for="item in businessStats.api_breakdown || []"
-                    :key="`${item.api_scope}:${item.auth_mode}`"
-                  >
-                    <td>{{ item.api_scope === 'open' ? '开放平台接口' : '站内客户端接口' }}</td>
-                    <td>{{ apiAuthLabels[item.auth_mode] || '其他' }}</td>
-                    <td class="monitoring-number">{{ formatNumber(item.success_calls) }}</td>
-                    <td class="monitoring-number">{{ formatNumber(item.failed_calls) }}</td>
-                  </tr>
-                  <tr v-if="!businessStats.api_breakdown?.length">
-                    <td colspan="4" class="text-center text-gray-400">暂无 API 请求记录</td>
-                  </tr>
-                </tbody>
-              </table>
+            <div class="monitoring-panel-header">
+              <h4 class="text-sm font-semibold text-gray-900">每日请求结果</h4>
+              <CustomSelect
+                v-model="apiAuthMode"
+                class="monitoring-auth-filter"
+                size="sm"
+                :options="apiAuthOptions"
+              />
+            </div>
+            <div class="monitoring-charts">
+              <article v-for="chart in apiResultCharts" :key="chart.label" class="min-w-0">
+                <h4 class="mb-4 text-sm font-semibold text-gray-900">{{ chart.label }}</h4>
+                <DailyTrendChart :rows="chart.rows" :series="chart.series" :label="chart.label" />
+              </article>
             </div>
           </div>
-        </section>
-
-        <div class="monitoring-charts">
-          <section v-for="chart in apiCharts" :key="chart.label" class="monitoring-panel">
-            <div class="monitoring-panel-header">
-              <h3 class="monitoring-panel-title">{{ chart.label }}</h3>
-            </div>
+          <div class="monitoring-subsection">
+            <h4 class="mb-4 text-sm font-semibold text-gray-900">每日 API 关联账号人数</h4>
             <DailyTrendChart
               :rows="businessStats.trend || []"
-              :series="chart.series"
-              :label="chart.label"
+              :series="apiUserSeries"
+              label="每日 API 关联账号人数"
             />
-          </section>
-        </div>
+          </div>
+        </section>
 
         <section class="monitoring-panel">
           <div class="monitoring-panel-header">
@@ -414,6 +351,39 @@ const apiAuthLabels: Record<string, string> = {
   public: '匿名 / 未携带凭证',
   other: '其他'
 }
+const apiAuthMode = ref('all')
+const apiAuthOptions = [
+  { value: 'all', label: '全部鉴权方式' },
+  ...Object.entries(apiAuthLabels).map(([value, label]) => ({ value, label }))
+]
+const apiResultSeries: TrendSeries[] = [
+  { key: 'success_calls', label: '成功请求', unit: '次', color: '#10b981' },
+  { key: 'failed_calls', label: '失败请求', unit: '次', color: '#ef4444' }
+]
+const apiResultCharts = computed(() =>
+  [
+    { scope: 'business', label: '站内客户端每日请求结果' },
+    { scope: 'open', label: '开放平台每日请求结果' }
+  ].map(({ scope, label }) => {
+    if (!Array.isArray(businessStats.value.api_breakdown_trend)) {
+      return { label, rows: [], series: apiResultSeries }
+    }
+    const byDate = new Map<string, TrendRow>(
+      (businessStats.value.trend || []).map((row: TrendRow) => [row.date, { date: row.date }])
+    )
+    for (const item of businessStats.value.api_breakdown_trend) {
+      if (item.api_scope !== scope) continue
+      if (apiAuthMode.value !== 'all' && item.auth_mode !== apiAuthMode.value) continue
+      const day = byDate.get(item.date) || { date: item.date }
+      for (const key of ['success_calls', 'failed_calls']) {
+        const value = Number(item[key] || 0)
+        day[key] = Number(day[key] || 0) + (Number.isFinite(value) ? value : 0)
+      }
+      byDate.set(item.date, day)
+    }
+    return { label, rows: [...byDate.values()], series: apiResultSeries }
+  })
+)
 const shareSources = [
   { key: 'web', label: '网页', color: '#2563eb' },
   { key: 'desktop', label: '桌面端', color: '#8b5cf6' },
@@ -543,9 +513,17 @@ const mailboxCharts: TrendPanel[] = [
   {
     label: '每日邮箱申请',
     series: [
-      { key: 'system_created', label: '系统邮箱', type: 'bar', unit: '个' },
-      { key: 'hosted_created', label: '域名邮箱', type: 'bar', unit: '个' }
+      { key: 'system_created', label: '系统邮箱', unit: '个' },
+      { key: 'hosted_created', label: '域名邮箱', unit: '个' }
     ]
+  },
+  {
+    label: '每日邮箱申请人数',
+    series: mailboxApplicationKinds.map((kind) => ({
+      key: `${kind.key}_created_users`,
+      label: kind.label,
+      unit: '人'
+    }))
   },
   {
     label: '每日邮箱收件',
@@ -564,21 +542,9 @@ const mailboxCharts: TrendPanel[] = [
     }))
   }
 ]
-const apiCharts: TrendPanel[] = [
-  {
-    label: '每日 API 请求次数',
-    series: [
-      { key: 'business_api_calls', label: '站内客户端接口', unit: '次' },
-      { key: 'api_calls', label: '开放平台接口', unit: '次' }
-    ]
-  },
-  {
-    label: '每日 API 关联账号人数',
-    series: [
-      { key: 'business_api_active_users', label: '站内客户端接口', unit: '人' },
-      { key: 'api_active_users', label: '开放平台接口', unit: '人' }
-    ]
-  }
+const apiUserSeries: TrendSeries[] = [
+  { key: 'business_api_active_users', label: '站内客户端接口', unit: '人' },
+  { key: 'api_active_users', label: '开放平台接口', unit: '人' }
 ]
 const shareCharts: TrendPanel[] = [
   {

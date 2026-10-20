@@ -1,5 +1,6 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { expect, it, vi } from 'vitest'
+import ProviderDistributionChart from '@/components/Monitoring/ProviderDistributionChart.vue'
 import DailyTrendChart from '@/components/Monitoring/DailyTrendChart.vue'
 import { buildDailyTrendOption } from '@/components/Monitoring/dailyTrendOptions'
 
@@ -38,9 +39,14 @@ import ExternalMonitoring from './external-mailboxes.vue'
 
 it('switches the daily mailbox breakdown without hiding zero days or treating users as mailboxes', async () => {
   const wrapper = mount(ExternalMonitoring, {
-    global: { stubs: { CustomSelect: true, DailyTrendChart: true } }
+    global: {
+      stubs: { CustomSelect: true, DailyTrendChart: true, ProviderDistributionChart: true }
+    }
   })
   await flushPromises()
+  expect(wrapper.findComponent(ProviderDistributionChart).props('providers')).toEqual([
+    { key: 'google', name: 'Google', connected_mailboxes: 3 }
+  ])
   const chart = wrapper.findAllComponents(DailyTrendChart)[0]
   let option = buildDailyTrendOption(chart.props('rows'), chart.props('series')) as any
   expect(option.xAxis.data).toEqual(['2026-10-18', '2026-10-19'])

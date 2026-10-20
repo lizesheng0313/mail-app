@@ -20,8 +20,7 @@ withDefaults(
 
 <style scoped>
 .monitoring-metric {
-  @apply flex min-w-0 flex-col rounded-lg border border-gray-200 bg-white p-4;
-  min-height: 100px;
+  @apply flex min-w-0 flex-col py-1;
 }
 
 .monitoring-metric-label {

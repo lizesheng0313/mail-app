@@ -28,13 +28,12 @@
           </button>
         </div>
       </div>
-    </div>
-
-    <div class="monitoring-metrics">
-      <MetricCard label="今日成功接入" :value="formatNumber(summary.today_connected_mailboxes)" />
-      <MetricCard label="所选周期接入" :value="formatNumber(summary.connected_mailboxes)" />
-      <MetricCard label="所选周期接入用户" :value="formatNumber(summary.unique_owners)" />
-      <MetricCard label="周期内接入且正常" :value="formatNumber(summary.active_mailboxes)" />
+      <div class="monitoring-metrics monitoring-subsection">
+        <MetricCard label="今日成功接入" :value="formatNumber(summary.today_connected_mailboxes)" />
+        <MetricCard label="所选周期接入" :value="formatNumber(summary.connected_mailboxes)" />
+        <MetricCard label="所选周期接入用户" :value="formatNumber(summary.unique_owners)" />
+        <MetricCard label="周期内接入且正常" :value="formatNumber(summary.active_mailboxes)" />
+      </div>
     </div>
 
     <section class="monitoring-panel">
@@ -48,62 +47,7 @@
         </span>
       </div>
 
-      <div v-if="providers.length" class="monitoring-providers">
-        <article
-          v-for="(provider, index) in providers"
-          :key="provider.key"
-          class="rounded-lg border border-gray-200 p-4"
-        >
-          <div class="flex items-start justify-between gap-4">
-            <div class="min-w-0">
-              <div class="flex items-center gap-2">
-                <span
-                  class="inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-sm font-semibold"
-                  :class="providerBadgeClass(index)"
-                >
-                  {{ index + 1 }}
-                </span>
-                <h4 class="truncate font-semibold text-gray-900">{{ provider.name }}</h4>
-              </div>
-              <p v-if="provider.domains?.length" class="mt-3 truncate text-xs text-gray-500">
-                {{ provider.domains.slice(0, 3).join('、') }}
-              </p>
-            </div>
-            <div class="text-right">
-              <p class="text-2xl font-bold text-gray-900">
-                {{ formatNumber(provider.connected_mailboxes) }}
-              </p>
-              <p class="text-xs text-gray-500">{{ provider.share_percent || 0 }}%</p>
-            </div>
-          </div>
-          <div
-            class="mt-4 grid grid-cols-3 gap-2 border-t border-gray-100 pt-3 text-center text-xs"
-          >
-            <div>
-              <p class="font-semibold text-gray-900">{{ formatNumber(provider.unique_owners) }}</p>
-              <p class="text-gray-500">用户</p>
-            </div>
-            <div>
-              <p class="font-semibold text-gray-900">
-                {{ formatNumber(provider.oauth_mailboxes) }}
-              </p>
-              <p class="text-gray-500">OAuth</p>
-            </div>
-            <div>
-              <p class="font-semibold text-gray-900">
-                {{ formatNumber(provider.password_mailboxes) }}
-              </p>
-              <p class="text-gray-500">密码</p>
-            </div>
-          </div>
-        </article>
-      </div>
-      <div
-        v-else
-        class="rounded-lg border border-dashed border-gray-200 bg-gray-50 py-12 text-center text-sm text-gray-500"
-      >
-        所选周期暂无第三方邮箱接入数据
-      </div>
+      <ProviderDistributionChart :providers="providers" />
     </section>
 
     <div class="monitoring-charts">
@@ -150,6 +94,7 @@ import { monitoringAPI } from '@/api/monitoring'
 import CustomSelect from '@/components/CustomSelect/index.vue'
 import MetricCard from '@/components/Monitoring/MetricCard.vue'
 import DailyTrendChart from '@/components/Monitoring/DailyTrendChart.vue'
+import ProviderDistributionChart from '@/components/Monitoring/ProviderDistributionChart.vue'
 import type { TrendSeries } from '@/components/Monitoring/dailyTrendOptions'
 import './monitoring.css'
 import { showMessage } from '@/utils/message'
@@ -201,18 +146,6 @@ const dailySeries = computed<TrendSeries[]>(() =>
 const formatNumber = (value: number | string | undefined | null) => {
   const number = Number(value || 0)
   return Number.isFinite(number) ? number.toLocaleString('zh-CN') : '0'
-}
-
-const providerBadgeClass = (index: number) => {
-  const classes = [
-    'bg-blue-100 text-blue-700',
-    'bg-emerald-100 text-emerald-700',
-    'bg-violet-100 text-violet-700',
-    'bg-amber-100 text-amber-700',
-    'bg-rose-100 text-rose-700',
-    'bg-cyan-100 text-cyan-700'
-  ]
-  return classes[index % classes.length]
 }
 
 const loadStats = async () => {

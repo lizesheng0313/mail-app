@@ -384,7 +384,7 @@
             </button>
             <div class="min-w-0 flex-1">
               <h1 class="truncate text-lg font-semibold text-gray-900 md:text-2xl">{{ pageTitle }}</h1>
-              <p class="mt-1 hidden text-sm text-gray-600 md:block">{{ pageDescription }}</p>
+              <p v-if="pageDescription" class="mt-1 hidden text-sm text-gray-600 md:block">{{ pageDescription }}</p>
             </div>
             <div class="flex flex-shrink-0 items-center">
               <router-link
@@ -522,11 +522,9 @@ const pageTitle = computed(() => {
 })
 
 const pageDescription = computed(() => {
+  if (route.path === '/admin/monitoring' || route.path.startsWith('/admin/monitoring/')) return ''
   const descriptions: Record<string, string> = {
     '/admin/domains': '管理邮箱域名配置',
-    '/admin/monitoring': '查看系统运行状态、用户趋势、访问量和地理分布',
-    '/admin/monitoring/business': '查看业务使用、收件、分享和游客转化情况',
-    '/admin/monitoring/external-mailboxes': '查看每天成功接入的第三方邮箱和邮箱公司分布',
     '/admin/proxy': '管理付费代理配置和使用监控',
     '/admin/users': '查看和管理用户账户及代理权限',
     '/admin/workflow-review': '审核和管理工作流市场的所有工作流',
