@@ -25,6 +25,8 @@ vi.mock('./utils/worldMapChart', () => ({ updateWorldMap: vi.fn(), preloadWorldM
 vi.mock('@/components/Monitoring/CrawlerMonitor.vue', () => ({ default: { template: '<div />' } }))
 
 import Monitoring from './index.vue'
+import DailyTrendChart from '@/components/Monitoring/DailyTrendChart.vue'
+import { buildDailyTrendOption } from '@/components/Monitoring/dailyTrendOptions'
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -88,7 +90,9 @@ describe('independent mailbox monitoring dimensions', () => {
         ]
       }
     })
-    const wrapper = mount(Monitoring, { global: { stubs: { CustomSelect: true } } })
+    const wrapper = mount(Monitoring, {
+      global: { stubs: { CustomSelect: true, DailyTrendChart: true } }
+    })
     await flushPromises()
     const text = wrapper.text()
     const mailboxRows = wrapper
@@ -102,21 +106,36 @@ describe('independent mailbox monitoring dimensions', () => {
     ])
     expect(text).not.toContain('第三方邮箱今日申请')
     expect(text).toContain('小程序账号归属邮箱今日收件')
-    expect(text).toContain('小程序第三方收件')
-    expect(text).toContain('开放平台 API 今日使用人数')
-    expect(text).toContain('普通业务 API 今日调用量')
-    const cells = wrapper
-      .find('[data-testid="business-trend"] tbody tr')
-      .findAll('td')
-      .map((cell) => cell.text())
-    expect(cells.slice(2, 10)).toEqual(['7', '5', '8', '12', '10', '3', '2', '4'])
-    expect(cells.slice(10)).toEqual(['4', '1', '31', '2'])
+    expect(text).toContain('站内客户端今日请求')
+    expect(text).toContain('开放平台今日请求')
+    expect(text).toContain('自动同步、轮询、预检及失败请求')
+    expect(text).toContain('外部程序调用这些地址也计入此类')
+    const charts = wrapper.findAllComponents(DailyTrendChart)
+    const receiptChart = charts.find((chart) => chart.props('label') === '每日邮箱收件')!
+    const receiptOption = buildDailyTrendOption(
+      receiptChart.props('rows'),
+      receiptChart.props('series')
+    ) as any
+    expect(receiptOption.series.map((series: any) => series.data)).toEqual([[10], [8], [12]])
+    const miniappChart = charts.find(
+      (chart) => chart.props('label') === '小程序账号归属邮箱每日收件'
+    )!
+    const miniappOption = buildDailyTrendOption(
+      miniappChart.props('rows'),
+      miniappChart.props('series')
+    ) as any
+    expect(miniappOption.series.map((series: any) => series.data)).toEqual([[3], [2], [4]])
+    const apiChart = charts.find((chart) => chart.props('label') === '每日 API 请求次数')!
+    const apiOption = buildDailyTrendOption(apiChart.props('rows'), apiChart.props('series')) as any
+    expect(apiOption.series.map((series: any) => series.data)).toEqual([[31], [4]])
+    expect(wrapper.find('[data-testid="business-trend"] table').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="share-trend"] table').exists()).toBe(false)
     const authRows = wrapper
       .findAll('[data-testid="api-breakdown"] tbody tr')
       .map((row) => row.findAll('td').map((cell) => cell.text()))
     expect(authRows).toEqual([
-      ['开放平台', 'API Key', '3', '1', '8', '2'],
-      ['开放平台', 'Bearer', '2', '4', '7', '5']
+      ['开放平台接口', 'API Key', '8', '2'],
+      ['开放平台接口', '用户登录凭证', '7', '5']
     ])
     const sourceRows = wrapper
       .findAll('[data-testid="share-channels"] tbody tr')
@@ -126,7 +145,7 @@ describe('independent mailbox monitoring dimensions', () => {
     wrapper.unmount()
   })
 
-  it('shows all three receipt types separately on the overview', async () => {
+  it('keeps mailbox metrics in business monitoring instead of repeating them on the overview', async () => {
     route.meta.monitoringSection = 'overview'
     api.getOverview.mockResolvedValue({
       code: 0,
@@ -138,12 +157,16 @@ describe('independent mailbox monitoring dimensions', () => {
         }
       }
     })
-    const wrapper = mount(Monitoring, { global: { stubs: { CustomSelect: true } } })
+    const wrapper = mount(Monitoring, {
+      global: { stubs: { CustomSelect: true, DailyTrendChart: true } }
+    })
     await flushPromises()
-    expect(wrapper.text()).toContain('系统邮箱今日收件')
-    expect(wrapper.text()).toContain('域名邮箱今日收件')
-    expect(wrapper.text()).toContain('第三方邮箱今日收件')
-    expect(wrapper.text()).toContain('系统邮箱申请趋势')
+    expect(wrapper.text()).not.toContain('系统邮箱今日收件')
+    expect(wrapper.text()).not.toContain('域名邮箱今日收件')
+    expect(wrapper.text()).not.toContain('第三方邮箱今日收件')
+    expect(wrapper.text()).not.toContain('系统邮箱申请趋势')
+    expect(wrapper.text()).toContain('用户注册趋势')
+    expect(wrapper.text()).toContain('访问量趋势')
     wrapper.unmount()
   })
 })

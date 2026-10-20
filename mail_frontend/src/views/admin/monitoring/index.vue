@@ -2,28 +2,17 @@
   <div class="monitoring-page">
     <div class="monitoring-content">
       <template v-if="monitoringSection === 'overview'">
-        <section class="monitoring-panel" aria-label="今日概览">
+        <section class="monitoring-panel">
           <div class="monitoring-panel-header">
             <div class="monitoring-panel-heading">
-              <h2 class="monitoring-panel-title">今日概览</h2>
-              <p class="monitoring-panel-description">用户增长、邮箱申请与收件情况</p>
+              <h2 class="monitoring-panel-title">用户与访问概览</h2>
+              <p class="monitoring-panel-description">邮箱、API 和分享指标统一在业务监控查看。</p>
             </div>
           </div>
           <div class="monitoring-metrics">
             <MetricCard v-for="metric in overviewMetrics" :key="metric.label" v-bind="metric" />
           </div>
-          <p
-            v-if="userStats.today_user_apply_stats?.unknown_applicant_mailboxes"
-            class="monitoring-panel-description mt-3"
-          >
-            {{
-              userStats.today_user_apply_stats.unknown_applicant_mailboxes
-            }}
-            个历史申请待补身份，未纳入平均申请数。
-          </p>
         </section>
-
-        <CrawlerMonitor ref="crawlerMonitorRef" />
 
         <div class="monitoring-charts">
           <section class="monitoring-panel">
@@ -37,40 +26,11 @@
                 @update:modelValue="loadUserStats"
               />
             </div>
-            <div
-              v-if="userStats.daily_new_users?.length"
-              ref="userTrendChart"
-              class="monitoring-chart"
-            ></div>
-            <div
-              v-else
-              class="monitoring-chart flex items-center justify-center text-sm text-gray-400"
-            >
-              暂无数据
-            </div>
-          </section>
-          <section class="monitoring-panel">
-            <div class="monitoring-panel-header">
-              <h3 class="monitoring-panel-title">系统邮箱申请趋势</h3>
-              <CustomSelect
-                v-model="userStatsDays"
-                class="monitoring-period"
-                size="sm"
-                :options="periodOptions"
-                @update:modelValue="loadUserStats"
-              />
-            </div>
-            <div
-              v-if="userStats.daily_mailbox_stats?.length"
-              ref="mailboxTrendChart"
-              class="monitoring-chart"
-            ></div>
-            <div
-              v-else
-              class="monitoring-chart flex items-center justify-center text-sm text-gray-400"
-            >
-              暂无数据
-            </div>
+            <DailyTrendChart
+              :rows="userStats.daily_new_users || []"
+              :series="registrationSeries"
+              label="用户注册趋势"
+            />
           </section>
           <section class="monitoring-panel">
             <div class="monitoring-panel-header">
@@ -83,20 +43,15 @@
                 @update:modelValue="loadPageAnalytics"
               />
             </div>
-            <div
-              v-if="pageAnalytics.daily_stats?.length"
-              ref="pvUvTrendChart"
-              class="monitoring-chart"
-            ></div>
-            <div
-              v-else
-              class="monitoring-chart flex items-center justify-center text-sm text-gray-400"
-            >
-              暂无数据
-            </div>
+            <DailyTrendChart
+              :rows="pageAnalytics.daily_stats || []"
+              :series="trafficSeries"
+              label="访问量趋势"
+            />
           </section>
         </div>
 
+        <CrawlerMonitor />
         <section class="monitoring-panel">
           <div class="monitoring-panel-header">
             <h3 class="monitoring-panel-title">用户地理分布</h3>
@@ -153,56 +108,54 @@
       </template>
 
       <template v-if="monitoringSection === 'business'">
+        <div class="monitoring-panel-header mb-0">
+          <div class="monitoring-panel-heading">
+            <h2 class="monitoring-panel-title">业务监控</h2>
+            <p class="monitoring-panel-description">
+              下方邮箱、API、分享趋势使用同一时间范围，包含今天；悬停可看每日数值，点击图例可筛选。
+            </p>
+          </div>
+          <CustomSelect
+            v-model="businessStatsDays"
+            class="monitoring-period"
+            size="sm"
+            :options="periodOptions"
+            @update:modelValue="loadBusinessStats"
+          />
+        </div>
+
         <section class="monitoring-panel">
           <div class="monitoring-panel-header">
-            <div class="monitoring-panel-heading">
-              <h3 class="monitoring-panel-title">用户与使用情况</h3>
-              <p class="monitoring-panel-description">今日活跃与当前在线，按账号去重</p>
-            </div>
-            <CustomSelect
-              v-model="businessStatsDays"
-              class="monitoring-period"
-              size="sm"
-              :options="periodOptions"
-              @update:modelValue="loadBusinessStats"
-            />
+            <h3 class="monitoring-panel-title">在线与桌面端使用</h3>
           </div>
-          <div class="monitoring-metrics">
+          <div class="monitoring-metrics monitoring-metrics-compact">
             <MetricCard v-for="metric in audienceMetrics" :key="metric.label" v-bind="metric" />
           </div>
-          <div class="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-gray-500">
-            <span class="font-medium text-gray-700">在线平台分布</span>
-            <span
-              >桌面端
-              <strong class="ml-1 font-semibold text-gray-900">{{
-                businessStats.summary?.desktop_online_users_now || 0
-              }}</strong></span
-            >
-            <span
-              >Web
-              <strong class="ml-1 font-semibold text-gray-900">{{
-                businessStats.summary?.web_online_users_now || 0
-              }}</strong></span
-            >
-            <span
-              >小程序
-              <strong class="ml-1 font-semibold text-gray-900">{{
-                businessStats.summary?.miniapp_online_users_now || 0
-              }}</strong></span
-            >
-            <span>同一用户可同时计入多个平台</span>
+          <p class="monitoring-panel-description mt-3">
+            在线平台分布：桌面端
+            {{ formatNumber(businessStats.summary?.desktop_online_users_now) }} · 网页
+            {{ formatNumber(businessStats.summary?.web_online_users_now) }} · 小程序
+            {{ formatNumber(businessStats.summary?.miniapp_online_users_now) }}。
+            同一用户可同时计入多个平台，总在线人数按账号去重。
+          </p>
+          <div class="monitoring-subsection">
+            <h4 class="mb-3 text-sm font-semibold text-gray-900">桌面端每日使用人数</h4>
+            <DailyTrendChart
+              :rows="businessStats.trend || []"
+              :series="desktopSeries"
+              label="桌面端每日使用人数"
+            />
           </div>
         </section>
 
         <section class="monitoring-panel">
           <div class="monitoring-panel-header">
             <div class="monitoring-panel-heading">
-              <h3 class="monitoring-panel-title">邮箱申请与收件</h3>
+              <h3 class="monitoring-panel-title">邮箱今日汇总</h3>
               <p class="monitoring-panel-description">
-                三种邮箱分别统计；第三方邮箱通过接入使用，不计申请数。
+                第三方邮箱通过接入使用，不计申请数；使用人数是当前仍有启用邮箱的用户数。
               </p>
             </div>
-            <span class="text-xs leading-6 text-gray-500">今日</span>
           </div>
           <div class="monitoring-table-scroll" data-testid="mailbox-summary">
             <table class="monitoring-table">
@@ -223,162 +176,161 @@
                     {{
                       kind.key === 'external'
                         ? '—'
-                        : businessStats.summary?.[`${kind.key}_created_today`] || 0
+                        : formatNumber(businessStats.summary?.[`${kind.key}_created_today`])
                     }}
                   </td>
                   <td class="monitoring-number">
                     {{
                       kind.key === 'external'
                         ? '—'
-                        : businessStats.summary?.[`${kind.key}_created_users_today`] || 0
+                        : formatNumber(businessStats.summary?.[`${kind.key}_created_users_today`])
                     }}
                   </td>
                   <td class="monitoring-number">
-                    {{ businessStats.summary?.[`${kind.key}_received_today`] || 0 }}
+                    {{ formatNumber(businessStats.summary?.[`${kind.key}_received_today`]) }}
                   </td>
                   <td class="monitoring-number">
-                    {{ businessStats.summary?.[`${kind.key}_enabled_users`] || 0 }}
+                    {{ formatNumber(businessStats.summary?.[`${kind.key}_enabled_users`]) }}
                   </td>
                   <td class="monitoring-number">
-                    {{ businessStats.summary?.[`miniapp_${kind.key}_received_today`] || 0 }}
+                    {{
+                      formatNumber(businessStats.summary?.[`miniapp_${kind.key}_received_today`])
+                    }}
                   </td>
                 </tr>
               </tbody>
             </table>
           </div>
           <p class="monitoring-panel-description">
-            小程序账号归属邮箱今日收件：包含微信账号及其绑定账号名下的邮箱，是对应类型收件的子项。
-          </p>
-          <div v-if="businessStats.trend?.length" class="monitoring-subsection">
-            <h4 class="mb-3 text-sm font-semibold text-gray-900">每日业务趋势</h4>
-            <div class="monitoring-table-scroll" data-testid="business-trend">
-              <table class="monitoring-table">
-                <thead>
-                  <tr>
-                    <th>日期</th>
-                    <th
-                      v-for="column in businessTrendColumns"
-                      :key="column.key"
-                      class="monitoring-number"
-                    >
-                      {{ column.label }}
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="item in businessStats.trend" :key="item.date">
-                    <td>{{ item.date }}</td>
-                    <td
-                      v-for="column in businessTrendColumns"
-                      :key="column.key"
-                      class="monitoring-number"
-                    >
-                      {{ item[column.key] || 0 }}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-          <p v-else class="mt-5 rounded-lg bg-gray-50 py-8 text-center text-sm text-gray-400">
-            最近 {{ businessStatsDays }} 天暂无业务趋势数据
+            小程序账号归属邮箱今日收件：包含微信账号及其绑定账号名下的邮箱，是各类收件的子项。
           </p>
         </section>
+
+        <div class="monitoring-charts" data-testid="business-trend">
+          <section v-for="chart in mailboxCharts" :key="chart.label" class="monitoring-panel">
+            <div class="monitoring-panel-header">
+              <div class="monitoring-panel-heading">
+                <h3 class="monitoring-panel-title">{{ chart.label }}</h3>
+                <p class="monitoring-panel-description">{{ chart.description }}</p>
+              </div>
+            </div>
+            <DailyTrendChart
+              :rows="businessStats.trend || []"
+              :series="chart.series"
+              :label="chart.label"
+            />
+          </section>
+        </div>
 
         <section class="monitoring-panel">
           <div class="monitoring-panel-header">
             <div class="monitoring-panel-heading">
-              <h3 class="monitoring-panel-title">API 调用情况</h3>
+              <h3 class="monitoring-panel-title">API 请求监控</h3>
               <p class="monitoring-panel-description">
-                文档、元信息和日志查询接口均计入；成功为 HTTP 状态小于 400 且业务码为 0。
+                统计本站后端收到的请求，按接口地址分类；请求次数包含自动同步、轮询、预检及失败请求。
               </p>
             </div>
-            <span class="text-xs leading-6 text-gray-500">最近 {{ businessStatsDays }} 天</span>
           </div>
-          <dl class="mb-5 flex flex-wrap gap-x-12 gap-y-4">
+          <div class="monitoring-api-definitions">
             <div>
-              <dt class="text-sm text-gray-600">开放平台 API 今日使用人数</dt>
-              <dd class="mt-1 text-2xl font-semibold tabular-nums text-gray-900">
-                {{ businessStats.summary?.api_active_users_today || 0 }}
-                <span class="ml-2 text-xs font-normal text-gray-500"
-                  >调用量 {{ businessStats.summary?.api_calls_today || 0 }}</span
-                >
-              </dd>
+              <h4 class="text-sm font-semibold text-gray-900">站内客户端接口</h4>
+              <p class="monitoring-panel-description">
+                网页、桌面端、小程序使用的业务接口，例如收信同步、邮件列表、未读数量查询。原“普通业务
+                API”即此类。
+              </p>
+              <p class="monitoring-panel-description">
+                <code>/mail-api/v1/</code>；外部程序调用这些地址也计入此类。
+              </p>
             </div>
             <div>
-              <dt class="text-sm text-gray-600">普通业务 API 今日调用量</dt>
-              <dd class="mt-1 text-2xl font-semibold tabular-nums text-gray-900">
-                {{ businessStats.summary?.business_api_calls_today || 0 }}
-                <span class="ml-2 text-xs font-normal text-gray-500"
-                  >已登录站内用户
-                  {{ businessStats.summary?.business_api_active_users_today || 0 }}</span
-                >
-              </dd>
+              <h4 class="text-sm font-semibold text-gray-900">开放平台接口</h4>
+              <p class="monitoring-panel-description">
+                供开发者或接入程序使用的开放接口，按接口地址统计，支持 API Key 或用户登录凭证。
+              </p>
+              <p class="monitoring-panel-description">
+                <code>/open/v1/</code>；文档、元信息、日志查询也计入。
+              </p>
             </div>
-          </dl>
-          <h4 class="mb-3 text-sm font-semibold text-gray-900">API 鉴权与调用结果</h4>
-          <div class="monitoring-table-scroll" data-testid="api-breakdown">
-            <table class="monitoring-table">
-              <thead>
-                <tr>
-                  <th>接口类别</th>
-                  <th>鉴权方式</th>
-                  <th class="monitoring-number">今日成功</th>
-                  <th class="monitoring-number">今日失败</th>
-                  <th class="monitoring-number">区间成功</th>
-                  <th class="monitoring-number">区间失败</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr
-                  v-for="item in businessStats.api_breakdown || []"
-                  :key="`${item.api_scope}:${item.auth_mode}`"
-                >
-                  <td>{{ item.api_scope === 'open' ? '开放平台' : '普通业务' }}</td>
-                  <td>{{ apiAuthLabels[item.auth_mode] || '其他' }}</td>
-                  <td class="monitoring-number">{{ item.success_calls_today }}</td>
-                  <td class="monitoring-number">{{ item.failed_calls_today }}</td>
-                  <td class="monitoring-number">{{ item.success_calls }}</td>
-                  <td class="monitoring-number">{{ item.failed_calls }}</td>
-                </tr>
-                <tr v-if="!businessStats.api_breakdown?.length">
-                  <td colspan="6" class="text-center text-gray-400">暂无 API 请求记录</td>
-                </tr>
-              </tbody>
-            </table>
+          </div>
+          <div class="monitoring-metrics mt-4">
+            <MetricCard v-for="metric in apiMetrics" :key="metric.label" v-bind="metric" />
+          </div>
+          <p class="monitoring-panel-description">
+            后台主动调用第三方服务不计入本项。调用人数仅统计能关联到站内账号的请求；匿名请求、未关联站内账号的小程序请求不计人数。
+          </p>
+          <div class="monitoring-subsection" data-testid="api-breakdown">
+            <h4 class="mb-3 text-sm font-semibold text-gray-900">所选区间 · 鉴权与请求结果</h4>
+            <div class="monitoring-table-scroll">
+              <table class="monitoring-table">
+                <thead>
+                  <tr>
+                    <th>接口类别</th>
+                    <th>鉴权方式</th>
+                    <th class="monitoring-number">成功请求</th>
+                    <th class="monitoring-number">失败请求</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr
+                    v-for="item in businessStats.api_breakdown || []"
+                    :key="`${item.api_scope}:${item.auth_mode}`"
+                  >
+                    <td>{{ item.api_scope === 'open' ? '开放平台接口' : '站内客户端接口' }}</td>
+                    <td>{{ apiAuthLabels[item.auth_mode] || '其他' }}</td>
+                    <td class="monitoring-number">{{ formatNumber(item.success_calls) }}</td>
+                    <td class="monitoring-number">{{ formatNumber(item.failed_calls) }}</td>
+                  </tr>
+                  <tr v-if="!businessStats.api_breakdown?.length">
+                    <td colspan="4" class="text-center text-gray-400">暂无 API 请求记录</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="monitoring-panel-description">
+              成功：HTTP 状态小于 400 且业务码为 0。失败包含鉴权失败、业务错误及未匹配路由等请求。
+            </p>
           </div>
         </section>
 
+        <div class="monitoring-charts">
+          <section v-for="chart in apiCharts" :key="chart.label" class="monitoring-panel">
+            <div class="monitoring-panel-header">
+              <h3 class="monitoring-panel-title">{{ chart.label }}</h3>
+            </div>
+            <DailyTrendChart
+              :rows="businessStats.trend || []"
+              :series="chart.series"
+              :label="chart.label"
+            />
+          </section>
+        </div>
+
         <section class="monitoring-panel">
           <div class="monitoring-panel-header">
-            <h3 class="monitoring-panel-title">邮箱分享监控</h3>
-            <span class="text-xs leading-6 text-gray-500"
-              >最近 {{ businessStatsDays }} 天（含今天）</span
-            >
+            <h3 class="monitoring-panel-title">邮箱分享</h3>
           </div>
           <div class="monitoring-metrics">
             <MetricCard v-for="metric in shareMetrics" :key="metric.label" v-bind="metric" />
           </div>
           <div class="monitoring-subsection" data-testid="share-channels">
-            <h4 class="mb-3 text-sm font-semibold text-gray-900">分享来源</h4>
+            <h4 class="mb-3 text-sm font-semibold text-gray-900">所选区间 · 分享来源</h4>
             <div class="monitoring-table-scroll">
               <table class="monitoring-table">
                 <thead>
                   <tr>
                     <th>来源</th>
-                    <th class="monitoring-number">今日创建</th>
-                    <th class="monitoring-number">今日访问请求</th>
-                    <th class="monitoring-number">区间创建</th>
-                    <th class="monitoring-number">区间访问请求</th>
+                    <th class="monitoring-number">创建链接</th>
+                    <th class="monitoring-number">访问请求</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr v-for="item in businessStats.share_channels || []" :key="item.source_channel">
                     <td>{{ shareSourceLabels[item.source_channel] || '未知' }}</td>
-                    <td class="monitoring-number">{{ item.created_today }}</td>
-                    <td class="monitoring-number">{{ item.visits_today }}</td>
-                    <td class="monitoring-number">{{ item.created }}</td>
-                    <td class="monitoring-number">{{ item.visits }}</td>
+                    <td class="monitoring-number">{{ formatNumber(item.created) }}</td>
+                    <td class="monitoring-number">{{ formatNumber(item.visits) }}</td>
+                  </tr>
+                  <tr v-if="!businessStats.share_channels?.length">
+                    <td colspan="3" class="text-center text-gray-400">暂无分享记录</td>
                   </tr>
                 </tbody>
               </table>
@@ -387,45 +339,23 @@
               创建来源与访问来源分别统计；旧记录未保存来源时列为未知。撤销分享后历史计数保留。
             </p>
           </div>
-          <div v-if="businessStats.trend?.length" class="monitoring-subsection">
-            <h4 class="mb-3 text-sm font-semibold text-gray-900">每日分享趋势</h4>
-            <div class="monitoring-table-scroll">
-              <table class="monitoring-table">
-                <thead>
-                  <tr>
-                    <th>日期</th>
-                    <th
-                      v-for="column in shareTrendColumns"
-                      :key="column.key"
-                      class="monitoring-number"
-                    >
-                      {{ column.label }}
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="item in businessStats.trend" :key="item.date">
-                    <td>{{ item.date }}</td>
-                    <td
-                      v-for="column in shareTrendColumns"
-                      :key="column.key"
-                      class="monitoring-number"
-                    >
-                      {{ item[column.key] || 0 }}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-            <p class="monitoring-panel-description">
-              区间首次：所选时间段内第一次创建分享；区间再次：此前某天已创建过分享。每天的创建用户 =
-              区间首次 + 区间再次，撤销分享后仍计入。
-            </p>
-            <p class="monitoring-panel-description">
-              访问请求包含获取分享信息、读取邮件和成功拉取邮件，包括自动刷新。
-            </p>
-          </div>
         </section>
+
+        <div class="monitoring-charts" data-testid="share-trend">
+          <section v-for="chart in shareCharts" :key="chart.label" class="monitoring-panel">
+            <div class="monitoring-panel-header">
+              <div class="monitoring-panel-heading">
+                <h3 class="monitoring-panel-title">{{ chart.label }}</h3>
+                <p class="monitoring-panel-description">{{ chart.description }}</p>
+              </div>
+            </div>
+            <DailyTrendChart
+              :rows="businessStats.trend || []"
+              :series="chart.series"
+              :label="chart.label"
+            />
+          </section>
+        </div>
 
         <section class="monitoring-panel">
           <div class="monitoring-panel-header">
@@ -509,9 +439,8 @@ import CrawlerMonitor from '@/components/Monitoring/CrawlerMonitor.vue'
 import MetricCard from '@/components/Monitoring/MetricCard.vue'
 import './monitoring.css'
 import { showMessage } from '@/utils/message'
-import { updateUserChart as updateUserTrendChart } from './utils/userTrendChart'
-import { updateMailboxChart as updateMailboxTrendChart } from './utils/mailboxTrendChart'
-import { updatePvUvChart as updatePvUvTrendChart } from './utils/pvUvTrendChart'
+import DailyTrendChart from '@/components/Monitoring/DailyTrendChart.vue'
+import type { TrendSeries } from '@/components/Monitoring/dailyTrendOptions'
 import {
   updateWorldMap as updateWorldMapChart,
   preloadWorldMap as preloadWorldMapData
@@ -530,12 +459,10 @@ declare global {
 const route = useRoute()
 const monitoringSection = computed(() => String(route.meta.monitoringSection || 'overview'))
 const loading = ref(false)
-const crawlerMonitorRef = ref()
 
 // 统计数据
 const overview = ref<any>({})
 const userStats = ref<any>({})
-const emailActivity = ref<any>({})
 const pageAnalytics = ref<any>({})
 const geoDistribution = ref<any>({}) // 新增地理分布数据
 const businessStats = ref<any>({ summary: {}, trend: [] })
@@ -547,9 +474,9 @@ const mailboxApplicationKinds = [
 const mailboxReceiptKinds = [...mailboxApplicationKinds, { key: 'external', label: '第三方邮箱' }]
 const apiAuthLabels: Record<string, string> = {
   api_key: 'API Key',
-  bearer_token: 'Bearer',
-  miniapp: '小程序',
-  public: '匿名',
+  bearer_token: '用户登录凭证',
+  miniapp: '小程序登录凭证',
+  public: '匿名 / 未携带凭证',
   other: '其他'
 }
 const shareSourceLabels: Record<string, string> = {
@@ -579,126 +506,180 @@ const overviewMetrics = computed(() => [
     detail: '累计注册用户'
   },
   {
-    label: '系统邮箱今日申请',
-    value: formatNumber(overview.value.today_stats?.system_created_today),
-    detail: '今日新建邮箱'
+    label: `最近 ${pageAnalyticsDays.value} 天页面浏览量`,
+    value: formatNumber(pageAnalytics.value.totals?.total_pv),
+    detail: 'PV，重复访问计多次'
   },
   {
-    label: '域名邮箱今日申请',
-    value: formatNumber(overview.value.today_stats?.hosted_created_today),
-    detail: '今日新建邮箱'
-  },
-  {
-    label: '系统邮箱今日收件',
-    value: formatNumber(overview.value.today_stats?.system_received_today),
-    detail: '今日收到邮件'
-  },
-  {
-    label: '域名邮箱今日收件',
-    value: formatNumber(overview.value.today_stats?.hosted_received_today),
-    detail: '今日收到邮件'
-  },
-  {
-    label: '第三方邮箱今日收件',
-    value: formatNumber(overview.value.today_stats?.external_received_today),
-    detail: '今日收到邮件'
-  },
-  {
-    label: '系统邮箱平均申请数',
-    value: formatNumber(userStats.value.today_user_apply_stats?.avg_mailboxes_per_person),
-    detail: '个/人，按今日申请人数计算'
+    label: `最近 ${pageAnalyticsDays.value} 天访客数`,
+    value: formatNumber(pageAnalytics.value.totals?.total_uv),
+    detail: 'UV，所选区间去重'
   }
 ])
 const audienceMetrics = computed(() => [
   {
-    label: '当前在线用户（去重）',
+    label: '当前在线用户',
     value: formatNumber(businessStats.value.summary?.online_users_now),
-    detail: '当前连接中的用户'
+    detail: '当前连接中的用户，按账号去重'
   },
   {
     label: '桌面端今日使用人数',
     value: formatNumber(businessStats.value.summary?.desktop_active_users_today),
-    detail: '按日去重'
-  },
-  {
-    label: '域名邮箱使用人数',
-    value: formatNumber(businessStats.value.summary?.hosted_enabled_users),
-    detail: '已启用邮箱用户'
-  },
-  {
-    label: '开放平台 API 已启用用户',
-    value: formatNumber(businessStats.value.summary?.api_enabled_users),
-    detail: `今日活跃 Key ${businessStats.value.summary?.api_active_keys_today || 0}`
+    detail: '今日使用过桌面端的用户，按日去重'
   }
 ])
-const shareMetrics = computed(() =>
-  [
-    {
-      label: '历史分享创建人数',
-      key: 'share_users_total',
-      detail: '按账号或游客 UUID 去重，含已撤销分享'
-    },
-    {
-      label: `最近 ${businessStatsDays.value} 天使用用户`,
-      key: 'share_users_period',
-      detail: '整个区间按账号去重'
-    },
-    {
-      label: '其中跨天重复使用',
-      key: 'share_repeat_users_period',
-      detail: '区间内至少 2 天创建过分享'
-    },
-    { label: '今日创建分享的用户', key: 'share_users_today', detail: '按用户去重' },
-    { label: '今日创建链接', key: 'share_links_created_today', detail: '生成的链接总数' },
-    { label: '今日打开过的链接', key: 'share_links_opened_today', detail: '按链接去重' },
-    { label: '今日分享访问请求', key: 'share_visits_today', detail: '信息、读信和成功拉取请求' },
-    { label: '今日分享访客', key: 'share_visitors_today', detail: '按浏览器匿名标识去重' }
-  ].map(({ key, ...metric }) => ({
-    ...metric,
-    value: formatNumber(businessStats.value.summary?.[key])
-  }))
-)
-const businessTrendColumns = [
-  { key: 'desktop_active_users', label: '桌面端人数' },
-  { key: 'system_created', label: '系统申请' },
-  { key: 'hosted_created', label: '域名申请' },
-  { key: 'hosted_received', label: '域名收件' },
-  { key: 'external_received', label: '第三方收件' },
-  { key: 'system_received', label: '系统收件' },
-  { key: 'miniapp_system_received', label: '小程序系统收件' },
-  { key: 'miniapp_hosted_received', label: '小程序域名收件' },
-  { key: 'miniapp_external_received', label: '小程序第三方收件' },
-  { key: 'api_calls', label: '开放平台 API 调用' },
-  { key: 'api_active_users', label: '开放平台 API 用户' },
-  { key: 'business_api_calls', label: '普通业务 API 调用' },
-  { key: 'business_api_active_users', label: '普通业务 API 站内用户' }
+const apiMetrics = computed(() => [
+  {
+    label: '站内客户端今日请求',
+    value: formatNumber(businessStats.value.summary?.business_api_calls_today),
+    detail: `关联站内账号 ${formatNumber(businessStats.value.summary?.business_api_active_users_today)} 人`
+  },
+  {
+    label: '开放平台今日请求',
+    value: formatNumber(businessStats.value.summary?.api_calls_today),
+    detail: `关联站内账号 ${formatNumber(businessStats.value.summary?.api_active_users_today)} 人`
+  },
+  {
+    label: '开放平台已启用用户',
+    value: formatNumber(businessStats.value.summary?.api_enabled_users),
+    detail: '当前持有有效 API Key 的用户'
+  },
+  {
+    label: '今日活跃 API Key',
+    value: formatNumber(businessStats.value.summary?.api_active_keys_today),
+    detail: '今日请求中关联到的不同 Key'
+  }
+])
+const shareMetrics = computed(() => [
+  {
+    label: '历史分享创建人数',
+    value: formatNumber(businessStats.value.summary?.share_users_total),
+    detail: '账号或游客标识去重，含已撤销分享'
+  },
+  {
+    label: `最近 ${businessStatsDays.value} 天创建人数`,
+    value: formatNumber(businessStats.value.summary?.share_users_period),
+    detail: `其中 ${formatNumber(businessStats.value.summary?.share_repeat_users_period)} 人跨天重复创建`
+  },
+  {
+    label: '今日创建链接',
+    value: formatNumber(businessStats.value.summary?.share_links_created_today),
+    detail: `${formatNumber(businessStats.value.summary?.share_users_today)} 位用户创建`
+  },
+  {
+    label: '今日分享访客',
+    value: formatNumber(businessStats.value.summary?.share_visitors_today),
+    detail: `浏览器标识去重；访问请求 ${formatNumber(businessStats.value.summary?.share_visits_today)} 次`
+  }
+])
+
+interface TrendPanel {
+  label: string
+  description?: string
+  series: TrendSeries[]
+}
+const registrationSeries: TrendSeries[] = [{ key: 'new_users', label: '新注册用户', unit: '人' }]
+const trafficSeries: TrendSeries[] = [
+  { key: 'pv', label: '页面浏览量 PV', unit: '次' },
+  { key: 'uv', label: '每日访客 UV', unit: '人' }
 ]
-const shareTrendColumns = [
-  { key: 'share_users', label: '创建用户' },
-  { key: 'share_first_users_in_period', label: '区间首次' },
-  { key: 'share_returning_users_in_period', label: '区间再次' },
-  { key: 'share_links_created', label: '创建链接' },
-  { key: 'share_links_opened', label: '打开链接' },
-  { key: 'share_visits', label: '访问请求' },
-  { key: 'share_visitors', label: '分享访客' }
+const desktopSeries: TrendSeries[] = [
+  { key: 'desktop_active_users', label: '桌面端使用人数', unit: '人' }
+]
+const mailboxCharts: TrendPanel[] = [
+  {
+    label: '每日邮箱申请',
+    description: '按系统邮箱、域名邮箱分别统计；第三方邮箱接入趋势见第三方邮箱监控。',
+    series: [
+      { key: 'system_created', label: '系统邮箱', type: 'bar', unit: '个' },
+      { key: 'hosted_created', label: '域名邮箱', type: 'bar', unit: '个' }
+    ]
+  },
+  {
+    label: '每日邮箱收件',
+    description: '三类邮箱的收件量分别统计。',
+    series: mailboxReceiptKinds.map((kind) => ({
+      key: `${kind.key}_received`,
+      label: kind.label,
+      unit: '封'
+    }))
+  },
+  {
+    label: '小程序账号归属邮箱每日收件',
+    description: '是上方各类收件的子项，不与总收件相加。',
+    series: mailboxReceiptKinds.map((kind) => ({
+      key: `miniapp_${kind.key}_received`,
+      label: kind.label,
+      unit: '封'
+    }))
+  }
+]
+const apiCharts: TrendPanel[] = [
+  {
+    label: '每日 API 请求次数',
+    series: [
+      { key: 'business_api_calls', label: '站内客户端接口', unit: '次' },
+      { key: 'api_calls', label: '开放平台接口', unit: '次' }
+    ]
+  },
+  {
+    label: '每日 API 关联账号人数',
+    series: [
+      { key: 'business_api_active_users', label: '站内客户端接口', unit: '人' },
+      { key: 'api_active_users', label: '开放平台接口', unit: '人' }
+    ]
+  }
+]
+const shareCharts: TrendPanel[] = [
+  {
+    label: '每日分享创建用户',
+    description:
+      '区间首次：所选区间内首次创建；区间再次：区间内此前某天创建过。两项之和为当日创建人数。',
+    series: [
+      {
+        key: 'share_first_users_in_period',
+        label: '区间首次创建',
+        type: 'bar',
+        stack: 'users',
+        unit: '人'
+      },
+      {
+        key: 'share_returning_users_in_period',
+        label: '区间再次创建',
+        type: 'bar',
+        stack: 'users',
+        unit: '人'
+      }
+    ]
+  },
+  {
+    label: '每日分享链接',
+    description: '创建为新生成链接数；打开为当天有访问的不同链接数，可能包含历史链接。',
+    series: [
+      { key: 'share_links_created', label: '创建链接', type: 'bar', unit: '个' },
+      { key: 'share_links_opened', label: '打开过的链接', type: 'bar', unit: '个' }
+    ]
+  },
+  {
+    label: '每日分享访问请求',
+    description: '包含获取分享信息、读取邮件和成功拉取邮件，包括自动刷新。',
+    series: [{ key: 'share_visits', label: '访问请求', unit: '次' }]
+  },
+  {
+    label: '每日分享访客',
+    description: '按浏览器匿名标识每日去重，同一访客跨天可重复计入。',
+    series: [{ key: 'share_visitors', label: '访客', unit: '人' }]
+  }
 ]
 
 // 图表参数
 const userStatsDays = ref('7')
-const emailStatsDays = ref('7')
 const pageAnalyticsDays = ref('7')
 const geoMode = ref('china') // 默认显示中国地图
 const businessStatsDays = ref('7')
 const guestFunnelDays = ref('7')
 
-// 图表实例
-const userTrendChart = ref<HTMLDivElement>()
-const mailboxTrendChart = ref<HTMLDivElement>()
-const pvUvTrendChart = ref<HTMLDivElement>()
 const worldMapChart = ref<HTMLDivElement>()
-let userChart: echarts.ECharts | null = null
-let mailboxChart: echarts.ECharts | null = null
-let pvUvChart: echarts.ECharts | null = null
 let mapChart: echarts.ECharts | null = null
 let onlineRefreshTimer: number | null = null
 
@@ -738,32 +719,12 @@ const loadUserStats = async () => {
     const response: any = await monitoringAPI.getUserStats(parseInt(userStatsDays.value))
     if (response.code === 0) {
       userStats.value = response.data
-      await nextTick()
-      updateUserChart()
-      updateMailboxChart() // 确保邮箱图表也更新
     } else {
       showMessage(response.message || '获取用户统计失败', 'error')
     }
   } catch (error: any) {
     showMessage('获取用户统计失败', 'error')
     console.error('加载用户统计失败:', error)
-  }
-}
-
-// 加载邮件活动统计
-const loadEmailActivity = async () => {
-  try {
-    const response: any = await monitoringAPI.getEmailActivity(parseInt(emailStatsDays.value))
-    if (response.code === 0) {
-      emailActivity.value = response.data
-      await nextTick()
-      updateMailboxChart()
-    } else {
-      showMessage(response.message || '获取邮件活动统计失败', 'error')
-    }
-  } catch (error: any) {
-    showMessage('获取邮件活动统计失败', 'error')
-    console.error('加载邮件活动统计失败:', error)
   }
 }
 
@@ -785,8 +746,6 @@ const loadPageAnalytics = async () => {
       }
 
       pageAnalytics.value = transformedData
-      await nextTick()
-      updatePvUvChart()
     } else {
       showMessage(response.message || '获取页面访问统计失败', 'error')
     }
@@ -888,26 +847,6 @@ const setGeoMode = async (mode: string) => {
   console.log('✅ 地理分布数据加载完成')
 }
 
-// 更新用户趋势图表
-const updateUserChart = () => {
-  if (!userTrendChart.value || !userStats.value.daily_new_users) return
-
-  userChart = updateUserTrendChart(userTrendChart.value, userStats.value, userChart)
-}
-
-const updateMailboxChart = () => {
-  if (!mailboxTrendChart.value || !userStats.value.daily_mailbox_stats) return
-
-  mailboxChart = updateMailboxTrendChart(mailboxTrendChart.value, userStats.value, mailboxChart)
-}
-
-// 更新PV/UV趋势图
-const updatePvUvChart = () => {
-  if (!pvUvTrendChart.value || !pageAnalytics.value.daily_stats) return
-
-  pvUvChart = updatePvUvTrendChart(pvUvTrendChart.value, pageAnalytics.value, pvUvChart)
-}
-
 // 按子页面加载数据；运行概览同时包含访问趋势和地理分布。
 const loadCurrentSectionData = async () => {
   loading.value = true
@@ -945,32 +884,12 @@ const configureOnlineRefresh = () => {
 }
 
 const disposeTrafficCharts = () => {
-  userChart?.dispose()
-  mailboxChart?.dispose()
-  pvUvChart?.dispose()
   mapChart?.dispose()
-  userChart = null
-  mailboxChart = null
-  pvUvChart = null
   mapChart = null
 }
 
-// 窗口大小变化时重新调整图表大小
 const handleResize = () => {
-  setTimeout(() => {
-    if (userChart) {
-      userChart.resize()
-    }
-    if (mailboxChart) {
-      mailboxChart.resize()
-    }
-    if (pvUvChart) {
-      pvUvChart.resize()
-    }
-    if (mapChart) {
-      mapChart.resize()
-    }
-  }, 100)
+  mapChart?.resize()
 }
 
 // 页面加载时

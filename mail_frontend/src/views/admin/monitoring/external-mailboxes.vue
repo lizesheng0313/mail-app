@@ -42,17 +42,17 @@
       <MetricCard
         label="所选周期接入"
         :value="formatNumber(summary.connected_mailboxes)"
-        :detail="`涉及 ${formatNumber(summary.unique_owners)} 位用户`"
+        :detail="`最近 ${days} 天首次成功保存的邮箱`"
       />
       <MetricCard
-        label="OAuth 登录"
-        :value="formatNumber(summary.oauth_mailboxes)"
-        :detail="`密码/授权码 ${formatNumber(summary.password_mailboxes)}`"
+        label="所选周期接入用户"
+        :value="formatNumber(summary.unique_owners)"
+        detail="整个区间按账号去重，每日人数不可直接相加"
       />
       <MetricCard
-        label="邮箱公司"
-        :value="formatNumber(summary.provider_count)"
-        :detail="`当前正常 ${formatNumber(summary.active_mailboxes)} 个`"
+        label="周期内接入且正常"
+        :value="formatNumber(summary.active_mailboxes)"
+        :detail="`其他状态 ${formatNumber(summary.failed_mailboxes)} 个`"
       />
     </div>
 
@@ -60,7 +60,9 @@
       <div class="monitoring-panel-header">
         <div>
           <h3 class="monitoring-panel-title">邮箱公司分布</h3>
-          <p class="mt-1 text-sm text-gray-500">按成功接入账号数排序</p>
+          <p class="mt-1 text-sm text-gray-500">
+            所选周期共 {{ formatNumber(summary.provider_count) }} 家，按成功接入邮箱数排序
+          </p>
         </div>
         <span class="text-sm text-gray-500">
           {{ stats.period?.start_date || '--' }} 至 {{ stats.period?.end_date || '--' }}
@@ -125,127 +127,45 @@
       </div>
     </section>
 
-    <section class="monitoring-panel">
-      <div class="monitoring-panel-header">
-        <div>
-          <h3 class="monitoring-panel-title">每日成功接入</h3>
-          <p class="mt-1 text-sm text-gray-500">默认隐藏没有接入记录的日期，减少无效信息</p>
-        </div>
-        <button
-          v-if="hiddenEmptyDayCount"
-          type="button"
-          class="self-start rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900 sm:self-auto"
-          @click="showEmptyDays = !showEmptyDays"
-        >
-          {{
-            showEmptyDays ? '隐藏无接入日期' : `显示全部日期（含 ${hiddenEmptyDayCount} 天无接入）`
-          }}
-        </button>
-      </div>
-
-      <div v-if="displayedDaily.length" class="space-y-3">
-        <article
-          v-for="item in displayedDaily"
-          :key="item.date"
-          class="rounded-xl border p-5 transition-colors"
-          :class="
-            item.connected_mailboxes
-              ? 'border-gray-200 bg-white hover:border-primary-200'
-              : 'border-gray-100 bg-gray-50'
-          "
-        >
-          <div class="monitoring-daily-row">
-            <div class="monitoring-daily-date">
-              <p class="monitoring-panel-title">{{ formatMonthDay(item.date) }}</p>
-              <p class="mt-1 text-xs text-gray-500">
-                {{ formatWeekday(item.date) }} · {{ item.date.slice(0, 4) }}年
-              </p>
-            </div>
-
-            <div class="grid grid-cols-2 gap-4">
-              <div>
-                <p class="text-xs text-gray-500">接入邮箱</p>
-                <p
-                  class="mt-1 text-2xl font-bold"
-                  :class="item.connected_mailboxes ? 'text-gray-900' : 'text-gray-400'"
-                >
-                  {{ formatNumber(item.connected_mailboxes) }}
-                </p>
-              </div>
-              <div>
-                <p class="text-xs text-gray-500">用户数</p>
-                <p
-                  class="mt-1 text-2xl font-bold"
-                  :class="item.unique_owners ? 'text-gray-900' : 'text-gray-400'"
-                >
-                  {{ formatNumber(item.unique_owners) }}
-                </p>
-              </div>
-            </div>
-
-            <div>
-              <p class="text-xs text-gray-500">登录方式</p>
-              <div
-                v-if="item.oauth_mailboxes || item.password_mailboxes"
-                class="mt-2 space-y-2 text-sm"
-              >
-                <div v-if="item.oauth_mailboxes" class="flex items-center justify-between gap-4">
-                  <span class="flex items-center gap-2 text-gray-700">
-                    <span class="h-2 w-2 rounded-full bg-violet-500"></span>
-                    OAuth
-                  </span>
-                  <span class="font-semibold text-gray-900"
-                    >{{ formatNumber(item.oauth_mailboxes) }} 个</span
-                  >
-                </div>
-                <div v-if="item.password_mailboxes" class="flex items-center justify-between gap-4">
-                  <span class="flex items-center gap-2 text-gray-700">
-                    <span class="h-2 w-2 rounded-full bg-blue-500"></span>
-                    密码/授权码
-                  </span>
-                  <span class="font-semibold text-gray-900"
-                    >{{ formatNumber(item.password_mailboxes) }} 个</span
-                  >
-                </div>
-              </div>
-              <p v-else class="mt-2 text-sm text-gray-400">当天无接入</p>
-            </div>
-
-            <div class="min-w-0 rounded-lg bg-gray-50 px-4 py-3">
-              <p class="text-xs text-gray-500">邮箱公司</p>
-              <div
-                v-if="item.provider_breakdown?.length"
-                class="mt-2 grid gap-x-6 gap-y-2 sm:grid-cols-2"
-              >
-                <div
-                  v-for="(provider, index) in item.provider_breakdown"
-                  :key="provider.key"
-                  class="flex min-w-0 items-center justify-between gap-3 text-sm"
-                >
-                  <span class="flex min-w-0 items-center gap-2 text-gray-700">
-                    <span
-                      class="h-2 w-2 flex-shrink-0 rounded-full"
-                      :class="providerDotClass(index)"
-                    ></span>
-                    <span class="truncate">{{ provider.name }}</span>
-                  </span>
-                  <span class="flex-shrink-0 font-semibold text-gray-900"
-                    >{{ provider.count }} 个</span
-                  >
-                </div>
-              </div>
-              <p v-else class="mt-2 text-sm text-gray-400">—</p>
-            </div>
+    <div class="monitoring-charts">
+      <section class="monitoring-panel">
+        <div class="monitoring-panel-header">
+          <div class="monitoring-panel-heading">
+            <h3 class="monitoring-panel-title">每日成功接入邮箱</h3>
+            <p class="monitoring-panel-description">堆叠柱高为当日接入总数，保留零接入日期。</p>
           </div>
-        </article>
-      </div>
-      <div
-        v-else
-        class="rounded-lg border border-dashed border-gray-200 bg-gray-50 px-4 py-10 text-center text-sm text-gray-500"
-      >
-        所选周期暂无第三方邮箱接入记录
-      </div>
-    </section>
+          <div class="flex shrink-0 gap-1">
+            <button
+              v-for="mode in dailyModes"
+              :key="mode.value"
+              type="button"
+              class="rounded-md px-3 py-1.5 text-xs font-medium"
+              :class="
+                dailyMode === mode.value
+                  ? 'bg-primary-50 text-primary-700'
+                  : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
+              "
+              :aria-pressed="dailyMode === mode.value"
+              @click="dailyMode = mode.value"
+            >
+              {{ mode.label }}
+            </button>
+          </div>
+        </div>
+        <DailyTrendChart :rows="dailyRows" :series="dailySeries" label="每日成功接入邮箱" />
+      </section>
+      <section class="monitoring-panel">
+        <div class="monitoring-panel-header">
+          <div class="monitoring-panel-heading">
+            <h3 class="monitoring-panel-title">每日成功接入用户</h3>
+            <p class="monitoring-panel-description">
+              每日按账号去重，同一用户在不同日期可分别计入。
+            </p>
+          </div>
+        </div>
+        <DailyTrendChart :rows="stats.daily || []" :series="ownerSeries" label="每日成功接入用户" />
+      </section>
+    </div>
   </div>
 </template>
 
@@ -254,52 +174,58 @@ import { computed, onMounted, ref } from 'vue'
 import { monitoringAPI } from '@/api/monitoring'
 import CustomSelect from '@/components/CustomSelect/index.vue'
 import MetricCard from '@/components/Monitoring/MetricCard.vue'
+import DailyTrendChart from '@/components/Monitoring/DailyTrendChart.vue'
+import type { TrendSeries } from '@/components/Monitoring/dailyTrendOptions'
 import './monitoring.css'
 import { showMessage } from '@/utils/message'
 
 const days = ref('30')
 const loading = ref(false)
-const showEmptyDays = ref(false)
+const dailyMode = ref('auth')
+const dailyModes = [
+  { value: 'auth', label: '按接入方式' },
+  { value: 'provider', label: '按邮箱公司' }
+]
+const ownerSeries: TrendSeries[] = [{ key: 'unique_owners', label: '接入用户', unit: '人' }]
 const stats = ref<any>({ summary: {}, providers: [], daily: [], period: {} })
 
 const summary = computed(() => stats.value.summary || {})
 const providers = computed(() => stats.value.providers || [])
-const reversedDaily = computed(() => [...(stats.value.daily || [])].reverse())
-const activeDaily = computed(() =>
-  reversedDaily.value.filter((item: any) => Number(item.connected_mailboxes || 0) > 0)
+const dailyRows = computed(() =>
+  (stats.value.daily || []).map((day: any) => ({
+    ...day,
+    ...Object.fromEntries(
+      (day.provider_breakdown || []).map((provider: any) => [
+        `provider_${provider.key}`,
+        provider.count
+      ])
+    )
+  }))
 )
-const hiddenEmptyDayCount = computed(() => reversedDaily.value.length - activeDaily.value.length)
-const displayedDaily = computed(() =>
-  showEmptyDays.value ? reversedDaily.value : activeDaily.value
+const dailySeries = computed<TrendSeries[]>(() =>
+  dailyMode.value === 'provider'
+    ? providers.value.map((provider: any) => ({
+        key: `provider_${provider.key}`,
+        label: provider.name,
+        type: 'bar',
+        stack: 'mailboxes',
+        unit: '个'
+      }))
+    : [
+        { key: 'oauth_mailboxes', label: 'OAuth', type: 'bar', stack: 'mailboxes', unit: '个' },
+        {
+          key: 'password_mailboxes',
+          label: '密码 / 授权码',
+          type: 'bar',
+          stack: 'mailboxes',
+          unit: '个'
+        }
+      ]
 )
 
 const formatNumber = (value: number | string | undefined | null) => {
   const number = Number(value || 0)
   return Number.isFinite(number) ? number.toLocaleString('zh-CN') : '0'
-}
-
-const parseDailyDate = (value: string) => new Date(`${value}T00:00:00`)
-
-const formatMonthDay = (value: string) => {
-  const date = parseDailyDate(value)
-  return `${date.getMonth() + 1}月${date.getDate()}日`
-}
-
-const formatWeekday = (value: string) => {
-  const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
-  return weekdays[parseDailyDate(value).getDay()]
-}
-
-const providerDotClass = (index: number) => {
-  const classes = [
-    'bg-blue-500',
-    'bg-emerald-500',
-    'bg-violet-500',
-    'bg-amber-500',
-    'bg-rose-500',
-    'bg-cyan-500'
-  ]
-  return classes[index % classes.length]
 }
 
 const providerBadgeClass = (index: number) => {

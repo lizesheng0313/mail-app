@@ -2,8 +2,10 @@
   <section class="monitoring-panel">
     <div class="monitoring-panel-header">
       <div class="monitoring-panel-heading">
-        <h3 class="monitoring-panel-title">网页助手连接池状态</h3>
-        <p class="monitoring-panel-description">实时查看工作流并发、等待队列与累计执行结果</p>
+        <h3 class="monitoring-panel-title">网页助手队列与工作流历史</h3>
+        <p class="monitoring-panel-description">
+          队列仅含网页助手任务；历史执行记录统计全站所有类型工作流，不限日期。
+        </p>
       </div>
       <button
         type="button"
@@ -30,27 +32,30 @@
     </div>
     <div class="monitoring-metrics" :aria-busy="loading">
       <MetricCard
-        label="运行中"
+        label="网页助手运行中"
         :value="loading ? '—' : status?.active_count || 0"
         :detail="`最大并发 ${status?.max_concurrent || 5}`"
       />
       <MetricCard
-        label="等待中"
+        label="网页助手排队中"
         :value="loading ? '—' : status?.queue_count || 0"
         detail="队列任务"
       />
       <MetricCard
-        label="成功总数"
+        label="历史已完成执行"
         :value="loading ? '—' : completedWorkflowsCount.toLocaleString('zh-CN')"
-        detail="累计成功工作流"
+        detail="全站累计执行记录，非工作流个数"
       />
       <MetricCard
-        label="失败总数"
+        label="历史失败执行"
         :value="loading ? '—' : failedWorkflowsCount.toLocaleString('zh-CN')"
-        detail="累计失败工作流"
+        detail="全站累计失败执行记录"
         value-class="text-red-600"
       />
     </div>
+    <p class="monitoring-panel-description mt-3">
+      每条执行记录计一次。同一工作流收到不同邮件可多次触发；“已完成”表示流程执行状态，不能据此判断第三方业务结果。
+    </p>
   </section>
 </template>
 
@@ -111,7 +116,7 @@ const loadCompletedWorkflowsCount = async () => {
 // 刷新状态
 const refreshStatus = async (notify = true) => {
   await Promise.all([loadStatus(), loadFailedWorkflowsCount(), loadCompletedWorkflowsCount()])
-  if (notify) showMessage('爬虫池状态已刷新', 'success')
+  if (notify) showMessage('执行状态已刷新', 'success')
 }
 
 // 暴露刷新方法给父组件
