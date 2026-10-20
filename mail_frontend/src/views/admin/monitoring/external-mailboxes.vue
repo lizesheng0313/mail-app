@@ -36,20 +36,6 @@
       </div>
     </div>
 
-    <section class="monitoring-panel">
-      <div class="monitoring-panel-header">
-        <div>
-          <h3 class="monitoring-panel-title">邮箱公司分布</h3>
-          <p class="mt-1 text-sm text-gray-500">{{ formatNumber(summary.provider_count) }} 家</p>
-        </div>
-        <span class="text-sm text-gray-500">
-          {{ stats.period?.start_date || '--' }} 至 {{ stats.period?.end_date || '--' }}
-        </span>
-      </div>
-
-      <ProviderDistributionChart :providers="providers" />
-    </section>
-
     <div class="monitoring-charts">
       <section class="monitoring-panel">
         <div class="monitoring-panel-header">
@@ -94,14 +80,13 @@ import { monitoringAPI } from '@/api/monitoring'
 import CustomSelect from '@/components/CustomSelect/index.vue'
 import MetricCard from '@/components/Monitoring/MetricCard.vue'
 import DailyTrendChart from '@/components/Monitoring/DailyTrendChart.vue'
-import ProviderDistributionChart from '@/components/Monitoring/ProviderDistributionChart.vue'
 import type { TrendSeries } from '@/components/Monitoring/dailyTrendOptions'
 import './monitoring.css'
 import { showMessage } from '@/utils/message'
 
 const days = ref('30')
 const loading = ref(false)
-const dailyMode = ref('auth')
+const dailyMode = ref('provider')
 const dailyModes = [
   { value: 'auth', label: '按接入方式' },
   { value: 'provider', label: '按邮箱公司' }
@@ -127,17 +112,15 @@ const dailySeries = computed<TrendSeries[]>(() =>
     ? providers.value.map((provider: any) => ({
         key: `provider_${provider.key}`,
         label: provider.name,
-        type: 'bar',
-        stack: 'mailboxes',
+        type: 'line',
         unit: '个'
       }))
     : [
-        { key: 'oauth_mailboxes', label: 'OAuth', type: 'bar', stack: 'mailboxes', unit: '个' },
+        { key: 'oauth_mailboxes', label: 'OAuth', type: 'line', unit: '个' },
         {
           key: 'password_mailboxes',
           label: '密码 / 授权码',
-          type: 'bar',
-          stack: 'mailboxes',
+          type: 'line',
           unit: '个'
         }
       ]
