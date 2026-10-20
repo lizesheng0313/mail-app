@@ -441,6 +441,7 @@
   </div>
 
   <EmailContentModal
+    v-if="showEmailModal"
     :visible="showEmailModal"
     :email="modalEmail"
     @update:visible="showEmailModal = $event"
@@ -499,6 +500,7 @@
 
   <!-- 分享邮箱弹窗 -->
   <ShareMailboxModal
+    v-if="showShareModal"
     :visible="showShareModal"
     :mailbox-ids="shareMailboxIds"
     :mailbox-type="mailboxType"
@@ -509,17 +511,20 @@
 
   <!-- 发送邮件弹窗 -->
   <SendEmailModal
+    v-if="showSendEmailModal"
     :visible="showSendEmailModal"
     :mailboxes="externalMailboxList"
     @update:visible="showSendEmailModal = $event"
     @sent="handleEmailSent"
   />
   <CustomGenerateModal
+    v-if="showCustomGenerateModal"
     v-model:visible="showCustomGenerateModal"
     mailbox-type="system"
     @success="handleCustomGenerateSuccess"
   />
   <CustomGenerateModal
+    v-if="showHostedCustomGenerateModal"
     v-model:visible="showHostedCustomGenerateModal"
     mailbox-type="hosted"
     @success="handleCustomGenerateSuccess"
@@ -527,7 +532,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, shallowRef, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { computed, defineAsyncComponent, ref, shallowRef, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
@@ -544,14 +549,11 @@ import ExternalMailboxList from '@/components/Mail/ExternalMailbox/MailboxList.v
 import EmailList from '@/components/Mail/EmailList/EmailList.vue'
 import EmailItem from '@/components/Mail/EmailItem.vue'
 import BatchAddAccountModal from '@/components/Mail/BatchAddAccountModal.vue'
-import ShareMailboxModal from '@/components/Mail/ShareMailboxModal.vue'
-import SendEmailModal from '@/components/Mail/SendEmailModal.vue'
 import batchLoginAPI from '@/api/batchLogin'
 import mailboxProxyApi from '@/api/mailboxProxy'
 import smtpAccountsAPI from '@/api/smtpAccounts'
 import { mailboxAPI } from '@/api/mailbox'
 import EmailDetail from '@/components/Mail/EmailDetail/EmailDetail.vue'
-import EmailContentModal from '@/components/Mail/EmailContentModal.vue'
 import Pagination from '@/components/Pagination/index.vue'
 import BaseIcon from '@/components/BaseIcon/index.vue'
 import ConfirmDialog from '@/components/ConfirmDialog/index.vue'
@@ -580,7 +582,6 @@ import {
 import {
   hostedDomainAPI
 } from '@/api/hostedDomain'
-import CustomGenerateModal from '@/components/Mail/SystemMailbox/CustomGenerateModal.vue'
 import { getCurrentLocale } from '@/i18n'
 import {
   countGuestMailboxesCreatedToday,
@@ -588,6 +589,11 @@ import {
   loadStoredGuestMailboxes
 } from '@/utils/guestMailboxes'
 import { trackProductEvent } from '@/services/productAnalytics'
+
+const ShareMailboxModal = defineAsyncComponent(() => import('@/components/Mail/ShareMailboxModal.vue'))
+const SendEmailModal = defineAsyncComponent(() => import('@/components/Mail/SendEmailModal.vue'))
+const EmailContentModal = defineAsyncComponent(() => import('@/components/Mail/EmailContentModal.vue'))
+const CustomGenerateModal = defineAsyncComponent(() => import('@/components/Mail/SystemMailbox/CustomGenerateModal.vue'))
 
 // 获取 Tauri invoke（按需加载，避免竞态）
 async function getTauriInvoke() {

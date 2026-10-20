@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "(cd ../../mail_backend && ./dev.sh) & vite",
     "dev:front": "vite",
-    "build": "vite build",
+    "build": "vite build && node scripts/preload-page-assets.mjs && pnpm run check:bundles",
     "check:bundles": "node scripts/check-page-bundles.mjs",
     "preview": "vite preview",
     "test:ui": "vitest --ui",

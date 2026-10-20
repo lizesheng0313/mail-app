@@ -49,6 +49,20 @@ describe('temporary mailbox random length', () => {
     })
   })
 
+  it('loads domains when first mounted visible', async () => {
+    const wrapper = mount(CustomGenerateModal, {
+      props: { visible: true, mailboxType: 'system' },
+      global: { stubs: { teleport: true } }
+    })
+    try {
+      await flushPromises()
+      expect(getSystemDomains).toHaveBeenCalledTimes(1)
+      expect(wrapper.text()).toContain('temporary.example')
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
   it.each(['round_robin', 'random'])('keeps length 2 through confirmation with %s domains', async (domainStrategy) => {
     const wrapper = mount(CustomGenerateModal, {
       props: { visible: false, mailboxType: 'system' },

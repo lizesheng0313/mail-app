@@ -72,11 +72,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, defineAsyncComponent } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { formatTimestamp } from '@/utils/timeUtils'
-import EmailHtmlRenderer from '@/components/Mail/EmailHtmlRenderer.vue'
 import { useEmailTranslation } from '@/composables/useEmailTranslation'
+
+const EmailHtmlRenderer = defineAsyncComponent(() => import('@/components/Mail/EmailHtmlRenderer.vue'))
 interface Email {
   id: number
   subject?: string

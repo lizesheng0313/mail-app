@@ -265,7 +265,7 @@ watch(() => props.visible, async (newVal) => {
       content: ''
     }
   }
-})
+}, { immediate: true })
 
 const handleClose = () => {
   emit('update:visible', false)

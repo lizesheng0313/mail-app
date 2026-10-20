@@ -1019,7 +1019,8 @@ watch(
     if (domainOptions.value.length === 1) {
       customGenerateForm.value.domain_ids = [String(domainOptions.value[0].id)]
     }
-  }
+  },
+  { immediate: true }
 )
 
 watch(

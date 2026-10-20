@@ -91,10 +91,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, defineAsyncComponent } from 'vue'
 import { formatTimestamp } from '@/utils/timeUtils'
-import EmailHtmlRenderer from '@/components/Mail/EmailHtmlRenderer.vue'
 import type { SentEmailRecord } from './OutboxListPanel.vue'
+
+const EmailHtmlRenderer = defineAsyncComponent(() => import('@/components/Mail/EmailHtmlRenderer.vue'))
 
 const props = defineProps<{
   record: SentEmailRecord | null

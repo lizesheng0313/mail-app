@@ -7,10 +7,10 @@ import { gzipSync } from 'node:zlib'
 const directory = resolve(process.argv[2] || 'dist')
 const manifest = JSON.parse(readFileSync(resolve(directory, '.vite/manifest.json'), 'utf8'))
 const pages = [
-  ['home', 'src/views/portal/home/index.vue', 300],
-  ['login', 'src/views/portal/login/index.vue', 200],
-  ['market', 'src/views/market/index.vue', 210],
-  ['share', 'src/views/portal/share/index.vue', 240]
+  ['home', 'src/views/portal/home/index.vue', 250],
+  ['login', 'src/views/portal/login/index.vue', 180],
+  ['market', 'src/views/market/index.vue', 190],
+  ['share', 'src/views/portal/share/index.vue', 200]
 ]
 
 let exceeded = false

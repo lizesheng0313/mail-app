@@ -232,6 +232,7 @@
 
     <!-- 邮件内容弹窗 -->
     <EmailContentModal
+      v-if="showEmailModal"
       :visible="showEmailModal"
       :email="modalEmail"
       @update:visible="showEmailModal = $event"
@@ -240,7 +241,7 @@
 </template>
 
 <script setup>
-import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
+import { computed, defineAsyncComponent, ref, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import ThreeColumnLayout from '@/components/Mail/Layout/ThreeColumnLayout.vue'
@@ -249,7 +250,6 @@ import MailboxCard from '@/components/Mail/MailboxList/MailboxCard.vue'
 import EmailList from '@/components/Mail/EmailList/EmailList.vue'
 import EmailItem from '@/components/Mail/EmailItem.vue'
 import EmailDetail from '@/components/Mail/EmailDetail/EmailDetail.vue'
-import EmailContentModal from '@/components/Mail/EmailContentModal.vue'
 import Pagination from '@/components/Pagination/index.vue'
 import BaseIcon from '@/components/BaseIcon/index.vue'
 import { mailboxShareAPI } from '@/api/mailboxShare'
@@ -257,6 +257,8 @@ import { showMessage } from '@/utils/message'
 import { getCurrentLocale } from '@/i18n'
 import { buildWebSocketURL } from '@/services/api'
 import { isShareTerminalState, resolveShareValidity } from './shareDisplay'
+
+const EmailContentModal = defineAsyncComponent(() => import('@/components/Mail/EmailContentModal.vue'))
 
 const route = useRoute()
 const { t } = useI18n()
