@@ -273,7 +273,6 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import * as XLSX from 'xlsx'
 import { useI18n } from 'vue-i18n'
 import batchLoginAPI from '@/api/batchLogin'
 import mailboxProxyApi from '@/api/mailboxProxy'
@@ -674,24 +673,28 @@ const resolveExportStatus = (
   return resolveResultStatusText(resultStatus)
 }
 
-const exportResults = () => {
+const exportResults = async () => {
   if (exportRows.value.length === 0) return
+  try {
+    const XLSX = await import('xlsx')
+    const worksheet = XLSX.utils.json_to_sheet(
+      exportRows.value.map((item) => ({
+        邮箱: item.email,
+        结果: item.status,
+        登录方式: item.auth_mode,
+        说明: item.message,
+      }))
+    )
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, worksheet, '添加结果')
 
-  const worksheet = XLSX.utils.json_to_sheet(
-    exportRows.value.map((item) => ({
-      邮箱: item.email,
-      结果: item.status,
-      登录方式: item.auth_mode,
-      说明: item.message,
-    }))
-  )
-  const workbook = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(workbook, worksheet, '添加结果')
-
-  const now = new Date()
-  const pad = (value: number) => String(value).padStart(2, '0')
-  const timestamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`
-  XLSX.writeFile(workbook, `批量添加邮箱结果_${timestamp}.xlsx`)
+    const now = new Date()
+    const pad = (value: number) => String(value).padStart(2, '0')
+    const timestamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`
+    XLSX.writeFile(workbook, `批量添加邮箱结果_${timestamp}.xlsx`)
+  } catch {
+    showMessage(t('common.operationFailed'), 'error')
+  }
 }
 
 // ===== OAuth 方法 =====

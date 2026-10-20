@@ -301,6 +301,7 @@ const shareValidityText = computed(() => {
 })
 
 const loadingEmails = ref(false)
+let emailLoadRequestId = 0
 const shareEmptyText = computed(() => {
   if (loadingEmails.value) return t('sharePage.loadingEmails')
   if (!latestOnly.value) return t('mail.noEmails')
@@ -460,6 +461,8 @@ const loadShareInfo = async () => {
       startValidityCountdown()
       // 默认不选中任何邮箱，显示全部邮件
       selectedMailbox.value = null
+      // 邮箱信息已就绪，先显示列表；邮件列表单独展示加载状态。
+      loading.value = false
       await loadEmails()
       if (!isShareTerminalState(shareState.value) && ['system', 'hosted'].includes(mailboxType.value)) {
         shareMailStopped = false
@@ -488,6 +491,7 @@ const loadShareInfo = async () => {
 const loadEmails = async () => {
   if (isShareTerminalState(shareState.value) || shareState.value === 'expired') return
   const shareToken = String(route.params.token || '')
+  const requestId = ++emailLoadRequestId
   loadingEmails.value = true
   try {
     const res = await mailboxShareAPI.getShareEmails(shareToken, {
@@ -495,7 +499,7 @@ const loadEmails = async () => {
       page: currentPage.value,
       page_size: pageSize.value
     })
-    if (String(route.params.token || '') !== shareToken) return
+    if (String(route.params.token || '') !== shareToken || requestId !== emailLoadRequestId) return
     if (res.code === 0) {
       const nextShareState = res.data.share_state || shareState.value
       const nextEmails = res.data.emails || []
@@ -511,7 +515,7 @@ const loadEmails = async () => {
       showMessage(res.message || t('sharePage.loadEmailsFailed'), 'error')
     }
   } catch (err) {
-    if (String(route.params.token || '') !== shareToken) return
+    if (String(route.params.token || '') !== shareToken || requestId !== emailLoadRequestId) return
     console.error('加载邮件失败:', err)
     if (err.response?.status === 410) {
       markShareExpired()
@@ -519,7 +523,7 @@ const loadEmails = async () => {
     }
     showMessage(t('sharePage.loadEmailsFailed'), 'error')
   } finally {
-    loadingEmails.value = false
+    if (requestId === emailLoadRequestId) loadingEmails.value = false
   }
 }
 
@@ -655,6 +659,8 @@ const copyMailboxAddress = (email) => {
 }
 
 watch(() => route.params.token, () => {
+  emailLoadRequestId++
+  loadingEmails.value = false
   stopShareMailRealtime()
   stopValidityCountdown()
   shareMailStopped = false

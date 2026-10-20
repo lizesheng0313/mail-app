@@ -147,7 +147,6 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
-import * as XLSX from 'xlsx'
 import ActionButton from '@/components/ActionButton/index.vue'
 import AdminDataTable from '@/components/AdminDataTable/index.vue'
 import BaseInput from '@/components/BaseInput/index.vue'
@@ -253,6 +252,7 @@ const handleImportFileChange = async (event) => {
   importFileName.value = file.name
   parsingImport.value = true
   try {
+    const XLSX = await import('xlsx')
     const buffer = await file.arrayBuffer()
     const workbook = XLSX.read(buffer, { type: 'array', cellDates: false })
     const sheet = workbook.Sheets[workbook.SheetNames[0]]
@@ -283,18 +283,23 @@ const closeImportModal = () => {
   if (importFileRef.value) importFileRef.value.value = ''
 }
 
-const downloadImportTemplate = () => {
-  const worksheet = XLSX.utils.json_to_sheet([
-    {
-      邮箱: 'test@example.com',
-      分组: 'VIP',
-      生日: '1998-08-01',
-      性别: '男'
-    }
-  ])
-  const workbook = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(workbook, worksheet, '导入模板')
-  XLSX.writeFile(workbook, '会员导入模板.xlsx')
+const downloadImportTemplate = async () => {
+  try {
+    const XLSX = await import('xlsx')
+    const worksheet = XLSX.utils.json_to_sheet([
+      {
+        邮箱: 'test@example.com',
+        分组: 'VIP',
+        生日: '1998-08-01',
+        性别: '男'
+      }
+    ])
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, worksheet, '导入模板')
+    XLSX.writeFile(workbook, '会员导入模板.xlsx')
+  } catch {
+    showMessage('导出失败，请重试', 'error')
+  }
 }
 
 const loadMeta = async () => {
@@ -349,17 +354,22 @@ const handleImport = async () => {
 }
 
 const downloadMembers = async () => {
-  const res = await emailReachApi.exportMembers({ ...filters })
-  if (res.code !== 0) return
-  const rows = (res.data.items || []).map((item) => ({
-    邮箱: item.email || '',
-    分组: item.group_name || '',
-    ...(item.fields || {})
-  }))
-  const worksheet = XLSX.utils.json_to_sheet(rows)
-  const workbook = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(workbook, worksheet, '会员')
-  XLSX.writeFile(workbook, `会员列表_${Date.now()}.xlsx`)
+  try {
+    const res = await emailReachApi.exportMembers({ ...filters })
+    if (res.code !== 0) return
+    const XLSX = await import('xlsx')
+    const rows = (res.data.items || []).map((item) => ({
+      邮箱: item.email || '',
+      分组: item.group_name || '',
+      ...(item.fields || {})
+    }))
+    const worksheet = XLSX.utils.json_to_sheet(rows)
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, worksheet, '会员')
+    XLSX.writeFile(workbook, `会员列表_${Date.now()}.xlsx`)
+  } catch {
+    showMessage('导出失败，请重试', 'error')
+  }
 }
 
 const handleDeleteMember = (item) => {

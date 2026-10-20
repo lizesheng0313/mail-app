@@ -10,18 +10,19 @@
 
 <script setup lang="ts">
 import { RouterView, useRoute, useRouter } from 'vue-router'
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useUserStore } from '@/stores/user'
 import { usePageTracking } from '@/composables/usePageTracking'
 import { useOnlineSession } from '@/composables/useOnlineSession'
 import { useDesktopOAuthKeepAlive } from '@/composables/useDesktopOAuthKeepAlive'
-import FloatingLiveChat from '@/components/FloatingLiveChat/index.vue'
 import GuestLiveChat from '@/components/FloatingLiveChat/GuestLiveChat.vue'
 import SystemMaintenance from '@/components/SystemMaintenance/index.vue'
 import AppUpdater from '@/components/AppUpdater/index.vue'
 import { registerMaintenanceCallback, isTauri } from '@/services/api'
 import { showMessage } from '@/utils/message'
 import { desktopExternalMailSync } from '@/services/desktopExternalMailSync'
+
+const FloatingLiveChat = defineAsyncComponent(() => import('@/components/FloatingLiveChat/index.vue'))
 
 const router = useRouter()
 const route = useRoute()
@@ -85,12 +86,7 @@ onMounted(async () => {
     }
   }
 
-  try {
-    await userStore.checkAuth()
-  } catch (e) {
-    console.error('checkAuth failed:', e)
-  }
-
+  // 初始路由守卫统一校验登录，认证变化由下面的 watch 接续桌面同步。
   if (isTauri() && userStore.isAuthenticated) {
     await desktopOAuthKeepAlive.start()
     void desktopExternalMailSync.start(Number(userStore.user?.id || 0)).catch(console.warn)

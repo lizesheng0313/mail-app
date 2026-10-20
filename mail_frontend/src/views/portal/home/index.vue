@@ -418,7 +418,15 @@
     </template>
 
     <template v-if="currentView === 'send-email'" #main>
-      <SendEmailPanel ref="sendEmailPanelRef" :selected-mailbox-ids="selectedExternalMailboxIds" />
+      <component
+        v-if="SendEmailPanel"
+        :is="SendEmailPanel"
+        ref="sendEmailPanelRef"
+        :selected-mailbox-ids="selectedExternalMailboxIds"
+      />
+      <div v-else role="status" class="flex h-full items-center justify-center text-sm text-gray-500">
+        {{ t('common.loading') }}
+      </div>
     </template>
 
   </ThreeColumnLayout>
@@ -519,7 +527,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { computed, ref, shallowRef, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
@@ -528,7 +536,6 @@ import { useMailStore } from '@/stores/mail'
 import ThreeColumnLayout from '@/components/Mail/Layout/ThreeColumnLayout.vue'
 import MailboxCreationActions from '@/components/Mail/MailboxList/MailboxCreationActions.vue'
 import MailboxHeaderAction from '@/components/Mail/MailboxList/MailboxHeaderAction.vue'
-import SendEmailPanel from '@/components/Mail/SendEmailPanel.vue'
 import OutboxListPanel from '@/components/Mail/OutboxListPanel.vue'
 import OutboxDetailPanel from '@/components/Mail/OutboxDetailPanel.vue'
 import TempMailbox from '@/components/Mail/TempMailbox/TempMailbox.vue'
@@ -633,8 +640,10 @@ const mobilePanes = computed(() => {
   ]
 })
 watch(currentView, (view) => {
-  if (view === 'send-email') mobileActivePane.value = 'main'
-  else if (mobileActivePane.value === 'main') mobileActivePane.value = 'middle'
+  if (view === 'send-email') {
+    mobileActivePane.value = 'main'
+    void ensureSendEmailPanel()
+  } else if (mobileActivePane.value === 'main') mobileActivePane.value = 'middle'
 })
 const selectedMailboxId = ref<number | null>(null)
 const showOnlyUnread = ref(false)
@@ -724,6 +733,27 @@ const selectedExternalMailboxIds = ref<number[]>([])
 const selectedExternalEmailId = ref<number | null>(null)
 const selectedExternalAuthType = ref<string>('password')
 const sendEmailPanelRef = ref<any>(null)
+const SendEmailPanel = shallowRef()
+let sendEmailPanelLoad: Promise<void> | null = null
+async function ensureSendEmailPanel() {
+  try {
+    if (!SendEmailPanel.value) {
+      sendEmailPanelLoad ||= import('@/components/Mail/SendEmailPanel.vue').then(module => {
+        SendEmailPanel.value = module.default
+      }).catch(error => {
+        sendEmailPanelLoad = null
+        throw error
+      })
+      await sendEmailPanelLoad
+    }
+    await nextTick()
+    return sendEmailPanelRef.value
+  } catch (error) {
+    console.error('加载写信面板失败:', error)
+    showMessage(t('common.operationFailed'), 'error')
+    return null
+  }
+}
 const outboxListRef = ref<any>(null)
 const selectedOutboxMailboxId = ref<number | null>(null)
 const selectedOutboxRecord = ref<any>(null)
@@ -1690,7 +1720,7 @@ const handleExternalAddMailboxAction = async () => {
 }
 
 // 切换邮箱类型
-const switchMailboxType = (type: 'system' | 'hosted' | 'external') => {
+const switchMailboxType = async (type: 'system' | 'hosted' | 'external') => {
   currentView.value = 'emails'
   mobileActivePane.value = 'left'
   // 保存当前Tab的选中邮件
@@ -1719,23 +1749,32 @@ const switchMailboxType = (type: 'system' | 'hosted' | 'external') => {
   // 恢复目标Tab的选中邮件
   if (type === 'system') {
     mailStore.selectedEmail = systemSelectedEmail.value
+    const params = {
+      page: mailStore.currentPage,
+      page_size: 20,
+      ...(showOnlyUnread.value ? { unread: true } : {}),
+      ...(mailStore.searchKeyword ? { search: mailStore.searchKeyword } : {})
+    }
+    await Promise.all([
+      mailboxStore.fetchMailboxes(),
+      selectedMailboxId.value
+        ? mailStore.fetchMailboxEmails(selectedMailboxId.value, params)
+        : mailStore.fetchUserEmails(params.page, 20, false, showOnlyUnread.value || undefined, params.search)
+    ])
   } else if (type === 'hosted') {
     mailStore.selectedEmail = hostedSelectedEmail.value
-    void loadHostedDomainSummary()
-    void loadHostedEmails()
+    await Promise.all([loadHostedDomainSummary(), loadHostedEmails()])
   } else {
     mailStore.selectedEmail = externalSelectedEmail.value
 
     // 加载外部邮箱列表
-    if (externalMailboxListRef.value?.loadAccounts) {
-      externalMailboxListRef.value.loadAccounts()
-    }
-    loadExternalMailboxAuthTypes()
-    loadSmtpAccounts()
-
-    // 加载所有外部邮件
-    loadAllExternalEmails()
-
+    await Promise.all([
+      externalMailboxListRef.value?.loadAccounts?.(),
+      loadExternalMailboxAuthTypes(),
+      loadSmtpAccounts(),
+      loadAllExternalEmails()
+    ])
+    await resumeExternalHistoryFetchPolling()
   }
 
   syncAutoRefreshStates()
@@ -2824,15 +2863,8 @@ onMounted(async () => {
       sessionStorage.removeItem('guest_mailboxes_claimed_count')
       showMessage(t('home.guestMailboxesSaved', { count: claimedCount }), 'success')
     }
-    // 加载邮箱列表
-    await mailboxStore.fetchMailboxes()
-    // 同时加载所有邮件（不选择特定邮箱）
-    await mailStore.fetchUserEmails()
-    await loadHostedDomainSummary()
-    await loadSmtpAccounts()
-
-    // 工作台路由决定邮箱类型；首页始终提供临时邮箱。
-    switchMailboxType(props.initialMailboxType)
+    // 只加载当前邮箱类型，列表和邮件并行获取。
+    await switchMailboxType(props.initialMailboxType)
   } else {
     mailboxType.value = 'system'
     syncAutoRefreshStates()
@@ -2847,14 +2879,9 @@ onMounted(async () => {
     return
   }
 
-  // 按恢复后的 Tab 启动对应刷新器
-  if (mailboxType.value === 'external') {
-    await loadExternalMailboxAuthTypes()
-  }
   syncAutoRefreshStates()
   connectMailRealtime()
   await nextTick()
-  await resumeExternalHistoryFetchPolling()
 })
 
 onBeforeUnmount(() => {
@@ -2994,8 +3021,9 @@ const handleReeditSentEmail = async (record: any) => {
   mobileActivePane.value = 'main'
   await nextTick()
   await externalMailboxListRef.value?.ensureAccountVisible?.(mailboxId)
-  await sendEmailPanelRef.value?.loadData?.()
-  sendEmailPanelRef.value?.loadDraftFromSent?.(record)
+  const panel = await ensureSendEmailPanel()
+  await panel?.loadData?.()
+  panel?.loadDraftFromSent?.(record)
 }
 
 const openOutboxView = async () => {
@@ -3313,8 +3341,8 @@ const handleReplyExternalEmail = async (email: any) => {
   selectedExternalAuthType.value =
     externalMailboxAuthTypeMap.value[mailboxId] || selectedExternalAuthType.value
 
-  await nextTick()
-  sendEmailPanelRef.value?.loadReplyDraft?.({
+  const panel = await ensureSendEmailPanel()
+  panel?.loadReplyDraft?.({
     to: replyTo,
     subject: String(email?.subject || '')
   })

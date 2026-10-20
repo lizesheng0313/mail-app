@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { getShareVisitorId } from '../src/api/mailboxShare'
+import { getBrowserInstanceId } from '../src/services/sessionIdentity'
 
 describe('share visitor identity', () => {
   beforeEach(() => {
@@ -12,6 +13,6 @@ describe('share visitor identity', () => {
 
     expect(first).toBeTruthy()
     expect(second).toBe(first)
-    expect(localStorage.getItem('mailbox_share_visitor_id')).toBe(first)
+    expect(getBrowserInstanceId()).toBe(first)
   })
 })

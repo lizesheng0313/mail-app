@@ -613,7 +613,6 @@ import { useUserStore } from '@/stores/user'
 import api from '@/services/api'
 import AdminDataTable from '@/components/AdminDataTable/index.vue'
 import CustomSelect from '@/components/CustomSelect/index.vue'
-import QRCode from 'qrcode'
 
 // 从 userStore 获取当前用户ID
 const userStore = useUserStore()
@@ -756,6 +755,7 @@ const generateQRCode = async () => {
   await nextTick()
   if (qrcodeCanvas.value && qrCodeUrl.value) {
     try {
+      const { default: QRCode } = await import('qrcode')
       await QRCode.toCanvas(qrcodeCanvas.value, qrCodeUrl.value, {
         width: 256,
         margin: 2,

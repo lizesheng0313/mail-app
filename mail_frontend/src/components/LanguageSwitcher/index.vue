@@ -77,6 +77,7 @@ import { useI18n } from 'vue-i18n'
 
 import type { SupportedLocale } from '@/i18n'
 import { useLocaleStore } from '@/stores/locale'
+import { showMessage } from '@/utils/message'
 
 const { t } = useI18n()
 const localeStore = useLocaleStore()
@@ -110,9 +111,13 @@ const toggleMenu = () => {
   isOpen.value = !isOpen.value
 }
 
-const selectLocale = (value: string) => {
-  localeStore.setLocale(value)
-  isOpen.value = false
+const selectLocale = async (value: string) => {
+  try {
+    await localeStore.setLocale(value)
+    isOpen.value = false
+  } catch {
+    showMessage(t('common.operationFailed'), 'error')
+  }
 }
 
 const handleClickOutside = (event: MouseEvent) => {

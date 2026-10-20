@@ -13,16 +13,24 @@ if (isTauri()) {
   document.body.classList.add('is-tauri')
 }
 
-const app = createApp(App)
-const pinia = createPinia()
+async function bootstrap() {
+  const app = createApp(App)
+  const pinia = createPinia()
 
-app.use(pinia)
-app.use(router)
-app.use(i18n)
+  app.use(pinia)
+  app.use(i18n)
 
-const localeStore = useLocaleStore(pinia)
-localeStore.initialize()
+  const localeStore = useLocaleStore(pinia)
+  try {
+    await localeStore.initialize()
+  } catch (error) {
+    console.error('加载语言包失败:', error)
+    await localeStore.setLocale('zh-CN')
+  }
 
-setupSeo(router, i18n)
+  app.use(router)
+  setupSeo(router, i18n)
+  app.mount('#app')
+}
 
-app.mount('#app')
+void bootstrap()

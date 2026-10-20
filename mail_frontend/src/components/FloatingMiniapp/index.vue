@@ -11,6 +11,8 @@
     <img
       :src="wxProgramImg"
       :alt="t('home.miniProgramQrAlt')"
+      loading="lazy"
+      decoding="async"
       class="rounded-lg object-contain"
       :class="panel ? 'h-24 w-24' : inline ? 'h-16 w-16' : 'h-24 w-24 sm:h-28 sm:w-28'"
     />

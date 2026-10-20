@@ -45,29 +45,8 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     assetsDir: 'assets',
-    rollupOptions: {
-      output: {
-        manualChunks: (id) => {
-          // 核心框架
-          if (id.includes('node_modules')) {
-            if (id.includes('vue') || id.includes('vue-router') || id.includes('pinia')) {
-              return 'vendor'
-            }
-            if (id.includes('axios')) {
-              return 'http'
-            }
-            return 'vendor'
-          }
-
-          // 管理后台相关组件（只有管理员才会加载）
-          if (id.includes('AuthCodeManage') ||
-              id.includes('DomainManage') ||
-              id.includes('FeedbackManage') ||
-              id.includes('AdminLayout')) {
-            return 'admin'
-          }
-        }
-      }
-    }
+    // 保留路由的动态导入边界。将全部依赖强制合并到 vendor 会使分享页
+    // 首屏同时下载图表、工作流画布和富文本编辑器，也会把后台组件提前拉入。
+    manifest: true
   }
 })

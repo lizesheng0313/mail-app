@@ -8,6 +8,7 @@
     "dev": "(cd ../../mail_backend && ./dev.sh) & vite",
     "dev:front": "vite",
     "build": "vite build",
+    "check:bundles": "node scripts/check-page-bundles.mjs",
     "preview": "vite preview",
     "test:ui": "vitest --ui",
     "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix --ignore-path .gitignore",

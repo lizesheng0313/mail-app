@@ -238,7 +238,6 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import * as XLSX from 'xlsx'
 import externalVerifyPoolAPI from '@/api/externalVerifyPool'
 import mailboxProxyApi from '@/api/mailboxProxy'
 import { isTauri } from '@/services/api'
@@ -777,29 +776,30 @@ const exportExcel = async () => {
     return
   }
 
-  const rows = targetRows.map((item: any) => ({
-    邮箱: item.email || '',
-    密码: item.password || '',
-    IMAP: formatServerValue(item.imap_host, item.imap_port),
-    POP3: formatServerValue(item.pop3_host, item.pop3_port),
-    SMTP: formatServerValue(item.smtp_host, item.smtp_port),
-    SMTP状态: !isSmtpChecked(item) ? '未检测' : item.smtp_verified ? '可发' : '失败',
-    验号状态: item.verify_status === 'success' ? '成功' : item.verify_status === 'failed' ? '失败' : '待验',
-    失败原因: item.verify_status === 'failed' ? simplifyErrorMessage(item.error_message || item.verify_message || '') : ''
-  }))
-
-  const ws = XLSX.utils.json_to_sheet(rows)
-  ws['!cols'] = [
-    { wch: 30 }, { wch: 22 }, { wch: 28 }, { wch: 28 }, { wch: 28 }, { wch: 12 }, { wch: 12 }, { wch: 24 }
-  ]
-  const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(wb, ws, '批量验号结果')
-  const timestamp = formatExportTimestamp()
-  const resultSuffix = resultFilter.value === 'success' ? '成功' : resultFilter.value === 'failed' ? '失败' : '全部'
-  const reasonSuffix = failureReasonFilter.value ? `_${failureReasonFilter.value}` : ''
-  const defaultFileName = `批量验号${resultSuffix}结果${reasonSuffix}_${timestamp}.xlsx`
-
   try {
+    const XLSX = await import('xlsx')
+    const rows = targetRows.map((item: any) => ({
+      邮箱: item.email || '',
+      密码: item.password || '',
+      IMAP: formatServerValue(item.imap_host, item.imap_port),
+      POP3: formatServerValue(item.pop3_host, item.pop3_port),
+      SMTP: formatServerValue(item.smtp_host, item.smtp_port),
+      SMTP状态: !isSmtpChecked(item) ? '未检测' : item.smtp_verified ? '可发' : '失败',
+      验号状态: item.verify_status === 'success' ? '成功' : item.verify_status === 'failed' ? '失败' : '待验',
+      失败原因: item.verify_status === 'failed' ? simplifyErrorMessage(item.error_message || item.verify_message || '') : ''
+    }))
+
+    const ws = XLSX.utils.json_to_sheet(rows)
+    ws['!cols'] = [
+      { wch: 30 }, { wch: 22 }, { wch: 28 }, { wch: 28 }, { wch: 28 }, { wch: 12 }, { wch: 12 }, { wch: 24 }
+    ]
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, '批量验号结果')
+    const timestamp = formatExportTimestamp()
+    const resultSuffix = resultFilter.value === 'success' ? '成功' : resultFilter.value === 'failed' ? '失败' : '全部'
+    const reasonSuffix = failureReasonFilter.value ? `_${failureReasonFilter.value}` : ''
+    const defaultFileName = `批量验号${resultSuffix}结果${reasonSuffix}_${timestamp}.xlsx`
+
     if (isTauri()) {
       const { save } = await import('@tauri-apps/plugin-dialog')
       const { writeFile } = await import('@tauri-apps/plugin-fs')

@@ -45,7 +45,7 @@ describe('Help center', () => {
   })
 
   it('localizes the home page, search, article body, and screenshots in English', async () => {
-    setI18nLocale('en')
+    await setI18nLocale('en')
     const localized = fallbackArticles.map((article) => ({
       ...article,
       title: helpCenterEnglish[article.article_key].title,
@@ -76,7 +76,7 @@ describe('Help center', () => {
     } as any))
     const { wrapper } = await createPage('/about?help=help_temp_copy')
     expect(wrapper.get('main h2').text()).toBe('复制邮箱地址')
-    setI18nLocale('zh-TW')
+    await setI18nLocale('zh-TW')
     await flushPromises()
     expect(wrapper.get('main h2').text()).toBe('複製郵箱地址')
     expect(wrapper.get('aside a[href="/about?help=help_category_mailboxes"]').text()).toBe('郵箱')
@@ -84,7 +84,7 @@ describe('Help center', () => {
   })
 
   it('keeps newly added untranslated database guides accessible with a language notice', async () => {
-    setI18nLocale('en')
+    await setI18nLocale('en')
     const articles = [...fallbackArticles, {
       article_key: 'help_new_custom',
       parent_key: 'help_category_tools',
@@ -102,7 +102,7 @@ describe('Help center', () => {
   })
 
   it('uses the database translation instead of a bundled copy when an article changes', async () => {
-    setI18nLocale('en')
+    await setI18nLocale('en')
     const articles = fallbackArticles.map((article) => ({
       ...article,
       title: helpCenterEnglish[article.article_key].title,

@@ -630,7 +630,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import * as XLSX from 'xlsx'
 import { EditorContent, useEditor } from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
@@ -1256,8 +1255,9 @@ const handleFileImport = (event: Event) => {
   if (!file) return
 
   const reader = new FileReader()
-  reader.onload = (e) => {
+  reader.onload = async (e) => {
     try {
+      const XLSX = await import('xlsx')
       const data = new Uint8Array(e.target?.result as ArrayBuffer)
       const workbook = XLSX.read(data, { type: 'array' })
       const firstSheet = workbook.Sheets[workbook.SheetNames[0]]
@@ -1291,13 +1291,14 @@ const handleFileImport = (event: Event) => {
 }
 
 const downloadTemplate = async () => {
-  const wsData = [[tc('excelHeaderEmail')], ['example1@mail.com'], ['example2@mail.com']]
-  const ws = XLSX.utils.aoa_to_sheet(wsData)
-  ws['!cols'] = [{ wch: 30 }]
-  const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(wb, ws, tc('excelSheetName'))
-
   try {
+    const XLSX = await import('xlsx')
+    const wsData = [[tc('excelHeaderEmail')], ['example1@mail.com'], ['example2@mail.com']]
+    const ws = XLSX.utils.aoa_to_sheet(wsData)
+    ws['!cols'] = [{ wch: 30 }]
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, tc('excelSheetName'))
+
     if (isDesktop.value) {
       const { save } = await import('@tauri-apps/plugin-dialog')
       const { writeFile } = await import('@tauri-apps/plugin-fs')
