@@ -6,6 +6,7 @@ export interface TrendSeries {
   type?: 'line' | 'bar'
   stack?: string
   unit?: string
+  color?: string
 }
 
 export type TrendRow = { date: string; [key: string]: unknown }
@@ -49,6 +50,7 @@ export function buildDailyTrendOption(rows: TrendRow[], definitions: TrendSeries
       name: definition.label,
       type: definition.type || 'line',
       stack: definition.stack,
+      ...(definition.color ? { itemStyle: { color: definition.color } } : {}),
       data: data.map((row) => {
         const value = Number(row[definition.key] ?? 0)
         return Number.isFinite(value) ? value : 0

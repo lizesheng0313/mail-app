@@ -71,7 +71,13 @@ describe('independent mailbox monitoring dimensions', () => {
           { source_channel: 'web', created_today: 4, visits_today: 7, created: 8, visits: 9 },
           { source_channel: 'miniapp', created_today: 1, visits_today: 2, created: 3, visits: 4 }
         ],
+        share_channel_trend: [
+          { date: '2026-10-18', source_channel: 'web', created: 4, visits: 7 },
+          { date: '2026-10-20', source_channel: 'desktop', created: 2, visits: 5 },
+          { date: '2026-10-18', source_channel: 'unknown', created: 0, visits: 8 }
+        ],
         trend: [
+          { date: '2026-10-19' },
           {
             date: '2026-10-18',
             system_created: 7,
@@ -116,7 +122,11 @@ describe('independent mailbox monitoring dimensions', () => {
       receiptChart.props('rows'),
       receiptChart.props('series')
     ) as any
-    expect(receiptOption.series.map((series: any) => series.data)).toEqual([[10], [8], [12]])
+    expect(receiptOption.series.map((series: any) => series.data)).toEqual([
+      [10, 0],
+      [8, 0],
+      [12, 0]
+    ])
     const miniappChart = charts.find(
       (chart) => chart.props('label') === '小程序账号归属邮箱每日收件'
     )!
@@ -124,10 +134,17 @@ describe('independent mailbox monitoring dimensions', () => {
       miniappChart.props('rows'),
       miniappChart.props('series')
     ) as any
-    expect(miniappOption.series.map((series: any) => series.data)).toEqual([[3], [2], [4]])
+    expect(miniappOption.series.map((series: any) => series.data)).toEqual([
+      [3, 0],
+      [2, 0],
+      [4, 0]
+    ])
     const apiChart = charts.find((chart) => chart.props('label') === '每日 API 请求次数')!
     const apiOption = buildDailyTrendOption(apiChart.props('rows'), apiChart.props('series')) as any
-    expect(apiOption.series.map((series: any) => series.data)).toEqual([[31], [4]])
+    expect(apiOption.series.map((series: any) => series.data)).toEqual([
+      [31, 0],
+      [4, 0]
+    ])
     expect(wrapper.find('[data-testid="business-trend"] table').exists()).toBe(false)
     expect(wrapper.find('[data-testid="share-trend"] table').exists()).toBe(false)
     const authRows = wrapper
@@ -137,11 +154,48 @@ describe('independent mailbox monitoring dimensions', () => {
       ['开放平台接口', 'API Key', '8', '2'],
       ['开放平台接口', '用户登录凭证', '7', '5']
     ])
-    const sourceRows = wrapper
-      .findAll('[data-testid="share-channels"] tbody tr')
-      .map((row) => row.findAll('td').map((cell) => cell.text()))
-    expect(sourceRows.map((row) => row[0])).toEqual(['API', '网页', '小程序'])
+    expect(wrapper.find('[data-testid="share-channels"] table').exists()).toBe(false)
+    const sourceCharts = wrapper
+      .find('[data-testid="share-channels"]')
+      .findAllComponents(DailyTrendChart)
+    const sourceOptions = sourceCharts.map(
+      (chart) => buildDailyTrendOption(chart.props('rows'), chart.props('series')) as any
+    )
+    expect(sourceOptions[0].xAxis.data).toEqual(['2026-10-18', '2026-10-19', '2026-10-20'])
+    expect(
+      sourceOptions[0].series.map((series: any) => [series.name, series.type, series.data])
+    ).toEqual([
+      ['网页', 'line', [4, 0, 0]],
+      ['桌面端', 'line', [0, 0, 2]]
+    ])
+    expect(sourceOptions[1].series.map((series: any) => [series.name, series.data])).toEqual([
+      ['网页', [7, 0, 0]],
+      ['桌面端', [0, 0, 5]],
+      ['未标记来源', [8, 0, 0]]
+    ])
+    expect(sourceOptions[0].series[1].itemStyle.color).toBe(
+      sourceOptions[1].series[1].itemStyle.color
+    )
+    expect(text).toContain('不记录具体微信好友、群聊或转发网站')
     expect(wrapper.text()).toContain('撤销分享后历史计数保留')
+    wrapper.unmount()
+  })
+
+  it('does not invent daily source values when the backend only returns interval totals', async () => {
+    route.meta.monitoringSection = 'business'
+    api.getBusinessStats.mockResolvedValue({
+      code: 0,
+      data: {
+        trend: [{ date: '2026-10-18' }],
+        share_channels: [{ source_channel: 'web', created: 50, visits: 100 }]
+      }
+    })
+    const wrapper = mount(Monitoring, {
+      global: { stubs: { CustomSelect: true, DailyTrendChart: true } }
+    })
+    await flushPromises()
+    expect(wrapper.text()).toContain('来源趋势需后端更新后显示')
+    expect(wrapper.find('[data-testid="share-channels"]').exists()).toBe(false)
     wrapper.unmount()
   })
 

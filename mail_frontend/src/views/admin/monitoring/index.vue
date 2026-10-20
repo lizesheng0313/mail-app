@@ -312,34 +312,29 @@
           <div class="monitoring-metrics">
             <MetricCard v-for="metric in shareMetrics" :key="metric.label" v-bind="metric" />
           </div>
-          <div class="monitoring-subsection" data-testid="share-channels">
-            <h4 class="mb-3 text-sm font-semibold text-gray-900">所选区间 · 分享来源</h4>
-            <div class="monitoring-table-scroll">
-              <table class="monitoring-table">
-                <thead>
-                  <tr>
-                    <th>来源</th>
-                    <th class="monitoring-number">创建链接</th>
-                    <th class="monitoring-number">访问请求</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="item in businessStats.share_channels || []" :key="item.source_channel">
-                    <td>{{ shareSourceLabels[item.source_channel] || '未知' }}</td>
-                    <td class="monitoring-number">{{ formatNumber(item.created) }}</td>
-                    <td class="monitoring-number">{{ formatNumber(item.visits) }}</td>
-                  </tr>
-                  <tr v-if="!businessStats.share_channels?.length">
-                    <td colspan="3" class="text-center text-gray-400">暂无分享记录</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+          <div class="monitoring-subsection">
             <p class="monitoring-panel-description">
-              创建来源与访问来源分别统计；旧记录未保存来源时列为未知。撤销分享后历史计数保留。
+              入口指创建或访问分享时使用的客户端：网页（含微信内置浏览器）、桌面端、小程序，或 API
+              调用。 不记录具体微信好友、群聊或转发网站。访问按请求计数，包含自动刷新。
+            </p>
+            <p class="monitoring-panel-description">
+              未标记来源：旧记录未保存入口，或请求未上报客户端标记，无法还原。
+              历史网页记录可能包含桌面端；更新后单列桌面端。撤销分享后历史计数保留。
+            </p>
+            <p v-if="!hasShareChannelTrend" class="monitoring-panel-description" role="status">
+              来源趋势需后端更新后显示。
             </p>
           </div>
         </section>
+
+        <div v-if="hasShareChannelTrend" class="monitoring-charts" data-testid="share-channels">
+          <section v-for="chart in shareChannelCharts" :key="chart.label" class="monitoring-panel">
+            <div class="monitoring-panel-header">
+              <h3 class="monitoring-panel-title">{{ chart.label }}</h3>
+            </div>
+            <DailyTrendChart :rows="chart.rows" :series="chart.series" :label="chart.label" />
+          </section>
+        </div>
 
         <div class="monitoring-charts" data-testid="share-trend">
           <section v-for="chart in shareCharts" :key="chart.label" class="monitoring-panel">
@@ -440,7 +435,7 @@ import MetricCard from '@/components/Monitoring/MetricCard.vue'
 import './monitoring.css'
 import { showMessage } from '@/utils/message'
 import DailyTrendChart from '@/components/Monitoring/DailyTrendChart.vue'
-import type { TrendSeries } from '@/components/Monitoring/dailyTrendOptions'
+import type { TrendRow, TrendSeries } from '@/components/Monitoring/dailyTrendOptions'
 import {
   updateWorldMap as updateWorldMapChart,
   preloadWorldMap as preloadWorldMapData
@@ -479,12 +474,45 @@ const apiAuthLabels: Record<string, string> = {
   public: '匿名 / 未携带凭证',
   other: '其他'
 }
-const shareSourceLabels: Record<string, string> = {
-  api: 'API',
-  web: '网页',
-  miniapp: '小程序',
-  unknown: '未知'
-}
+const shareSources = [
+  { key: 'web', label: '网页', color: '#2563eb' },
+  { key: 'desktop', label: '桌面端', color: '#8b5cf6' },
+  { key: 'miniapp', label: '小程序', color: '#10b981' },
+  { key: 'api', label: 'API 调用', color: '#f59e0b' },
+  { key: 'unknown', label: '未标记来源', color: '#6b7280' }
+]
+const hasShareChannelTrend = computed(() => Array.isArray(businessStats.value.share_channel_trend))
+const shareChannelRows = computed<TrendRow[]>(() => {
+  const byDate = new Map<string, TrendRow>()
+  for (const row of businessStats.value.trend || []) {
+    byDate.set(row.date, { date: row.date })
+  }
+  for (const row of businessStats.value.share_channel_trend || []) {
+    const day = byDate.get(row.date) || { date: row.date }
+    day[`created_${row.source_channel}`] = Number(row.created || 0)
+    day[`visits_${row.source_channel}`] = Number(row.visits || 0)
+    byDate.set(row.date, day)
+  }
+  return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date))
+})
+const shareChannelCharts = computed(() =>
+  [
+    { key: 'created', label: '每日分享创建入口', unit: '个' },
+    { key: 'visits', label: '每日分享访问入口', unit: '次' }
+  ].map((metric) => {
+    const series: TrendSeries[] = shareSources
+      .filter((source) =>
+        shareChannelRows.value.some((row) => Number(row[`${metric.key}_${source.key}`]) > 0)
+      )
+      .map((source) => ({
+        key: `${metric.key}_${source.key}`,
+        label: source.label,
+        color: source.color,
+        unit: metric.unit
+      }))
+    return { label: metric.label, series, rows: series.length ? shareChannelRows.value : [] }
+  })
+)
 const periodOptions = [
   { value: '7', label: '最近7天' },
   { value: '14', label: '最近14天' },
