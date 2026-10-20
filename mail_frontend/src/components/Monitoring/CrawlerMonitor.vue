@@ -27,36 +27,18 @@
         {{ loading ? '刷新中' : '刷新' }}
       </button>
     </div>
-    <h4 class="mb-3 text-sm font-semibold text-gray-900">网页助手实时队列</h4>
-    <div class="monitoring-metrics monitoring-metrics-compact" :aria-busy="loading">
+    <div class="monitoring-metrics monitoring-execution-metrics" :aria-busy="loading">
+      <MetricCard label="网页助手运行中" :value="loading ? '—' : status?.active_count || 0" />
+      <MetricCard label="网页助手排队中" :value="loading ? '—' : status?.queue_count || 0" />
       <MetricCard
-        label="网页助手运行中"
-        :value="loading ? '—' : status?.active_count || 0"
-        :detail="`最大并发 ${status?.max_concurrent || 5}`"
+        label="服务端工作流完成累计"
+        :value="loading ? '—' : completedExecutionCount.toLocaleString('zh-CN')"
       />
       <MetricCard
-        label="网页助手排队中"
-        :value="loading ? '—' : status?.queue_count || 0"
-        detail="队列任务"
+        label="服务端工作流失败累计"
+        :value="loading ? '—' : failedExecutionCount.toLocaleString('zh-CN')"
+        value-class="text-red-600"
       />
-    </div>
-    <div class="monitoring-subsection">
-      <h4 class="mb-3 text-sm font-semibold text-gray-900">服务端工作流执行记录 · 历史累计</h4>
-      <div class="monitoring-metrics monitoring-metrics-compact" :aria-busy="loading">
-        <MetricCard
-          label="已完成的执行记录"
-          :value="loading ? '—' : completedExecutionCount.toLocaleString('zh-CN')"
-        />
-        <MetricCard
-          label="失败的执行记录"
-          :value="loading ? '—' : failedExecutionCount.toLocaleString('zh-CN')"
-          value-class="text-red-600"
-        />
-      </div>
-      <p class="monitoring-panel-description mt-3">
-        统计全站服务端工作流执行记录，含手动和邮件触发；不含桌面端浏览器工作流。
-        “已完成”仅表示工作流执行状态。
-      </p>
     </div>
   </section>
 </template>

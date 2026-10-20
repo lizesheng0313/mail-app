@@ -4,9 +4,6 @@
       <div class="monitoring-panel-header mb-0">
         <div class="monitoring-panel-heading">
           <h2 class="monitoring-panel-title">第三方邮箱成功接入统计</h2>
-          <p class="monitoring-panel-description">
-            按当前仍保留的第三方邮箱首次成功保存时间统计，不把后台自动收信和重复同步计算为登录。
-          </p>
         </div>
         <div class="flex shrink-0 items-center gap-3">
           <CustomSelect
@@ -34,35 +31,17 @@
     </div>
 
     <div class="monitoring-metrics">
-      <MetricCard
-        label="今日成功接入"
-        :value="formatNumber(summary.today_connected_mailboxes)"
-        :detail="`涉及 ${formatNumber(summary.today_unique_owners)} 位用户`"
-      />
-      <MetricCard
-        label="所选周期接入"
-        :value="formatNumber(summary.connected_mailboxes)"
-        :detail="`最近 ${days} 天首次成功保存的邮箱`"
-      />
-      <MetricCard
-        label="所选周期接入用户"
-        :value="formatNumber(summary.unique_owners)"
-        detail="整个区间按账号去重，每日人数不可直接相加"
-      />
-      <MetricCard
-        label="周期内接入且正常"
-        :value="formatNumber(summary.active_mailboxes)"
-        :detail="`其他状态 ${formatNumber(summary.failed_mailboxes)} 个`"
-      />
+      <MetricCard label="今日成功接入" :value="formatNumber(summary.today_connected_mailboxes)" />
+      <MetricCard label="所选周期接入" :value="formatNumber(summary.connected_mailboxes)" />
+      <MetricCard label="所选周期接入用户" :value="formatNumber(summary.unique_owners)" />
+      <MetricCard label="周期内接入且正常" :value="formatNumber(summary.active_mailboxes)" />
     </div>
 
     <section class="monitoring-panel">
       <div class="monitoring-panel-header">
         <div>
           <h3 class="monitoring-panel-title">邮箱公司分布</h3>
-          <p class="mt-1 text-sm text-gray-500">
-            所选周期共 {{ formatNumber(summary.provider_count) }} 家，按成功接入邮箱数排序
-          </p>
+          <p class="mt-1 text-sm text-gray-500">{{ formatNumber(summary.provider_count) }} 家</p>
         </div>
         <span class="text-sm text-gray-500">
           {{ stats.period?.start_date || '--' }} 至 {{ stats.period?.end_date || '--' }}
@@ -157,9 +136,6 @@
         <div class="monitoring-panel-header">
           <div class="monitoring-panel-heading">
             <h3 class="monitoring-panel-title">每日成功接入用户</h3>
-            <p class="monitoring-panel-description">
-              每日按账号去重，同一用户在不同日期可分别计入。
-            </p>
           </div>
         </div>
         <DailyTrendChart :rows="stats.daily || []" :series="ownerSeries" label="每日成功接入用户" />

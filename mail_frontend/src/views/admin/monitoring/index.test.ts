@@ -111,11 +111,8 @@ describe('independent mailbox monitoring dimensions', () => {
       ['第三方邮箱', '—', '—', '0', '0', '4']
     ])
     expect(text).not.toContain('第三方邮箱今日申请')
-    expect(text).toContain('小程序账号归属邮箱今日收件')
     expect(text).toContain('站内客户端今日请求')
     expect(text).toContain('开放平台今日请求')
-    expect(text).toContain('自动同步、轮询、预检及失败请求')
-    expect(text).toContain('外部程序调用这些地址也计入此类')
     const charts = wrapper.findAllComponents(DailyTrendChart)
     const receiptChart = charts.find((chart) => chart.props('label') === '每日邮箱收件')!
     const receiptOption = buildDailyTrendOption(
@@ -176,8 +173,6 @@ describe('independent mailbox monitoring dimensions', () => {
     expect(sourceOptions[0].series[1].itemStyle.color).toBe(
       sourceOptions[1].series[1].itemStyle.color
     )
-    expect(text).toContain('不记录具体微信好友、群聊或转发网站')
-    expect(wrapper.text()).toContain('撤销分享后历史计数保留')
     wrapper.unmount()
   })
 
@@ -194,7 +189,6 @@ describe('independent mailbox monitoring dimensions', () => {
       global: { stubs: { CustomSelect: true, DailyTrendChart: true } }
     })
     await flushPromises()
-    expect(wrapper.text()).toContain('来源趋势需后端更新后显示')
     expect(wrapper.find('[data-testid="share-channels"]').exists()).toBe(false)
     wrapper.unmount()
   })
