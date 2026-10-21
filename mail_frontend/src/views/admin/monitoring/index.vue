@@ -161,9 +161,7 @@
             class="mt-3 text-xs text-gray-500"
           >
             今日有
-            {{
-              formatNumber(businessStats.summary.wechat_unidentified_actions_today)
-            }}
+            {{ formatNumber(businessStats.summary.wechat_unidentified_actions_today) }}
             次微信操作缺少账号或设备标识，未计入人数。
           </p>
           <div class="monitoring-charts monitoring-subsection">
@@ -231,11 +229,11 @@
             </div>
           </div>
           <div class="monitoring-subsection">
-            <h4 class="mb-4 text-sm font-semibold text-gray-900">每日 API 关联账号人数</h4>
+            <h4 class="mb-4 text-sm font-semibold text-gray-900">每日使用 API 人数</h4>
             <DailyTrendChart
               :rows="businessStats.trend || []"
               :series="apiUserSeries"
-              label="每日 API 关联账号人数"
+              label="每日使用 API 人数"
             />
           </div>
         </section>
@@ -270,6 +268,9 @@
               :series="chart.series"
               :label="chart.label"
             />
+            <p v-if="chart.description" class="mt-3 text-xs leading-5 text-gray-500">
+              {{ chart.description }}
+            </p>
           </section>
         </div>
 
@@ -572,6 +573,7 @@ const shareMetrics = computed(() => [
 interface TrendPanel {
   label: string
   series: TrendSeries[]
+  description?: string
 }
 const registrationSeries: TrendSeries[] = [{ key: 'new_users', label: '新注册用户', unit: '人' }]
 const trafficSeries: TrendSeries[] = [
@@ -631,23 +633,25 @@ const mailboxCharts: TrendPanel[] = [
   }
 ]
 const apiUserSeries: TrendSeries[] = [
-  { key: 'business_api_active_users', label: '站内客户端接口', unit: '人' },
-  { key: 'api_active_users', label: '开放平台接口', unit: '人' }
+  { key: 'business_api_active_users', label: '站内 API 使用人数', unit: '人' },
+  { key: 'api_active_users', label: '开放平台 API 使用人数', unit: '人' }
 ]
 const shareCharts: TrendPanel[] = [
   {
-    label: '每日分享创建用户',
+    label: '每天创建分享的人数',
+    description:
+      '按页面上方选择的天数统计：每个人第一次分享的当天算首次分享，之后另一天再分享算再次分享。同一天分享多次只算 1 人。',
     series: [
       {
         key: 'share_first_users_in_period',
-        label: '区间首次创建',
+        label: '首次分享人数',
         type: 'bar',
         stack: 'users',
         unit: '人'
       },
       {
         key: 'share_returning_users_in_period',
-        label: '区间再次创建',
+        label: '再次分享人数',
         type: 'bar',
         stack: 'users',
         unit: '人'
