@@ -1713,7 +1713,7 @@ const refreshInventoryCount = async () => {
   }
 
   try {
-    const inventoryRes = await workflowApi.getInventoryCount(workflow.value.workflow_id)
+    const inventoryRes = await workflowApi.getInventoryCount(workflow.value.workflow_id, shareToken.value)
     if (inventoryRes.code === 0) {
       workflow.value.inventory_count = inventoryRes.data.inventory_count
       syncExecutionCountState(selectedExecutionCount.value)

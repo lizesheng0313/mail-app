@@ -430,6 +430,7 @@ import { showMessage } from '@/utils/message'
 import { isTauri } from '@/services/api'
 import { openExternalAuthUrl } from '@/utils/openExternalAuthUrl'
 import { rememberLoginRedirect } from '@/utils/loginRedirect'
+import { beginGoogleAuth } from '@/services/googleAuth'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -633,7 +634,7 @@ const loginWithGoogle = async () => {
     error.value = ''
     
     // 获取 Google 授权 URL
-    const result = await authAPI.getGoogleLoginUrl({ is_desktop: isTauri() })
+    const result = await beginGoogleAuth({ is_desktop: isTauri() })
     
     if (result.code === 0) {
       rememberLoginRedirect(route.query.redirect)

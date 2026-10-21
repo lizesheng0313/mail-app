@@ -20,6 +20,8 @@ import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useUserStore } from '@/stores/user'
 import { takeLoginRedirect } from '@/utils/loginRedirect'
+import authAPI from '@/api/auth'
+import { googleAuthProof, clearGoogleAuth } from '@/services/googleAuth'
 
 const router = useRouter()
 const route = useRoute()
@@ -27,24 +29,23 @@ const userStore = useUserStore()
 const { t } = useI18n()
 
 onMounted(async () => {
-  // 从URL参数获取token和用户信息
-  const token = route.query.token as string
-  
-  if (token) {
-    const result = await userStore.completeLogin(token, 'google')
-
-    if (result.success) {
-      console.log('Google登录成功，用户信息:', userStore.user)
-      router.replace(takeLoginRedirect() || '/user')
+  const flow = route.query.flow as string
+  try {
+    const proof = googleAuthProof(route.query.ticket, flow)
+    // 及时清理地址栏，长期会话 token 只从 POST 响应取得。
+    await router.replace({ path: route.path, query: {}, hash: route.hash })
+    const response = await authAPI.completeGoogleLogin(proof)
+    if (response.code !== 0 || !response.data) throw new Error(response.message)
+    clearGoogleAuth(flow)
+    if (response.data.action === 'bind') {
+      await router.replace('/user/settings?google_bind_success=1')
       return
     }
-
-    console.error('Google登录后获取完整用户信息失败')
-    router.push(`/login?error=${encodeURIComponent(t('googleAuth.fetchUserFailed'))}`)
-  } else {
-    // 没有token，返回登录页
-    console.error('未获取到token')
-    router.push(`/login?error=${encodeURIComponent(t('googleAuth.loginFailed'))}`)
+    const result = await userStore.completeLogin(response.data.token, 'google')
+    if (!result.success) throw new Error(result.error)
+    await router.replace(takeLoginRedirect() || '/user')
+  } catch {
+    await router.replace(`/login?error=${encodeURIComponent(t('googleAuth.loginFailed'))}`)
   }
 })
 </script>

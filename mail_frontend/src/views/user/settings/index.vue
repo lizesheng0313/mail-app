@@ -164,6 +164,7 @@ import { showMessage } from '@/utils/message'
 import { showConfirm } from '@/utils/dialog'
 import api, { isTauri } from '@/services/api'
 import { openExternalAuthUrl } from '@/utils/openExternalAuthUrl'
+import { beginGoogleAuth } from '@/services/googleAuth'
 
 const userStore = useUserStore()
 const route = useRoute()
@@ -256,12 +257,7 @@ const loadUserProfile = async () => {
 const bindGoogle = async () => {
   bindLoading.value = true
   try {
-    const res = await api.get('/auth/google/login-url', {
-      params: {
-        is_bind: true,
-        is_desktop: isTauri()
-      }
-    })
+    const res = await beginGoogleAuth({ is_bind: true, is_desktop: isTauri() })
     if (res.code === 0 && res.data?.auth_url) {
       await openExternalAuthUrl(res.data.auth_url)
     } else {

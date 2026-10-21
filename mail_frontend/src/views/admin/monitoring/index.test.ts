@@ -46,6 +46,11 @@ describe('independent mailbox monitoring dimensions', () => {
           miniapp_system_received_today: 3,
           miniapp_hosted_received_today: 2,
           miniapp_external_received_today: 4,
+          share_users_today: 3,
+          share_links_created_today: 5,
+          share_links_opened_today: 4,
+          share_visitors_today: 8,
+          share_visits_today: 12,
           business_api_calls_today: 31,
           business_api_active_users_today: 2
         },
@@ -112,13 +117,29 @@ describe('independent mailbox monitoring dimensions', () => {
           { date: '2026-10-18', source_channel: 'unknown', created: 0, visits: 8 }
         ],
         trend: [
-          { date: '2026-10-19' },
+          {
+            date: '2026-10-19',
+            share_users: 3,
+            share_first_users_in_period: 1,
+            share_returning_users_in_period: 2,
+            share_links_created: 5,
+            share_links_opened: 4,
+            share_visitors: 8,
+            share_visits: 12
+          },
           {
             date: '2026-10-18',
             system_created: 7,
             hosted_created: 5,
             system_created_users: 3,
             hosted_created_users: 2,
+            share_users: 6,
+            share_first_users_in_period: 2,
+            share_returning_users_in_period: 4,
+            share_links_created: 10,
+            share_links_opened: 20,
+            share_visitors: 12,
+            share_visits: 30,
             system_received: 10,
             hosted_received: 8,
             external_received: 12,
@@ -170,14 +191,38 @@ describe('independent mailbox monitoring dimensions', () => {
       [12, 0]
     ])
     expect(text).not.toContain('小程序账号归属邮箱每日收件')
-    expect(text).toContain('微信登录后在网页上的操作计入网页')
-    expect(text).toContain('新口径启用时间')
+    expect(text).not.toContain('微信登录后在网页上的操作计入网页')
+    expect(text).not.toContain('新口径启用时间')
     const wechatChart = charts.find((chart) => chart.props('label') === '微信端每日使用人数')!
     const wechatOption = buildDailyTrendOption(
       wechatChart.props('rows'),
       wechatChart.props('series')
     ) as any
     expect(wechatOption.series.map((series: any) => series.data)).toEqual([[5], [3], [1], [2], [4]])
+    const shareCards = wrapper.find('[data-testid="share-trend"]')
+    const shareCharts = shareCards.findAllComponents(DailyTrendChart)
+    expect(shareCharts.slice(0, 3).map((chart) => chart.props('label'))).toEqual([
+      '每日创建分享人数',
+      '每日新建分享链接',
+      '每日访问分享人数'
+    ])
+    expect(
+      shareCharts.map((chart) => {
+        const option = buildDailyTrendOption(chart.props('rows'), chart.props('series'), {
+          showValues: true
+        }) as any
+        expect(option.legend.show).toBe(false)
+        expect(chart.props('showValues')).toBe(true)
+        return [option.yAxis.name, option.series.map((series: any) => series.data)]
+      })
+    ).toEqual([
+      ['人', [[6, 3]]],
+      ['条', [[10, 5]]],
+      ['人', [[12, 8]]],
+      ['次', [[30, 12]]]
+    ])
+    expect(shareCards.text()).not.toContain('首次分享人数')
+    expect(shareCards.text()).not.toContain('再次分享人数')
     const resultChart = (label: string) => {
       const chart = wrapper
         .findAllComponents(DailyTrendChart)

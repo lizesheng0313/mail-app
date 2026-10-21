@@ -11,9 +11,15 @@ export interface TrendSeries {
 
 export type TrendRow = { date: string; [key: string]: unknown }
 
-export function buildDailyTrendOption(rows: TrendRow[], definitions: TrendSeries[]): EChartsOption {
+export function buildDailyTrendOption(
+  rows: TrendRow[],
+  definitions: TrendSeries[],
+  options: { showValues?: boolean } = {}
+): EChartsOption {
   const data = [...rows].sort((a, b) => a.date.localeCompare(b.date))
   const zoom = data.length > 14
+  const hideLegend = options.showValues && definitions.length === 1
+  const units = [...new Set(definitions.map((series) => series.unit).filter(Boolean))]
   return {
     animation: false,
     color: ['#2563eb', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#ef4444'],
@@ -24,8 +30,22 @@ export function buildDailyTrendOption(rows: TrendRow[], definitions: TrendSeries
       }
     },
     tooltip: { trigger: 'axis', confine: true },
-    legend: { type: 'scroll', top: 0, left: 0, right: 0, itemWidth: 12, itemHeight: 8 },
-    grid: { top: 48, left: 12, right: 18, bottom: zoom ? 64 : 20, containLabel: true },
+    legend: {
+      show: !hideLegend,
+      type: 'scroll',
+      top: 0,
+      left: 0,
+      right: 0,
+      itemWidth: 12,
+      itemHeight: 8
+    },
+    grid: {
+      top: hideLegend ? 28 : options.showValues ? 60 : 48,
+      left: 12,
+      right: 18,
+      bottom: zoom ? 64 : 20,
+      containLabel: true
+    },
     xAxis: {
       type: 'category',
       data: data.map((row) => row.date),
@@ -37,6 +57,7 @@ export function buildDailyTrendOption(rows: TrendRow[], definitions: TrendSeries
     yAxis: {
       type: 'value',
       minInterval: 1,
+      name: options.showValues && units.length === 1 ? units[0] : undefined,
       axisLabel: { color: '#6b7280' },
       splitLine: { lineStyle: { color: '#f3f4f6' } }
     },
@@ -58,6 +79,13 @@ export function buildDailyTrendOption(rows: TrendRow[], definitions: TrendSeries
       showSymbol: data.length <= 14,
       symbolSize: 5,
       barMaxWidth: 28,
+      label: {
+        show: Boolean(options.showValues) && definitions.length === 1 && !zoom,
+        position: 'top',
+        color: '#4b5563',
+        formatter: (params) =>
+          Number(params.value) > 0 ? Number(params.value).toLocaleString('zh-CN') : ''
+      },
       emphasis: { focus: 'series' },
       tooltip: {
         valueFormatter: (value) =>

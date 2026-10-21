@@ -142,30 +142,15 @@
           <div class="monitoring-panel-header">
             <h3 class="monitoring-panel-title">微信端使用</h3>
           </div>
-          <p class="mb-3 text-sm text-gray-500">
-            仅统计微信小程序内的实际成功操作。微信登录后在网页上的操作计入网页。
-            每日人数按账号去重，未登录按设备标识去重。
-          </p>
-          <p class="mb-4 text-xs text-gray-500">
-            {{
-              wechatCollectionStartedAt
-                ? `新口径启用时间：${wechatCollectionStartedAt}（北京时间）。此前数据不追补。`
-                : '微信端操作统计尚未启用。'
-            }}
-          </p>
-          <div class="monitoring-metrics">
+          <div class="monitoring-metrics monitoring-metrics-single-row">
             <MetricCard v-for="metric in wechatMetrics" :key="metric.label" v-bind="metric" />
           </div>
-          <p
-            v-if="businessStats.summary?.wechat_unidentified_actions_today"
-            class="mt-3 text-xs text-gray-500"
-          >
-            今日有
-            {{ formatNumber(businessStats.summary.wechat_unidentified_actions_today) }}
-            次微信操作缺少账号或设备标识，未计入人数。
-          </p>
-          <div class="monitoring-charts monitoring-subsection">
-            <article v-for="chart in wechatCharts" :key="chart.label" class="min-w-0">
+          <div class="monitoring-charts monitoring-charts-three monitoring-subsection">
+            <article
+              v-for="chart in wechatCharts"
+              :key="chart.label"
+              class="monitoring-trend-panel"
+            >
               <h4 class="mb-4 text-sm font-semibold text-gray-900">{{ chart.label }}</h4>
               <DailyTrendChart
                 :rows="businessStats.wechat_trend || []"
@@ -174,10 +159,6 @@
               />
             </article>
           </div>
-          <p class="mt-4 text-xs text-gray-500">
-            收件操作包括打开收件箱、查看邮件、手动收取，含刷新，按操作计次；未读角标后台检查不计入。
-            发件按成功发件记录计封，当前小程序暂无发件入口。分享分别统计创建与打开，自动刷新不重复算打开。
-          </p>
         </section>
 
         <section class="monitoring-panel">
@@ -192,8 +173,15 @@
               :value="formatNumber(businessStats.summary?.[`${kind.key}_enabled_users`])"
             />
           </div>
-          <div class="monitoring-charts monitoring-subsection" data-testid="business-trend">
-            <article v-for="chart in mailboxCharts" :key="chart.label" class="min-w-0">
+          <div
+            class="monitoring-charts monitoring-charts-three monitoring-subsection"
+            data-testid="business-trend"
+          >
+            <article
+              v-for="chart in mailboxCharts"
+              :key="chart.label"
+              class="monitoring-trend-panel"
+            >
               <h4 class="mb-4 text-sm font-semibold text-gray-900">{{ chart.label }}</h4>
               <DailyTrendChart
                 :rows="businessStats.trend || []"
@@ -221,20 +209,24 @@
                 :options="apiAuthOptions"
               />
             </div>
-            <div class="monitoring-charts">
-              <article v-for="chart in apiResultCharts" :key="chart.label" class="min-w-0">
+            <div class="monitoring-charts monitoring-charts-three">
+              <article
+                v-for="chart in apiResultCharts"
+                :key="chart.label"
+                class="monitoring-trend-panel"
+              >
                 <h4 class="mb-4 text-sm font-semibold text-gray-900">{{ chart.label }}</h4>
                 <DailyTrendChart :rows="chart.rows" :series="chart.series" :label="chart.label" />
               </article>
+              <article class="monitoring-trend-panel">
+                <h4 class="mb-4 text-sm font-semibold text-gray-900">每日使用 API 人数</h4>
+                <DailyTrendChart
+                  :rows="businessStats.trend || []"
+                  :series="apiUserSeries"
+                  label="每日使用 API 人数"
+                />
+              </article>
             </div>
-          </div>
-          <div class="monitoring-subsection">
-            <h4 class="mb-4 text-sm font-semibold text-gray-900">每日使用 API 人数</h4>
-            <DailyTrendChart
-              :rows="businessStats.trend || []"
-              :series="apiUserSeries"
-              label="每日使用 API 人数"
-            />
           </div>
         </section>
 
@@ -242,37 +234,62 @@
           <div class="monitoring-panel-header">
             <h3 class="monitoring-panel-title">邮箱分享</h3>
           </div>
-          <div class="monitoring-metrics">
+          <div class="monitoring-metrics monitoring-metrics-single-row">
             <MetricCard v-for="metric in shareMetrics" :key="metric.label" v-bind="metric" />
           </div>
+          <div class="monitoring-charts monitoring-charts-three monitoring-subsection">
+            <div class="monitoring-chart-group" data-testid="share-trend">
+              <article
+                v-for="chart in shareCharts"
+                :key="chart.label"
+                class="monitoring-trend-panel"
+              >
+                <div class="monitoring-share-chart-header">
+                  <h4>{{ chart.label }}</h4>
+                  <p>
+                    <span>今日</span
+                    ><strong>{{ formatNumber(businessStats.summary?.[chart.summaryKey]) }}</strong
+                    ><span>{{ chart.unit }}</span>
+                  </p>
+                </div>
+                <DailyTrendChart
+                  :rows="businessStats.trend || []"
+                  :series="chart.series"
+                  :label="chart.label"
+                  :height="260"
+                  show-values
+                />
+              </article>
+            </div>
+            <div
+              v-if="hasShareChannelTrend"
+              class="monitoring-chart-group"
+              data-testid="share-channels"
+            >
+              <article
+                v-for="chart in shareChannelCharts"
+                :key="chart.label"
+                class="monitoring-trend-panel"
+              >
+                <div class="monitoring-share-chart-header">
+                  <h4>{{ chart.label }}</h4>
+                  <p>
+                    <span>近 {{ businessStatsDays }} 天</span
+                    ><strong>{{ formatNumber(chart.total) }}</strong
+                    ><span>{{ chart.unit }}</span>
+                  </p>
+                </div>
+                <DailyTrendChart
+                  :rows="chart.rows"
+                  :series="chart.series"
+                  :label="chart.label"
+                  :height="260"
+                  show-values
+                />
+              </article>
+            </div>
+          </div>
         </section>
-
-        <div v-if="hasShareChannelTrend" class="monitoring-charts" data-testid="share-channels">
-          <section v-for="chart in shareChannelCharts" :key="chart.label" class="monitoring-panel">
-            <div class="monitoring-panel-header">
-              <h3 class="monitoring-panel-title">{{ chart.label }}</h3>
-            </div>
-            <DailyTrendChart :rows="chart.rows" :series="chart.series" :label="chart.label" />
-          </section>
-        </div>
-
-        <div class="monitoring-charts" data-testid="share-trend">
-          <section v-for="chart in shareCharts" :key="chart.label" class="monitoring-panel">
-            <div class="monitoring-panel-header">
-              <div class="monitoring-panel-heading">
-                <h3 class="monitoring-panel-title">{{ chart.label }}</h3>
-              </div>
-            </div>
-            <DailyTrendChart
-              :rows="businessStats.trend || []"
-              :series="chart.series"
-              :label="chart.label"
-            />
-            <p v-if="chart.description" class="mt-3 text-xs leading-5 text-gray-500">
-              {{ chart.description }}
-            </p>
-          </section>
-        </div>
 
         <section class="monitoring-panel">
           <div class="monitoring-panel-header">
@@ -452,8 +469,8 @@ const shareChannelRows = computed<TrendRow[]>(() => {
 })
 const shareChannelCharts = computed(() =>
   [
-    { key: 'created', label: '每日分享创建入口', unit: '个' },
-    { key: 'visits', label: '每日分享访问入口', unit: '次' }
+    { key: 'created', label: '每日链接创建来源', unit: '条' },
+    { key: 'visits', label: '每日分享访问来源', unit: '次' }
   ].map((metric) => {
     const series: TrendSeries[] = shareSources
       .filter((source) =>
@@ -465,7 +482,18 @@ const shareChannelCharts = computed(() =>
         color: source.color,
         unit: metric.unit
       }))
-    return { label: metric.label, series, rows: series.length ? shareChannelRows.value : [] }
+    const total = shareChannelRows.value.reduce(
+      (sum, row) =>
+        sum + series.reduce((dayTotal, item) => dayTotal + Number(row[item.key] || 0), 0),
+      0
+    )
+    return {
+      label: metric.label,
+      unit: metric.unit,
+      total,
+      series,
+      rows: series.length ? shareChannelRows.value : []
+    }
   })
 )
 const periodOptions = [
@@ -505,20 +533,9 @@ const audienceMetrics = computed(() => [
     value: formatNumber(businessStats.value.summary?.desktop_active_users_today)
   }
 ])
-const wechatCollectionStartedAt = computed(() => {
-  const timestamp = Number(businessStats.value.wechat_collection_started_at_ms)
-  return timestamp > 0
-    ? new Intl.DateTimeFormat('zh-CN', {
-        timeZone: 'Asia/Shanghai',
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false
-      }).format(timestamp)
-    : ''
-})
+const hasWechatCollection = computed(
+  () => Number(businessStats.value.wechat_collection_started_at_ms) > 0
+)
 const wechatMetrics = computed(() =>
   [
     { key: 'wechat_active_users', label: '微信今日使用人数' },
@@ -528,7 +545,7 @@ const wechatMetrics = computed(() =>
     { key: 'wechat_share_visit_users', label: '微信今日分享访客' }
   ].map(({ key, label }) => ({
     label,
-    value: wechatCollectionStartedAt.value
+    value: hasWechatCollection.value
       ? formatNumber(businessStats.value.summary?.[`${key}_today`])
       : '—'
   }))
@@ -553,27 +570,30 @@ const apiMetrics = computed(() => [
 ])
 const shareMetrics = computed(() => [
   {
-    label: '历史分享创建人数',
-    value: formatNumber(businessStats.value.summary?.share_users_total)
+    label: '累计创建分享人数',
+    value: `${formatNumber(businessStats.value.summary?.share_users_total)} 人`
   },
   {
-    label: `最近 ${businessStatsDays.value} 天创建人数`,
-    value: formatNumber(businessStats.value.summary?.share_users_period)
+    label: `近 ${businessStatsDays.value} 天创建分享人数`,
+    value: `${formatNumber(businessStats.value.summary?.share_users_period)} 人`
   },
   {
-    label: '今日创建链接',
-    value: formatNumber(businessStats.value.summary?.share_links_created_today)
+    label: '今日新建分享链接',
+    value: `${formatNumber(businessStats.value.summary?.share_links_created_today)} 条`
   },
   {
-    label: '今日分享访客',
-    value: formatNumber(businessStats.value.summary?.share_visitors_today)
+    label: '今日被访问链接',
+    value: `${formatNumber(businessStats.value.summary?.share_links_opened_today)} 条`
+  },
+  {
+    label: '今日访问分享人数',
+    value: `${formatNumber(businessStats.value.summary?.share_visitors_today)} 人`
   }
 ])
 
 interface TrendPanel {
   label: string
   series: TrendSeries[]
-  description?: string
 }
 const registrationSeries: TrendSeries[] = [{ key: 'new_users', label: '新注册用户', unit: '人' }]
 const trafficSeries: TrendSeries[] = [
@@ -636,42 +656,42 @@ const apiUserSeries: TrendSeries[] = [
   { key: 'business_api_active_users', label: '站内 API 使用人数', unit: '人' },
   { key: 'api_active_users', label: '开放平台 API 使用人数', unit: '人' }
 ]
-const shareCharts: TrendPanel[] = [
+const shareCharts: (TrendPanel & { summaryKey: string; unit: string })[] = [
   {
-    label: '每天创建分享的人数',
-    description:
-      '按页面上方选择的天数统计：每个人第一次分享的当天算首次分享，之后另一天再分享算再次分享。同一天分享多次只算 1 人。',
+    label: '每日创建分享人数',
+    summaryKey: 'share_users_today',
+    unit: '人',
+    series: [
+      { key: 'share_users', label: '创建分享人数', type: 'bar', unit: '人', color: '#2563eb' }
+    ]
+  },
+  {
+    label: '每日新建分享链接',
+    summaryKey: 'share_links_created_today',
+    unit: '条',
     series: [
       {
-        key: 'share_first_users_in_period',
-        label: '首次分享人数',
+        key: 'share_links_created',
+        label: '新建分享链接',
         type: 'bar',
-        stack: 'users',
-        unit: '人'
-      },
-      {
-        key: 'share_returning_users_in_period',
-        label: '再次分享人数',
-        type: 'bar',
-        stack: 'users',
-        unit: '人'
+        unit: '条',
+        color: '#2563eb'
       }
     ]
   },
   {
-    label: '每日分享链接',
+    label: '每日访问分享人数',
+    summaryKey: 'share_visitors_today',
+    unit: '人',
     series: [
-      { key: 'share_links_created', label: '创建链接', type: 'bar', unit: '个' },
-      { key: 'share_links_opened', label: '打开过的链接', type: 'bar', unit: '个' }
+      { key: 'share_visitors', label: '访问分享人数', type: 'bar', unit: '人', color: '#10b981' }
     ]
   },
   {
-    label: '每日分享访问请求',
-    series: [{ key: 'share_visits', label: '访问请求', unit: '次' }]
-  },
-  {
-    label: '每日分享访客',
-    series: [{ key: 'share_visitors', label: '访客', unit: '人' }]
+    label: '每日访问分享次数',
+    summaryKey: 'share_visits_today',
+    unit: '次',
+    series: [{ key: 'share_visits', label: '访问分享次数', unit: '次', color: '#10b981' }]
   }
 ]
 

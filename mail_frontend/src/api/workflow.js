@@ -74,6 +74,12 @@ export const workflowApi = {
     })
   },
 
+  getScreenshot(filename, signal) {
+    return api.get(`/workflows/screenshots/${encodeURIComponent(filename)}`, {
+      responseType: 'blob', silentErrorMessage: true, signal
+    })
+  },
+
   // 清除一次执行的详细日志（保留执行记录）
   clearExecutionLogs(workflowId, executionId) {
     return api.delete(`/workflows/${workflowId}/logs`, {
@@ -142,8 +148,10 @@ export const workflowApi = {
   },
 
   // 获取库存数量
-  getInventoryCount(workflowId) {
-    return api.get(`/workflows/${workflowId}/inventory/count`)
+  getInventoryCount(workflowId, shareToken) {
+    return api.get(`/workflows/${workflowId}/inventory/count`, {
+      params: shareToken ? { share_token: shareToken } : {}
+    })
   },
 
   // 获取库存列表（仅所有者）

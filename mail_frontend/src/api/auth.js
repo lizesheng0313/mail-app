@@ -36,6 +36,8 @@ export const authAPI = {
   unbindGoogle: () => api.post('/auth/google/unbind'),
   createGoogleAccount: (data) => api.post('/auth/google/create-account', data),
   bindExistingGoogle: (data) => api.post('/auth/google/bind-existing', data),
+  getGoogleOnboardingInfo: (data) => api.post('/auth/google/onboarding-info', data),
+  completeGoogleLogin: (data) => api.post('/auth/google/complete', data),
 
   // 使用已发布小程序码完成网页扫码登录
   getWechatMiniappLoginQr: () =>

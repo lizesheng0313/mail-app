@@ -49,6 +49,31 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.monitoring-trend-panel {
+  @apply flex min-w-0 flex-col overflow-hidden rounded-lg border border-gray-100 p-4;
+}
+
+.monitoring-chart-group {
+  display: contents;
+}
+
+.monitoring-share-chart-header {
+  @apply mb-3 flex flex-col gap-2;
+}
+
+.monitoring-share-chart-header h4 {
+  @apply text-sm font-semibold leading-5 text-gray-900;
+}
+
+.monitoring-share-chart-header p {
+  @apply flex items-baseline gap-2 whitespace-nowrap text-xs text-gray-500;
+}
+
+.monitoring-share-chart-header strong {
+  @apply text-2xl font-semibold leading-8 text-gray-900;
+  font-variant-numeric: tabular-nums;
+}
+
 .monitoring-subsection {
   @apply mt-5 border-t border-gray-100 pt-5;
   min-width: 0;
@@ -106,6 +131,10 @@
 }
 
 @container monitoring (min-width: 960px) {
+  .monitoring-charts-three {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .monitoring-metrics {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
@@ -119,6 +148,17 @@
   }
 }
 
+.monitoring-metrics-single-row {
+  grid-template-columns: repeat(5, minmax(148px, 1fr));
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.monitoring-metrics-single-row .monitoring-metric-label,
+.monitoring-metrics-single-row .monitoring-metric-value {
+  white-space: nowrap;
+}
+
 .monitoring-charts .monitoring-panel {
   display: flex;
   flex-direction: column;
@@ -128,6 +168,6 @@
   margin-top: auto;
 }
 
-.monitoring-charts > :last-child:nth-child(odd) {
+.monitoring-charts:not(.monitoring-charts-three) > :last-child:nth-child(odd) {
   grid-column: 1 / -1;
 }

@@ -19,6 +19,7 @@
       <div class="bg-white rounded-lg shadow-lg p-8">
         <h2 class="text-2xl font-bold text-gray-900 mb-2 text-center">{{ t('googleAuth.welcomeTitle') }}</h2>
         <p class="text-gray-600 mb-8 text-center">{{ t('googleAuth.chooseAction') }}</p>
+        <p v-if="error && !showBindForm" class="text-red-600 text-sm mb-4" role="alert">{{ error }}</p>
 
         <div class="space-y-4">
           <!-- 创建新账号 -->
@@ -134,17 +135,22 @@ import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import authAPI from '@/api/auth'
+import { useUserStore } from '@/stores/user'
+import { takeLoginRedirect } from '@/utils/loginRedirect'
+import { googleAuthProof, clearGoogleAuth } from '@/services/googleAuth'
 
 const router = useRouter()
 const route = useRoute()
 const { t } = useI18n()
 
-const googleId = ref('')
+const userStore = useUserStore()
+const flow = route.query.flow as string
+let proof: { ticket: string; client_verifier: string }
 const googleEmail = ref('')
 const googleName = ref('')
 const googleAvatar = ref('')
 const showBindForm = ref(false)
-const loading = ref(false)
+const loading = ref(true)
 const error = ref('')
 
 const bindForm = ref({
@@ -152,17 +158,27 @@ const bindForm = ref({
   password: ''
 })
 
-onMounted(() => {
-  // 从URL参数获取Google用户信息
-  googleId.value = route.query.google_id as string
-  googleEmail.value = route.query.google_email as string
-  googleName.value = route.query.google_name as string
-  googleAvatar.value = route.query.google_avatar as string
-
-  if (!googleId.value || !googleEmail.value) {
-    router.push(`/login?error=${encodeURIComponent(t('googleAuth.incompleteInfo'))}`)
+onMounted(async () => {
+  try {
+    proof = googleAuthProof(route.query.ticket, flow)
+    await router.replace({ path: route.path, query: {}, hash: route.hash })
+    const response = await authAPI.getGoogleOnboardingInfo(proof)
+    if (response.code !== 0 || !response.data) throw new Error(response.message)
+    googleEmail.value = response.data.email
+    googleName.value = response.data.name
+    googleAvatar.value = response.data.picture
+    loading.value = false
+  } catch {
+    await router.replace(`/login?error=${encodeURIComponent(t('googleAuth.incompleteInfo'))}`)
   }
 })
+
+const completeLogin = async (data: { token: string }) => {
+  clearGoogleAuth(flow)
+  const result = await userStore.completeLogin(data.token, 'google')
+  if (!result.success) throw new Error(result.error)
+  await router.replace(takeLoginRedirect() || '/user')
+}
 
 // 创建新账号
 const createNewAccount = async () => {
@@ -170,26 +186,10 @@ const createNewAccount = async () => {
   error.value = ''
 
   try {
-    const result = await authAPI.createGoogleAccount({
-      google_id: googleId.value,
-      google_email: googleEmail.value,
-      google_name: googleName.value,
-      google_avatar: googleAvatar.value
-    })
+    const result = await authAPI.createGoogleAccount(proof)
 
     if (result.code === 0 && result.data) {
-      // 保存token
-      localStorage.setItem('token', result.data.token)
-      localStorage.setItem('isAuthenticated', 'true')
-
-      // 跳转到成功页面
-      const params = new URLSearchParams({
-        token: result.data.token,
-        user_id: result.data.user.id.toString(),
-        username: result.data.user.username,
-        email: result.data.user.email
-      })
-      router.push(`/auth/google/success?${params}`)
+      await completeLogin(result.data)
     } else {
       error.value = result.message || t('googleAuth.createFailed')
     }
@@ -209,25 +209,11 @@ const bindExistingAccount = async () => {
     const result = await authAPI.bindExistingGoogle({
       email: bindForm.value.email,
       password: bindForm.value.password,
-      google_id: googleId.value,
-      google_email: googleEmail.value,
-      google_name: googleName.value,
-      google_avatar: googleAvatar.value
+      ...proof
     })
 
     if (result.code === 0 && result.data) {
-      // 保存token
-      localStorage.setItem('token', result.data.token)
-      localStorage.setItem('isAuthenticated', 'true')
-
-      // 跳转到成功页面
-      const params = new URLSearchParams({
-        token: result.data.token,
-        user_id: result.data.user.id.toString(),
-        username: result.data.user.username,
-        email: result.data.user.email
-      })
-      router.push(`/auth/google/success?${params}`)
+      await completeLogin(result.data)
     } else {
       error.value = result.message || t('googleAuth.bindFailed')
     }

@@ -421,7 +421,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import { workflowApi } from '@/api/workflow'
@@ -437,7 +437,7 @@ import ExecutionResultModal from '@/views/portal/workflows/components/ExecutionR
 import { showPrompt } from '@/utils/dialog'
 import { showMessage } from '@/utils/message'
 import { formatTimestamp } from '@/utils/timeUtils'
-import { getApiBaseURL } from '@/services/api'
+import { getWorkflowScreenshotFilename } from '@/utils/workflowScreenshots'
 
 const { t } = useI18n()
 
@@ -453,6 +453,37 @@ const executions = ref([])
 const workflows = ref([])
 const selectedExecution = ref(null)
 const executionLogs = ref([])
+const screenshotPreviews = ref<Record<string, string>>({})
+let screenshotController: AbortController | null = null
+
+const clearScreenshotPreviews = () => {
+  screenshotController?.abort()
+  screenshotController = null
+  Object.values(screenshotPreviews.value).forEach(url => URL.revokeObjectURL(url))
+  screenshotPreviews.value = {}
+}
+
+const loadScreenshotPreviews = async (logs) => {
+  const controller = new AbortController()
+  screenshotController = controller
+  const filenames = [...new Set<string>(logs.map(log => getWorkflowScreenshotFilename(log?.log_data?.screenshot_url)).filter(Boolean))]
+  for (let index = 0; index < filenames.length; index += 4) {
+    if (controller.signal.aborted) return
+    await Promise.all(filenames.slice(index, index + 4).map(async filename => {
+      try {
+        const blob = await workflowApi.getScreenshot(filename, controller.signal)
+        if (!controller.signal.aborted && blob instanceof Blob && blob.type.startsWith('image/')) {
+          screenshotPreviews.value[filename] = URL.createObjectURL(blob)
+        }
+      } catch {
+        // 已撤销、无权访问或无法确认归属的历史截图不展示预览。
+      }
+    }))
+  }
+}
+
+watch(showLogsModal, visible => { if (!visible) clearScreenshotPreviews() })
+onUnmounted(clearScreenshotPreviews)
 const showRetryConfirm = ref(false)
 const retrying = ref(false)
 const retryingExecution = ref(null)
@@ -762,6 +793,7 @@ const viewExecutionDetail = (execution) => {
 }
 
 const viewExecutionLogs = async (execution) => {
+  clearScreenshotPreviews()
   selectedExecution.value = execution
   showLogsModal.value = true
   loadingLogs.value = true
@@ -769,8 +801,10 @@ const viewExecutionLogs = async (execution) => {
   try {
     // 调用后端的日志API - 使用正确的endpoint
     const response = await workflowApi.getExecutionLogs(execution.workflow_id, execution.execution_id)
+    if (!showLogsModal.value || selectedExecution.value?.execution_id !== execution.execution_id) return
     if (response.code === 0 && response.data) {
       executionLogs.value = response.data.logs || []
+      void loadScreenshotPreviews(executionLogs.value)
     } else {
       executionLogs.value = []
       console.warn('获取日志失败:', response.message)
@@ -798,6 +832,7 @@ const confirmClearLogs = async () => {
   try {
     const response = await workflowApi.clearExecutionLogs(workflowId, executionId)
     if (response.code === 0) {
+      clearScreenshotPreviews()
       executionLogs.value = []
       if (selectedExecution.value) {
         selectedExecution.value.error_message = ''
@@ -905,22 +940,7 @@ const getLogLevelBadgeColor = (level) => {
 }
 
 const getLogScreenshotUrl = (log) => {
-  const screenshotUrl = log?.log_data?.screenshot_url
-  if (typeof screenshotUrl !== 'string' || !screenshotUrl) return ''
-  if (screenshotUrl.startsWith('http://') || screenshotUrl.startsWith('https://')) return screenshotUrl
-
-  const apiBaseURL = getApiBaseURL()
-  const screenshotMatch = screenshotUrl.match(/\/uploads\/automation_screenshots\/([^/?#]+)/)
-  if (screenshotMatch?.[1]) {
-    const base = apiBaseURL.replace(/\/$/, '')
-    return `${base}/workflows/screenshots/${encodeURIComponent(screenshotMatch[1])}`
-  }
-
-  if (apiBaseURL.startsWith('http://') || apiBaseURL.startsWith('https://')) {
-    return `${apiBaseURL.replace(/\/mail-api\/v1\/?$/, '')}${screenshotUrl}`
-  }
-
-  return `${window.location.origin}${screenshotUrl}`
+  return screenshotPreviews.value[getWorkflowScreenshotFilename(log?.log_data?.screenshot_url)] || ''
 }
 
 

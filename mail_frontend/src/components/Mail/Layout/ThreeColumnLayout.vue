@@ -176,7 +176,6 @@ const MIDDLE_MIN = 240
 const RIGHT_MIN = 320
 const MAIN_MIN = 480
 const IDEAL_LEFT_WIDTH = 392
-const IDEAL_MIDDLE_WIDTH = 392
 
 const props = withDefaults(
   defineProps<{
@@ -209,8 +208,42 @@ const resizableGridRef = ref<HTMLElement | null>(null)
 const resizableMainRef = ref<HTMLElement | null>(null)
 const isDesktop = ref(false)
 const leftWidth = ref(IDEAL_LEFT_WIDTH)
-const middleWidth = ref(IDEAL_MIDDLE_WIDTH)
+const middleWidth = ref(IDEAL_LEFT_WIDTH)
+const mainLeftWidth = ref(IDEAL_LEFT_WIDTH)
+const tripleWidthRatios = ref<{ left: number; middle: number } | null>(null)
+const mainLeftRatio = ref<number | null>(null)
 const activeResizeMode = ref<ResizeMode | null>(null)
+let didResize = false
+
+const panelStorageKey = () => `mail-panel-widths:v1:${props.embedded ? 'workspace' : 'standalone'}`
+const isValidRatio = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isFinite(value) && value > 0 && value < 1
+
+const restorePanelWidths = () => {
+  try {
+    const saved = JSON.parse(window.localStorage.getItem(panelStorageKey()) || 'null')
+    if (!saved || typeof saved !== 'object') return
+
+    const triple = saved.triple
+    if (isValidRatio(triple?.left) && isValidRatio(triple?.middle) && triple.left + triple.middle < 1) {
+      tripleWidthRatios.value = { left: triple.left, middle: triple.middle }
+    }
+    if (isValidRatio(saved.main)) mainLeftRatio.value = saved.main
+  } catch {
+    // 无法读取或设置已损坏时，保留默认布局。
+  }
+}
+
+const savePanelWidths = () => {
+  try {
+    window.localStorage.setItem(panelStorageKey(), JSON.stringify({
+      triple: tripleWidthRatios.value,
+      main: mainLeftRatio.value,
+    }))
+  } catch {
+    // 本地存储不可用时，仍允许调整当前页面的分栏。
+  }
+}
 
 const panelContainerClasses = computed(() => [
   'panel-container',
@@ -235,7 +268,7 @@ const mainGridStyle = computed(() => {
     return undefined
   }
   return {
-    gridTemplateColumns: `${leftWidth.value}px ${HANDLE_SIZE}px minmax(${MAIN_MIN}px, 1fr)`,
+    gridTemplateColumns: `${mainLeftWidth.value}px ${HANDLE_SIZE}px minmax(${MAIN_MIN}px, 1fr)`,
   }
 })
 
@@ -262,12 +295,14 @@ const syncTripleWidths = (preferredLeft?: number, preferredMiddle?: number) => {
   const { leftMin, middleMin, rightMin } = getTripleMinWidths(containerWidth)
   const contentWidth = Math.max(containerWidth - HANDLE_SIZE * 2, leftMin + middleMin + rightMin)
   const defaultWidth = Math.min(
-    IDEAL_LEFT_WIDTH,
-    Math.floor((contentWidth - rightMin) / 2)
+    contentWidth / 3,
+    (contentWidth - rightMin) / 2
   )
 
-  let nextLeft = preferredLeft ?? leftWidth.value ?? defaultWidth
-  let nextMiddle = preferredMiddle ?? middleWidth.value ?? defaultWidth
+  // 默认平分可用宽度；拖拽后保存比例，窗口缩放时各栏一起伸缩。
+  const ratios = tripleWidthRatios.value
+  let nextLeft = preferredLeft ?? (ratios ? contentWidth * ratios.left : defaultWidth)
+  let nextMiddle = preferredMiddle ?? (ratios ? contentWidth * ratios.middle : defaultWidth)
 
   const maxLeft = Math.max(leftMin, contentWidth - middleMin - rightMin)
   nextLeft = clamp(nextLeft, leftMin, maxLeft)
@@ -292,7 +327,13 @@ const syncTripleWidths = (preferredLeft?: number, preferredMiddle?: number) => {
   }
 
   leftWidth.value = Math.round(nextLeft)
-  middleWidth.value = Math.round(nextMiddle)
+  middleWidth.value = Math.min(Math.round(nextMiddle), contentWidth - leftWidth.value - rightMin)
+  if (preferredLeft !== undefined || preferredMiddle !== undefined) {
+    tripleWidthRatios.value = {
+      left: leftWidth.value / contentWidth,
+      middle: middleWidth.value / contentWidth,
+    }
+  }
 }
 
 const syncMainWidths = (preferredLeft?: number) => {
@@ -303,9 +344,10 @@ const syncMainWidths = (preferredLeft?: number) => {
   const maxLeft = Math.max(LEFT_MIN, contentWidth - MAIN_MIN)
   const defaultWidth = Math.min(IDEAL_LEFT_WIDTH, maxLeft)
 
-  leftWidth.value = Math.round(
-    clamp(preferredLeft ?? leftWidth.value ?? defaultWidth, LEFT_MIN, maxLeft)
+  mainLeftWidth.value = Math.round(
+    clamp(preferredLeft ?? (mainLeftRatio.value === null ? defaultWidth : contentWidth * mainLeftRatio.value), LEFT_MIN, maxLeft)
   )
+  if (preferredLeft !== undefined) mainLeftRatio.value = mainLeftWidth.value / contentWidth
 }
 
 const syncDesktopWidths = () => {
@@ -324,8 +366,16 @@ const updateDesktopState = () => {
 
 let panelResizeObserver: ResizeObserver | undefined
 
+const observePanels = () => {
+  panelResizeObserver?.disconnect()
+  if (resizableGridRef.value) panelResizeObserver?.observe(resizableGridRef.value)
+  if (resizableMainRef.value) panelResizeObserver?.observe(resizableMainRef.value)
+}
+
 const stopResize = () => {
   if (!activeResizeMode.value) return
+  if (didResize) savePanelWidths()
+  didResize = false
   activeResizeMode.value = null
   document.body.style.removeProperty('cursor')
   document.body.style.removeProperty('user-select')
@@ -341,6 +391,7 @@ const handlePointerMove = (event: PointerEvent) => {
     const rect = container.getBoundingClientRect()
     const preferredLeft = event.clientX - rect.left
     syncMainWidths(preferredLeft)
+    didResize = true
     return
   }
 
@@ -350,32 +401,39 @@ const handlePointerMove = (event: PointerEvent) => {
 
   if (mode === 'left-middle') {
     syncTripleWidths(event.clientX - rect.left, middleWidth.value)
+    didResize = true
     return
   }
 
   const middleFromLeft = event.clientX - rect.left - leftWidth.value - HANDLE_SIZE
   syncTripleWidths(leftWidth.value, middleFromLeft)
+  didResize = true
 }
 
 const startResize = (mode: ResizeMode, event: PointerEvent) => {
   if (!props.resizablePanels || props.compactPanels || !isDesktop.value) return
   event.preventDefault()
+  didResize = false
   activeResizeMode.value = mode
   document.body.style.cursor = 'col-resize'
   document.body.style.userSelect = 'none'
 }
 
 watch(
-  () => [props.useMain, props.resizablePanels, props.compactPanels],
-  () => nextTick(syncDesktopWidths)
+  () => [props.useMain, props.resizablePanels, props.compactPanels, resizableGridRef.value, resizableMainRef.value],
+  () => {
+    observePanels()
+    nextTick(syncDesktopWidths)
+  },
+  { flush: 'post' }
 )
 
 onMounted(() => {
+  restorePanelWidths()
   updateDesktopState()
   if (typeof ResizeObserver !== 'undefined') {
     panelResizeObserver = new ResizeObserver(() => syncDesktopWidths())
-    if (resizableGridRef.value) panelResizeObserver.observe(resizableGridRef.value)
-    if (resizableMainRef.value) panelResizeObserver.observe(resizableMainRef.value)
+    observePanels()
   }
   window.addEventListener('resize', updateDesktopState)
   window.addEventListener('pointermove', handlePointerMove)
