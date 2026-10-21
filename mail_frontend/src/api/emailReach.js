@@ -162,7 +162,7 @@ export const emailReachApi = {
   },
 
   getTasks() {
-    return api.get('/email-reach/tasks')
+    return api.get('/email-reach/tasks', { timeout: 15000 })
   },
 
   getMemberFields(params = {}) {

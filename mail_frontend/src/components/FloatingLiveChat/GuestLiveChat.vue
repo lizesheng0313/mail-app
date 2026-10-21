@@ -33,8 +33,8 @@
 
 <script setup lang="ts">
 import { nextTick, onMounted, onBeforeUnmount, ref, watch } from 'vue'
-import api, { extractApiErrorMessage, getApiBaseURL } from '@/services/api'
-import { io, type Socket } from 'socket.io-client'
+import api, { extractApiErrorMessage } from '@/services/api'
+import { registerRealtimeScope, subscribeRealtime } from '@/services/realtimeClient'
 import { getGuestVisitorId } from '@/utils/guestIdentity'
 
 type GuestMessage = { id: number; sender_type: 'guest' | 'admin'; content: string; created_at_ms: number }
@@ -46,19 +46,20 @@ const sending = ref(false)
 const error = ref('')
 const messageContainer = ref<HTMLElement | null>(null)
 let refreshing = false
-let refreshPending = false
 let disposed = false
-let socket: Socket | undefined
+let unsubscribeScope: (() => void) | undefined
+let unsubscribeRealtime: (() => void) | undefined
 
 async function loadMessages() {
   if (!visible.value || disposed) return
-  if (refreshing) { refreshPending = true; return }
+  if (refreshing) return false
   refreshing = true
   try {
     const response: any = await api.get('/live-chat/guest/messages', {
       headers: { 'X-Guest-Chat-Token': getGuestVisitorId() },
       skipAuth: true,
       silentErrorMessage: true,
+      timeout: 15000,
     } as any)
     if (response.code !== 0) throw new Error(response.message || '加载会话失败')
     messages.value = response.data?.items || []
@@ -67,10 +68,10 @@ async function loadMessages() {
     if (messageContainer.value) messageContainer.value.scrollTop = messageContainer.value.scrollHeight
   } catch (cause: any) {
     error.value = extractApiErrorMessage(cause?.response?.data, cause?.message || '加载会话失败')
+    return false
   } finally {
     loading.value = false
     refreshing = false
-    if (refreshPending) { refreshPending = false; void loadMessages() }
   }
 }
 
@@ -102,34 +103,13 @@ watch(visible, isVisible => {
   }
 })
 
-const onChange = () => { void loadMessages() }
-const onResume = () => { if (!document.hidden) void loadMessages() }
 onMounted(() => {
-  const apiBase = getApiBaseURL()
-  const server = /^https?:\/\//.test(apiBase) ? apiBase.replace(/\/mail-api\/v1$/, '') : window.location.origin
-  socket = io(server, {
-    path: '/mail-api/v1/live-chat/socket.io',
-    transports: ['websocket'],
-    auth: { guest_chat_token: getGuestVisitorId() },
-    reconnection: true,
-    reconnectionDelay: 2000,
-    reconnectionDelayMax: 5000,
-    timeout: 8000
-  })
-  socket.on('connect', onChange)
-  socket.on('guest_chat_changed', onChange)
-  window.addEventListener('guest-chat-changed', onChange)
-  window.addEventListener('focus', onResume)
-  window.addEventListener('online', onResume)
-  document.addEventListener('visibilitychange', onResume)
+  unsubscribeScope = registerRealtimeScope('guest-chat', { guest_chat_token: getGuestVisitorId() })
+  unsubscribeRealtime = subscribeRealtime(['guest_chat_changed'], loadMessages)
 })
 onBeforeUnmount(() => {
   disposed = true
-  socket?.removeAllListeners()
-  socket?.disconnect()
-  window.removeEventListener('guest-chat-changed', onChange)
-  window.removeEventListener('focus', onResume)
-  window.removeEventListener('online', onResume)
-  document.removeEventListener('visibilitychange', onResume)
+  unsubscribeRealtime?.()
+  unsubscribeScope?.()
 })
 </script>

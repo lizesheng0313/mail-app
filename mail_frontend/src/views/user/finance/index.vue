@@ -592,6 +592,8 @@
   </div>
 </template>
 <script setup>
+import { onBeforeUnmount } from 'vue'
+import { subscribeRealtime } from '@/services/realtimeClient'
 import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
@@ -748,7 +750,7 @@ const showQrCode = ref(false)
 const qrCodeUrl = ref('')
 const qrcodeCanvas = ref(null)
 const currentOrderNo = ref('')
-let pollingTimer = null
+let unsubscribePayment = null
 
 // 生成二维码
 const generateQRCode = async () => {
@@ -790,8 +792,8 @@ const submitRecharge = async () => {
       // 生成二维码
       await generateQRCode()
 
-      // 开始轮询订单状态
-      startPollingOrderStatus()
+      // 订阅支付结果；断线恢复时查询最终状态
+      subscribeOrderStatus()
     } else {
       showMessage(res.message || t('profile.createOrderFailed'), 'error')
     }
@@ -801,22 +803,27 @@ const submitRecharge = async () => {
   }
 }
 
-// 开始轮询订单状态
-const startPollingOrderStatus = () => {
-  pollingTimer = setInterval(async () => {
-    await checkOrderStatus()
-  }, 3000)
+// 订阅支付结果；断线恢复时查询最终状态
+const subscribeOrderStatus = () => {
+  unsubscribePayment?.()
+  unsubscribePayment = subscribeRealtime(['payment_changed'], checkOrderStatus, payload =>
+    payload?.kind === 'recharge' && payload.order_no === currentOrderNo.value, { immediate: true })
 }
 
 // 检查订单状态
 const checkOrderStatus = async () => {
+  const orderNo = currentOrderNo.value
+  if (!orderNo) return
   try {
-    const res = await api.get(`/recharge/order-status/${currentOrderNo.value}`)
+    const res = await api.get(`/recharge/order-status/${orderNo}`, { timeout: 15000 })
 
+    if (orderNo !== currentOrderNo.value) return
+    if (res.code !== 0) return false
     if (res.code === 0 && res.data?.status === 'paid') {
-      if (pollingTimer) {
-        clearInterval(pollingTimer)
-        pollingTimer = null
+      currentOrderNo.value = ''
+      if (unsubscribePayment) {
+        unsubscribePayment()
+        unsubscribePayment = null
       }
 
       showQrCode.value = false
@@ -827,6 +834,7 @@ const checkOrderStatus = async () => {
     }
   } catch (error) {
     console.error('查询订单状态失败:', error)
+    return false
   }
 }
 
@@ -835,9 +843,9 @@ const cancelRecharge = () => {
   showQrCode.value = false
   qrCodeUrl.value = ''
   currentOrderNo.value = ''
-  if (pollingTimer) {
-    clearInterval(pollingTimer)
-    pollingTimer = null
+  if (unsubscribePayment) {
+    unsubscribePayment()
+    unsubscribePayment = null
   }
 }
 
@@ -1062,4 +1070,5 @@ onMounted(() => {
     }, 500)
   }
 })
+onBeforeUnmount(() => { unsubscribePayment?.() })
 </script>

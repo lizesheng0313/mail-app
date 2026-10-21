@@ -9,6 +9,14 @@ import { useMailStore } from '@/stores/mail'
 import { hostedDomainAPI } from '@/api/hostedDomain'
 import { emailAPI } from '@/api/email'
 import smtpAccountsAPI from '@/api/smtpAccounts'
+const realtime = vi.hoisted(() => ({ refresh: null as any }))
+vi.mock('@/services/realtimeClient', () => ({
+  registerRealtimeScope: () => vi.fn(),
+  subscribeRealtime: (events: string[], refresh: unknown) => {
+    if (events.includes('mail_changed')) realtime.refresh = refresh
+    return vi.fn()
+  },
+}))
 import HomePage from './index.vue'
 
 afterEach(() => {
@@ -37,13 +45,6 @@ describe('workspace loading', () => {
     const emails = vi.spyOn(useMailStore(), 'fetchUserEmails').mockResolvedValue({ success: true } as any)
     const domains = vi.spyOn(hostedDomainAPI, 'listAllDomains')
     const smtp = vi.spyOn(smtpAccountsAPI, 'getAccounts')
-    let socket: any
-    vi.stubGlobal('WebSocket', class {
-      constructor() { socket = this }
-      static OPEN = 1
-      close() {}
-      send() {}
-    })
     const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/', component: { template: '<div />' } }] })
     await router.push('/')
     const wrapper = mount(HomePage, { shallow: true, global: { plugins: [pinia, router, i18n] } })
@@ -58,7 +59,7 @@ describe('workspace loading', () => {
       await vi.advanceTimersByTimeAsync(60 * 60 * 1000)
       expect(backgroundEmails).not.toHaveBeenCalled()
       expect(emails).toHaveBeenCalledTimes(1)
-      socket.onmessage({ data: JSON.stringify({ type: 'email.received', mailbox_type: 'external', mailbox_id: 7, email_id: 99 }) })
+      await realtime.refresh({ mailbox_type: 'external', mailbox_id: 7, email_id: 99 }, 'mail_changed')
       await flushPromises()
       expect(backgroundEmails).toHaveBeenCalledTimes(1)
       expect(backgroundEmails).toHaveBeenLastCalledWith(expect.objectContaining({ type: 'external' }))

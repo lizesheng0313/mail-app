@@ -84,7 +84,6 @@
 import { subscribeAccountState } from '@/services/accountRealtime'
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import smtpAccountsAPI from '@/api/smtpAccounts'
-import { showMessage } from '@/utils/message'
 import { formatTimestamp } from '@/utils/timeUtils'
 
 export interface SentAttachmentMeta {
@@ -170,19 +169,10 @@ const loadSentEmails = async () => {
       return
     }
 
-    records.value = []
-    total.value = 0
-    currentSelectedId.value = null
-    emit('select', null)
-    showMessage(response.message || '加载发件箱失败', 'error')
+    return false
   } catch (error: any) {
     console.error('加载发件箱失败', error)
-    const msg = error.response?.data?.message || error.message || '加载发件箱失败'
-    showMessage(msg, 'error')
-    records.value = []
-    total.value = 0
-    currentSelectedId.value = null
-    emit('select', null)
+    return false
   } finally {
     loading.value = false
   }

@@ -558,8 +558,9 @@ import Pagination from '@/components/Pagination/index.vue'
 import BaseIcon from '@/components/BaseIcon/index.vue'
 import ConfirmDialog from '@/components/ConfirmDialog/index.vue'
 import { dispatchAccountState, subscribeAccountState } from '@/services/accountRealtime'
+import { registerRealtimeScope, subscribeRealtime } from '@/services/realtimeClient'
 import { showMessage } from '@/utils/message'
-import { isTauri, getServerUrl, buildWebSocketURL } from '@/services/api'
+import { isTauri, getServerUrl } from '@/services/api'
 import { runDesktopOAuthMailboxAction } from '@/services/desktopOAuthMailbox'
 import { DESKTOP_DOWNLOAD_URLS } from '@/config/desktopRelease'
 import { normalizeOAuthRecoveryErrorMessage } from '@/utils/oauthRecovery'
@@ -2424,7 +2425,6 @@ const handleEmailBatchStart = () => {
 }
 
 const MANUAL_REFRESH_MIN_SPIN_MS = 1200
-let pendingSystemMailEventRefresh = false
 
 const refreshSystemEmails = async (options?: { minSpinMs?: number }) => {
   if (refreshingSystemEmails.value) {
@@ -2449,15 +2449,17 @@ const refreshSystemEmails = async (options?: { minSpinMs?: number }) => {
       // 保持搜索关键词
       if (mailStore.searchKeyword) params.search = mailStore.searchKeyword
       if (selectedMailboxId.value) {
-        await mailStore.fetchMailboxEmails(selectedMailboxId.value, params, true)
+        const result = await mailStore.fetchMailboxEmails(selectedMailboxId.value, params, true)
+        if (result?.success === false) return false
       } else {
-        await mailStore.fetchUserEmails(
+        const result = await mailStore.fetchUserEmails(
           mailStore.currentPage,
           20,
           true,
           showOnlyUnread.value || undefined,
           mailStore.searchKeyword || undefined
         )
+        if (result?.success === false) return false
       }
     } else if (mailboxStore.tempMailbox?.id) {
       // 临时用户：用临时邮箱接口刷新
@@ -2467,11 +2469,12 @@ const refreshSystemEmails = async (options?: { minSpinMs?: number }) => {
           {},
           String((mailboxStore.tempMailbox as any)?.claim_token || '')
         )
+        if (res.code !== 0) return false
         if (res.code === 0 && res.data) {
           mailStore.emails = res.data.emails || []
         }
       } catch (e) {
-        // 静默失败
+        return false
       }
     }
 
@@ -2484,10 +2487,6 @@ const refreshSystemEmails = async (options?: { minSpinMs?: number }) => {
       await new Promise((resolve) => setTimeout(resolve, minSpinMs - elapsed))
     }
     refreshingSystemEmails.value = false
-    if (pendingSystemMailEventRefresh) {
-      pendingSystemMailEventRefresh = false
-      void refreshSystemEmails()
-    }
   }
 }
 
@@ -2511,6 +2510,7 @@ const loadHostedEmails = async (page = hostedEmailPage.value) => {
 
     const response: any = await emailAPI.getUserEmails(params)
     if (requestSeq !== hostedEmailListRequestSeq.value) return
+    if (response.code !== 0) return false
     if (response.code === 0 && response.data) {
       hostedEmails.value = normalizeHostedEmailRows(response.data.emails || [])
       hostedEmailPage.value = response.data.pagination?.page || page
@@ -2520,6 +2520,7 @@ const loadHostedEmails = async (page = hostedEmailPage.value) => {
   } catch (error) {
     if (requestSeq !== hostedEmailListRequestSeq.value) return
     console.error('加载域名邮箱邮件失败:', error)
+    return false
   }
 }
 
@@ -2527,34 +2528,26 @@ const refreshHostedEmails = async () => {
   if (mailboxType.value !== 'hosted') {
     return
   }
-  await loadHostedEmails(hostedEmailPage.value || 1)
+  return loadHostedEmails(hostedEmailPage.value || 1)
 }
 
 const refreshSystemEmailsAfterPush = async () => {
   if (refreshingSystemEmails.value) {
-    pendingSystemMailEventRefresh = true
-    return
+    return false
   }
-  await refreshSystemEmails()
+  return refreshSystemEmails()
 }
 
-let mailRealtimeSocket: WebSocket | null = null
-let mailRealtimeRetryTimer: number | null = null
-let mailRealtimeHeartbeatTimer: number | null = null
-let mailRealtimeRetryDelay = 3000
+let unsubscribeMailRealtime: (() => void) | undefined
+let unsubscribeMailScope: (() => void) | undefined
+let unsubscribeHistoryRealtime: (() => void) | undefined
 let mailRealtimeClosed = false
 
 const closeMailRealtime = () => {
-  if (mailRealtimeRetryTimer !== null) {
-    window.clearTimeout(mailRealtimeRetryTimer)
-    mailRealtimeRetryTimer = null
-  }
-  if (mailRealtimeHeartbeatTimer !== null) {
-    window.clearInterval(mailRealtimeHeartbeatTimer)
-    mailRealtimeHeartbeatTimer = null
-  }
-  mailRealtimeSocket?.close()
-  mailRealtimeSocket = null
+  unsubscribeMailRealtime?.()
+  unsubscribeMailRealtime = undefined
+  unsubscribeMailScope?.()
+  unsubscribeMailScope = undefined
 }
 
 const refreshFromMailEvent = async (type: 'system' | 'hosted' | 'external', emailId: number) => {
@@ -2573,66 +2566,31 @@ const refreshFromMailEvent = async (type: 'system' | 'hosted' | 'external', emai
       registerTitleAlertEmails(type, emails)
     } catch (error) {
       console.error('加载新邮件标题提醒失败:', error)
+      return false
     }
   }
   if (mailboxType.value === type) {
-    if (type === 'system') await refreshSystemEmailsAfterPush()
-    else if (type === 'hosted') await refreshHostedEmails()
-    else if (currentView.value === 'emails') scheduleExternalHistoryRefresh()
+    if (type === 'system') return refreshSystemEmailsAfterPush()
+    if (type === 'hosted') return refreshHostedEmails()
+    if (currentView.value === 'emails') return selectedExternalMailboxId.value ? loadExternalMailboxEmails() : loadAllExternalEmails()
   }
 }
 
 const connectMailRealtime = () => {
-  if (mailRealtimeClosed || mailRealtimeSocket) return
-  const token = localStorage.getItem('token') || ''
+  if (mailRealtimeClosed || unsubscribeMailRealtime) return
   const guestMailboxes = loadStoredGuestMailboxes().map(({ id, claim_token }) => ({ id, claim_token }))
-  if (!token && guestMailboxes.length === 0) return
-
-  const socket = new WebSocket(buildWebSocketURL('/mail-events/ws'))
-  mailRealtimeSocket = socket
-  socket.onopen = () => {
-    socket.send(JSON.stringify({ type: 'auth', token, guest_mailboxes: guestMailboxes }))
-  }
-  socket.onmessage = (event) => {
-    try {
-      const payload = JSON.parse(String(event.data || '{}'))
-      if (payload.type === 'ready') {
-        mailRealtimeRetryDelay = 3000
-        if (mailRealtimeHeartbeatTimer === null) {
-          mailRealtimeHeartbeatTimer = window.setInterval(() => {
-            try {
-              if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: 'ping' }))
-            } catch { /* 断线由 onclose 处理 */ }
-          }, 25000)
-        }
-        // 断线期间的邮件靠重连时补查一次，连接期间只响应推送。
-        if (mailboxType.value === 'system') void refreshSystemEmailsAfterPush()
-        if (mailboxType.value === 'hosted') void refreshHostedEmails()
-        if (mailboxType.value === 'external' && currentView.value === 'emails') scheduleExternalHistoryRefresh()
-        dispatchAccountState('outbox')
-      } else if (payload.type === 'email.received' && ['system', 'hosted', 'external'].includes(payload.mailbox_type)) {
-        void refreshFromMailEvent(payload.mailbox_type, Number(payload.email_id || 0))
-      }
-    } catch (error) {
-      console.error('解析新邮件实时通知失败:', error)
+  unsubscribeMailScope = registerRealtimeScope('home-mail', { guest_mailboxes: guestMailboxes })
+  unsubscribeMailRealtime = subscribeRealtime(['mail_changed'], async (payload, event) => {
+    if (event !== 'realtime_reset' && payload?.mailbox_type) {
+      return refreshFromMailEvent(payload.mailbox_type, Number(payload.email_id || 0))
     }
-  }
-  socket.onclose = (event) => {
-    if (mailRealtimeSocket !== socket) return
-    mailRealtimeSocket = null
-    if (mailRealtimeHeartbeatTimer !== null) {
-      window.clearInterval(mailRealtimeHeartbeatTimer)
-      mailRealtimeHeartbeatTimer = null
+    dispatchAccountState('outbox')
+    if (mailboxType.value === 'system') return refreshSystemEmailsAfterPush()
+    if (mailboxType.value === 'hosted') return refreshHostedEmails()
+    if (mailboxType.value === 'external' && currentView.value === 'emails') {
+      return selectedExternalMailboxId.value ? loadExternalMailboxEmails() : loadAllExternalEmails()
     }
-    if (!mailRealtimeClosed && event.code !== 4401) {
-      const delay = mailRealtimeRetryDelay + Math.floor(Math.random() * 1000)
-      mailRealtimeRetryDelay = Math.min(mailRealtimeRetryDelay * 2, 30000)
-      mailRealtimeRetryTimer = window.setTimeout(() => {
-        mailRealtimeRetryTimer = null
-        connectMailRealtime()
-      }, delay)
-    }
-  }
+  })
 }
 
 const restartMailRealtime = () => {
@@ -2834,6 +2792,11 @@ onMounted(async () => {
     'external-mail-fetch-progress',
     handleExternalHistoryFetchSocketProgress as EventListener
   )
+  unsubscribeHistoryRealtime = subscribeRealtime(['external_mail_fetch_event'], async (payload, event) => {
+    if (mailboxType.value !== 'external') return
+    if (event === 'realtime_reset') return resumeExternalHistoryFetchStatus()
+    return handleExternalHistoryFetchSocketProgress(new CustomEvent('progress', { detail: payload }))
+  })
   unsubscribeHistoryState = subscribeAccountState(['history'], () => {
     if (mailboxType.value === 'external') return resumeExternalHistoryFetchStatus()
   })
@@ -2880,6 +2843,7 @@ onBeforeUnmount(() => {
     handleExternalHistoryFetchSocketProgress as EventListener
   )
   unsubscribeHistoryState?.()
+  unsubscribeHistoryRealtime?.()
   document.removeEventListener('visibilitychange', handleBrowserVisibilityChange)
   stopExternalRelayPolling()
   if (externalHistoryRefreshTimer !== null) {
@@ -3114,12 +3078,14 @@ const loadExternalMailboxEmails = async () => {
         await loadAllExternalEmails()
       }
       showMessage(msg, 'error')
+      return false
     }
   } catch (error) {
     if (requestSeq !== externalEmailListRequestSeq.value) return
     console.error('❌ 获取外部邮箱邮件失败:', error)
     // 请求失败时保留已有邮件列表，不清空
     showMessage(t('home.loadEmailsFailed'), 'error')
+    return false
   }
 }
 
@@ -3343,8 +3309,7 @@ const loadAllExternalEmails = async () => {
   // 已选中具体邮箱时，不能被“全部外部邮件”请求覆盖当前列表。
   // 返回全部邮件的唯一入口是 backToAllExternalEmails，它会先清空选中邮箱。
   if (selectedExternalMailboxId.value) {
-    await loadExternalMailboxEmails()
-    return
+    return loadExternalMailboxEmails()
   }
 
   const requestSeq = ++externalEmailListRequestSeq.value
@@ -3356,6 +3321,7 @@ const loadAllExternalEmails = async () => {
     )
     if (requestSeq !== externalEmailListRequestSeq.value) return
 
+    if (response.code !== 0) return false
     if (response.code === 0 && response.data) {
       externalEmails.value = response.data.emails || []
       externalEmailTotal.value = response.data.pagination?.total || 0
@@ -3363,6 +3329,7 @@ const loadAllExternalEmails = async () => {
   } catch (error) {
     if (requestSeq !== externalEmailListRequestSeq.value) return
     console.error('❌ 加载所有外部邮件失败:', error)
+    return false
     // 请求失败时保留已有邮件列表，不清空
   }
 }
@@ -3429,7 +3396,7 @@ const refreshExternalEmailsWhenHistoryProgresses = async (progress: any) => {
   scheduleExternalHistoryRefresh()
 }
 
-const handleExternalHistoryFetchSocketProgress = (event: Event) => {
+const handleExternalHistoryFetchSocketProgress = async (event: Event) => {
   const payload = (event as CustomEvent)?.detail
   if (payload?.type !== 'history_progress') return
 
@@ -3457,7 +3424,7 @@ const handleExternalHistoryFetchSocketProgress = (event: Event) => {
     payload.status === 'history_cancelled' ||
     payload.job_status === 'cancelled'
   ) {
-    void refreshExternalHistoryFetchStatus()
+    return refreshExternalHistoryFetchStatus()
   }
 }
 
@@ -3545,6 +3512,7 @@ const refreshExternalHistoryFetchStatus = async () => {
     clearExternalMailboxFetchingIds()
     restartExternalRelayPolling()
     showMessage(error?.message || t('home.fetchFailed'), 'error')
+    return false
   }
 }
 
@@ -3574,7 +3542,7 @@ const cancelExternalHistoryFetch = async () => {
 const resumeExternalHistoryFetchStatus = async () => {
   try {
     const response = await batchLoginAPI.getExternalMailFetchAllStatus()
-    if (response.code !== 0) return
+    if (response.code !== 0) return false
 
     const progress = response.data
     if (!progress || !['queued', 'running'].includes(String(progress.status || ''))) {
@@ -3598,6 +3566,7 @@ const resumeExternalHistoryFetchStatus = async () => {
     await refreshExternalEmailsWhenHistoryProgresses(progress)
   } catch (error) {
     console.warn('恢复第三方邮箱历史收取状态失败', error)
+    return false
   }
 }
 

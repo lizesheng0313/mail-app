@@ -397,17 +397,19 @@ const loadAnnouncements = async () => {
 
   announcementsLoading.value = true
   try {
-    const [result]: any[] = await Promise.all([
-      api.get('/announcements/', { params: { page: 1, page_size: 10 } }),
+    const [result, personalResult]: any[] = await Promise.all([
+      api.get('/announcements/', { params: { page: 1, page_size: 10 }, timeout: 15000 }),
       loadPersonalNotifications()
     ])
+    if (result.code !== 0 || personalResult === false) return false
     if (result.code === 0) {
       announcements.value = filterVisibleAnnouncements(result.data.items || [])
       // 更新未读数量
-      await loadUnreadCount()
+      return loadUnreadCount()
     }
   } catch (error) {
     console.error('加载公告失败:', error)
+    return false
   } finally {
     announcementsLoading.value = false
   }
@@ -418,11 +420,13 @@ const loadPersonalNotifications = async () => {
 
   try {
     const result: any = await getNotifications({ page: 1, page_size: 10 })
+    if (result.code !== 0) return false
     if (result.code === 0) {
       personalNotifications.value = result.data.items || []
     }
   } catch (error) {
     console.error('加载个人通知失败:', error)
+    return false
   }
 }
 
@@ -433,7 +437,7 @@ const loadUnreadCount = async () => {
 
   try {
     const [announcementResult, notificationResult]: any[] = await Promise.all([
-      api.get('/announcements/unread/count'),
+      api.get('/announcements/unread/count', { timeout: 15000 }),
       getNotificationUnreadCount()
     ])
     if (
@@ -441,18 +445,19 @@ const loadUnreadCount = async () => {
       announcementResult.code !== 0 ||
       notificationResult.code !== 0
     )
-      return
+      return false
 
     unreadCount.value =
       Number(announcementResult.data?.count || 0) + Number(notificationResult.data?.count || 0)
   } catch (error) {
     console.error('加载未读数量失败:', error)
+    return false
   }
 }
 
 const refreshAfterImportantNotification = async () => {
-  if (showAnnouncements.value) await loadAnnouncements()
-  else await loadUnreadCount()
+  if (showAnnouncements.value) return loadAnnouncements()
+  return loadUnreadCount()
 }
 
 // 标记全部为已读

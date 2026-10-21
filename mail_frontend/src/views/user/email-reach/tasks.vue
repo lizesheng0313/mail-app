@@ -100,12 +100,11 @@
 
 <script setup>
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
-import { io } from 'socket.io-client'
+import { subscribeRealtime } from '@/services/realtimeClient'
 import ActionButton from '@/components/ActionButton/index.vue'
 import AdminDataTable from '@/components/AdminDataTable/index.vue'
 import BaseInput from '@/components/BaseInput/index.vue'
 import emailReachApi from '@/api/emailReach'
-import { getApiBaseURL } from '@/services/api'
 import AccessPendingAlert from './components/AccessPendingAlert.vue'
 import TaskEditorModal from './components/TaskEditorModal.vue'
 import TaskDetailModal from './components/TaskDetailModal.vue'
@@ -123,8 +122,7 @@ const tasks = ref([])
 const showEditorModal = ref(false)
 const showDetailModal = ref(false)
 const selectedTask = ref(null)
-let socket = null
-let socketConnecting = false
+let unsubscribeTaskEvents = null
 const access = ref({
   status: 'pending',
   reason: '',
@@ -136,7 +134,6 @@ const filters = reactive({
 const appliedFilters = reactive({
   keyword: ''
 })
-const SOCKET_IO_PATH = '/mail-api/v1/live-chat/socket.io'
 
 const canOperate = computed(() => hasAccessStatus(access.value.status))
 const filteredTasks = computed(() => {
@@ -189,14 +186,6 @@ const progressPercent = (item) => {
   return Math.min(100, Math.round((done * 100) / planned))
 }
 
-const getSocketServerURL = () => {
-  const apiBaseURL = getApiBaseURL()
-  if (apiBaseURL.startsWith('http://') || apiBaseURL.startsWith('https://')) {
-    return apiBaseURL.replace(/\/mail-api\/v1$/, '')
-  }
-  return window.location.origin
-}
-
 const upsertTask = (task) => {
   if (!task?.id) return
   const index = tasks.value.findIndex((item) => Number(item.id) === Number(task.id))
@@ -208,53 +197,15 @@ const upsertTask = (task) => {
 }
 
 const cleanupSocket = () => {
-  if (!socket) return
-  const currentSocket = socket
-  socket = null
-  currentSocket.removeAllListeners()
-  currentSocket.disconnect()
-  socketConnecting = false
+  unsubscribeTaskEvents?.()
+  unsubscribeTaskEvents = null
 }
 
 const connectTaskSocket = () => {
-  if (socketConnecting) return
-  if (socket?.connected) return
-
-  const token = localStorage.getItem('token')
   cleanupSocket()
-  socketConnecting = true
-
-  const nextSocket = io(getSocketServerURL(), {
-    path: SOCKET_IO_PATH,
-    transports: ['websocket'],
-    auth: token ? { token } : {},
-    withCredentials: true,
-    reconnection: true,
-    reconnectionAttempts: Infinity,
-    reconnectionDelay: 2000,
-    reconnectionDelayMax: 5000,
-    timeout: 8000
-  })
-  socket = nextSocket
-
-  nextSocket.on('connect', () => {
-    socketConnecting = false
-  })
-
-  nextSocket.on('email_reach_event', (payload) => {
-    if (payload?.type !== 'task_progress' || !payload.task) return
-    upsertTask(payload.task)
-  })
-
-  nextSocket.on('connect_error', () => {
-    socketConnecting = false
-  })
-
-  nextSocket.on('disconnect', () => {
-    if (socket === nextSocket) {
-      socket = null
-    }
-    socketConnecting = false
+  unsubscribeTaskEvents = subscribeRealtime(['email_reach_event'], (payload, event) => {
+    if (event === 'realtime_reset') return loadTasks()
+    if (payload?.type === 'task_progress' && payload.task) upsertTask(payload.task)
   })
 }
 
@@ -262,6 +213,7 @@ const loadTasks = async () => {
   loading.value = true
   try {
     const res = await emailReachApi.getTasks()
+    if (res.code !== 0) return false
     if (res.code === 0) {
       tasks.value = res.data.items || []
     }

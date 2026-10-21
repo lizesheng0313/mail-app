@@ -134,7 +134,7 @@ export const pluginApi = {
 
   // 查询订单状态
   queryPluginOrder(orderNo) {
-    return api.get(`/plugins/purchase/order/${orderNo}`)
+    return api.get(`/plugins/purchase/order/${orderNo}`, { timeout: 15000 })
   },
 
   // 获取我的订单列表

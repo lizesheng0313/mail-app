@@ -15,6 +15,10 @@ const api = vi.hoisted(() =>
     ].map((name) => [name, vi.fn()])
   )
 )
+const realtime = vi.hoisted(() => ({ refresh: null as any }))
+vi.mock('@/services/realtimeClient', () => ({
+  subscribeRealtime: (_events: string[], refresh: unknown) => { realtime.refresh = refresh; return vi.fn() },
+}))
 vi.mock('vue-router', () => ({ useRoute: () => route }))
 vi.mock('@/api/monitoring', () => ({ monitoringAPI: api }))
 vi.mock('@/utils/message', () => ({ showMessage: vi.fn() }))
@@ -25,7 +29,7 @@ vi.mock('./utils/worldMapChart', () => ({ updateWorldMap: vi.fn(), preloadWorldM
 vi.mock('@/components/Monitoring/CrawlerMonitor.vue', () => ({ default: { template: '<div />' } }))
 
 import Monitoring from './index.vue'
-import { dispatchAccountState } from '@/services/accountRealtime'
+
 import CustomSelect from '@/components/CustomSelect/index.vue'
 import DailyTrendChart from '@/components/Monitoring/DailyTrendChart.vue'
 import { buildDailyTrendOption } from '@/components/Monitoring/dailyTrendOptions'
@@ -339,8 +343,11 @@ describe('independent mailbox monitoring dimensions', () => {
       const count = api.getOnlineCount.mock.calls.length
       await vi.advanceTimersByTimeAsync(60 * 60 * 1000)
       expect(api.getOnlineCount).toHaveBeenCalledTimes(count)
-      dispatchAccountState('presence')
+      await realtime.refresh({ online_users: 17, desktop_online_users: 8 }, 'presence_changed')
       await flushPromises()
+      expect(api.getOnlineCount).toHaveBeenCalledTimes(count)
+      expect(wrapper.text()).toContain('17')
+      await realtime.refresh(undefined, 'realtime_reset')
       expect(api.getOnlineCount).toHaveBeenCalledTimes(count + 1)
     } finally { wrapper.unmount() }
   })

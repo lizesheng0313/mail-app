@@ -255,7 +255,7 @@ import BaseIcon from '@/components/BaseIcon/index.vue'
 import { mailboxShareAPI } from '@/api/mailboxShare'
 import { showMessage } from '@/utils/message'
 import { getCurrentLocale } from '@/i18n'
-import { buildWebSocketURL } from '@/services/api'
+import { registerRealtimeScope, subscribeRealtime } from '@/services/realtimeClient'
 import { isShareTerminalState, resolveShareValidity } from './shareDisplay'
 
 const EmailContentModal = defineAsyncComponent(() => import('@/components/Mail/EmailContentModal.vue'))
@@ -334,62 +334,26 @@ const openEmailModal = (email) => {
   showEmailModal.value = true
 }
 
-let shareMailSocket = null
-let shareMailRetryTimer = null
-let shareMailHeartbeatTimer = null
-let shareMailRetryDelay = 3000
+let unsubscribeShareMail = null
+let unsubscribeShareScope = null
 let shareMailStopped = false
 
 const stopShareMailRealtime = () => {
   shareMailStopped = true
-  if (shareMailRetryTimer !== null) clearTimeout(shareMailRetryTimer)
-  if (shareMailHeartbeatTimer !== null) clearInterval(shareMailHeartbeatTimer)
-  shareMailRetryTimer = null
-  shareMailHeartbeatTimer = null
-  shareMailSocket?.close()
-  shareMailSocket = null
+  unsubscribeShareMail?.()
+  unsubscribeShareMail = null
+  unsubscribeShareScope?.()
+  unsubscribeShareScope = null
 }
 
 const connectShareMailRealtime = () => {
-  if (shareMailStopped || shareMailSocket || !['system', 'hosted', 'external'].includes(mailboxType.value)) return
+  if (shareMailStopped || unsubscribeShareMail || !['system', 'hosted', 'external'].includes(mailboxType.value)) return
   const shareToken = String(route.params.token || '')
   if (!shareToken) return
-  const socket = new WebSocket(buildWebSocketURL('/mail-events/ws'))
-  shareMailSocket = socket
-  socket.onopen = () => socket.send(JSON.stringify({ type: 'auth', share_token: shareToken }))
-  socket.onmessage = (event) => {
-    try {
-      const payload = JSON.parse(String(event.data || '{}'))
-      if (payload.type === 'ready') {
-        shareMailRetryDelay = 3000
-        shareMailHeartbeatTimer = setInterval(() => {
-          if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: 'ping' }))
-        }, 25000)
-        // 重连后补查一次，覆盖离线期间收到的邮件。
-        void loadEmails()
-      } else if (payload.type === 'email.received' && payload.mailbox_type === mailboxType.value) {
-        if (!selectedMailbox.value || selectedMailbox.value.id === Number(payload.mailbox_id)) {
-          void loadEmails()
-        }
-      }
-    } catch (error) {
-      console.error('分享邮件实时通知处理失败:', error)
-    }
-  }
-  socket.onclose = (event) => {
-    if (shareMailSocket !== socket) return
-    shareMailSocket = null
-    if (shareMailHeartbeatTimer !== null) clearInterval(shareMailHeartbeatTimer)
-    shareMailHeartbeatTimer = null
-    if (!shareMailStopped && event.code !== 4401) {
-      const delay = shareMailRetryDelay + Math.floor(Math.random() * 1000)
-      shareMailRetryDelay = Math.min(shareMailRetryDelay * 2, 30000)
-      shareMailRetryTimer = setTimeout(() => {
-        shareMailRetryTimer = null
-        connectShareMailRealtime()
-      }, delay)
-    }
-  }
+  unsubscribeShareScope = registerRealtimeScope('share-mail', { share_token: shareToken })
+  unsubscribeShareMail = subscribeRealtime(['mail_changed'], () => loadEmails(), (payload) =>
+    payload?.mailbox_type === mailboxType.value &&
+    (!selectedMailbox.value || selectedMailbox.value.id === Number(payload.mailbox_id)))
 }
 
 const startValidityCountdown = () => {
@@ -502,6 +466,7 @@ const loadEmails = async () => {
       // 不自动选中第一封邮件，保持空状态
     } else {
       showMessage(res.message || t('sharePage.loadEmailsFailed'), 'error')
+      return false
     }
   } catch (err) {
     if (String(route.params.token || '') !== shareToken || requestId !== emailLoadRequestId) return
@@ -511,6 +476,7 @@ const loadEmails = async () => {
       return
     }
     showMessage(t('sharePage.loadEmailsFailed'), 'error')
+    return false
   } finally {
     if (requestId === emailLoadRequestId) loadingEmails.value = false
   }

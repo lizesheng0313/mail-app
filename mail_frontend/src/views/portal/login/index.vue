@@ -419,6 +419,7 @@
 </template>
 
 <script setup lang="ts">
+import { registerRealtimeScope, subscribeRealtime } from '@/services/realtimeClient'
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter, useRoute } from 'vue-router'
@@ -458,6 +459,9 @@ const wechatBindEmail = ref('')
 const wechatBindPassword = ref('')
 const supportWechat = 'lizesheng1234'
 let wechatPollTimer: number | null = null
+let unsubscribeWechatScope: (() => void) | undefined
+let unsubscribeWechatStatus: (() => void) | undefined
+let activeWechatState = ''
 let wechatPollInFlight = false
 
 // 消息提示
@@ -650,8 +654,13 @@ const loginWithGoogle = async () => {
 }
 
 const stopWechatLogin = () => {
+  activeWechatState = ''
+  unsubscribeWechatStatus?.()
+  unsubscribeWechatStatus = undefined
+  unsubscribeWechatScope?.()
+  unsubscribeWechatScope = undefined
   if (wechatPollTimer !== null) {
-    window.clearInterval(wechatPollTimer)
+    window.clearTimeout(wechatPollTimer)
     wechatPollTimer = null
   }
   wechatPollInFlight = false
@@ -725,9 +734,11 @@ const loginWithWechat = async () => {
     wechatQrUrl.value = result.data.qr_code
     wechatQrVisible.value = true
     const state = result.data.state
+    activeWechatState = state
     const startedAt = Date.now()
     const pollWechatStatus = async () => {
-      if (wechatPollInFlight) return
+      if (activeWechatState !== state) return
+      if (wechatPollInFlight) return false
       if (Date.now() - startedAt > 5 * 60 * 1000) {
         stopWechatLogin()
         error.value = t('login.wechatLoginFailed')
@@ -737,6 +748,7 @@ const loginWithWechat = async () => {
       wechatPollInFlight = true
       try {
         const pollResult: any = await authAPI.pollWechatMiniappLogin(state)
+        if (activeWechatState !== state) return
         if (pollResult.code !== 0) {
           stopWechatLogin()
           error.value = pollResult.message || t('login.wechatLoginFailed')
@@ -766,15 +778,20 @@ const loginWithWechat = async () => {
           error.value = loginResult.error || t('login.wechatLoginFailed')
         }
       } catch (err: any) {
-        stopWechatLogin()
+        if (activeWechatState !== state) return
         error.value = err.response?.data?.message || t('login.wechatLoginFailed')
+        return false
       } finally {
         wechatPollInFlight = false
       }
     }
 
-    wechatPollTimer = window.setInterval(pollWechatStatus, 1000)
-    void pollWechatStatus()
+    unsubscribeWechatScope = registerRealtimeScope('wechat-login', { login_state: state })
+    unsubscribeWechatStatus = subscribeRealtime(['login_changed'], pollWechatStatus, undefined, { immediate: true })
+    wechatPollTimer = window.setTimeout(() => {
+      stopWechatLogin()
+      error.value = t('login.wechatLoginFailed')
+    }, 5 * 60 * 1000)
   } catch (err: any) {
     stopWechatLogin()
     error.value = err.response?.data?.message || t('login.wechatLoginFailed')

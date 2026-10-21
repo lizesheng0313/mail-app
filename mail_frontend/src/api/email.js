@@ -16,7 +16,7 @@ export const emailAPI = {
         delete cleanParams[key]
       }
     })
-    return api.get('/unified-emails/user/emails', { params: cleanParams })
+    return api.get('/unified-emails/user/emails', { params: cleanParams, timeout: 15000 })
   },
 
   // 获取指定邮箱的所有邮件（使用统一接口，通过 type 区分）

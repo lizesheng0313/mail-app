@@ -1,5 +1,5 @@
 import { flushPromises, mount } from '@vue/test-utils'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 const api = vi.hoisted(() => ({
   getShareInfo: vi.fn(),
@@ -10,22 +10,19 @@ vi.mock('@/api/mailboxShare', () => ({ mailboxShareAPI: api }))
 vi.mock('vue-router', () => ({ useRoute: () => ({ params: { token: 'public-share' } }) }))
 vi.mock('vue-i18n', () => ({ useI18n: () => ({ t: (key: string) => key }) }))
 vi.mock('@/i18n', () => ({ getCurrentLocale: () => 'zh-CN' }))
-vi.mock('@/services/api', () => ({ isTauri: () => false, buildWebSocketURL: vi.fn() }))
+vi.mock('@/services/api', () => ({ isTauri: () => false }))
+const realtime = vi.hoisted(() => ({ refresh: null as any, filter: null as any, scope: vi.fn() }))
+vi.mock('@/services/realtimeClient', () => ({
+  registerRealtimeScope: (key: string, auth: unknown) => { realtime.scope(key, auth); return vi.fn() },
+  subscribeRealtime: (_events: string[], refresh: unknown, filter: unknown) => {
+    realtime.refresh = refresh; realtime.filter = filter; return vi.fn()
+  },
+}))
 
 import SharePage from './index.vue'
 
 describe('share page loading', () => {
-  let socket: any
-  beforeEach(() => {
-    vi.stubGlobal('WebSocket', class {
-      static OPEN = 1
-      readyState = 1
-      constructor() { socket = this }
-      close() {}
-      send() {}
-    })
-  })
-  afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals() })
+  afterEach(() => { vi.useRealTimers() })
   it('shows mailboxes while the slower email request is still pending', async () => {
     api.getShareInfo.mockResolvedValue({
       code: 0,
@@ -89,10 +86,14 @@ describe('share page loading', () => {
       const initial = api.getShareEmails.mock.calls.length
       await vi.advanceTimersByTimeAsync(60 * 60 * 1000)
       expect(api.getShareEmails).toHaveBeenCalledTimes(initial)
-      socket.onmessage({ data: JSON.stringify({ type: 'ready' }) })
+      expect(realtime.scope).toHaveBeenCalledWith('share-mail', { share_token: 'public-share' })
+      await realtime.refresh(undefined, 'realtime_reset')
       await flushPromises()
       expect(api.getShareEmails).toHaveBeenCalledTimes(initial + 1)
-      socket.onmessage({ data: JSON.stringify({ type: 'email.received', mailbox_type: 'external', mailbox_id: 1, email_id: 9 }) })
+      const event = { mailbox_type: 'external', mailbox_id: 1, email_id: 9 }
+      expect(realtime.filter(event)).toBe(true)
+      expect(realtime.filter({ mailbox_type: 'system', mailbox_id: 1 })).toBe(false)
+      await realtime.refresh(event, 'mail_changed')
       await flushPromises()
       expect(api.getShareEmails).toHaveBeenCalledTimes(initial + 2)
       await vi.advanceTimersByTimeAsync(60 * 60 * 1000)

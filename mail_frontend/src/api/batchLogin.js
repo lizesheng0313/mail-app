@@ -78,7 +78,7 @@ export const batchLoginAPI = {
     if (mailboxId) {
       params.mailbox_id = mailboxId
     }
-    return api.get('/unified-emails/external-emails', { params })
+    return api.get('/unified-emails/external-emails', { params, timeout: 15000 })
   },
 
   // 服务端在线收取全部外部邮箱
@@ -91,7 +91,7 @@ export const batchLoginAPI = {
 
   // 获取服务端全历史收取任务状态
   getExternalMailFetchAllStatus: () =>
-    api.get('/unified-emails/external-mailboxes/fetch-all/status'),
+    api.get('/unified-emails/external-mailboxes/fetch-all/status', { timeout: 15000 }),
 
   // 服务端在线收取单个外部邮箱
   fetchExternalMailboxOnline: (mailboxId, requestConfig = {}) =>

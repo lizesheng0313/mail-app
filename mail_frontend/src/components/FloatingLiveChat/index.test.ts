@@ -19,7 +19,11 @@ vi.mock('@/stores/user', () => ({ useUserStore: () => ({ isAuthenticated: true, 
 vi.mock('@/utils/message', () => ({ showMessage: mocks.showMessage }))
 vi.mock('@/utils/imageUpload', () => ({ uploadImageFile: vi.fn() }))
 vi.mock('vue-router', () => ({ useRouter: () => ({ push: vi.fn() }) }))
-vi.mock('socket.io-client', () => ({ io: () => mocks.socket }))
+vi.mock('@/services/realtimeClient', () => ({
+  setRealtimeIdentity: vi.fn(), emitRealtime: vi.fn(),
+  onRealtimeEvent: (event: string, callback: unknown) => { mocks.socket.on(event, callback); return vi.fn() },
+  subscribeRealtime: (_events: string[], callback: unknown) => { mocks.socket.on('chat_state_changed', callback); return vi.fn() },
+}))
 
 import FloatingLiveChat from './index.vue'
 

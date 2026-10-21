@@ -21,6 +21,7 @@ import AppUpdater from '@/components/AppUpdater/index.vue'
 import { registerMaintenanceCallback, isTauri } from '@/services/api'
 import { showMessage } from '@/utils/message'
 import { desktopExternalMailSync } from '@/services/desktopExternalMailSync'
+import { setRealtimeIdentity, stopRealtime } from '@/services/realtimeClient'
 
 const FloatingLiveChat = defineAsyncComponent(() => import('@/components/FloatingLiveChat/index.vue'))
 
@@ -36,6 +37,13 @@ const showFloatingTools = computed(() => !route.path.startsWith('/browser-workfl
 // 启用页面访问统计
 usePageTracking()
 useOnlineSession()
+
+watch(
+  () => [userStore.isAuthenticated, userStore.user] as const,
+  () => setRealtimeIdentity(userStore.isAuthenticated ? localStorage.getItem('token') || '' : '',
+    userStore.isAuthenticated ? Number(userStore.user?.id || 0) : 0),
+  { immediate: true }
+)
 
 // 应用启动时检查认证状态
 onMounted(async () => {
@@ -113,6 +121,7 @@ watch(
 )
 
 onBeforeUnmount(() => {
+  stopRealtime()
   unlistenOAuthCallback?.()
   desktopOAuthKeepAlive.stop()
   void desktopExternalMailSync.stop()

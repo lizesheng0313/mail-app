@@ -58,7 +58,17 @@ vi.mock('socket.io-client', () => ({
 }))
 
 import FloatingLiveChat from '../index.vue'
+import { stopRealtime } from '@/services/realtimeClient'
 import { sendOnlineSessionHeartbeat } from '@/services/onlineSessionTransport'
+
+let serverSeq = 0
+const deliverChatState = async (payload: unknown) => {
+  serverSeq++
+  const receive = mocks.socket.on.mock.calls.find(([name]) => name === 'realtime_event')![1]
+  receive({ epoch: 'boot', scope: `user:${mocks.userStore.user.id}`, stream: 'chat-stream',
+    seq: serverSeq, event: 'chat_state_changed', payload })
+  await flushPromises()
+}
 
 const conversations = [
   {
@@ -159,7 +169,10 @@ describe('FloatingLiveChat admin conversation layout', () => {
   let wrapper: ReturnType<typeof mount> | null = null
 
   beforeEach(() => {
+    stopRealtime()
+    serverSeq = 0
     localStorage.clear()
+    localStorage.setItem('token', 'test-session')
     mocks.userStore.user = {
       id: 1,
       display_name: '管理员',
@@ -173,7 +186,11 @@ describe('FloatingLiveChat admin conversation layout', () => {
     mocks.apiPost.mockReset()
     mocks.apiDelete.mockReset()
     mocks.socket.on.mockClear()
-    mocks.socket.emitWithAck.mockClear()
+    mocks.socket.emitWithAck.mockReset().mockImplementation(async (event: string) => event === 'realtime_sync'
+      ? { ok: true, epoch: 'boot', reset: false, heads: {
+        [`user:${mocks.userStore.user.id}`]: { stream: 'chat-stream', seq: serverSeq }
+      }, events: [] }
+      : { ok: true })
     mocks.socket.disconnect.mockClear()
     mocks.io.mockClear()
     configureApi()
@@ -183,6 +200,7 @@ describe('FloatingLiveChat admin conversation layout', () => {
   afterEach(() => {
     wrapper?.unmount()
     wrapper = null
+    stopRealtime()
     vi.useRealTimers()
   })
 
@@ -549,6 +567,8 @@ describe('FloatingLiveChat admin conversation layout', () => {
     await flushPromises()
     await wrapper.get('[data-testid="chat-launcher"]').trigger('click')
     await flushPromises()
+    mocks.socket.on.mock.calls.find(([name]) => name === 'connect')![1]()
+    await flushPromises()
     mocks.apiGet.mockClear()
     mocks.apiPost.mockClear()
 
@@ -558,7 +578,7 @@ describe('FloatingLiveChat admin conversation layout', () => {
     expect(mocks.apiPost).not.toHaveBeenCalled()
   })
 
-  it('shares its authenticated connection with online heartbeats and unregisters it on cleanup', async () => {
+  it('keeps the application heartbeat connection until the application stops', async () => {
     wrapper = mount(FloatingLiveChat)
     await flushPromises()
     const connect = mocks.socket.on.mock.calls.find(([name]) => name === 'connect')![1]
@@ -573,6 +593,8 @@ describe('FloatingLiveChat admin conversation layout', () => {
 
     wrapper.unmount()
     wrapper = null
+    expect(await sendOnlineSessionHeartbeat(payload)).toBe(true)
+    stopRealtime()
     expect(await sendOnlineSessionHeartbeat(payload)).toBe(false)
   })
 
@@ -582,6 +604,8 @@ describe('FloatingLiveChat admin conversation layout', () => {
     wrapper = mount(FloatingLiveChat)
     await flushPromises()
     expect(mocks.apiGet.mock.calls.filter(([url]) => url === '/live-chat/summary')).toHaveLength(1)
+    mocks.socket.on.mock.calls.find(([name]) => name === 'connect')![1]()
+    await flushPromises()
     mocks.apiGet.mockClear()
 
     await vi.advanceTimersByTimeAsync(120000)
@@ -618,7 +642,7 @@ describe('FloatingLiveChat admin conversation layout', () => {
     expect(mocks.socket.disconnect).not.toHaveBeenCalled()
   })
 
-  it('recovers unread counts with low frequency polling while disconnected', async () => {
+  it('does not poll while disconnected and recovers unread counts on reconnect', async () => {
     vi.useFakeTimers()
     mocks.socket.connected = false
     const contacts = configureUnreadInbox()
@@ -629,6 +653,9 @@ describe('FloatingLiveChat admin conversation layout', () => {
     await vi.advanceTimersByTimeAsync(29999)
     expect(mocks.apiGet).not.toHaveBeenCalled()
     await vi.advanceTimersByTimeAsync(1)
+    expect(mocks.apiGet).not.toHaveBeenCalled()
+    mocks.socket.connected = true
+    mocks.socket.on.mock.calls.find(([name]) => name === 'connect')![1]()
     await flushPromises()
     expect(wrapper.get('[data-testid="chat-launcher-unread"]').text()).toBe('6')
     expect(mocks.apiPost).not.toHaveBeenCalled()
@@ -667,7 +694,7 @@ describe('FloatingLiveChat admin conversation layout', () => {
       }
       return originalGet(url, options)
     })
-    const changed = mocks.socket.on.mock.calls.find(([name]) => name === 'chat_state_changed')![1]
+    const changed = deliverChatState
     await changed({ guest_conversation_id: 4, message_id: 9 })
     await flushPromises()
     expect(wrapper.get('[data-testid="chat-launcher-unread"]').text()).toBe('3')
@@ -681,7 +708,7 @@ describe('FloatingLiveChat admin conversation layout', () => {
     await flushPromises()
     expect(wrapper.get('[data-testid="chat-launcher-unread"]').text()).toBe('3')
     mocks.apiGet.mockResolvedValue({ code: 0, data: { unread_count: 0 } })
-    const changed = mocks.socket.on.mock.calls.find(([name]) => name === 'chat_state_changed')![1]
+    const changed = deliverChatState
     await changed({})
     await flushPromises()
     expect(wrapper.find('[data-testid="chat-launcher-unread"]').exists()).toBe(false)
@@ -711,7 +738,7 @@ describe('FloatingLiveChat admin conversation layout', () => {
     mocks.apiPost.mockClear()
 
     guestMessages.push({ id: 10, sender_type: 'guest', content: '游客推送的新消息', created_at_ms: Date.now() })
-    const changed = mocks.socket.on.mock.calls.find(([name]) => name === 'chat_state_changed')![1]
+    const changed = deliverChatState
     await changed({ guest_conversation_id: 4, message_id: 10 })
     await flushPromises()
     expect(wrapper.get('[data-testid="admin-chat-pane"]').text()).toContain('游客推送的新消息')
@@ -762,6 +789,8 @@ describe('FloatingLiveChat admin conversation layout', () => {
     wrapper = mount(FloatingLiveChat)
     await flushPromises()
     await wrapper.get('[data-testid="chat-launcher"]').trigger('click')
+    await flushPromises()
+    mocks.socket.on.mock.calls.find(([name]) => name === 'connect')![1]()
     await flushPromises()
     mocks.apiGet.mockClear()
 

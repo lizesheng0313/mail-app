@@ -8,14 +8,14 @@ import api from '@/services/api'
  * 获取通知列表
  */
 export function getNotifications(params) {
-  return api.get('/notifications/', { params })
+  return api.get('/notifications/', { params, timeout: 15000 })
 }
 
 /**
  * 获取未读通知数量
  */
 export function getUnreadCount() {
-  return api.get('/notifications/unread-count')
+  return api.get('/notifications/unread-count', { timeout: 15000 })
 }
 
 /** 打开系统时需要逐条确认的重要通知。 */

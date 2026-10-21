@@ -113,11 +113,13 @@ const loadNotifications = async () => {
   loading.value = true
   try {
     const res = await getNotifications({ page: 1, page_size: 10 })
+    if (res.code !== 0) return false
     if (res.code === 0) {
       notifications.value = res.data.items || []
     }
   } catch (error) {
     console.error('加载通知失败:', error)
+    return false
   } finally {
     loading.value = false
   }
@@ -127,11 +129,13 @@ const loadNotifications = async () => {
 const loadUnreadCount = async () => {
   try {
     const res = await getUnreadCount()
+    if (res.code !== 0) return false
     if (res.code === 0) {
       unreadCount.value = res.data.count || 0
     }
   } catch (error) {
     console.error('加载未读数量失败:', error)
+    return false
   }
 }
 
@@ -236,8 +240,8 @@ let unsubscribeState
 onMounted(() => {
   loadUnreadCount()
   unsubscribeState = subscribeAccountState(['notifications'], async () => {
-    await loadUnreadCount()
-    if (showDropdown.value) await loadNotifications()
+    if (await loadUnreadCount() === false) return false
+    if (showDropdown.value) return loadNotifications()
   })
   document.addEventListener('click', handleClickOutside)
 })

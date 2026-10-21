@@ -428,21 +428,19 @@
 </template>
 
 <script setup lang="ts">
-import { dispatchAccountState, type AccountResource } from '@/services/accountRealtime'
+import { onRealtimeEvent, subscribeRealtime, emitRealtime, setRealtimeIdentity } from '@/services/realtimeClient'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { io, type Socket } from 'socket.io-client'
 
 const props = withDefaults(defineProps<{ showLauncher?: boolean; active?: boolean }>(), {
   showLauncher: true,
   active: true
 })
 
-import api, { getApiBaseURL } from '@/services/api'
+import api from '@/services/api'
 import { useUserStore } from '@/stores/user'
 import { uploadImageFile } from '@/utils/imageUpload'
 import { showMessage } from '@/utils/message'
-import { bindOnlineSessionSocket, unbindOnlineSessionSocket } from '@/services/onlineSessionTransport'
 
 type LiveChatUser = {
   id: number
@@ -530,20 +528,17 @@ const userSearchResults = ref<LiveChatUserSearchResult[]>([])
 const searchingUsers = ref(false)
 const userSearchPerformed = ref(false)
 
-let socket: Socket | null = null
+let socketSubscriptions: Array<() => void> = []
 let historyLoaded = false
-let manualClose = false
-let socketConnecting = false
-let historyRequest: Promise<void> | null = null
+let historyRequest: Promise<unknown> | null = null
 let historyRequestVersion = 0
-let conversationsRequest: Promise<void> | null = null
+let conversationsRequest: Promise<unknown> | null = null
 let historyCursor = 0
-let summaryRequest: Promise<void> | null = null
-let chatStateRequest: Promise<void> | null = null
+let summaryRequest: Promise<unknown> | null = null
+let chatStateRequest: Promise<unknown> | null = null
 const readMessageIds = new Map<string, number>()
 const pendingReadKeys = new Set<string>()
 const receivedSocketMessageIds = new Set<number>()
-const SOCKET_IO_PATH = '/mail-api/v1/live-chat/socket.io'
 const MAX_CHAT_IMAGES = 4
 const MESSAGE_BOTTOM_THRESHOLD_PX = 48
 const LAUNCHER_POSITION_KEY = 'live_chat_launcher_position'
@@ -757,14 +752,6 @@ const getOtherBubbleClass = (item: LiveChatMessage) => {
   return OTHER_BUBBLE_STYLES[getOtherStyleIndex(item)]
 }
 
-const getSocketServerURL = () => {
-  const apiBaseURL = getApiBaseURL()
-  if (apiBaseURL.startsWith('http://') || apiBaseURL.startsWith('https://')) {
-    return apiBaseURL.replace(/\/mail-api\/v1$/, '')
-  }
-  return window.location.origin
-}
-
 const searchUsers = async () => {
   if (!isAdmin.value || searchingUsers.value) return
 
@@ -779,8 +766,8 @@ const searchUsers = async () => {
   try {
     const response: any = await api.get('/live-chat/users/search', {
       params: { keyword },
-      suppressErrorMessage: true,
-    })
+      suppressErrorMessage: true, timeout: 15000,
+    } as any)
     if (response?.code === 0) {
       userSearchResults.value = Array.isArray(response.data?.items)
         ? response.data.items
@@ -889,9 +876,10 @@ const loadConversations = async () => {
   conversationsRequest = (async () => {
     try {
       const [response, guestResponse]: any[] = await Promise.all([
-        api.get('/live-chat/conversations', { suppressErrorMessage: true } as any).catch(() => null),
-        api.get('/live-chat/guest/conversations', { suppressErrorMessage: true } as any).catch(() => null),
+        api.get('/live-chat/conversations', { suppressErrorMessage: true, timeout: 15000 } as any).catch(() => null),
+        api.get('/live-chat/guest/conversations', { suppressErrorMessage: true, timeout: 15000 } as any).catch(() => null),
       ])
+      if (response?.code !== 0 || guestResponse?.code !== 0) return false
       if (response?.code === 0) {
         conversations.value = Array.isArray(response.data?.items) ? response.data.items : []
         unreadCount.value = Number(response.data?.unread_count ?? conversations.value.reduce(
@@ -946,6 +934,7 @@ const loadConversations = async () => {
       }
     } catch (error) {
       console.error('加载客服会话失败:', error)
+      return false
     } finally {
       conversationsRequest = null
     }
@@ -1081,8 +1070,9 @@ const loadSummary = async () => {
   summaryRequest = (async () => {
     try {
       const response: any = await api.get('/live-chat/summary', {
-        suppressErrorMessage: true
-      })
+        suppressErrorMessage: true, timeout: 15000
+      } as any)
+      if (response.code !== 0) return false
       if (response.code === 0) {
         onlineCount.value = Number(response.data?.online_count || 0)
         unreadCount.value = userStore.isAuthenticated
@@ -1091,6 +1081,7 @@ const loadSummary = async () => {
       }
     } catch (error) {
       console.error('加载聊天室摘要失败:', error)
+      return false
     } finally {
       summaryRequest = null
     }
@@ -1114,7 +1105,7 @@ const markMessagesRead = async (messageId?: number) => {
       const response: any = await api.post(
         `/live-chat/guest/conversations/${guestId}/read`,
         { last_read_message_id: lastMessageId },
-        { suppressErrorMessage: true } as any,
+        { suppressErrorMessage: true, timeout: 15000 } as any,
       )
       if (response?.code !== 0) return
       readMessageIds.set(readKey, lastMessageId)
@@ -1138,7 +1129,7 @@ const markMessagesRead = async (messageId?: number) => {
           ? { conversation_user_id: customerId }
           : {}),
       },
-      { suppressErrorMessage: true }
+      { suppressErrorMessage: true, timeout: 15000 } as any
     )
     if (response?.code !== 0) return
     readMessageIds.set(readKey, lastMessageId)
@@ -1155,15 +1146,8 @@ const markMessagesRead = async (messageId?: number) => {
 }
 
 const cleanupSocket = () => {
-  if (socket) {
-    const currentSocket = socket
-    socket = null
-    unbindOnlineSessionSocket(currentSocket)
-    manualClose = true
-    currentSocket.removeAllListeners()
-    currentSocket.disconnect()
-  }
-  socketConnecting = false
+  for (const unsubscribe of socketSubscriptions) unsubscribe()
+  socketSubscriptions = []
   socketUserId.value = 0
   connectionStatus.value = 'idle'
 }
@@ -1181,9 +1165,10 @@ const loadHistory = async (force = false) => {
       const guestId = requestedGuestId
       if (guestId) {
         const response: any = await api.get(`/live-chat/guest/conversations/${guestId}/messages`, {
-          suppressErrorMessage: true,
+          suppressErrorMessage: true, timeout: 15000,
         } as any)
         if (requestVersion !== historyRequestVersion || guestId !== activeGuestConversationId.value) return
+        if (response?.code !== 0) return false
         if (response?.code === 0) {
           const guestItems = Array.isArray(response.data?.items) ? response.data.items : []
           messages.value = guestItems.map((item: any) => ({
@@ -1206,9 +1191,10 @@ const loadHistory = async (force = false) => {
             ? { conversation_user_id: activeConversationUserId.value }
             : {}),
         },
-        suppressErrorMessage: true
-      })
+        suppressErrorMessage: true, timeout: 15000
+      } as any)
       if (requestVersion !== historyRequestVersion || requestedUserId !== activeConversationUserId.value || activeGuestConversationId.value) return
+      if (response.code !== 0) return false
       if (response.code === 0) {
         messages.value = Array.isArray(response.data?.items) ? response.data.items : []
         historyCursor = Number(response.data?.next_before_message_id || messages.value[0]?.id || 0)
@@ -1221,6 +1207,7 @@ const loadHistory = async (force = false) => {
       }
     } catch (error) {
       console.error('加载聊天室历史失败:', error)
+      return false
     } finally {
       if (requestVersion === historyRequestVersion) {
         loadingHistory.value = false
@@ -1252,8 +1239,8 @@ const loadOlderHistory = async () => {
           ? { conversation_user_id: activeConversationUserId.value }
           : {}),
       },
-      suppressErrorMessage: true
-    })
+      suppressErrorMessage: true, timeout: 15000
+    } as any)
     if (response.code === 0) {
       const olderItems = Array.isArray(response.data?.items) ? response.data.items : []
       if (olderItems.length > 0) {
@@ -1290,15 +1277,16 @@ const isChatPaneVisible = () => props.active && visible.value && document.visibi
   ))
 )
 
-const refreshChatState = async () => {
+const refreshChatState = async (refreshHistory = true) => {
   if (!userStore.isAuthenticated || document.visibilityState === 'hidden') return
   if (chatStateRequest) return chatStateRequest
 
   chatStateRequest = (async () => {
-    if (isAdmin.value) await loadConversations()
-    else await loadSummary()
-    if (isChatPaneVisible() && isMessageNearBottom() && !loadingHistory.value) {
-      await loadHistory(true)
+    const summary = isAdmin.value ? await loadConversations() : await loadSummary()
+    if (summary === false) return false
+    if (refreshHistory && isChatPaneVisible() && isMessageNearBottom()) {
+      if (loadingHistory.value) return false
+      if (await loadHistory(true) === false) return false
       await scrollToBottom()
       await markMessagesRead()
     }
@@ -1309,10 +1297,8 @@ const refreshChatState = async () => {
   return chatStateRequest
 }
 
-const handlePageResume = () => { void refreshChatState() }
-
 const handleSocketPayload = async (payload: SocketPayload) => {
-  if (typeof payload.online_count === 'number') {
+  if ('online_count' in payload && typeof payload.online_count === 'number') {
     onlineCount.value = payload.online_count
   }
 
@@ -1326,11 +1312,7 @@ const handleSocketPayload = async (payload: SocketPayload) => {
     receivedSocketMessageIds.add(payload.message.id)
     if (receivedSocketMessageIds.size > 500) receivedSocketMessageIds.delete(receivedSocketMessageIds.values().next().value!)
     const conversationUserId = getMessageConversationUserId(payload.message)
-    const isIncomingCustomerMessage = !payload.message.user.is_admin && !isSelf(payload.message)
     if (isAdmin.value && conversationUserId !== activeConversationUserId.value) {
-      if (isIncomingCustomerMessage) {
-        unreadCount.value += 1
-      }
       void loadConversations()
       return
     }
@@ -1342,11 +1324,7 @@ const handleSocketPayload = async (payload: SocketPayload) => {
         if (userStore.isAuthenticated) {
           await markMessagesRead(payload.message.id)
         }
-      } else if (!isSelf(payload.message)) {
-        unreadCount.value += 1
       }
-    } else if (!isSelf(payload.message)) {
-      unreadCount.value += 1
     }
     if (isAdmin.value) {
       await loadConversations()
@@ -1360,88 +1338,17 @@ const handleSocketPayload = async (payload: SocketPayload) => {
 }
 
 const connectSocket = async () => {
-  if (socketConnecting) return
-  if (socket && socket.connected) return
-
-  const token = localStorage.getItem('token')
-  const connectionUserId = normalizeUserId(userStore.user?.id)
-  socketConnecting = true
-
   cleanupSocket()
-  manualClose = false
   connectionStatus.value = 'connecting'
-
-  const nextSocket = io(getSocketServerURL(), {
-    path: SOCKET_IO_PATH,
-    transports: ['websocket'],
-    auth: token ? { token } : {},
-    withCredentials: true,
-    reconnection: true,
-    reconnectionAttempts: Infinity,
-    reconnectionDelay: 2000,
-    reconnectionDelayMax: 5000,
-    timeout: 8000
-  })
-  socket = nextSocket
-
-  nextSocket.on('connect', () => {
-    socketConnecting = false
-    connectionStatus.value = 'connected'
-    bindOnlineSessionSocket(nextSocket, connectionUserId, token || '')
-    dispatchAccountState('all')
-    void refreshChatState()
-  })
-
-  nextSocket.on('chat_event', (payload: SocketPayload) => {
-    if (payload.type === 'connected' || payload.type === 'online_count') dispatchAccountState('presence')
-    void handleSocketPayload(payload)
-  })
-  nextSocket.on('account_state_changed', (payload: { resource: AccountResource }) => {
-    if (userStore.isAuthenticated && payload?.resource) dispatchAccountState(payload.resource)
-  })
-
-  // 游客消息与其他标签页的已读状态也通过推送同步。
-  nextSocket.on('chat_state_changed', async (payload: {
-    guest_conversation_id?: number
-    message_id?: number
-  }) => {
-    if (!userStore.isAuthenticated) return
-    if (!isAdmin.value) {
-      await loadSummary()
-      return
-    }
-    await loadConversations()
-    if (
-      payload?.message_id &&
-      payload.guest_conversation_id === activeGuestConversationId.value &&
-      isChatPaneVisible() && isMessageNearBottom() && !loadingHistory.value
-    ) {
-      await loadHistory(true)
-      await scrollToBottom()
-      await markMessagesRead()
-    }
-  })
-
-  // 复用全局 Socket.IO 连接，把后台历史收件进度转给邮箱首页。
-  nextSocket.on('external_mail_fetch_event', (payload: any) => {
-    if (payload?.type !== 'history_progress') return
-    window.dispatchEvent(new CustomEvent('external-mail-fetch-progress', { detail: payload }))
-  })
-
-  nextSocket.on('connect_error', (error: any) => {
-    socketConnecting = false
-    connectionStatus.value = 'error'
-    console.error('Socket.IO 连接失败:', error)
-  })
-
-  nextSocket.on('disconnect', () => {
-    socketConnecting = false
-    if (manualClose) {
-      manualClose = false
-      return
-    }
-    connectionStatus.value = 'error'
-  })
+  setRealtimeIdentity(localStorage.getItem('token') || '', normalizeUserId(userStore.user?.id))
+  socketSubscriptions = [
+    onRealtimeEvent('connect', () => { connectionStatus.value = 'connected' }),
+    onRealtimeEvent('disconnect', () => { connectionStatus.value = 'error' }),
+    onRealtimeEvent('chat_event', (payload: SocketPayload) => { void handleSocketPayload(payload) }),
+    subscribeRealtime(['chat_state_changed'], (payload, event) => refreshChatState(
+      event === 'realtime_reset' || !payload || !('message_id' in payload) || Number(payload.message_id) > 0
+    )),
+  ]
 }
 
 const sendGuestReply = async (guestId: number, content: string) => {
@@ -1451,7 +1358,7 @@ const sendGuestReply = async (guestId: number, content: string) => {
     const response: any = await api.post(
       `/live-chat/guest/conversations/${guestId}/reply`,
       { content },
-      { suppressErrorMessage: true } as any,
+      { suppressErrorMessage: true, timeout: 15000 } as any,
     )
     if (response?.code !== 0) {
       showMessage(response?.message || '回复游客失败', 'error')
@@ -1495,13 +1402,13 @@ const submitMessage = () => {
     return
   }
 
-  if (!socket || !socket.connected) {
+  if (connectionStatus.value !== 'connected') {
     showMessage('聊天室连接中，请稍后再试', 'warning')
     void connectSocket()
     return
   }
 
-  socket.emit('chat_event', {
+  emitRealtime('chat_event', {
     type: 'message',
     content,
     attachments,
@@ -1593,15 +1500,11 @@ watch(
 onMounted(() => {
   loadLauncherPosition()
   window.addEventListener('resize', keepLauncherInViewport)
-  window.addEventListener('focus', handlePageResume)
-  document.addEventListener('visibilitychange', handlePageResume)
 })
 
 onBeforeUnmount(() => {
   stopLauncherDrag()
   window.removeEventListener('resize', keepLauncherInViewport)
-  window.removeEventListener('focus', handlePageResume)
-  document.removeEventListener('visibilitychange', handlePageResume)
   cleanupSocket()
 })
 </script>

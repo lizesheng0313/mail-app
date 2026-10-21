@@ -363,7 +363,7 @@
 </template>
 
 <script setup lang="ts">
-import { subscribeAccountState } from '@/services/accountRealtime'
+import { subscribeRealtime } from '@/services/realtimeClient'
 import { computed, ref, onMounted, nextTick, onUnmounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { monitoringAPI } from '@/api/monitoring'
@@ -799,11 +799,7 @@ const loadGuestConversionFunnel = async () => {
   }
 }
 
-const refreshOnlineCount = async () => {
-  try {
-    const response: any = await monitoringAPI.getOnlineCount()
-    if (response.code === 0) {
-      const onlineData = response.data || {}
+const applyOnlineCount = (onlineData: any) => {
       businessStats.value = {
         ...businessStats.value,
         summary: {
@@ -814,9 +810,19 @@ const refreshOnlineCount = async () => {
           miniapp_online_users_now: onlineData.miniapp_online_users || 0
         }
       }
+}
+
+const refreshOnlineCount = async () => {
+  try {
+    const response: any = await monitoringAPI.getOnlineCount()
+    if (response.code !== 0) return false
+    if (response.code === 0) {
+      const onlineData = response.data || {}
+      applyOnlineCount(onlineData)
     }
   } catch (error) {
     console.error('刷新在线人数失败:', error)
+    return false
   }
 }
 
@@ -897,8 +903,10 @@ const handleResize = () => {
 
 // 页面加载时
 onMounted(async () => {
-  unsubscribeOnlineState = subscribeAccountState(['presence'], () => {
-    if (monitoringSection.value === 'business') return refreshOnlineCount()
+  unsubscribeOnlineState = subscribeRealtime(['presence_changed'], (payload, event) => {
+    if (monitoringSection.value !== 'business') return
+    if (event === 'realtime_reset') return refreshOnlineCount()
+    applyOnlineCount(payload || {})
   })
   // 等待DOM完全渲染
   await nextTick()

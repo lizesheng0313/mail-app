@@ -236,6 +236,7 @@
 </template>
 
 <script setup>
+import { subscribeRealtime } from '@/services/realtimeClient'
 import { ref, onMounted } from 'vue'
 import PluginIcon from '@/components/PluginIcon/index.vue'
 import { pluginApi } from '@/api/plugin'
@@ -318,8 +319,8 @@ const handlePurchase = async () => {
         // 提示用户
         showMessage('订单已创建，请在新窗口完成支付', 'success')
         
-        // 开始轮询订单状态
-        startPollingOrderStatus()
+        // 订阅支付结果；断线恢复时查询最终状态
+        subscribeOrderStatus()
       } else {
         showMessage(response.message || '创建订单失败', 'error')
       }
@@ -346,37 +347,32 @@ const handlePurchase = async () => {
   }
 }
 
-// 轮询订单状态
-let pollingTimer = null
-const startPollingOrderStatus = () => {
-  // 每3秒查询一次订单状态
-  pollingTimer = setInterval(async () => {
-    await checkPaymentStatus()
-  }, 3000)
-  
-  // 15分钟后停止轮询
-  setTimeout(() => {
-    if (pollingTimer) {
-      clearInterval(pollingTimer)
-      pollingTimer = null
-    }
-  }, 15 * 60 * 1000)
+// 订阅支付结果
+let unsubscribePayment = null
+const subscribeOrderStatus = () => {
+  unsubscribePayment?.()
+  unsubscribePayment = subscribeRealtime(['payment_changed'], checkPaymentStatus, payload =>
+    payload?.kind === 'plugin' && payload.order_no === currentOrderNo.value, { immediate: true })
 }
 
 // 检查支付状态
 const checkPaymentStatus = async () => {
-  if (!currentOrderNo.value) return
+  const orderNo = currentOrderNo.value
+  if (!orderNo) return
   
   try {
     checkingStatus.value = true
-    const response = await pluginApi.queryPluginOrder(currentOrderNo.value)
+    const response = await pluginApi.queryPluginOrder(orderNo)
     
+    if (orderNo !== currentOrderNo.value) return
+    if (response.code !== 0) return false
     if (response.code === 0) {
       if (response.data.status === 'paid') {
+        currentOrderNo.value = ''
         // 支付成功
-        if (pollingTimer) {
-          clearInterval(pollingTimer)
-          pollingTimer = null
+        if (unsubscribePayment) {
+          unsubscribePayment()
+          unsubscribePayment = null
         }
         
         showMessage('支付成功！插件已开通', 'success')
@@ -386,6 +382,7 @@ const checkPaymentStatus = async () => {
     }
   } catch (error) {
     console.error('查询订单状态失败:', error)
+    return false
   } finally {
     checkingStatus.value = false
   }
@@ -393,6 +390,8 @@ const checkPaymentStatus = async () => {
 
 // 取消支付
 const cancelPayment = () => {
+  unsubscribePayment?.()
+  unsubscribePayment = null
   showQrCode.value = false
   qrCodeUrl.value = ''
   currentOrderNo.value = ''
@@ -405,9 +404,9 @@ onMounted(() => {
 
 // 清理定时器
 const cleanup = () => {
-  if (pollingTimer) {
-    clearInterval(pollingTimer)
-    pollingTimer = null
+  if (unsubscribePayment) {
+    unsubscribePayment()
+    unsubscribePayment = null
   }
 }
 

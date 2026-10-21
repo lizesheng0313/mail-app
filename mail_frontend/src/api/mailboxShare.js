@@ -48,6 +48,7 @@ export const mailboxShareAPI = {
   getShareEmails(shareToken, params = {}) {
     return request.get(`/mailbox-share/${shareToken}/emails`, {
       params,
+      timeout: 15000,
       suppressErrorMessage: true
     })
   },
