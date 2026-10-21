@@ -171,13 +171,15 @@ type ResizeMode = 'left-main' | 'left-middle' | 'middle-right'
 type MobilePane = 'left' | 'middle' | 'right' | 'main'
 
 const DESKTOP_BREAKPOINT = 1024
+const WIDE_DESKTOP_BREAKPOINT = 1920
 const HANDLE_SIZE = 10
 const LEFT_MIN = 240
 const MIDDLE_MIN = 240
 const RIGHT_MIN = 320
 const MAIN_MIN = 480
 const IDEAL_LEFT_WIDTH = 392
-const DEFAULT_TRIPLE_SIDE_RATIO = 0.27
+const DEFAULT_TRIPLE_SIDE_RATIO = 0.3
+const WIDE_TRIPLE_SIDE_RATIO = 0.27
 
 const props = withDefaults(
   defineProps<{
@@ -296,12 +298,15 @@ const syncTripleWidths = (preferredLeft?: number, preferredMiddle?: number) => {
 
   const { leftMin, middleMin, rightMin } = getTripleMinWidths(containerWidth)
   const contentWidth = Math.max(containerWidth - HANDLE_SIZE * 2, leftMin + middleMin + rightMin)
+  const defaultSideRatio = window.innerWidth >= WIDE_DESKTOP_BREAKPOINT
+    ? WIDE_TRIPLE_SIDE_RATIO
+    : DEFAULT_TRIPLE_SIDE_RATIO
   const defaultWidth = Math.min(
-    contentWidth * DEFAULT_TRIPLE_SIDE_RATIO,
+    contentWidth * defaultSideRatio,
     (contentWidth - rightMin) / 2
   )
 
-  // 默认左、中各占 27%，详情占 46%；用户拖拽过则优先恢复保存的比例。
+  // 较小桌面默认 30% / 30% / 40%，大屏为 27% / 27% / 46%；优先恢复用户保存的比例。
   const ratios = tripleWidthRatios.value
   let nextLeft = preferredLeft ?? (ratios ? contentWidth * ratios.left : defaultWidth)
   let nextMiddle = preferredMiddle ?? (ratios ? contentWidth * ratios.middle : defaultWidth)
@@ -601,11 +606,11 @@ onBeforeUnmount(() => {
   }
 
   .mail-three-column-grid--triple {
-    grid-template-columns: minmax(0, 27fr) minmax(0, 27fr) minmax(0, 46fr);
+    grid-template-columns: minmax(0, 30fr) minmax(0, 30fr) minmax(0, 40fr);
   }
 
   .mail-resizable-grid--triple {
-    grid-template-columns: minmax(0, 27fr) 10px minmax(0, 27fr) 10px minmax(0, 46fr);
+    grid-template-columns: minmax(0, 30fr) 10px minmax(0, 30fr) 10px minmax(0, 40fr);
   }
 }
 
@@ -694,6 +699,14 @@ onBeforeUnmount(() => {
 }
 
 @media (min-width: 1920px) {
+  .mail-three-column-grid--triple {
+    grid-template-columns: minmax(0, 27fr) minmax(0, 27fr) minmax(0, 46fr);
+  }
+
+  .mail-resizable-grid--triple {
+    grid-template-columns: minmax(0, 27fr) 10px minmax(0, 27fr) 10px minmax(0, 46fr);
+  }
+
   .mail-layout-safe,
   .mail-layout-grid-shell {
     max-width: none;
