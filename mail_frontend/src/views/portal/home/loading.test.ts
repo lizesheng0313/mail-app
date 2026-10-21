@@ -7,16 +7,23 @@ import { useUserStore } from '@/stores/user'
 import { useMailboxStore } from '@/stores/auth'
 import { useMailStore } from '@/stores/mail'
 import { hostedDomainAPI } from '@/api/hostedDomain'
+import { emailAPI } from '@/api/email'
 import smtpAccountsAPI from '@/api/smtpAccounts'
 import HomePage from './index.vue'
 
 afterEach(() => {
+  vi.useRealTimers()
+  localStorage.clear()
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
 })
 
 describe('workspace loading', () => {
   it('loads system mailboxes and mail in parallel without fetching other mailbox types', async () => {
+    vi.useFakeTimers()
+    localStorage.setItem('token', 'test-session')
+    vi.spyOn(document, 'hidden', 'get').mockReturnValue(true)
+    const backgroundEmails = vi.spyOn(emailAPI, 'getUserEmails').mockResolvedValue({ code: 0, data: { emails: [] } } as any)
     await setI18nLocale('zh-CN')
     const pinia = createPinia()
     setActivePinia(pinia)
@@ -30,7 +37,9 @@ describe('workspace loading', () => {
     const emails = vi.spyOn(useMailStore(), 'fetchUserEmails').mockResolvedValue({ success: true } as any)
     const domains = vi.spyOn(hostedDomainAPI, 'listAllDomains')
     const smtp = vi.spyOn(smtpAccountsAPI, 'getAccounts')
+    let socket: any
     vi.stubGlobal('WebSocket', class {
+      constructor() { socket = this }
       static OPEN = 1
       close() {}
       send() {}
@@ -46,6 +55,13 @@ describe('workspace loading', () => {
       expect(smtp).not.toHaveBeenCalled()
       finishMailboxes()
       await flushPromises()
+      await vi.advanceTimersByTimeAsync(60 * 60 * 1000)
+      expect(backgroundEmails).not.toHaveBeenCalled()
+      expect(emails).toHaveBeenCalledTimes(1)
+      socket.onmessage({ data: JSON.stringify({ type: 'email.received', mailbox_type: 'external', mailbox_id: 7, email_id: 99 }) })
+      await flushPromises()
+      expect(backgroundEmails).toHaveBeenCalledTimes(1)
+      expect(backgroundEmails).toHaveBeenLastCalledWith(expect.objectContaining({ type: 'external' }))
     } finally {
       wrapper.unmount()
     }

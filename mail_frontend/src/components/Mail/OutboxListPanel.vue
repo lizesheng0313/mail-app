@@ -81,6 +81,7 @@
 </template>
 
 <script setup lang="ts">
+import { subscribeAccountState } from '@/services/accountRealtime'
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import smtpAccountsAPI from '@/api/smtpAccounts'
 import { showMessage } from '@/utils/message'
@@ -127,7 +128,7 @@ const loading = ref(false)
 const records = ref<SentEmailRecord[]>([])
 const total = ref(0)
 const currentSelectedId = ref<number | string | null>(null)
-let refreshTimer: ReturnType<typeof setInterval> | null = null
+let unsubscribeState: (() => void) | undefined
 
 const resolveStatusClass = (status?: string) => {
   if (status === 'failed') return 'bg-rose-50 text-rose-700'
@@ -193,9 +194,7 @@ defineExpose({
 
 onMounted(() => {
   loadSentEmails()
-  refreshTimer = window.setInterval(() => {
-    loadSentEmails()
-  }, 20000)
+  unsubscribeState = subscribeAccountState(['outbox'], loadSentEmails)
 })
 
 watch(
@@ -207,9 +206,6 @@ watch(
 )
 
 onBeforeUnmount(() => {
-  if (refreshTimer) {
-    clearInterval(refreshTimer)
-    refreshTimer = null
-  }
+  unsubscribeState?.()
 })
 </script>

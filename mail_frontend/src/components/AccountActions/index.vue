@@ -275,6 +275,7 @@
 
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { subscribeAccountState } from '@/services/accountRealtime'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
@@ -449,9 +450,9 @@ const loadUnreadCount = async () => {
   }
 }
 
-const refreshAfterImportantNotification = () => {
-  if (showAnnouncements.value) void loadAnnouncements()
-  else void loadUnreadCount()
+const refreshAfterImportantNotification = async () => {
+  if (showAnnouncements.value) await loadAnnouncements()
+  else await loadUnreadCount()
 }
 
 // 标记全部为已读
@@ -526,24 +527,18 @@ const handleClickOutside = (event: MouseEvent) => {
   }
 }
 
-let unreadTimer: ReturnType<typeof setInterval> | undefined
+let unsubscribeState: (() => void) | undefined
 
 onMounted(() => {
   document.addEventListener('click', handleClickOutside)
   window.addEventListener('important-notification:acknowledged', refreshAfterImportantNotification)
   // 初始加载未读数量
   loadUnreadCount()
-  // 每5分钟刷新一次未读数量
-  unreadTimer = setInterval(
-    () => {
-      loadUnreadCount()
-    },
-    5 * 60 * 1000
-  )
+  unsubscribeState = subscribeAccountState(['notifications', 'announcements'], refreshAfterImportantNotification)
 })
 
 onUnmounted(() => {
-  if (unreadTimer) clearInterval(unreadTimer)
+  unsubscribeState?.()
   document.removeEventListener('click', handleClickOutside)
   window.removeEventListener('important-notification:acknowledged', refreshAfterImportantNotification)
 })

@@ -363,6 +363,7 @@
 </template>
 
 <script setup lang="ts">
+import { subscribeAccountState } from '@/services/accountRealtime'
 import { computed, ref, onMounted, nextTick, onUnmounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { monitoringAPI } from '@/api/monitoring'
@@ -704,7 +705,7 @@ const guestFunnelDays = ref('7')
 
 const worldMapChart = ref<HTMLDivElement>()
 let mapChart: echarts.ECharts | null = null
-let onlineRefreshTimer: number | null = null
+let unsubscribeOnlineState: (() => void) | undefined
 
 // 格式化数字
 const formatNumber = (num: number | string | undefined | null) => {
@@ -885,20 +886,6 @@ const loadCurrentSectionData = async () => {
   }
 }
 
-const stopOnlineRefresh = () => {
-  if (onlineRefreshTimer) {
-    window.clearInterval(onlineRefreshTimer)
-    onlineRefreshTimer = null
-  }
-}
-
-const configureOnlineRefresh = () => {
-  stopOnlineRefresh()
-  if (monitoringSection.value === 'business') {
-    onlineRefreshTimer = window.setInterval(refreshOnlineCount, 15000)
-  }
-}
-
 const disposeTrafficCharts = () => {
   mapChart?.dispose()
   mapChart = null
@@ -910,10 +897,12 @@ const handleResize = () => {
 
 // 页面加载时
 onMounted(async () => {
+  unsubscribeOnlineState = subscribeAccountState(['presence'], () => {
+    if (monitoringSection.value === 'business') return refreshOnlineCount()
+  })
   // 等待DOM完全渲染
   await nextTick()
   await loadCurrentSectionData()
-  configureOnlineRefresh()
   // 监听窗口大小变化
   window.addEventListener('resize', handleResize)
 })
@@ -924,7 +913,6 @@ watch(monitoringSection, async (_section, previousSection) => {
   }
   await nextTick()
   await loadCurrentSectionData()
-  configureOnlineRefresh()
 })
 
 // 页面卸载时清理
@@ -933,6 +921,6 @@ onUnmounted(() => {
   window.removeEventListener('resize', handleResize)
 
   disposeTrafficCharts()
-  stopOnlineRefresh()
+  unsubscribeOnlineState?.()
 })
 </script>

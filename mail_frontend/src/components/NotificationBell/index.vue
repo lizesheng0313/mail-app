@@ -96,6 +96,7 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
+import { subscribeAccountState } from '@/services/accountRealtime'
 import { useRouter } from 'vue-router'
 import { getNotifications, getUnreadCount, markAsRead, markAllAsRead } from '@/api/notification'
 import { showMessage } from '@/utils/message'
@@ -231,19 +232,18 @@ const handleClickOutside = (event) => {
   }
 }
 
+let unsubscribeState
 onMounted(() => {
   loadUnreadCount()
-  // 定期刷新未读数量（每30秒）
-  const interval = setInterval(loadUnreadCount, 30000)
-
-  // 监听点击外部事件
-  document.addEventListener('click', handleClickOutside)
-
-  // 清理定时器
-  onUnmounted(() => {
-    clearInterval(interval)
-    document.removeEventListener('click', handleClickOutside)
+  unsubscribeState = subscribeAccountState(['notifications'], async () => {
+    await loadUnreadCount()
+    if (showDropdown.value) await loadNotifications()
   })
+  document.addEventListener('click', handleClickOutside)
+})
+onUnmounted(() => {
+  unsubscribeState?.()
+  document.removeEventListener('click', handleClickOutside)
 })
 </script>
 

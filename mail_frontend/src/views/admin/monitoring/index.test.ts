@@ -1,5 +1,5 @@
 import { flushPromises, mount } from '@vue/test-utils'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const route = vi.hoisted(() => ({ meta: { monitoringSection: 'business' } }))
 const api = vi.hoisted(() =>
@@ -25,6 +25,7 @@ vi.mock('./utils/worldMapChart', () => ({ updateWorldMap: vi.fn(), preloadWorldM
 vi.mock('@/components/Monitoring/CrawlerMonitor.vue', () => ({ default: { template: '<div />' } }))
 
 import Monitoring from './index.vue'
+import { dispatchAccountState } from '@/services/accountRealtime'
 import CustomSelect from '@/components/CustomSelect/index.vue'
 import DailyTrendChart from '@/components/Monitoring/DailyTrendChart.vue'
 import { buildDailyTrendOption } from '@/components/Monitoring/dailyTrendOptions'
@@ -33,6 +34,8 @@ beforeEach(() => {
   vi.clearAllMocks()
   Object.values(api).forEach((fn) => fn.mockResolvedValue({ code: 0, data: {} }))
 })
+
+afterEach(() => { vi.useRealTimers(); localStorage.clear() })
 
 describe('independent mailbox monitoring dimensions', () => {
   it('separates actual WeChat operations from mailbox ownership and other clients', async () => {
@@ -326,4 +329,20 @@ describe('independent mailbox monitoring dimensions', () => {
     expect(wrapper.text()).toContain('访问量趋势')
     wrapper.unmount()
   })
+  it('refreshes online counts on presence changes instead of every fifteen seconds', async () => {
+    vi.useFakeTimers()
+    localStorage.setItem('token', 'test-session')
+    route.meta.monitoringSection = 'business'
+    const wrapper = mount(Monitoring, { global: { stubs: { CustomSelect: true, DailyTrendChart: true } } })
+    try {
+      await flushPromises()
+      const count = api.getOnlineCount.mock.calls.length
+      await vi.advanceTimersByTimeAsync(60 * 60 * 1000)
+      expect(api.getOnlineCount).toHaveBeenCalledTimes(count)
+      dispatchAccountState('presence')
+      await flushPromises()
+      expect(api.getOnlineCount).toHaveBeenCalledTimes(count + 1)
+    } finally { wrapper.unmount() }
+  })
+
 })

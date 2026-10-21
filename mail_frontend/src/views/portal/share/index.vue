@@ -337,7 +337,6 @@ const openEmailModal = (email) => {
 let shareMailSocket = null
 let shareMailRetryTimer = null
 let shareMailHeartbeatTimer = null
-let shareMailPollTimer = null
 let shareMailRetryDelay = 3000
 let shareMailStopped = false
 
@@ -345,25 +344,14 @@ const stopShareMailRealtime = () => {
   shareMailStopped = true
   if (shareMailRetryTimer !== null) clearTimeout(shareMailRetryTimer)
   if (shareMailHeartbeatTimer !== null) clearInterval(shareMailHeartbeatTimer)
-  if (shareMailPollTimer !== null) clearInterval(shareMailPollTimer)
   shareMailRetryTimer = null
   shareMailHeartbeatTimer = null
-  shareMailPollTimer = null
   shareMailSocket?.close()
   shareMailSocket = null
 }
 
-const startShareMailPolling = () => {
-  if (shareMailPollTimer !== null) clearInterval(shareMailPollTimer)
-  shareMailPollTimer = setInterval(() => {
-    if (!loadingEmails.value && !isShareTerminalState(shareState.value) && shareState.value !== 'expired') {
-      void loadEmails()
-    }
-  }, 10000)
-}
-
 const connectShareMailRealtime = () => {
-  if (shareMailStopped || shareMailSocket || !['system', 'hosted'].includes(mailboxType.value)) return
+  if (shareMailStopped || shareMailSocket || !['system', 'hosted', 'external'].includes(mailboxType.value)) return
   const shareToken = String(route.params.token || '')
   if (!shareToken) return
   const socket = new WebSocket(buildWebSocketURL('/mail-events/ws'))
@@ -466,9 +454,8 @@ const loadShareInfo = async () => {
       // 邮箱信息已就绪，先显示列表；邮件列表单独展示加载状态。
       loading.value = false
       await loadEmails()
-      if (!isShareTerminalState(shareState.value) && ['system', 'hosted'].includes(mailboxType.value)) {
+      if (!isShareTerminalState(shareState.value) && ['system', 'hosted', 'external'].includes(mailboxType.value)) {
         shareMailStopped = false
-        startShareMailPolling()
         connectShareMailRealtime()
       }
     } else {

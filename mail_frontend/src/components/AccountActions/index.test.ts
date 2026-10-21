@@ -18,13 +18,18 @@ vi.mock('@/utils/message', () => ({ showMessage: vi.fn() }))
 vi.mock('@/components/LanguageSwitcher/index.vue', () => ({ default: { template: '<div />' } }))
 
 import AccountActions from './index.vue'
+import { dispatchAccountState } from '@/services/accountRealtime'
 
 const cleanups: Array<() => void> = []
 beforeEach(() => {
   mocks.userStore.isAuthenticated = true
   mocks.userStore.user.is_admin = false
 })
-afterEach(() => cleanups.splice(0).forEach((cleanup) => cleanup()))
+afterEach(() => {
+  cleanups.splice(0).forEach((cleanup) => cleanup())
+  vi.useRealTimers()
+  localStorage.clear()
+})
 
 const renderActions = async () => {
   const router = createRouter({
@@ -74,4 +79,16 @@ describe('Shared header account and notification entries', () => {
     expect(wrapper.find('a[href="/user/notifications?tab=personal"]').exists()).toBe(true)
     expect(wrapper.find('a[href="/user/announcements"]').exists()).toBe(true)
   })
+  it('updates unread counts on pushed changes without polling', async () => {
+    vi.useFakeTimers()
+    localStorage.setItem('token', 'test-session')
+    await renderActions()
+    const initial = mocks.apiGet.mock.calls.length
+    await vi.advanceTimersByTimeAsync(60 * 60 * 1000)
+    expect(mocks.apiGet).toHaveBeenCalledTimes(initial)
+    dispatchAccountState('notifications')
+    await flushPromises()
+    expect(mocks.apiGet).toHaveBeenCalledTimes(initial + 2)
+  })
+
 })

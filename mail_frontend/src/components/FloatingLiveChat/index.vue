@@ -428,6 +428,7 @@
 </template>
 
 <script setup lang="ts">
+import { dispatchAccountState, type AccountResource } from '@/services/accountRealtime'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { io, type Socket } from 'socket.io-client'
@@ -539,12 +540,10 @@ let conversationsRequest: Promise<void> | null = null
 let historyCursor = 0
 let summaryRequest: Promise<void> | null = null
 let chatStateRequest: Promise<void> | null = null
-let chatStatePoll: ReturnType<typeof setInterval> | null = null
 const readMessageIds = new Map<string, number>()
 const pendingReadKeys = new Set<string>()
 const receivedSocketMessageIds = new Set<number>()
 const SOCKET_IO_PATH = '/mail-api/v1/live-chat/socket.io'
-const CHAT_STATE_FALLBACK_INTERVAL_MS = 30000
 const MAX_CHAT_IMAGES = 4
 const MESSAGE_BOTTOM_THRESHOLD_PX = 48
 const LAUNCHER_POSITION_KEY = 'live_chat_launcher_position'
@@ -1389,11 +1388,16 @@ const connectSocket = async () => {
     socketConnecting = false
     connectionStatus.value = 'connected'
     bindOnlineSessionSocket(nextSocket, connectionUserId, token || '')
+    dispatchAccountState('all')
     void refreshChatState()
   })
 
   nextSocket.on('chat_event', (payload: SocketPayload) => {
+    if (payload.type === 'connected' || payload.type === 'online_count') dispatchAccountState('presence')
     void handleSocketPayload(payload)
+  })
+  nextSocket.on('account_state_changed', (payload: { resource: AccountResource }) => {
+    if (userStore.isAuthenticated && payload?.resource) dispatchAccountState(payload.resource)
   })
 
   // 游客消息与其他标签页的已读状态也通过推送同步。
@@ -1591,10 +1595,6 @@ onMounted(() => {
   window.addEventListener('resize', keepLauncherInViewport)
   window.addEventListener('focus', handlePageResume)
   document.addEventListener('visibilitychange', handlePageResume)
-  // 在线时由 Socket.IO 推送更新；断线期间才低频补查。
-  chatStatePoll = setInterval(() => {
-    if (!socket?.connected) void refreshChatState()
-  }, CHAT_STATE_FALLBACK_INTERVAL_MS)
 })
 
 onBeforeUnmount(() => {
@@ -1602,7 +1602,6 @@ onBeforeUnmount(() => {
   window.removeEventListener('resize', keepLauncherInViewport)
   window.removeEventListener('focus', handlePageResume)
   document.removeEventListener('visibilitychange', handlePageResume)
-  if (chatStatePoll) clearInterval(chatStatePoll)
   cleanupSocket()
 })
 </script>

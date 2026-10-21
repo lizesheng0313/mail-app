@@ -1,5 +1,5 @@
 import { flushPromises, mount } from '@vue/test-utils'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const api = vi.hoisted(() => ({
   getShareInfo: vi.fn(),
@@ -15,6 +15,17 @@ vi.mock('@/services/api', () => ({ isTauri: () => false, buildWebSocketURL: vi.f
 import SharePage from './index.vue'
 
 describe('share page loading', () => {
+  let socket: any
+  beforeEach(() => {
+    vi.stubGlobal('WebSocket', class {
+      static OPEN = 1
+      readyState = 1
+      constructor() { socket = this }
+      close() {}
+      send() {}
+    })
+  })
+  afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals() })
   it('shows mailboxes while the slower email request is still pending', async () => {
     api.getShareInfo.mockResolvedValue({
       code: 0,
@@ -66,4 +77,27 @@ describe('share page loading', () => {
       wrapper.unmount()
     }
   })
+  it('uses push and reconnect catch-up for external shares without recurring list requests', async () => {
+    vi.useFakeTimers()
+    api.getShareInfo.mockResolvedValue({ code: 0, data: {
+      mailbox_type: 'external', expire_mode: 'permanent', mailboxes: [{ id: 1, email: 'shared@example.com' }]
+    } })
+    api.getShareEmails.mockResolvedValue({ code: 0, data: { emails: [], pagination: { total: 0 } } })
+    const wrapper = mount(SharePage, { shallow: true })
+    try {
+      await flushPromises()
+      const initial = api.getShareEmails.mock.calls.length
+      await vi.advanceTimersByTimeAsync(60 * 60 * 1000)
+      expect(api.getShareEmails).toHaveBeenCalledTimes(initial)
+      socket.onmessage({ data: JSON.stringify({ type: 'ready' }) })
+      await flushPromises()
+      expect(api.getShareEmails).toHaveBeenCalledTimes(initial + 1)
+      socket.onmessage({ data: JSON.stringify({ type: 'email.received', mailbox_type: 'external', mailbox_id: 1, email_id: 9 }) })
+      await flushPromises()
+      expect(api.getShareEmails).toHaveBeenCalledTimes(initial + 2)
+      await vi.advanceTimersByTimeAsync(60 * 60 * 1000)
+      expect(api.getShareEmails).toHaveBeenCalledTimes(initial + 2)
+    } finally { wrapper.unmount() }
+  })
+
 })
