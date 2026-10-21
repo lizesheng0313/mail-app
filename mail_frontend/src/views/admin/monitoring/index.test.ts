@@ -35,7 +35,7 @@ beforeEach(() => {
 })
 
 describe('independent mailbox monitoring dimensions', () => {
-  it('shows separate application counts and miniapp receipt subsets in business monitoring', async () => {
+  it('separates actual WeChat operations from mailbox ownership and other clients', async () => {
     route.meta.monitoringSection = 'business'
     api.getBusinessStats.mockResolvedValue({
       code: 0,
@@ -49,6 +49,21 @@ describe('independent mailbox monitoring dimensions', () => {
           business_api_calls_today: 31,
           business_api_active_users_today: 2
         },
+        wechat_collection_started_at_ms: Date.parse('2026-10-18T00:00:00+08:00'),
+        wechat_trend: [
+          {
+            date: '2026-10-18',
+            wechat_active_users: 5,
+            wechat_receive_users: 3,
+            wechat_send_users: 1,
+            wechat_share_users: 2,
+            wechat_share_visit_users: 4,
+            wechat_receive_actions: 12,
+            wechat_share_creates: 6,
+            wechat_share_visits: 8,
+            wechat_send_count: 2
+          }
+        ],
         api_breakdown_trend: [
           {
             date: '2026-10-18',
@@ -154,18 +169,15 @@ describe('independent mailbox monitoring dimensions', () => {
       [8, 0],
       [12, 0]
     ])
-    const miniappChart = charts.find(
-      (chart) => chart.props('label') === '小程序账号归属邮箱每日收件'
-    )!
-    const miniappOption = buildDailyTrendOption(
-      miniappChart.props('rows'),
-      miniappChart.props('series')
+    expect(text).not.toContain('小程序账号归属邮箱每日收件')
+    expect(text).toContain('微信登录后在网页上的操作计入网页')
+    expect(text).toContain('新口径启用时间')
+    const wechatChart = charts.find((chart) => chart.props('label') === '微信端每日使用人数')!
+    const wechatOption = buildDailyTrendOption(
+      wechatChart.props('rows'),
+      wechatChart.props('series')
     ) as any
-    expect(miniappOption.series.map((series: any) => series.data)).toEqual([
-      [3, 0],
-      [2, 0],
-      [4, 0]
-    ])
+    expect(wechatOption.series.map((series: any) => series.data)).toEqual([[5], [3], [1], [2], [4]])
     const resultChart = (label: string) => {
       const chart = wrapper
         .findAllComponents(DailyTrendChart)

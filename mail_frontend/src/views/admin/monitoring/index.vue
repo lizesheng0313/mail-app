@@ -138,6 +138,50 @@
           </div>
         </section>
 
+        <section class="monitoring-panel" data-testid="wechat-usage">
+          <div class="monitoring-panel-header">
+            <h3 class="monitoring-panel-title">微信端使用</h3>
+          </div>
+          <p class="mb-3 text-sm text-gray-500">
+            仅统计微信小程序内的实际成功操作。微信登录后在网页上的操作计入网页。
+            每日人数按账号去重，未登录按设备标识去重。
+          </p>
+          <p class="mb-4 text-xs text-gray-500">
+            {{
+              wechatCollectionStartedAt
+                ? `新口径启用时间：${wechatCollectionStartedAt}（北京时间）。此前数据不追补。`
+                : '微信端操作统计尚未启用。'
+            }}
+          </p>
+          <div class="monitoring-metrics">
+            <MetricCard v-for="metric in wechatMetrics" :key="metric.label" v-bind="metric" />
+          </div>
+          <p
+            v-if="businessStats.summary?.wechat_unidentified_actions_today"
+            class="mt-3 text-xs text-gray-500"
+          >
+            今日有
+            {{
+              formatNumber(businessStats.summary.wechat_unidentified_actions_today)
+            }}
+            次微信操作缺少账号或设备标识，未计入人数。
+          </p>
+          <div class="monitoring-charts monitoring-subsection">
+            <article v-for="chart in wechatCharts" :key="chart.label" class="min-w-0">
+              <h4 class="mb-4 text-sm font-semibold text-gray-900">{{ chart.label }}</h4>
+              <DailyTrendChart
+                :rows="businessStats.wechat_trend || []"
+                :series="chart.series"
+                :label="chart.label"
+              />
+            </article>
+          </div>
+          <p class="mt-4 text-xs text-gray-500">
+            收件操作包括打开收件箱、查看邮件、手动收取，含刷新，按操作计次；未读角标后台检查不计入。
+            发件按成功发件记录计封，当前小程序暂无发件入口。分享分别统计创建与打开，自动刷新不重复算打开。
+          </p>
+        </section>
+
         <section class="monitoring-panel">
           <div class="monitoring-panel-header">
             <h3 class="monitoring-panel-title">邮箱监控</h3>
@@ -387,7 +431,7 @@ const apiResultCharts = computed(() =>
 const shareSources = [
   { key: 'web', label: '网页', color: '#2563eb' },
   { key: 'desktop', label: '桌面端', color: '#8b5cf6' },
-  { key: 'miniapp', label: '小程序', color: '#10b981' },
+  { key: 'miniapp', label: '微信端', color: '#10b981' },
   { key: 'api', label: 'API 调用', color: '#f59e0b' },
   { key: 'unknown', label: '未标记来源', color: '#6b7280' }
 ]
@@ -460,6 +504,34 @@ const audienceMetrics = computed(() => [
     value: formatNumber(businessStats.value.summary?.desktop_active_users_today)
   }
 ])
+const wechatCollectionStartedAt = computed(() => {
+  const timestamp = Number(businessStats.value.wechat_collection_started_at_ms)
+  return timestamp > 0
+    ? new Intl.DateTimeFormat('zh-CN', {
+        timeZone: 'Asia/Shanghai',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      }).format(timestamp)
+    : ''
+})
+const wechatMetrics = computed(() =>
+  [
+    { key: 'wechat_active_users', label: '微信今日使用人数' },
+    { key: 'wechat_receive_users', label: '微信今日收件人数' },
+    { key: 'wechat_send_users', label: '微信今日发件人数' },
+    { key: 'wechat_share_users', label: '微信今日分享人数' },
+    { key: 'wechat_share_visit_users', label: '微信今日分享访客' }
+  ].map(({ key, label }) => ({
+    label,
+    value: wechatCollectionStartedAt.value
+      ? formatNumber(businessStats.value.summary?.[`${key}_today`])
+      : '—'
+  }))
+)
 const apiMetrics = computed(() => [
   {
     label: '站内客户端今日请求',
@@ -509,6 +581,30 @@ const trafficSeries: TrendSeries[] = [
 const desktopSeries: TrendSeries[] = [
   { key: 'desktop_active_users', label: '桌面端使用人数', unit: '人' }
 ]
+const wechatCharts: TrendPanel[] = [
+  {
+    label: '微信端每日使用人数',
+    series: [
+      { key: 'wechat_active_users', label: '使用人数', unit: '人' },
+      { key: 'wechat_receive_users', label: '收件人数', unit: '人' },
+      { key: 'wechat_send_users', label: '发件人数', unit: '人' },
+      { key: 'wechat_share_users', label: '分享创建人数', unit: '人' },
+      { key: 'wechat_share_visit_users', label: '分享访客', unit: '人' }
+    ]
+  },
+  {
+    label: '微信端每日收件与分享操作',
+    series: [
+      { key: 'wechat_receive_actions', label: '收件操作', unit: '次' },
+      { key: 'wechat_share_creates', label: '分享创建', unit: '次' },
+      { key: 'wechat_share_visits', label: '分享打开', unit: '次' }
+    ]
+  },
+  {
+    label: '微信端每日成功发件',
+    series: [{ key: 'wechat_send_count', label: '成功发件记录', unit: '封' }]
+  }
+]
 const mailboxCharts: TrendPanel[] = [
   {
     label: '每日邮箱申请',
@@ -529,14 +625,6 @@ const mailboxCharts: TrendPanel[] = [
     label: '每日邮箱收件',
     series: mailboxReceiptKinds.map((kind) => ({
       key: `${kind.key}_received`,
-      label: kind.label,
-      unit: '封'
-    }))
-  },
-  {
-    label: '小程序账号归属邮箱每日收件',
-    series: mailboxReceiptKinds.map((kind) => ({
-      key: `miniapp_${kind.key}_received`,
       label: kind.label,
       unit: '封'
     }))
