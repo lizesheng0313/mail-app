@@ -116,6 +116,9 @@ class DesktopExternalMailSync {
   }
 
   private onAccountsChanged = (change: MailboxChange) => {
+    for (const id of this.retries.keys()) {
+      if (!change.mailbox_id || change.mailbox_id === id) this.clearFetchRetry(id)
+    }
     for (const id of this.watches.keys()) {
       if (!change.mailbox_id || change.mailbox_id === id) this.removeWatch(id)
     }
@@ -289,6 +292,7 @@ class DesktopExternalMailSync {
   private async fetchAccount(account: ExternalAccount) {
     const id = Number(account.id)
     const version = this.sessionVersion
+    if (this.retries.has(id)) return
     if (!this.running || (!this.invoke && !account.relay_fetch_enabled) || this.fetching.has(id)) {
       if (this.fetching.has(id)) this.pendingFetch.add(id)
       return
@@ -299,6 +303,10 @@ class DesktopExternalMailSync {
     const releaseSlot = await this.acquireFetchSlot()
     try {
       if (!this.running || this.sessionVersion !== version || !localStorage.getItem('token')) return
+      // A queued collection may outlive an account deletion or configuration edit.
+      const current = this.accounts.get(id)
+      if (!current) return
+      account = current
       if (account.relay_fetch_enabled) {
         const response: any = await batchLoginAPI.fetchExternalMailboxOnline(id, {
           suppressErrorMessage: true
@@ -310,6 +318,7 @@ class DesktopExternalMailSync {
             detail: { mailboxId: id, newCount }
           }))
         }
+        if (this.sessionVersion === version) this.clearFetchRetry(id)
         return
       }
       const proxy = await this.proxy(id)
@@ -351,10 +360,7 @@ class DesktopExternalMailSync {
           detail: { mailboxId: id, newCount: Number(result.count) }
         }))
       }
-      this.failures.delete(id)
-      const retry = this.retries.get(id)
-      if (retry !== undefined) window.clearTimeout(retry)
-      this.retries.delete(id)
+      if (this.sessionVersion === version) this.clearFetchRetry(id)
     } catch (error) {
       console.warn(`桌面邮箱 ${id} 自动收取失败，稍后重试:`, error)
       const message = String((error as any)?.message || error)
@@ -374,9 +380,16 @@ class DesktopExternalMailSync {
       if (this.fetching.get(id) === version) this.fetching.delete(id)
       if (this.sessionVersion === version && this.pendingFetch.delete(id) && this.running) {
         const latest = this.accounts.get(id)
-        if (latest) void this.fetchAccount(latest)
+        if (latest && !this.retries.has(id)) void this.fetchAccount(latest)
       }
     }
+  }
+
+  private clearFetchRetry(id: number) {
+    this.failures.delete(id)
+    const retry = this.retries.get(id)
+    if (retry !== undefined) window.clearTimeout(retry)
+    this.retries.delete(id)
   }
 }
 

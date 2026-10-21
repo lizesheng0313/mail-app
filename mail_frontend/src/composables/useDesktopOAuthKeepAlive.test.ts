@@ -9,7 +9,7 @@ vi.mock('@/services/realtimeClient', () => ({ subscribeRealtime: () => () => {} 
 vi.mock('@tauri-apps/api/core', () => ({ invoke: mocks.invoke }))
 
 import { useDesktopOAuthKeepAlive } from './useDesktopOAuthKeepAlive'
-import { getDesktopMailboxAccounts, stopDesktopMailboxCache } from '@/services/desktopMailboxCache'
+import { getDesktopMailboxAccounts, invalidateDesktopMailboxes, stopDesktopMailboxCache } from '@/services/desktopMailboxCache'
 
 let app: ReturnType<typeof createApp>
 let service: ReturnType<typeof useDesktopOAuthKeepAlive>
@@ -52,4 +52,37 @@ it('has no periodic account request when there are no OAuth mailboxes', async ()
   await vi.advanceTimersByTimeAsync(60 * 60000)
   expect(mocks.accounts).toHaveBeenCalledTimes(1)
   expect(mocks.token).not.toHaveBeenCalled()
+})
+
+it('restarts renewal with changed configuration without recovering stale credentials', async () => {
+  const account = { id: 1, auth_type: 'oauth2', status: 'active', password: 'old-password' }
+  mocks.accounts.mockResolvedValue({ code: 0, data: { accounts: [account] } })
+  let reject!: (error: Error) => void
+  mocks.token.mockImplementationOnce(() => new Promise((_resolve, fail) => { reject = fail }))
+  const starting = service.start()
+  await vi.waitFor(() => expect(mocks.token).toHaveBeenCalledTimes(1))
+  mocks.accounts.mockResolvedValue({ code: 0, data: { accounts: [{ ...account, password: 'new-password' }] } })
+  invalidateDesktopMailboxes({ resource: 'accounts', mailbox_id: 1 })
+  // The change timer fires while the old renewal is still in flight.
+  await vi.advanceTimersByTimeAsync(300)
+  reject(new Error('邮箱授权配置已变化，请重试'))
+  await starting
+  expect(mocks.invoke).not.toHaveBeenCalled()
+  await vi.advanceTimersByTimeAsync(300)
+  await vi.waitFor(() => expect(mocks.token).toHaveBeenCalledTimes(2))
+  expect(mocks.accounts).toHaveBeenCalledTimes(2)
+})
+
+it('does not mark a previous session mailbox after delayed native recovery fails', async () => {
+  mocks.accounts.mockResolvedValue({ code: 0, data: { accounts: [{ id: 1, auth_type: 'oauth2', password: 'password' }] } })
+  mocks.token.mockRejectedValueOnce(new Error('refresh_token 失效'))
+  let reject!: (error: Error) => void
+  mocks.invoke.mockImplementationOnce(() => new Promise((_resolve, fail) => { reject = fail }))
+  const starting = service.start()
+  await vi.waitFor(() => expect(mocks.invoke).toHaveBeenCalledTimes(1))
+  service.stop()
+  localStorage.setItem('token', 'new-session')
+  reject(new Error('__AUTO_RECOVERY_LIMIT__::自动恢复次数已达上限'))
+  await starting
+  expect(mocks.status).not.toHaveBeenCalled()
 })

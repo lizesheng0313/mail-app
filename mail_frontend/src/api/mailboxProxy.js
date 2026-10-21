@@ -26,7 +26,7 @@ const mailboxProxyApi = {
   },
 
   previewRuntimeProxy(data) {
-    return api.post('/unified-emails/external-mailboxes/proxy/preview', data)
+    return api.post('/unified-emails/external-mailboxes/proxy/preview', data, { timeout: 15000 })
   },
 
   getRuntimeProxy(mailboxId) {

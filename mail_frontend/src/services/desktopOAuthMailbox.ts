@@ -15,7 +15,7 @@ type OAuthAccessTokenPayload = {
 }
 
 const tokens = new Map<number, OAuthAccessTokenPayload>()
-const pending = new Map<number, Promise<OAuthAccessTokenPayload>>()
+const pending = new Map<number, { promise: Promise<OAuthAccessTokenPayload>; forced: boolean }>()
 let identity = ''
 let generation = 0
 const ensureIdentity = () => {
@@ -40,7 +40,18 @@ export const desktopOAuthRefreshAt = (id: number) => {
 const requestToken = (id: number, suppressErrorMessage: boolean, force = false): Promise<OAuthAccessTokenPayload> => {
   if (!localStorage.getItem('token')) return Promise.reject(new Error('登录状态已变化'))
   ensureIdentity()
-  if (pending.has(id)) return pending.get(id)!
+  const inflight = pending.get(id)
+  if (inflight) {
+    if (!force || inflight.forced) return inflight.promise
+    const version = generation
+    const scope = identity
+    // A forced renewal must not silently resolve with an older ordinary read.
+    return inflight.promise.catch(() => undefined).then(() => {
+      ensureIdentity()
+      if (version !== generation || scope !== identity) throw new Error('邮箱授权配置已变化，请重试')
+      return requestToken(id, suppressErrorMessage, true)
+    })
+  }
   const cached = tokens.get(id)
   if (!force && cached && Date.now() < desktopOAuthRefreshAt(id)) return Promise.resolve(cached)
   const version = generation
@@ -57,8 +68,8 @@ const requestToken = (id: number, suppressErrorMessage: boolean, force = false):
     if (response.data.should_cache !== false) tokens.set(id, response.data)
     return response.data
   })()
-  pending.set(id, promise)
-  void promise.finally(() => { if (pending.get(id) === promise) pending.delete(id) }).catch(() => {})
+  pending.set(id, { promise, forced: force })
+  void promise.finally(() => { if (pending.get(id)?.promise === promise) pending.delete(id) }).catch(() => {})
   return promise
 }
 

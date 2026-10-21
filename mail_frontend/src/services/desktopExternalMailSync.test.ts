@@ -162,4 +162,31 @@ describe('desktop external mail sync', () => {
     await vi.waitFor(() => expect(mocks.invoke).toHaveBeenCalledWith('fetch_emails', expect.objectContaining({ password: 'new' })))
     expect(mocks.getAllAccounts).toHaveBeenCalledTimes(2)
   })
+
+  it('does not let repeated IDLE events bypass failed upload backoff', async () => {
+    vi.useFakeTimers()
+    mocks.getAllAccounts.mockResolvedValue({ code: 0, data: { accounts: [{
+      id: 1, email: 'imap@test', protocol: 'imap', imap_host: 'imap.test', status: 'active'
+    }] } })
+    let reject!: (error: unknown) => void
+    let attempts = 0
+    mocks.invoke.mockImplementation(async command => {
+      if (command === 'start_imap_watch') return 7
+      if (command === 'fetch_emails' && ++attempts === 1) return new Promise((_resolve, fail) => { reject = fail })
+      return { count: 0 }
+    })
+    await desktopExternalMailSync.start(42)
+    await vi.advanceTimersByTimeAsync(0)
+    emit(1, 7, 'ready')
+    await vi.advanceTimersByTimeAsync(0)
+    for (let i = 0; i < 20; i++) emit(1, 7, 'changed')
+    reject({ message: '本地收取成功，但同步到服务器失败', failure_kind: 'network' })
+    await vi.advanceTimersByTimeAsync(0)
+    expect(attempts).toBe(1)
+    for (let i = 0; i < 20; i++) emit(1, 7, 'changed')
+    await vi.advanceTimersByTimeAsync(4999)
+    expect(attempts).toBe(1)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(attempts).toBe(2)
+  })
 })

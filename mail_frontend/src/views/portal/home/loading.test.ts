@@ -9,6 +9,8 @@ import { useMailStore } from '@/stores/mail'
 import { hostedDomainAPI } from '@/api/hostedDomain'
 import { emailAPI } from '@/api/email'
 import smtpAccountsAPI from '@/api/smtpAccounts'
+import mailboxProxyApi from '@/api/mailboxProxy'
+import { stopDesktopMailboxCache } from '@/services/desktopMailboxCache'
 const realtime = vi.hoisted(() => ({ refresh: null as any }))
 vi.mock('@/services/realtimeClient', () => ({
   registerRealtimeScope: () => vi.fn(),
@@ -20,6 +22,7 @@ vi.mock('@/services/realtimeClient', () => ({
 import HomePage from './index.vue'
 
 afterEach(() => {
+  stopDesktopMailboxCache()
   vi.useRealTimers()
   localStorage.clear()
   vi.restoreAllMocks()
@@ -27,6 +30,32 @@ afterEach(() => {
 })
 
 describe('workspace loading', () => {
+  it('stops manual collection and account verification when proxy lookup fails', async () => {
+    localStorage.setItem('token', 'test-session')
+    vi.spyOn(document, 'hidden', 'get').mockReturnValue(true)
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const user = useUserStore()
+    user.isAuthenticated = true
+    user.user = { id: 1 } as any
+    vi.spyOn(useMailboxStore(), 'fetchMailboxes').mockResolvedValue({ success: true } as any)
+    vi.spyOn(useMailStore(), 'fetchUserEmails').mockResolvedValue({ success: true } as any)
+    const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/', component: { template: '<div />' } }] })
+    await router.push('/')
+    const wrapper = mount(HomePage, { shallow: true, global: { plugins: [pinia, router, i18n] } })
+    try {
+      await flushPromises()
+      vi.stubGlobal('__TAURI_INTERNALS__', {})
+      const actions = (wrapper.vm as any).$.setupState
+      vi.spyOn(mailboxProxyApi, 'getRuntimeProxy').mockRejectedValue(new Error('proxy offline'))
+      await expect(actions.loadMailboxRuntimeProxy(7)).rejects.toThrow('proxy offline')
+      vi.spyOn(mailboxProxyApi, 'previewRuntimeProxy').mockResolvedValue({ code: 1, message: '代理配置无效' } as any)
+      await expect(actions.previewMailboxRuntimeProxy('a@test', null, 1)).rejects.toThrow('代理配置无效')
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
   it('loads system mailboxes and mail in parallel without fetching other mailbox types', async () => {
     vi.useFakeTimers()
     localStorage.setItem('token', 'test-session')
@@ -63,6 +92,9 @@ describe('workspace loading', () => {
       await flushPromises()
       expect(backgroundEmails).toHaveBeenCalledTimes(1)
       expect(backgroundEmails).toHaveBeenLastCalledWith(expect.objectContaining({ type: 'external' }))
+      await realtime.refresh({ type: 'email.updated', mailbox_type: 'external', mailbox_id: 7, email_id: 99 }, 'mail_changed')
+      await flushPromises()
+      expect(backgroundEmails).toHaveBeenCalledTimes(1) // Reading/deleting mail is not a new-mail title alert.
     } finally {
       wrapper.unmount()
     }

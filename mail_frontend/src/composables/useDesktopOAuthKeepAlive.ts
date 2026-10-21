@@ -43,6 +43,7 @@ export function useDesktopOAuthKeepAlive() {
   let lastWakeRefreshAt = 0
   let sessionVersion = 0
   let sessionToken = ''
+  let configVersion = 0
   let unsubscribeCache: (() => void) | undefined
   const nextChecks = new Map<number, number>()
 
@@ -79,19 +80,22 @@ export function useDesktopOAuthKeepAlive() {
     }
 
     const version = sessionVersion
+    const config = configVersion
+    const current = () => isRunning.value && version === sessionVersion && config === configVersion && localStorage.getItem('token') === authToken
     isRefreshing.value = true
     let retryDelay: number | undefined
     try {
       const oauthAccounts = await loadOAuthAccounts()
+      if (!current()) return
       const ids = new Set(oauthAccounts.map(account => account.id))
       for (const id of nextChecks.keys()) if (!ids.has(id)) nextChecks.delete(id)
       const tauriInvoke = await getTauriInvoke()
       for (const account of oauthAccounts) {
-        if (!isRunning.value || localStorage.getItem('token') !== authToken) break
+        if (!current()) break
         if ((nextChecks.get(account.id) || 0) > Date.now()) continue
         try {
           await getDesktopOAuthAccessToken(account.id)
-          if (!isRunning.value || version !== sessionVersion || localStorage.getItem('token') !== authToken) break
+          if (!current()) break
           nextChecks.set(account.id, Math.max(Date.now() + 60000, desktopOAuthRefreshAt(account.id) || Date.now() + RETRY_DELAY_MS))
           if (
             account.status === 'failed' &&
@@ -102,10 +106,10 @@ export function useDesktopOAuthKeepAlive() {
             await batchLoginAPI.updateMailboxStatus(account.id, 'active')
           }
         } catch (error: any) {
-          if (!isRunning.value || version !== sessionVersion || localStorage.getItem('token') !== authToken) break
+          if (!current()) break
           nextChecks.set(account.id, Date.now() + RETRY_DELAY_MS)
           const errorMessage = getErrorMessage(error)
-          const recovered = await trySilentRecover(account, authToken, errorMessage, tauriInvoke)
+          const recovered = await trySilentRecover(account, authToken, errorMessage, tauriInvoke, current)
           if (recovered) {
             continue
           }
@@ -126,7 +130,7 @@ export function useDesktopOAuthKeepAlive() {
     } finally {
       if (version === sessionVersion) {
         isRefreshing.value = false
-        scheduleNext(retryDelay)
+        scheduleNext(config !== configVersion ? 300 : retryDelay)
       }
     }
   }
@@ -135,9 +139,10 @@ export function useDesktopOAuthKeepAlive() {
     account: OAuthMailboxAccount,
     authToken: string,
     rawMessage: string,
-    tauriInvoke: any
+    tauriInvoke: any,
+    current: () => boolean
   ) => {
-    if (!tauriInvoke || !shouldAttemptSilentRecovery(rawMessage) || !String(account.password || '').trim()) {
+    if (!current() || !tauriInvoke || !shouldAttemptSilentRecovery(rawMessage) || !String(account.password || '').trim()) {
       return false
     }
 
@@ -147,6 +152,7 @@ export function useDesktopOAuthKeepAlive() {
         token: authToken,
         serverUrl: getServerUrl()
       })
+      if (!current()) return false
       window.dispatchEvent(
         new CustomEvent('external-mailbox-recovered', {
           detail: { mailboxId: account.id }
@@ -154,6 +160,7 @@ export function useDesktopOAuthKeepAlive() {
       )
       return true
     } catch (recoveryError: any) {
+      if (!current()) return false
       const rawMessage = getErrorMessage(recoveryError)
       const message = normalizeOAuthRecoveryErrorMessage(rawMessage)
       if (isAutoRecoveryLimitError(rawMessage)) {
@@ -214,6 +221,7 @@ export function useDesktopOAuthKeepAlive() {
     isRunning.value = true
     unsubscribeCache = subscribeDesktopMailboxChanges(change => {
       if (change.resource === 'proxy') return
+      configVersion++
       if (change.mailbox_id) nextChecks.delete(change.mailbox_id)
       else nextChecks.clear()
       scheduleNext(300)

@@ -7,7 +7,7 @@ vi.mock('./api', () => ({ getServerUrl: () => 'https://api.test/v1' }))
 vi.mock('./realtimeClient', () => ({ subscribeRealtime: (_events: any, listener: any) => { mocks.realtime = listener; return () => {} } }))
 
 import { getDesktopMailboxAccounts, getDesktopRuntimeProxy, invalidateDesktopMailboxes, stopDesktopMailboxCache } from './desktopMailboxCache'
-import { clearDesktopOAuthTokens, getDesktopOAuthAccessToken, runDesktopOAuthMailboxAction } from './desktopOAuthMailbox'
+import { clearDesktopOAuthTokens, forceRefreshDesktopOAuthAccessToken, getDesktopOAuthAccessToken, runDesktopOAuthMailboxAction } from './desktopOAuthMailbox'
 
 beforeEach(() => {
   vi.useFakeTimers()
@@ -23,6 +23,32 @@ beforeEach(() => {
 afterEach(() => { stopDesktopMailboxCache(); clearDesktopOAuthTokens(); localStorage.clear(); vi.useRealTimers() })
 
 describe('shared desktop configuration cache', () => {
+  it('performs and deduplicates forced renewal behind an ordinary token read', async () => {
+    let resolve!: (response: any) => void
+    mocks.token.mockImplementationOnce(() => new Promise(done => { resolve = done }))
+    const ordinary = getDesktopOAuthAccessToken(1)
+    const first = forceRefreshDesktopOAuthAccessToken(1)
+    const second = forceRefreshDesktopOAuthAccessToken(1)
+    resolve({ code: 0, data: { access_token: 'old', expires_at: Date.now() + 3600000 } })
+    expect((await ordinary).access_token).toBe('old')
+    expect((await first).access_token).toBe('access')
+    expect((await second).access_token).toBe('access')
+    expect(mocks.refresh).toHaveBeenCalledTimes(1)
+    expect(mocks.token).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not start queued forced renewal in a replacement login session', async () => {
+    let resolve!: (response: any) => void
+    mocks.token.mockImplementationOnce(() => new Promise(done => { resolve = done }))
+    const ordinary = getDesktopOAuthAccessToken(1).catch(() => {})
+    const forced = forceRefreshDesktopOAuthAccessToken(1)
+    localStorage.setItem('token', 'session-b')
+    resolve({ code: 0, data: { access_token: 'old' } })
+    await ordinary
+    await expect(forced).rejects.toThrow('配置已变化')
+    expect(mocks.refresh).not.toHaveBeenCalled()
+  })
+
   it('shares the initial account read and keeps it across scheduled checks', async () => {
     await Promise.all([getDesktopMailboxAccounts(), getDesktopMailboxAccounts()])
     await vi.advanceTimersByTimeAsync(3600000)

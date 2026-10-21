@@ -1181,29 +1181,21 @@ const loadExternalMailboxAccountById = async (mailboxId: number) => {
 
 const loadMailboxRuntimeProxy = async (mailboxId: number) => {
   if (!mailboxId) return null
-  try {
-    if (isTauri()) return await getDesktopRuntimeProxy(mailboxId)
-    const response: any = await mailboxProxyApi.getRuntimeProxy(mailboxId)
-    if (response.code !== 0) return null
-    return response?.data?.runtime_proxy || null
-  } catch {
-    return null
-  }
+  if (isTauri()) return getDesktopRuntimeProxy(mailboxId)
+  const response: any = await mailboxProxyApi.getRuntimeProxy(mailboxId)
+  if (response.code !== 0) throw new Error(response.message || '获取代理配置失败')
+  return response?.data?.runtime_proxy || null
 }
 
 const previewMailboxRuntimeProxy = async (email: string, oauthProvider: string | null = null, proxyId: number | null = null) => {
   if (!email && !proxyId) return null
-  try {
-    const response: any = await mailboxProxyApi.previewRuntimeProxy({
-      email,
-      oauth_provider: oauthProvider || null,
-      proxy_id: proxyId || null
-    })
-    if (response.code !== 0) return null
-    return response?.data?.runtime_proxy || null
-  } catch {
-    return null
-  }
+  const response: any = await mailboxProxyApi.previewRuntimeProxy({
+    email,
+    oauth_provider: oauthProvider || null,
+    proxy_id: proxyId || null
+  })
+  if (response.code !== 0) throw new Error(response.message || '获取代理配置失败')
+  return response?.data?.runtime_proxy || null
 }
 
 const fetchExternalMailboxThroughRelay = async (account: any) => {
@@ -2552,10 +2544,10 @@ const closeMailRealtime = () => {
   unsubscribeMailScope = undefined
 }
 
-const refreshFromMailEvent = async (type: 'system' | 'hosted' | 'external', emailId: number) => {
+const refreshFromMailEvent = async (type: 'system' | 'hosted' | 'external', emailId: number, received = true) => {
   // Incoming bounce mail can also change a sent record's delivery status.
   if (type === 'external') dispatchAccountState('outbox')
-  if (document.hidden) {
+  if (document.hidden && received) {
     try {
       const emails = await loadTitleAlertEmailsByType(type)
       if (!titleAlertInitialized[type]) {
@@ -2584,7 +2576,7 @@ const connectMailRealtime = () => {
   unsubscribeMailScope = registerRealtimeScope('home-mail', { guest_mailboxes: guestMailboxes })
   unsubscribeMailRealtime = subscribeRealtime(['mail_changed'], async (payload, event) => {
     if (event !== 'realtime_reset' && payload?.mailbox_type) {
-      return refreshFromMailEvent(payload.mailbox_type, Number(payload.email_id || 0))
+      return refreshFromMailEvent(payload.mailbox_type, Number(payload.email_id || 0), payload.type !== 'email.updated')
     }
     dispatchAccountState('outbox')
     if (mailboxType.value === 'system') return refreshSystemEmailsAfterPush()
