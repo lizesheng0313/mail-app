@@ -116,6 +116,7 @@
           v-else
           :class="[
             'mail-three-column-grid grid grid-cols-1 gap-6 flex-1',
+            useMain && $slots.main ? 'mail-three-column-grid--main' : 'mail-three-column-grid--triple',
             workspaceMode ? 'mail-three-column-grid--workspace' : '',
             (pageScrollable || compactPanels) ? '' : 'lg:overflow-hidden',
             mobilePanes.length ? 'mail-mobile-pane-grid' : ''
@@ -176,6 +177,7 @@ const MIDDLE_MIN = 240
 const RIGHT_MIN = 320
 const MAIN_MIN = 480
 const IDEAL_LEFT_WIDTH = 392
+const DEFAULT_TRIPLE_SIDE_RATIO = 0.27
 
 const props = withDefaults(
   defineProps<{
@@ -295,11 +297,11 @@ const syncTripleWidths = (preferredLeft?: number, preferredMiddle?: number) => {
   const { leftMin, middleMin, rightMin } = getTripleMinWidths(containerWidth)
   const contentWidth = Math.max(containerWidth - HANDLE_SIZE * 2, leftMin + middleMin + rightMin)
   const defaultWidth = Math.min(
-    contentWidth / 3,
+    contentWidth * DEFAULT_TRIPLE_SIDE_RATIO,
     (contentWidth - rightMin) / 2
   )
 
-  // 默认平分可用宽度；拖拽后保存比例，窗口缩放时各栏一起伸缩。
+  // 默认左、中各占 27%，详情占 46%；用户拖拽过则优先恢复保存的比例。
   const ratios = tripleWidthRatios.value
   let nextLeft = preferredLeft ?? (ratios ? contentWidth * ratios.left : defaultWidth)
   let nextMiddle = preferredMiddle ?? (ratios ? contentWidth * ratios.middle : defaultWidth)
@@ -592,10 +594,18 @@ onBeforeUnmount(() => {
   }
 }
 
-/* 普通桌面保持三栏等宽，延续原有紧凑布局。 */
+/* 三栏默认给邮件详情留出更多空间；两栏撰写视图保留原有布局。 */
 @media (min-width: 1024px) {
   .mail-three-column-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .mail-three-column-grid--triple {
+    grid-template-columns: minmax(0, 27fr) minmax(0, 27fr) minmax(0, 46fr);
+  }
+
+  .mail-resizable-grid--triple {
+    grid-template-columns: minmax(0, 27fr) 10px minmax(0, 27fr) 10px minmax(0, 46fr);
   }
 }
 
