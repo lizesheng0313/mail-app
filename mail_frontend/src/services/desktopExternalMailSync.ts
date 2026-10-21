@@ -1,5 +1,5 @@
 import { batchLoginAPI } from '@/api/batchLogin'
-import mailboxProxyApi from '@/api/mailboxProxy'
+import { getDesktopMailboxAccounts, getDesktopRuntimeProxy, invalidateDesktopRuntimeProxy, startDesktopMailboxCache, subscribeDesktopMailboxChanges, type MailboxChange } from './desktopMailboxCache'
 import { getServerUrl, isTauri } from '@/services/api'
 import { getDesktopOAuthAccessToken, runDesktopOAuthMailboxAction } from '@/services/desktopOAuthMailbox'
 
@@ -51,6 +51,9 @@ class DesktopExternalMailSync {
   private refreshAgain = false
   private userId = 0
   private sessionVersion = 0
+  private unsubscribeCache?: () => void
+  private retries = new Map<number, number>()
+  private failures = new Map<number, number>()
 
   async start(userId: number) {
     if (!isTauri() || !userId || !localStorage.getItem('token')) return
@@ -58,6 +61,7 @@ class DesktopExternalMailSync {
     await this.stop()
     this.running = true
     this.userId = userId
+    startDesktopMailboxCache()
     const version = ++this.sessionVersion
     const [{ invoke }, { listen }] = await Promise.all([
       import('@tauri-apps/api/core'),
@@ -73,7 +77,7 @@ class DesktopExternalMailSync {
       return
     }
     this.unlisten = unlisten
-    window.addEventListener('external-mailboxes-changed', this.onAccountsChanged)
+    this.unsubscribeCache = subscribeDesktopMailboxChanges(this.onAccountsChanged)
     document.addEventListener('visibilitychange', this.onVisibilityChange)
     this.interval = window.setInterval(() => {
       void this.refreshAccounts().then(() => this.checkFallbackAccounts())
@@ -88,7 +92,11 @@ class DesktopExternalMailSync {
     this.userId = 0
     if (this.interval !== undefined) window.clearInterval(this.interval)
     this.interval = undefined
-    window.removeEventListener('external-mailboxes-changed', this.onAccountsChanged)
+    this.unsubscribeCache?.()
+    this.unsubscribeCache = undefined
+    for (const timer of this.retries.values()) window.clearTimeout(timer)
+    this.retries.clear()
+    this.failures.clear()
     document.removeEventListener('visibilitychange', this.onVisibilityChange)
     this.unlisten?.()
     this.unlisten = undefined
@@ -107,7 +115,12 @@ class DesktopExternalMailSync {
     await invoke?.('stop_all_imap_watches').catch(() => {})
   }
 
-  private onAccountsChanged = () => { void this.refreshAccounts() }
+  private onAccountsChanged = (change: MailboxChange) => {
+    for (const id of this.watches.keys()) {
+      if (!change.mailbox_id || change.mailbox_id === id) this.removeWatch(id)
+    }
+    void this.refreshAccounts().then(() => this.checkFallbackAccounts())
+  }
   private onVisibilityChange = () => {
     if (!document.hidden && this.running) {
       void this.refreshAccounts().then(() => this.catchUpAll())
@@ -122,9 +135,9 @@ class DesktopExternalMailSync {
     this.refreshing = true
     const version = this.sessionVersion
     try {
-      const result: any = await batchLoginAPI.getAllAccounts(100, { suppressErrorMessage: true })
-      if (!this.running || this.sessionVersion !== version || result.code !== 0) return
-      const list: ExternalAccount[] = (result.data?.accounts || [])
+      const result = await getDesktopMailboxAccounts()
+      if (!this.running || this.sessionVersion !== version) return
+      const list: ExternalAccount[] = result
         .filter((account: ExternalAccount) => Number(account.id) > 0 && account.status === 'active')
         .map((account: ExternalAccount) => ({ ...account, id: Number(account.id) }))
       const next = new Map(list.map((account) => [Number(account.id), account]))
@@ -170,16 +183,17 @@ class DesktopExternalMailSync {
   }
 
   private removeAccount(id: number) {
+    const retry = this.retries.get(id)
+    if (retry !== undefined) window.clearTimeout(retry)
+    this.retries.delete(id)
+    this.failures.delete(id)
     this.removeWatch(id)
     this.fallback.delete(id)
     this.pendingFetch.delete(id)
   }
 
   private async proxy(id: number) {
-    try {
-      const response: any = await mailboxProxyApi.getRuntimeProxy(id)
-      return response.code === 0 ? response.data?.runtime_proxy || null : null
-    } catch { return null }
+    return getDesktopRuntimeProxy(id)
   }
 
   private async startWatch(account: ExternalAccount, watch: Watch) {
@@ -246,7 +260,7 @@ class DesktopExternalMailSync {
     for (let offset = 0; offset < ids.length && this.running && this.sessionVersion === version; offset += 2) {
       await Promise.all(ids.slice(offset, offset + 2).map((id) => {
         const account = this.accounts.get(id)
-        return account ? this.fetchAccount(account) : Promise.resolve()
+        return account && !this.retries.has(id) ? this.fetchAccount(account) : Promise.resolve()
       }))
     }
   }
@@ -337,8 +351,24 @@ class DesktopExternalMailSync {
           detail: { mailboxId: id, newCount: Number(result.count) }
         }))
       }
+      this.failures.delete(id)
+      const retry = this.retries.get(id)
+      if (retry !== undefined) window.clearTimeout(retry)
+      this.retries.delete(id)
     } catch (error) {
       console.warn(`桌面邮箱 ${id} 自动收取失败，稍后重试:`, error)
+      const message = String((error as any)?.message || error)
+      if (!message.includes('同步') && (error as any)?.failure_kind === 'network') invalidateDesktopRuntimeProxy(id)
+      if ((error as any)?.failure_kind !== 'auth' && this.running && this.sessionVersion === version && !this.retries.has(id)) {
+        const failures = (this.failures.get(id) || 0) + 1
+        this.failures.set(id, failures)
+        const timer = window.setTimeout(() => {
+          this.retries.delete(id)
+          const current = this.accounts.get(id)
+          if (current && this.running) void this.fetchAccount(current)
+        }, Math.min(5000 * 2 ** Math.min(failures - 1, 6), POP3_INTERVAL_MS))
+        this.retries.set(id, timer)
+      }
     } finally {
       releaseSlot()
       if (this.fetching.get(id) === version) this.fetching.delete(id)

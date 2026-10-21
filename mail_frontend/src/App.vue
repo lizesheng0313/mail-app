@@ -20,6 +20,7 @@ import SystemMaintenance from '@/components/SystemMaintenance/index.vue'
 import AppUpdater from '@/components/AppUpdater/index.vue'
 import { registerMaintenanceCallback, isTauri } from '@/services/api'
 import { showMessage } from '@/utils/message'
+import { stopDesktopMailboxCache } from '@/services/desktopMailboxCache'
 import { desktopExternalMailSync } from '@/services/desktopExternalMailSync'
 import { setRealtimeIdentity, stopRealtime } from '@/services/realtimeClient'
 
@@ -96,7 +97,7 @@ onMounted(async () => {
 
   // 初始路由守卫统一校验登录，认证变化由下面的 watch 接续桌面同步。
   if (isTauri() && userStore.isAuthenticated) {
-    await desktopOAuthKeepAlive.start()
+    void desktopOAuthKeepAlive.start().catch(console.warn)
     void desktopExternalMailSync.start(Number(userStore.user?.id || 0)).catch(console.warn)
   }
 
@@ -111,11 +112,12 @@ watch(
     if (!isTauri()) return
 
     if (isAuthenticated) {
-      await desktopOAuthKeepAlive.start()
+      void desktopOAuthKeepAlive.start().catch(console.warn)
       void desktopExternalMailSync.start(Number(userId || 0)).catch(console.warn)
     } else {
       desktopOAuthKeepAlive.stop()
       void desktopExternalMailSync.stop()
+      stopDesktopMailboxCache()
     }
   }
 )
@@ -125,5 +127,6 @@ onBeforeUnmount(() => {
   unlistenOAuthCallback?.()
   desktopOAuthKeepAlive.stop()
   void desktopExternalMailSync.stop()
+  stopDesktopMailboxCache()
 })
 </script>

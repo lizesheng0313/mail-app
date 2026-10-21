@@ -114,6 +114,7 @@ export const batchLoginAPI = {
     api.delete(`/unified-emails/mailboxes/${accountId}`, { params: { type: 'external' } }),
 
   // 更新邮箱状态（桌面端收取后调用）
+  /** @param {number} mailboxId @param {string} status @param {string|null} [errorMessage] */
   updateMailboxStatus: (mailboxId, status, errorMessage = null) =>
     api.post('/unified-emails/external-emails/update-status', {
       mailbox_id: mailboxId,

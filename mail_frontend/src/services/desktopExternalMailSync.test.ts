@@ -29,6 +29,7 @@ vi.mock('@/services/desktopOAuthMailbox', () => ({
 vi.mock('@tauri-apps/api/core', () => ({ invoke: mocks.invoke }))
 vi.mock('@tauri-apps/api/event', () => ({ listen: mocks.listen }))
 
+import { invalidateDesktopMailboxes, stopDesktopMailboxCache } from './desktopMailboxCache'
 import { desktopExternalMailSync, mailboxSyncMode } from './desktopExternalMailSync'
 
 const emit = (mailboxId: number, generation: number, status: string) => {
@@ -54,6 +55,7 @@ beforeEach(() => {
 
 afterEach(async () => {
   await desktopExternalMailSync.stop()
+  stopDesktopMailboxCache()
   vi.useRealTimers()
   localStorage.clear()
 })
@@ -108,6 +110,8 @@ describe('desktop external mail sync', () => {
     expect(mocks.invoke.mock.calls.filter(([command]) => command === 'fetch_emails')).toHaveLength(1)
     await vi.advanceTimersByTimeAsync(5 * 60 * 1000)
     expect(mocks.invoke.mock.calls.filter(([command]) => command === 'fetch_emails')).toHaveLength(2)
+    expect(mocks.getAllAccounts).toHaveBeenCalledTimes(1)
+    expect(mocks.getRuntimeProxy).toHaveBeenCalledTimes(1)
   })
 
   it('limits simultaneous fetches when many IMAP accounts become ready together', async () => {
@@ -128,5 +132,34 @@ describe('desktop external mail sync', () => {
     releases[0]({ count: 0 })
     await vi.waitFor(() => expect(releases).toHaveLength(4))
     releases.slice(1).forEach((release) => release({ count: 0 }))
+  })
+
+  it('retries failed uploads without repeatedly querying account or proxy configuration', async () => {
+    vi.useFakeTimers()
+    mocks.getAllAccounts.mockResolvedValue({ code: 0, data: { accounts: [{ id: 2, email: 'pop@test', protocol: 'pop3', status: 'active' }] } })
+    let attempts = 0
+    mocks.invoke.mockImplementation(async command => {
+      if (command !== 'fetch_emails') return
+      if (++attempts === 1) throw { message: '本地收取成功，但同步到服务器失败', failure_kind: 'network' }
+      return { count: 0 }
+    })
+    await desktopExternalMailSync.start(42)
+    expect(attempts).toBe(1)
+    await vi.advanceTimersByTimeAsync(5000)
+    expect(attempts).toBe(2)
+    await vi.advanceTimersByTimeAsync(10000)
+    expect(attempts).toBe(2)
+    expect(mocks.getAllAccounts).toHaveBeenCalledTimes(1)
+    expect(mocks.getRuntimeProxy).toHaveBeenCalledTimes(1)
+  })
+
+  it('uses changed credentials on the next fetch after a configuration push', async () => {
+    const account = { id: 2, email: 'pop@test', protocol: 'pop3', password: 'old', status: 'active' }
+    mocks.getAllAccounts.mockResolvedValue({ code: 0, data: { accounts: [account] } })
+    await desktopExternalMailSync.start(42)
+    mocks.getAllAccounts.mockResolvedValue({ code: 0, data: { accounts: [{ ...account, password: 'new' }] } })
+    invalidateDesktopMailboxes({ resource: 'accounts', mailbox_id: 2 })
+    await vi.waitFor(() => expect(mocks.invoke).toHaveBeenCalledWith('fetch_emails', expect.objectContaining({ password: 'new' })))
+    expect(mocks.getAllAccounts).toHaveBeenCalledTimes(2)
   })
 })

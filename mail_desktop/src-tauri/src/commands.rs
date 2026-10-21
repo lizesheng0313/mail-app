@@ -369,31 +369,31 @@ struct ApiEnvelope<T> {
     data: Option<T>,
 }
 
-async fn load_sync_cursor(server_url: &str, token: &str, mailbox_id: i64) -> Option<Value> {
-    let url = format!(
-        "{}/unified-emails/external-mailboxes/{}/sync-cursor",
-        server_url, mailbox_id
-    );
-    let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(10))
-        .build()
-        .ok()?;
-    let response = client
-        .get(url)
-        .header("Authorization", format!("Bearer {}", token))
-        .send()
-        .await
-        .ok()?;
-    if !response.status().is_success() {
-        warn!("读取邮箱同步游标失败: mailbox_id={} status={}", mailbox_id, response.status());
-        return None;
-    }
-    let body: ApiEnvelope<Value> = response.json().await.ok()?;
-    if body.code != 0 {
-        warn!("读取邮箱同步游标失败: mailbox_id={} message={}", mailbox_id, body.message);
-        return None;
-    }
-    body.data
+async fn load_sync_cursor(server_url: &str, token: &str, mailbox_id: i64) -> Result<Option<Value>, String> {
+    let path = crate::desktop_sync_store::scope_path(server_url, token, mailbox_id)?;
+    let mut state = crate::desktop_sync_store::load(&path)?;
+    if state.initialized { return Ok(state.cursor); }
+    let url = format!("{}/unified-emails/external-mailboxes/{}/sync-cursor", server_url, mailbox_id);
+    let response = reqwest::Client::builder().timeout(Duration::from_secs(10)).build()
+        .map_err(|error| error.to_string())?
+        .get(url).bearer_auth(token).send().await.map_err(|error| format!("读取同步游标失败: {error}"))?;
+    if !response.status().is_success() { return Err(format!("读取同步游标失败: {}", response.status())); }
+    let body: ApiEnvelope<Value> = response.json().await.map_err(|error| format!("读取同步游标失败: {error}"))?;
+    if body.code != 0 { return Err(format!("读取同步游标失败: {}", body.message)); }
+    state.cursor = body.data;
+    state.initialized = true;
+    crate::desktop_sync_store::save(&path, &mut state)?;
+    Ok(state.cursor)
+}
+
+async fn flush_pending_sync(server_url: &str, token: &str, mailbox_id: i64) -> Result<usize, String> {
+    let path = crate::desktop_sync_store::scope_path(server_url, token, mailbox_id)?;
+    let mut state = crate::desktop_sync_store::load(&path)?;
+    let Some(pending) = state.pending.as_ref() else { return Ok(0); };
+    let count = upload_emails_to_server(server_url, token, mailbox_id, &pending.emails, pending.cursor.as_ref()).await?;
+    crate::desktop_sync_store::acknowledge(&mut state);
+    crate::desktop_sync_store::save(&path, &mut state)?;
+    Ok(count)
 }
 
 #[derive(Debug, Deserialize)]
@@ -1012,7 +1012,7 @@ async fn fetch_mailbox_via_relogin_config(
         );
     }
 
-    let sync_cursor = load_sync_cursor(server_url, token, mailbox_id).await;
+    let sync_cursor = load_sync_cursor(server_url, token, mailbox_id).await?;
     let email = config.email.clone();
     let password = config.password.clone();
     fetch_first_successful_candidate(&candidates, move |candidate| {
@@ -1056,6 +1056,9 @@ pub async fn recover_and_fetch_external_mailbox(
     token: String,
     server_url: String,
 ) -> Result<FetchResult, String> {
+    let path = crate::desktop_sync_store::scope_path(&server_url, &token, mailbox_id)?;
+    let _guard = crate::desktop_sync_store::lock(&path).await;
+    let recovered_count = flush_pending_sync(&server_url, &token, mailbox_id).await?;
     let fetch_limit = LATEST_FETCH_LIMIT;
     let fetch_oldest = false;
     let result =
@@ -1069,10 +1072,12 @@ pub async fn recover_and_fetch_external_mailbox(
             mailbox_id,
             &result.emails,
             result.sync_cursor.as_ref(),
+            true,
         )
         .await
         {
             Ok(new_count) => {
+                let new_count = new_count + recovered_count;
                 return Ok(FetchResult {
                     success: true,
                     message: format!("收取成功，新增 {} 封邮件", new_count),
@@ -1109,6 +1114,7 @@ pub async fn fetch_emails(
     auth_type: Option<String>,
     access_token: Option<String>,
     proxy: Option<RuntimeProxy>,
+    force_status_sync: Option<bool>,
 ) -> Result<FetchResult, ExternalMailboxCommandError> {
     run_fetch_with_timeout(
         fetch_emails_inner(
@@ -1123,6 +1129,7 @@ pub async fn fetch_emails(
             auth_type,
             access_token,
             proxy,
+            force_status_sync.unwrap_or(false),
         ),
         FETCH_OPERATION_TIMEOUT,
     )
@@ -1142,7 +1149,11 @@ async fn fetch_emails_inner(
     auth_type: Option<String>,
     access_token: Option<String>,
     proxy: Option<RuntimeProxy>,
+    force_status_sync: bool,
 ) -> Result<FetchResult, String> {
+    let path = crate::desktop_sync_store::scope_path(&server_url, &token, mailbox_id)?;
+    let _guard = crate::desktop_sync_store::lock(&path).await;
+    let recovered_count = flush_pending_sync(&server_url, &token, mailbox_id).await?;
     // 判断是否走 OAuth2 XOAUTH2
     let is_oauth2 = auth_type.as_deref() == Some("oauth2");
     let domain = email.split('@').nth(1).ok_or("无效的邮箱地址")?;
@@ -1171,7 +1182,7 @@ async fn fetch_emails_inner(
 
     let fetch_limit = LATEST_FETCH_LIMIT;
     let fetch_oldest = false;
-    let sync_cursor = load_sync_cursor(&server_url, &token, mailbox_id).await;
+    let sync_cursor = load_sync_cursor(&server_url, &token, mailbox_id).await?;
     info!(
         "本次本地收取策略: mailbox_id={}, limit={}, oldest_first={}",
         mailbox_id,
@@ -1249,10 +1260,12 @@ async fn fetch_emails_inner(
             mailbox_id,
             &result.emails,
             result.sync_cursor.as_ref(),
+            force_status_sync,
         )
         .await
         {
             Ok(new_count) => {
+                let new_count = new_count + recovered_count;
                 // 用后端去重后的实际新增数替换总数，emails 不通过 IPC 返回（内容太大）
                 return Ok(FetchResult {
                     success: true,
@@ -1391,6 +1404,18 @@ pub async fn refresh_oauth2_token_locally(
 
 /// 同步邮件到远程服务器，返回实际新增数量
 async fn sync_emails_to_server(
+    server_url: &str, token: &str, mailbox_id: i64, emails: &[EmailData], sync_cursor: Option<&Value>, force_status: bool,
+) -> Result<usize, String> {
+    let path = crate::desktop_sync_store::scope_path(server_url, token, mailbox_id)?;
+    let mut state = crate::desktop_sync_store::load(&path)?;
+    if !crate::desktop_sync_store::needs_upload(&state, emails, sync_cursor, force_status) { return Ok(0); }
+    if state.pending.is_some() { return Err("还有未确认的邮件同步，已停止推进游标".into()); }
+    state.pending = Some(crate::desktop_sync_store::PendingSync { emails: emails.to_vec(), cursor: sync_cursor.cloned() });
+    crate::desktop_sync_store::save(&path, &mut state)?;
+    flush_pending_sync(server_url, token, mailbox_id).await
+}
+
+async fn upload_emails_to_server(
     server_url: &str,
     token: &str,
     mailbox_id: i64,
@@ -1432,7 +1457,10 @@ async fn sync_emails_to_server(
             .await
             .map_err(|e| format!("解析响应失败: {}", e))?;
 
-        let new_count = body["data"]["count"].as_u64().unwrap_or(0) as usize;
+        if body["code"].as_i64() != Some(0) || body["data"]["mailbox_deleted"].as_bool() == Some(true) {
+            return Err(format!("服务器未确认同步: {}", body["message"].as_str().unwrap_or("邮箱已删除或无权限")));
+        }
+        let new_count = body["data"]["count"].as_u64().ok_or("服务器未返回同步确认数量")? as usize;
         info!(
             "✅ 邮件同步成功，新增 {} 封，耗时 {}ms",
             new_count,
@@ -2105,5 +2133,61 @@ mod tests {
         .await;
 
         assert!(matches!(result, Err(message) if message.contains("超时")));
+    }
+}
+
+#[cfg(test)]
+mod durable_upload_tests {
+    use super::*;
+    use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
+    use serde_json::json;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    #[tokio::test]
+    async fn business_failure_keeps_pending_mail_then_retry_commits_and_empty_check_skips_http() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = format!("http://{}", listener.local_addr().unwrap());
+        let token = format!("a.{}.c", URL_SAFE_NO_PAD.encode(json!({"user_id": 987654321}).to_string()));
+        let path = crate::desktop_sync_store::scope_path(&url, &token, 1).unwrap();
+        let server = tokio::spawn(async move {
+            for response in [json!({"code": 1, "message": "transaction failed"}), json!({"code": 0, "data": {"count": 1}})] {
+                let (mut socket, _) = listener.accept().await.unwrap();
+                let mut received = Vec::new();
+                loop {
+                    let mut buffer = [0u8; 4096];
+                    let read = socket.read(&mut buffer).await.unwrap();
+                    assert!(read > 0);
+                    received.extend_from_slice(&buffer[..read]);
+                    if let Some(header_end) = received.windows(4).position(|part| part == b"\r\n\r\n") {
+                        let headers = String::from_utf8_lossy(&received[..header_end]);
+                        let length = headers.lines().find_map(|line| line.to_ascii_lowercase().strip_prefix("content-length:").map(|value| value.trim().parse::<usize>().unwrap())).unwrap();
+                        if received.len() >= header_end + 4 + length {
+                            let request: Value = serde_json::from_slice(&received[header_end + 4..]).unwrap();
+                            assert_eq!(request["emails"][0]["content_text"], "pending proof");
+                            break;
+                        }
+                    }
+                }
+                let body = response.to_string();
+                socket.write_all(format!("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nConnection: close\r\nContent-Length: {}\r\n\r\n{}", body.len(), body).as_bytes()).await.unwrap();
+            }
+        });
+        let email: EmailData = serde_json::from_value(json!({
+            "message_id": "pending-1", "subject": "test", "from_addr": "a@test", "to_addr": "b@test",
+            "content_text": "pending proof", "content_html": "", "email_date_ms": 1, "received_at_ms": 1
+        })).unwrap();
+        let cursor = json!({"protocol": "imap", "uid": 12});
+        assert!(sync_emails_to_server(&url, &token, 1, &[email], Some(&cursor), false).await.is_err());
+        let state = crate::desktop_sync_store::load(&path).unwrap();
+        assert!(state.cursor.is_none());
+        assert_eq!(state.pending.unwrap().emails[0].content_text, "pending proof");
+        assert_eq!(flush_pending_sync(&url, &token, 1).await.unwrap(), 1);
+        server.await.unwrap();
+        let state = crate::desktop_sync_store::load(&path).unwrap();
+        assert_eq!(state.cursor, Some(cursor.clone()));
+        assert!(state.pending.is_none());
+        // The test server is closed: this would fail if an empty check sent HTTP.
+        assert_eq!(sync_emails_to_server(&url, &token, 1, &[], Some(&cursor), false).await.unwrap(), 0);
+        std::fs::remove_dir_all(path).unwrap();
     }
 }

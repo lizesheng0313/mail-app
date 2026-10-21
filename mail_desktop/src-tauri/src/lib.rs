@@ -3,6 +3,7 @@ mod automation;
 mod browser_workflow;
 mod commands;
 mod desktop_mail_watch;
+mod desktop_sync_store;
 mod local_api_server;
 mod mail;
 mod oauth_callback_server;

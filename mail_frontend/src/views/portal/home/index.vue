@@ -561,6 +561,7 @@ import { dispatchAccountState, subscribeAccountState } from '@/services/accountR
 import { registerRealtimeScope, subscribeRealtime } from '@/services/realtimeClient'
 import { showMessage } from '@/utils/message'
 import { isTauri, getServerUrl } from '@/services/api'
+import { getDesktopRuntimeProxy } from '@/services/desktopMailboxCache'
 import { runDesktopOAuthMailboxAction } from '@/services/desktopOAuthMailbox'
 import { DESKTOP_DOWNLOAD_URLS } from '@/config/desktopRelease'
 import { normalizeOAuthRecoveryErrorMessage } from '@/utils/oauthRecovery'
@@ -1181,6 +1182,7 @@ const loadExternalMailboxAccountById = async (mailboxId: number) => {
 const loadMailboxRuntimeProxy = async (mailboxId: number) => {
   if (!mailboxId) return null
   try {
+    if (isTauri()) return await getDesktopRuntimeProxy(mailboxId)
     const response: any = await mailboxProxyApi.getRuntimeProxy(mailboxId)
     if (response.code !== 0) return null
     return response?.data?.runtime_proxy || null
@@ -1263,6 +1265,7 @@ const fetchOAuthMailboxOnceById = async (
   try {
     const fetchResult = await runDesktopOAuthMailboxAction(mailboxId, async (tokenPayload) => {
       return tauriInvoke('fetch_emails', {
+        forceStatusSync: !!account?.status && account.status !== 'active',
         mailboxId,
         email: tokenPayload.email,
         password: '',
@@ -1277,7 +1280,6 @@ const fetchOAuthMailboxOnceById = async (
       })
     })
 
-    await batchLoginAPI.updateMailboxStatus(mailboxId, 'active')
     return Number(fetchResult?.count || 0)
   } catch (error: any) {
     if (!account) {
@@ -3188,6 +3190,7 @@ const fetchExternalMailboxEmails = async () => {
           preferRelay: account?.relay_fetch_enabled === true,
           localAction: async () => {
             const result: any = await tauriInvoke('fetch_emails', {
+              forceStatusSync: account.status !== 'active',
               mailboxId: account.id,
               email: account.email,
               password: account.password,

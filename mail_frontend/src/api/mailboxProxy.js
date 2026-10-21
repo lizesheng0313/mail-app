@@ -30,7 +30,7 @@ const mailboxProxyApi = {
   },
 
   getRuntimeProxy(mailboxId) {
-    return api.get(`/unified-emails/external-mailboxes/${mailboxId}/proxy/runtime`)
+    return api.get(`/unified-emails/external-mailboxes/${mailboxId}/proxy/runtime`, { timeout: 15000 })
   },
 
   saveBatchMailboxOverride(data) {
