@@ -275,6 +275,7 @@ import { showMessage } from '@/utils/message'
 import { normalizeOAuthRecoveryErrorMessage } from '@/utils/oauthRecovery'
 import { formatTimestamp } from '@/utils/timeUtils'
 import { isTauri, getServerUrl } from '@/services/api'
+import { subscribeRealtime } from '@/services/realtimeClient'
 import { runDesktopOAuthMailboxAction } from '@/services/desktopOAuthMailbox'
 import { canDesktopSmtpSend, normalizeSmtpEmail } from '@/utils/smtpCapability'
 import {
@@ -406,6 +407,8 @@ const emit = defineEmits<{
 }>()
 
 const accounts = ref<any[]>([])
+let accountsRequestSeq = 0
+let unsubscribeAccountsRealtime: (() => void) | undefined
 const showConfirm = ref(false)
 const deleting = ref(false)
 const isDeleting = ref({ batch: false, ids: [] as number[] })
@@ -520,10 +523,6 @@ const resolveMenuPlacement = (event: Event) => {
 }
 
 const openActionMenu = (accountId: number, event: Event) => {
-  if (openMenuId.value === accountId) {
-    closeActionMenu()
-    return
-  }
   if (closeMenuTimer) {
     clearTimeout(closeMenuTimer)
     closeMenuTimer = null
@@ -630,20 +629,24 @@ const removeAccounts = (ids: number[] = []) => {
 }
 
 const loadAccounts = async (page = 1) => {
+  const requestSeq = ++accountsRequestSeq
   try {
     const res = await batchLoginAPI.getAccounts(page, 20, {
       search: searchKeyword.value
     })
+    if (requestSeq !== accountsRequestSeq) return
 
     if (res.code === 0) {
       const data = res.data || []
       replaceAccounts(Array.isArray(data) ? data : data.accounts || [], data.pagination)
-      window.dispatchEvent(new Event('external-mailboxes-changed'))
     } else {
       console.error('❌ API返回错误:', res.message)
+      return false
     }
   } catch (e) {
+    if (requestSeq !== accountsRequestSeq) return
     console.error('❌ 加载外部邮箱失败', e)
+    return false
   }
 }
 
@@ -1082,12 +1085,17 @@ defineExpose({
 })
 
 onMounted(() => {
+  unsubscribeAccountsRealtime = subscribeRealtime(['mailbox_config_changed'],
+    () => loadAccounts(currentPage.value || 1),
+    payload => payload?.resource === 'accounts' || payload?.resource === 'oauth')
   window.addEventListener('click', handleWindowClick)
   window.addEventListener('external-mailbox-recovered', handleRecoveredMailbox)
   window.addEventListener('external-mailbox-updated', handleRecoveredMailbox)
 })
 
 onBeforeUnmount(() => {
+  accountsRequestSeq++
+  unsubscribeAccountsRealtime?.()
   if (closeMenuTimer) {
     clearTimeout(closeMenuTimer)
     closeMenuTimer = null
