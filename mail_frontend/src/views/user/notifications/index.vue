@@ -174,7 +174,8 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { subscribeAccountState } from '@/services/accountRealtime'
 import { useRoute, useRouter } from 'vue-router'
 import api from '@/services/api'
 import { getCurrentLocale } from '@/i18n'
@@ -207,9 +208,9 @@ const switchTab = async (tab) => {
 
 const loadData = async () => {
   if (activeTab.value === 'announcements') {
-    await loadAnnouncements()
+    return await loadAnnouncements()
   } else {
-    await loadNotifications()
+    return await loadNotifications()
   }
 }
 
@@ -230,10 +231,12 @@ const loadNotifications = async () => {
       }
     } else {
       showMessage(result.message || '加载通知失败', 'error')
+      return false
     }
   } catch (error) {
     console.error('加载通知失败:', error)
     showMessage('加载通知失败', 'error')
+    return false
   } finally {
     loading.value = false
   }
@@ -258,10 +261,12 @@ const loadAnnouncements = async () => {
       }
     } else {
       showMessage(result.message || '加载公告失败', 'error')
+      return false
     }
   } catch (error) {
     console.error('加载公告失败:', error)
     showMessage('加载公告失败', 'error')
+    return false
   } finally {
     loading.value = false
   }
@@ -345,9 +350,12 @@ watch(
   }
 )
 
+let unsubscribeState
 onMounted(() => {
+  unsubscribeState = subscribeAccountState(['notifications', 'announcements'], loadData)
   loadData()
 })
+onBeforeUnmount(() => unsubscribeState?.())
 </script>
 
 <style scoped>

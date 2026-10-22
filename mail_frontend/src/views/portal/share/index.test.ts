@@ -1,5 +1,5 @@
 import { flushPromises, mount } from '@vue/test-utils'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 const api = vi.hoisted(() => ({
   getShareInfo: vi.fn(),
@@ -10,11 +10,19 @@ vi.mock('@/api/mailboxShare', () => ({ mailboxShareAPI: api }))
 vi.mock('vue-router', () => ({ useRoute: () => ({ params: { token: 'public-share' } }) }))
 vi.mock('vue-i18n', () => ({ useI18n: () => ({ t: (key: string) => key }) }))
 vi.mock('@/i18n', () => ({ getCurrentLocale: () => 'zh-CN' }))
-vi.mock('@/services/api', () => ({ isTauri: () => false, buildWebSocketURL: vi.fn() }))
+vi.mock('@/services/api', () => ({ isTauri: () => false }))
+const realtime = vi.hoisted(() => ({ refresh: null as any, filter: null as any, scope: vi.fn() }))
+vi.mock('@/services/realtimeClient', () => ({
+  registerRealtimeScope: (key: string, auth: unknown) => { realtime.scope(key, auth); return vi.fn() },
+  subscribeRealtime: (_events: string[], refresh: unknown, filter: unknown) => {
+    realtime.refresh = refresh; realtime.filter = filter; return vi.fn()
+  },
+}))
 
 import SharePage from './index.vue'
 
 describe('share page loading', () => {
+  afterEach(() => { vi.useRealTimers() })
   it('shows mailboxes while the slower email request is still pending', async () => {
     api.getShareInfo.mockResolvedValue({
       code: 0,
@@ -66,4 +74,26 @@ describe('share page loading', () => {
       wrapper.unmount()
     }
   })
+  it('queries shares only on entry and explicit refresh without a socket subscription', async () => {
+    vi.useFakeTimers()
+    api.getShareInfo.mockResolvedValue({ code: 0, data: {
+      mailbox_type: 'external', expire_mode: 'permanent', mailboxes: [{ id: 1, email: 'shared@example.com' }]
+    } })
+    api.getShareEmails.mockResolvedValue({ code: 0, data: { emails: [], pagination: { total: 0 } } })
+    const wrapper = mount(SharePage, { shallow: true })
+    try {
+      await flushPromises()
+      const initial = api.getShareEmails.mock.calls.length
+      await vi.advanceTimersByTimeAsync(60 * 60 * 1000)
+      expect(api.getShareEmails).toHaveBeenCalledTimes(initial)
+      expect(realtime.scope).not.toHaveBeenCalled()
+      expect(realtime.refresh).toBeNull()
+      await (wrapper.vm as any).$.setupState.loadEmails()
+      await flushPromises()
+      expect(api.getShareEmails).toHaveBeenCalledTimes(initial + 1)
+      await vi.advanceTimersByTimeAsync(60 * 60 * 1000)
+      expect(api.getShareEmails).toHaveBeenCalledTimes(initial + 1)
+    } finally { wrapper.unmount() }
+  })
+
 })

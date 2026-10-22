@@ -3,6 +3,7 @@ mod automation;
 mod browser_workflow;
 mod commands;
 mod desktop_mail_watch;
+mod desktop_sync_store;
 mod local_api_server;
 mod mail;
 mod oauth_callback_server;
@@ -40,6 +41,7 @@ pub fn run() {
                     .build(),
             )?;
             start_oauth_callback_server(app.handle().clone());
+            commands::initialize_mailbox_events(app.handle().clone());
             start_local_api_server();
             #[cfg(debug_assertions)]
             if let Some(window) = app.get_webview_window("main") {

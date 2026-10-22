@@ -170,7 +170,7 @@ async function startUpdate() {
 }
 
 async function checkForUpdates() {
-  if (!isTauri()) return
+  if (import.meta.env.DEV || !isTauri()) return
 
   // 1. 优先用 updater 插件
   try {

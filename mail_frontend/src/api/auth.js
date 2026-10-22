@@ -45,6 +45,7 @@ export const authAPI = {
   pollWechatMiniappLogin: (state) =>
     api.get('/auth/wechat-miniapp/poll', {
       params: { state },
+      timeout: 15000,
       suppressErrorMessage: true
     }),
   completeWechatMiniappLogin: (data) =>

@@ -1,9 +1,19 @@
 import { flushPromises, mount } from '@vue/test-utils'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const api = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn() }))
+const realtime = vi.hoisted(() => ({ handlers: {} as Record<string, () => void>, disconnect: vi.fn(), io: vi.fn() }))
+vi.mock('@/services/realtimeClient', () => ({
+  registerRealtimeScope: realtime.io,
+  subscribeRealtime: (_events: string[], refresh: () => void) => {
+    realtime.handlers.guest_chat_changed = refresh
+    realtime.handlers.connect = refresh
+    return realtime.disconnect
+  },
+}))
 vi.mock('@/services/api', () => ({
   default: api,
+  getApiBaseURL: () => "/mail-api/v1",
   extractApiErrorMessage: (_payload: unknown, fallback: string) => fallback,
 }))
 
@@ -12,9 +22,13 @@ import GuestLiveChat from './GuestLiveChat.vue'
 describe('visitor support chat', () => {
   beforeEach(() => {
     localStorage.clear()
+    realtime.handlers = {}
+    realtime.io.mockImplementation(() => realtime.disconnect)
     api.get.mockReset().mockResolvedValue({ code: 0, data: { items: [] } })
     api.post.mockReset().mockResolvedValue({ code: 0, data: { item: { id: 1 } } })
   })
+
+  afterEach(() => { vi.useRealTimers() })
 
   it('lets a visitor send without login and keeps the same browser token', async () => {
     const wrapper = mount(GuestLiveChat)
@@ -73,4 +87,31 @@ describe('visitor support chat', () => {
     expect(api.post.mock.calls[1][2].headers['X-Guest-Chat-Token']).toBe(secondId)
     second.unmount()
   })
+  it('does not poll while open, and receives replies through the visitor socket', async () => {
+    vi.useFakeTimers()
+    const wrapper = mount(GuestLiveChat)
+    try {
+      await wrapper.get('button[aria-label="打开在线客服"]').trigger('click')
+      await flushPromises()
+      const count = api.get.mock.calls.length
+      await vi.advanceTimersByTimeAsync(60 * 60 * 1000)
+      expect(api.get).toHaveBeenCalledTimes(count)
+      const visitor = localStorage.getItem('live_chat_guest_token_v1')
+      expect(realtime.io).toHaveBeenLastCalledWith('guest-chat', { guest_chat_token: visitor })
+      api.get.mockResolvedValue({ code: 0, data: { items: [{ id: 2, sender_type: 'admin', content: '客服回复' }] } })
+      realtime.handlers.guest_chat_changed()
+      await flushPromises()
+      expect(api.get).toHaveBeenCalledTimes(count + 1)
+      expect(wrapper.text()).toContain('客服回复')
+      realtime.handlers.connect()
+      await flushPromises()
+      expect(api.get).toHaveBeenCalledTimes(count + 2)
+      await wrapper.get('button[aria-label="关闭在线客服"]').trigger('click')
+      realtime.handlers.guest_chat_changed()
+      await flushPromises()
+      expect(api.get).toHaveBeenCalledTimes(count + 2)
+    } finally { wrapper.unmount() }
+    expect(realtime.disconnect).toHaveBeenCalled()
+  })
+
 })

@@ -3,6 +3,7 @@
  */
 
 import api from '@/services/api'
+import { collectMailbox } from '@/services/mailboxCollection'
 
 export const batchLoginAPI = {
   // 添加邮箱账号
@@ -73,12 +74,13 @@ export const batchLoginAPI = {
 
   // 获取外部邮件列表（统一接口）
   // mailboxId 可选，传入则获取该邮箱的邮件，不传则获取所有外部邮件
+  /** @param {number | null} mailboxId */
   getExternalEmails: (page = 1, pageSize = 20, mailboxId = null) => {
     const params = { page, page_size: pageSize }
     if (mailboxId) {
       params.mailbox_id = mailboxId
     }
-    return api.get('/unified-emails/external-emails', { params })
+    return api.get('/unified-emails/external-emails', { params, timeout: 15000 })
   },
 
   // 服务端在线收取全部外部邮箱
@@ -91,11 +93,12 @@ export const batchLoginAPI = {
 
   // 获取服务端全历史收取任务状态
   getExternalMailFetchAllStatus: () =>
-    api.get('/unified-emails/external-mailboxes/fetch-all/status'),
+    api.get('/unified-emails/external-mailboxes/fetch-all/status', { timeout: 15000 }),
 
   // 服务端在线收取单个外部邮箱
   fetchExternalMailboxOnline: (mailboxId, requestConfig = {}) =>
-    api.post(`/unified-emails/external-mailboxes/${mailboxId}/fetch`, {}, requestConfig),
+    collectMailbox(mailboxId, 'relay', () =>
+      api.post(`/unified-emails/external-mailboxes/${mailboxId}/fetch`, {}, requestConfig)),
 
   // 记录桌面端账号是否固定使用国内服务端收信
   updateExternalMailboxRelayFetchMode: (mailboxId, enabled) =>
@@ -114,6 +117,7 @@ export const batchLoginAPI = {
     api.delete(`/unified-emails/mailboxes/${accountId}`, { params: { type: 'external' } }),
 
   // 更新邮箱状态（桌面端收取后调用）
+  /** @param {number} mailboxId @param {string} status @param {string|null} [errorMessage] */
   updateMailboxStatus: (mailboxId, status, errorMessage = null) =>
     api.post('/unified-emails/external-emails/update-status', {
       mailbox_id: mailboxId,

@@ -11,7 +11,7 @@ export const smtpAccountsAPI = {
 
     // 获取已发送邮件列表
     getSentEmails: (params) =>
-        api.get('/smtp-accounts/sent-emails', { params }),
+        api.get('/smtp-accounts/sent-emails', { params, timeout: 15000 }),
 
     // 保存已发送邮件记录
     saveSentEmails: (data) =>

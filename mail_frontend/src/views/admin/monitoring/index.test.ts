@@ -1,5 +1,5 @@
 import { flushPromises, mount } from '@vue/test-utils'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const route = vi.hoisted(() => ({ meta: { monitoringSection: 'business' } }))
 const api = vi.hoisted(() =>
@@ -15,6 +15,10 @@ const api = vi.hoisted(() =>
     ].map((name) => [name, vi.fn()])
   )
 )
+const realtime = vi.hoisted(() => ({ refresh: null as any }))
+vi.mock('@/services/realtimeClient', () => ({
+  subscribeRealtime: (_events: string[], refresh: unknown) => { realtime.refresh = refresh; return vi.fn() },
+}))
 vi.mock('vue-router', () => ({ useRoute: () => route }))
 vi.mock('@/api/monitoring', () => ({ monitoringAPI: api }))
 vi.mock('@/utils/message', () => ({ showMessage: vi.fn() }))
@@ -25,6 +29,7 @@ vi.mock('./utils/worldMapChart', () => ({ updateWorldMap: vi.fn(), preloadWorldM
 vi.mock('@/components/Monitoring/CrawlerMonitor.vue', () => ({ default: { template: '<div />' } }))
 
 import Monitoring from './index.vue'
+
 import CustomSelect from '@/components/CustomSelect/index.vue'
 import DailyTrendChart from '@/components/Monitoring/DailyTrendChart.vue'
 import { buildDailyTrendOption } from '@/components/Monitoring/dailyTrendOptions'
@@ -33,6 +38,8 @@ beforeEach(() => {
   vi.clearAllMocks()
   Object.values(api).forEach((fn) => fn.mockResolvedValue({ code: 0, data: {} }))
 })
+
+afterEach(() => { vi.useRealTimers(); localStorage.clear() })
 
 describe('independent mailbox monitoring dimensions', () => {
   it('separates actual WeChat operations from mailbox ownership and other clients', async () => {
@@ -326,4 +333,21 @@ describe('independent mailbox monitoring dimensions', () => {
     expect(wrapper.text()).toContain('访问量趋势')
     wrapper.unmount()
   })
+  it('loads online counts on manual refresh without a presence subscription', async () => {
+    vi.useFakeTimers()
+    localStorage.setItem('token', 'test-session')
+    route.meta.monitoringSection = 'business'
+    const wrapper = mount(Monitoring, { global: { stubs: { CustomSelect: true, DailyTrendChart: true } } })
+    try {
+      await flushPromises()
+      const count = api.getOnlineCount.mock.calls.length
+      await vi.advanceTimersByTimeAsync(60 * 60 * 1000)
+      expect(api.getOnlineCount).toHaveBeenCalledTimes(count)
+      expect(realtime.refresh).toBeNull()
+      const initial = api.getBusinessStats.mock.calls.length
+      await (wrapper.vm as any).$.setupState.loadBusinessStats()
+      expect(api.getBusinessStats).toHaveBeenCalledTimes(initial + 1)
+    } finally { wrapper.unmount() }
+  })
+
 })

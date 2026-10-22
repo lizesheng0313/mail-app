@@ -19,7 +19,7 @@ export const monitoringAPI = {
     api.get('/monitoring/external-mailbox-logins', { params: { days } }),
 
   // 获取在线人数
-  getOnlineCount: () => api.get('/monitoring/online-count'),
+  getOnlineCount: () => api.get('/monitoring/online-count', { timeout: 15000 }),
 
   // 获取系统健康状态
   getSystemHealth: () => api.get('/monitoring/system-health'),

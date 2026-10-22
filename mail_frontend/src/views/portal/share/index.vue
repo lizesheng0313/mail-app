@@ -255,7 +255,6 @@ import BaseIcon from '@/components/BaseIcon/index.vue'
 import { mailboxShareAPI } from '@/api/mailboxShare'
 import { showMessage } from '@/utils/message'
 import { getCurrentLocale } from '@/i18n'
-import { buildWebSocketURL } from '@/services/api'
 import { isShareTerminalState, resolveShareValidity } from './shareDisplay'
 
 const EmailContentModal = defineAsyncComponent(() => import('@/components/Mail/EmailContentModal.vue'))
@@ -334,76 +333,6 @@ const openEmailModal = (email) => {
   showEmailModal.value = true
 }
 
-let shareMailSocket = null
-let shareMailRetryTimer = null
-let shareMailHeartbeatTimer = null
-let shareMailPollTimer = null
-let shareMailRetryDelay = 3000
-let shareMailStopped = false
-
-const stopShareMailRealtime = () => {
-  shareMailStopped = true
-  if (shareMailRetryTimer !== null) clearTimeout(shareMailRetryTimer)
-  if (shareMailHeartbeatTimer !== null) clearInterval(shareMailHeartbeatTimer)
-  if (shareMailPollTimer !== null) clearInterval(shareMailPollTimer)
-  shareMailRetryTimer = null
-  shareMailHeartbeatTimer = null
-  shareMailPollTimer = null
-  shareMailSocket?.close()
-  shareMailSocket = null
-}
-
-const startShareMailPolling = () => {
-  if (shareMailPollTimer !== null) clearInterval(shareMailPollTimer)
-  shareMailPollTimer = setInterval(() => {
-    if (!loadingEmails.value && !isShareTerminalState(shareState.value) && shareState.value !== 'expired') {
-      void loadEmails()
-    }
-  }, 10000)
-}
-
-const connectShareMailRealtime = () => {
-  if (shareMailStopped || shareMailSocket || !['system', 'hosted'].includes(mailboxType.value)) return
-  const shareToken = String(route.params.token || '')
-  if (!shareToken) return
-  const socket = new WebSocket(buildWebSocketURL('/mail-events/ws'))
-  shareMailSocket = socket
-  socket.onopen = () => socket.send(JSON.stringify({ type: 'auth', share_token: shareToken }))
-  socket.onmessage = (event) => {
-    try {
-      const payload = JSON.parse(String(event.data || '{}'))
-      if (payload.type === 'ready') {
-        shareMailRetryDelay = 3000
-        shareMailHeartbeatTimer = setInterval(() => {
-          if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: 'ping' }))
-        }, 25000)
-        // 重连后补查一次，覆盖离线期间收到的邮件。
-        void loadEmails()
-      } else if (payload.type === 'email.received' && payload.mailbox_type === mailboxType.value) {
-        if (!selectedMailbox.value || selectedMailbox.value.id === Number(payload.mailbox_id)) {
-          void loadEmails()
-        }
-      }
-    } catch (error) {
-      console.error('分享邮件实时通知处理失败:', error)
-    }
-  }
-  socket.onclose = (event) => {
-    if (shareMailSocket !== socket) return
-    shareMailSocket = null
-    if (shareMailHeartbeatTimer !== null) clearInterval(shareMailHeartbeatTimer)
-    shareMailHeartbeatTimer = null
-    if (!shareMailStopped && event.code !== 4401) {
-      const delay = shareMailRetryDelay + Math.floor(Math.random() * 1000)
-      shareMailRetryDelay = Math.min(shareMailRetryDelay * 2, 30000)
-      shareMailRetryTimer = setTimeout(() => {
-        shareMailRetryTimer = null
-        connectShareMailRealtime()
-      }, delay)
-    }
-  }
-}
-
 const startValidityCountdown = () => {
   if (validityCountdownTimer) clearInterval(validityCountdownTimer)
   validityCountdownTimer = null
@@ -436,7 +365,6 @@ const markShareExpired = () => {
   selectedEmail.value = null
   showEmailModal.value = false
   modalEmail.value = null
-  stopShareMailRealtime()
   stopValidityCountdown()
 }
 
@@ -466,11 +394,8 @@ const loadShareInfo = async () => {
       // 邮箱信息已就绪，先显示列表；邮件列表单独展示加载状态。
       loading.value = false
       await loadEmails()
-      if (!isShareTerminalState(shareState.value) && ['system', 'hosted'].includes(mailboxType.value)) {
-        shareMailStopped = false
-        startShareMailPolling()
-        connectShareMailRealtime()
-      }
+      if (!isShareTerminalState(shareState.value) && ['system', 'hosted', 'external'].includes(mailboxType.value)) {
+            }
     } else {
       error.value = res.message || t('sharePage.loadShareFailed')
     }
@@ -510,11 +435,11 @@ const loadEmails = async () => {
       emailTotal.value = res.data.pagination?.total || 0
       totalPages.value = res.data.pagination?.total_pages || 1
       if (isShareTerminalState(shareState.value)) {
-        stopShareMailRealtime()
-      }
+            }
       // 不自动选中第一封邮件，保持空状态
     } else {
       showMessage(res.message || t('sharePage.loadEmailsFailed'), 'error')
+      return false
     }
   } catch (err) {
     if (String(route.params.token || '') !== shareToken || requestId !== emailLoadRequestId) return
@@ -524,6 +449,7 @@ const loadEmails = async () => {
       return
     }
     showMessage(t('sharePage.loadEmailsFailed'), 'error')
+    return false
   } finally {
     if (requestId === emailLoadRequestId) loadingEmails.value = false
   }
@@ -663,9 +589,7 @@ const copyMailboxAddress = (email) => {
 watch(() => route.params.token, () => {
   emailLoadRequestId++
   loadingEmails.value = false
-  stopShareMailRealtime()
   stopValidityCountdown()
-  shareMailStopped = false
   loading.value = true
   error.value = ''
   latestOnly.value = false
@@ -683,7 +607,6 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  stopShareMailRealtime()
   stopValidityCountdown()
 })
 </script>

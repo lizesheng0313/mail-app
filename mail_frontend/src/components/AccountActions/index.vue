@@ -274,7 +274,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
+import { subscribeAccountState } from '@/services/accountRealtime'
+import { accountUnreadCount, refreshUnreadCounts, retainAccountUnread } from '@/services/accountUnread'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
@@ -284,7 +286,6 @@ import { showMessage } from '@/utils/message'
 import api from '@/services/api'
 import {
   getNotifications,
-  getUnreadCount as getNotificationUnreadCount,
   markAsRead as markNotificationAsRead,
   markAllAsRead as markAllNotificationsAsRead
 } from '@/api/notification'
@@ -311,8 +312,7 @@ const announcements = ref<any[]>([])
 const personalNotifications = ref<any[]>([])
 const announcementsLoading = ref(false)
 const markAllReadLoading = ref(false)
-const unreadCount = ref(0)
-let unreadRequestSerial = 0
+const unreadCount = accountUnreadCount
 const notificationPanelTotal = computed(
   () => personalNotifications.value.length + announcements.value.length
 )
@@ -350,7 +350,6 @@ const goToNotification = async (notification: any) => {
       const result: any = await markNotificationAsRead(notification.id)
       if (result.code === 0) {
         notification.is_read = true
-        await loadUnreadCount()
       }
     } catch (error) {
       console.error('标记个人通知已读失败:', error)
@@ -396,17 +395,19 @@ const loadAnnouncements = async () => {
 
   announcementsLoading.value = true
   try {
-    const [result]: any[] = await Promise.all([
-      api.get('/announcements/', { params: { page: 1, page_size: 10 } }),
+    const [result, personalResult]: any[] = await Promise.all([
+      api.get('/announcements/', { params: { page: 1, page_size: 10 }, timeout: 15000 }),
       loadPersonalNotifications()
     ])
+    if (result.code !== 0 || personalResult === false) return false
     if (result.code === 0) {
       announcements.value = filterVisibleAnnouncements(result.data.items || [])
       // 更新未读数量
-      await loadUnreadCount()
+      return refreshUnreadCounts(undefined, true)
     }
   } catch (error) {
     console.error('加载公告失败:', error)
+    return false
   } finally {
     announcementsLoading.value = false
   }
@@ -417,41 +418,18 @@ const loadPersonalNotifications = async () => {
 
   try {
     const result: any = await getNotifications({ page: 1, page_size: 10 })
+    if (result.code !== 0) return false
     if (result.code === 0) {
       personalNotifications.value = result.data.items || []
     }
   } catch (error) {
     console.error('加载个人通知失败:', error)
+    return false
   }
 }
 
-// 加载未读数量
-const loadUnreadCount = async () => {
-  if (!userStore.isAuthenticated) return
-  const requestSerial = ++unreadRequestSerial
-
-  try {
-    const [announcementResult, notificationResult]: any[] = await Promise.all([
-      api.get('/announcements/unread/count'),
-      getNotificationUnreadCount()
-    ])
-    if (
-      requestSerial !== unreadRequestSerial ||
-      announcementResult.code !== 0 ||
-      notificationResult.code !== 0
-    )
-      return
-
-    unreadCount.value =
-      Number(announcementResult.data?.count || 0) + Number(notificationResult.data?.count || 0)
-  } catch (error) {
-    console.error('加载未读数量失败:', error)
-  }
-}
-
-const refreshAfterImportantNotification = () => {
-  if (showAnnouncements.value) void loadAnnouncements()
-  else void loadUnreadCount()
+const refreshAfterImportantNotification = async () => {
+  if (showAnnouncements.value) return loadAnnouncements()
 }
 
 // 标记全部为已读
@@ -471,7 +449,8 @@ const handleMarkAllRead = async () => {
     }
 
     if (tasks.length > 0) {
-      await Promise.all(tasks)
+      const results = await Promise.all(tasks)
+      if (results.some(result => result?.code !== 0)) throw new Error('一键已读失败')
     }
 
     personalNotifications.value = personalNotifications.value.map((item) => ({
@@ -479,7 +458,6 @@ const handleMarkAllRead = async () => {
       is_read: true
     }))
     announcements.value = announcements.value.map((item) => ({ ...item, is_read: true }))
-    await loadUnreadCount()
     showMessage(t('pageHeader.markedAllRead'), 'success')
   } catch (error) {
     console.error('一键已读失败:', error)
@@ -526,24 +504,24 @@ const handleClickOutside = (event: MouseEvent) => {
   }
 }
 
-let unreadTimer: ReturnType<typeof setInterval> | undefined
+let unsubscribeState: (() => void) | undefined
+let releaseUnread: (() => void) | undefined
+watch(() => [userStore.isAuthenticated, userStore.user?.id], () => {
+  void refreshUnreadCounts(undefined, true)
+})
 
 onMounted(() => {
   document.addEventListener('click', handleClickOutside)
   window.addEventListener('important-notification:acknowledged', refreshAfterImportantNotification)
   // 初始加载未读数量
-  loadUnreadCount()
-  // 每5分钟刷新一次未读数量
-  unreadTimer = setInterval(
-    () => {
-      loadUnreadCount()
-    },
-    5 * 60 * 1000
-  )
+  releaseUnread = retainAccountUnread()
+  if (userStore.isAuthenticated) void refreshUnreadCounts(undefined, true)
+  unsubscribeState = subscribeAccountState(['notifications', 'announcements'], refreshAfterImportantNotification)
 })
 
 onUnmounted(() => {
-  if (unreadTimer) clearInterval(unreadTimer)
+  unsubscribeState?.()
+  releaseUnread?.()
   document.removeEventListener('click', handleClickOutside)
   window.removeEventListener('important-notification:acknowledged', refreshAfterImportantNotification)
 })

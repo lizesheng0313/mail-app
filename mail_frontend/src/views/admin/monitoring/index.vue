@@ -704,7 +704,6 @@ const guestFunnelDays = ref('7')
 
 const worldMapChart = ref<HTMLDivElement>()
 let mapChart: echarts.ECharts | null = null
-let onlineRefreshTimer: number | null = null
 
 // 格式化数字
 const formatNumber = (num: number | string | undefined | null) => {
@@ -798,27 +797,6 @@ const loadGuestConversionFunnel = async () => {
   }
 }
 
-const refreshOnlineCount = async () => {
-  try {
-    const response: any = await monitoringAPI.getOnlineCount()
-    if (response.code === 0) {
-      const onlineData = response.data || {}
-      businessStats.value = {
-        ...businessStats.value,
-        summary: {
-          ...(businessStats.value.summary || {}),
-          online_users_now: onlineData.online_users || 0,
-          desktop_online_users_now: onlineData.desktop_online_users || 0,
-          web_online_users_now: onlineData.web_online_users || 0,
-          miniapp_online_users_now: onlineData.miniapp_online_users || 0
-        }
-      }
-    }
-  } catch (error) {
-    console.error('刷新在线人数失败:', error)
-  }
-}
-
 // 加载地理分布数据
 const loadGeoDistribution = async () => {
   try {
@@ -885,20 +863,6 @@ const loadCurrentSectionData = async () => {
   }
 }
 
-const stopOnlineRefresh = () => {
-  if (onlineRefreshTimer) {
-    window.clearInterval(onlineRefreshTimer)
-    onlineRefreshTimer = null
-  }
-}
-
-const configureOnlineRefresh = () => {
-  stopOnlineRefresh()
-  if (monitoringSection.value === 'business') {
-    onlineRefreshTimer = window.setInterval(refreshOnlineCount, 15000)
-  }
-}
-
 const disposeTrafficCharts = () => {
   mapChart?.dispose()
   mapChart = null
@@ -913,7 +877,6 @@ onMounted(async () => {
   // 等待DOM完全渲染
   await nextTick()
   await loadCurrentSectionData()
-  configureOnlineRefresh()
   // 监听窗口大小变化
   window.addEventListener('resize', handleResize)
 })
@@ -924,7 +887,6 @@ watch(monitoringSection, async (_section, previousSection) => {
   }
   await nextTick()
   await loadCurrentSectionData()
-  configureOnlineRefresh()
 })
 
 // 页面卸载时清理
@@ -933,6 +895,5 @@ onUnmounted(() => {
   window.removeEventListener('resize', handleResize)
 
   disposeTrafficCharts()
-  stopOnlineRefresh()
 })
 </script>

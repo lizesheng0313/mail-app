@@ -278,6 +278,7 @@ import batchLoginAPI from '@/api/batchLogin'
 import mailboxProxyApi from '@/api/mailboxProxy'
 import CustomSelect from '@/components/CustomSelect/index.vue'
 import { isTauri } from '@/services/api'
+import { dispatchMailboxChange } from '@/services/mailboxChanges'
 import { resolveOAuthProviderByDomain } from '@/utils/externalMailboxRules'
 import { showMessage } from '@/utils/message'
 const { t } = useI18n()
@@ -810,6 +811,7 @@ const waitForWebOAuthCallback = (
       if (detail.source !== 'oauth2-callback') return
 
       if (detail.oauth2_success === '1') {
+        dispatchMailboxChange('oauth')
         cleanup()
         resolve({ success: true, email: (detail.email || '').trim() })
         return

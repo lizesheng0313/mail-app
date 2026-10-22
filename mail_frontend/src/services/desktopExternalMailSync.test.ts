@@ -29,7 +29,9 @@ vi.mock('@/services/desktopOAuthMailbox', () => ({
 vi.mock('@tauri-apps/api/core', () => ({ invoke: mocks.invoke }))
 vi.mock('@tauri-apps/api/event', () => ({ listen: mocks.listen }))
 
+import { invalidateDesktopMailboxes, stopDesktopMailboxCache } from './desktopMailboxCache'
 import { desktopExternalMailSync, mailboxSyncMode } from './desktopExternalMailSync'
+import { invokeDesktopMailboxFetch } from './mailboxCollection'
 
 const emit = (mailboxId: number, generation: number, status: string) => {
   mocks.listener?.({ payload: { mailboxId, generation, status } })
@@ -54,11 +56,32 @@ beforeEach(() => {
 
 afterEach(async () => {
   await desktopExternalMailSync.stop()
+  stopDesktopMailboxCache()
   vi.useRealTimers()
   localStorage.clear()
 })
 
 describe('desktop external mail sync', () => {
+  it('keeps POP3 deadlines and IMAP connections unchanged across window switches', async () => {
+    vi.useFakeTimers()
+    mocks.getAllAccounts.mockResolvedValue({ code: 0, data: { accounts: [
+      { id: 1, email: 'imap@test.local', protocol: 'imap', imap_host: 'imap.test', status: 'active' },
+      { id: 2, email: 'pop@test.local', protocol: 'pop3', status: 'active' },
+    ] } })
+    await desktopExternalMailSync.start(42)
+    const before = mocks.invoke.mock.calls.length
+    await vi.advanceTimersByTimeAsync(299000)
+    for (let i = 0; i < 5; i++) {
+      window.dispatchEvent(new Event('focus'))
+      document.dispatchEvent(new Event('visibilitychange'))
+      await vi.advanceTimersByTimeAsync(1)
+    }
+    expect(mocks.invoke).toHaveBeenCalledTimes(before)
+    expect(mocks.getAllAccounts).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(995)
+    expect(mocks.invoke.mock.calls.filter(([command]) => command === 'fetch_emails')).toHaveLength(2)
+    expect(mocks.invoke.mock.calls.filter(([command]) => command === 'start_imap_watch')).toHaveLength(1)
+  })
   it('selects IDLE only for locally connected IMAP and bounds the connections', () => {
     expect(mailboxSyncMode({ id: 1, email: 'a@test', protocol: 'imap', imap_host: 'imap.test' }, true)).toBe('idle')
     expect(mailboxSyncMode({ id: 1, email: 'a@test', protocol: 'imap', imap_host: 'imap.test' }, false)).toBe('interval')
@@ -98,6 +121,27 @@ describe('desktop external mail sync', () => {
     expect(mocks.invoke).toHaveBeenCalledWith('stop_all_imap_watches')
   })
 
+  it('drains a full native batch after one IDLE event even when the server deduplicates it', async () => {
+    mocks.getAllAccounts.mockResolvedValue({ code: 0, data: { accounts: [{
+      id: 1, email: 'imap@test.local', protocol: 'imap', status: 'active'
+    }] } })
+    let collections = 0
+    mocks.invoke.mockImplementation(async command => {
+      if (command === 'start_imap_watch') return 7
+      if (command === 'fetch_emails') {
+        collections++
+        return collections === 1 ? { count: 0, has_more: true } : { count: 5, has_more: false }
+      }
+    })
+    await desktopExternalMailSync.start(42)
+    emit(1, 7, 'changed')
+    await vi.waitFor(() => expect(collections).toBe(2))
+    await new Promise(resolve => setTimeout(resolve, 10))
+    expect(collections).toBe(2)
+    expect(mocks.getAllAccounts).toHaveBeenCalledTimes(1)
+    expect(mocks.getRuntimeProxy).toHaveBeenCalledTimes(1)
+  })
+
   it('checks POP3 again every five minutes while the desktop session stays open', async () => {
     vi.useFakeTimers()
     mocks.getAllAccounts.mockResolvedValue({ code: 0, data: { accounts: [{
@@ -108,6 +152,8 @@ describe('desktop external mail sync', () => {
     expect(mocks.invoke.mock.calls.filter(([command]) => command === 'fetch_emails')).toHaveLength(1)
     await vi.advanceTimersByTimeAsync(5 * 60 * 1000)
     expect(mocks.invoke.mock.calls.filter(([command]) => command === 'fetch_emails')).toHaveLength(2)
+    expect(mocks.getAllAccounts).toHaveBeenCalledTimes(1)
+    expect(mocks.getRuntimeProxy).toHaveBeenCalledTimes(1)
   })
 
   it('limits simultaneous fetches when many IMAP accounts become ready together', async () => {
@@ -128,5 +174,110 @@ describe('desktop external mail sync', () => {
     releases[0]({ count: 0 })
     await vi.waitFor(() => expect(releases).toHaveLength(4))
     releases.slice(1).forEach((release) => release({ count: 0 }))
+  })
+
+  it('uses one schedule for foreground relay mail and five-minute fallback collection', async () => {
+    vi.useFakeTimers()
+    mocks.getAllAccounts.mockResolvedValue({ code: 0, data: { accounts: [
+      { id: 1, email: 'relay@189.cn', relay_fetch_enabled: true, status: 'active' },
+      { id: 2, email: 'pop@test.local', protocol: 'pop3', status: 'active' }
+    ] } })
+    await desktopExternalMailSync.start(42)
+    desktopExternalMailSync.setRelayForeground(1)
+    await vi.advanceTimersByTimeAsync(304000)
+    expect(mocks.fetchRelay).toHaveBeenCalledTimes(39) // Initial collection plus 38 eight-second checks.
+    expect(mocks.invoke.mock.calls.filter(([command]) => command === 'fetch_emails')).toHaveLength(2)
+    expect(mocks.getAllAccounts).toHaveBeenCalledTimes(1)
+    desktopExternalMailSync.setRelayForeground(0)
+    await vi.advanceTimersByTimeAsync(299999)
+    expect(mocks.fetchRelay).toHaveBeenCalledTimes(39)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(mocks.fetchRelay).toHaveBeenCalledTimes(40)
+  })
+
+  it('ends foreground relay checks after ten minutes and stops all work on logout', async () => {
+    vi.useFakeTimers()
+    mocks.getAllAccounts.mockResolvedValue({ code: 0, data: { accounts: [
+      { id: 1, email: 'relay@189.cn', relay_fetch_enabled: true, status: 'active' }
+    ] } })
+    await desktopExternalMailSync.start(42)
+    desktopExternalMailSync.setRelayForeground(1)
+    await vi.advanceTimersByTimeAsync(600000)
+    expect(mocks.fetchRelay).toHaveBeenCalledTimes(75)
+    await desktopExternalMailSync.stop()
+    await vi.advanceTimersByTimeAsync(3600000)
+    expect(mocks.fetchRelay).toHaveBeenCalledTimes(75)
+  })
+
+  it('counts a manual collection toward the next scheduled check', async () => {
+    vi.useFakeTimers()
+    mocks.getAllAccounts.mockResolvedValue({ code: 0, data: { accounts: [
+      { id: 2, email: 'pop@test.local', protocol: 'pop3', status: 'active' }
+    ] } })
+    await desktopExternalMailSync.start(42)
+    await vi.advanceTimersByTimeAsync(299000)
+    await invokeDesktopMailboxFetch(mocks.invoke, {
+      mailboxId: 2, token: 'local-test-token', serverUrl: 'http://localhost:8088/mail-api/v1'
+    })
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(mocks.invoke.mock.calls.filter(([command]) => command === 'fetch_emails')).toHaveLength(2)
+    await vi.advanceTimersByTimeAsync(299000)
+    expect(mocks.invoke.mock.calls.filter(([command]) => command === 'fetch_emails')).toHaveLength(3)
+  })
+
+  it('retries failed uploads without repeatedly querying account or proxy configuration', async () => {
+    vi.useFakeTimers()
+    mocks.getAllAccounts.mockResolvedValue({ code: 0, data: { accounts: [{ id: 2, email: 'pop@test', protocol: 'pop3', status: 'active' }] } })
+    let attempts = 0
+    mocks.invoke.mockImplementation(async command => {
+      if (command !== 'fetch_emails') return
+      if (++attempts === 1) throw { message: '本地收取成功，但同步到服务器失败', failure_kind: 'network' }
+      return { count: 0 }
+    })
+    await desktopExternalMailSync.start(42)
+    expect(attempts).toBe(1)
+    await vi.advanceTimersByTimeAsync(5000)
+    expect(attempts).toBe(2)
+    await vi.advanceTimersByTimeAsync(10000)
+    expect(attempts).toBe(2)
+    expect(mocks.getAllAccounts).toHaveBeenCalledTimes(1)
+    expect(mocks.getRuntimeProxy).toHaveBeenCalledTimes(1)
+  })
+
+  it('uses changed credentials on the next fetch after a configuration push', async () => {
+    const account = { id: 2, email: 'pop@test', protocol: 'pop3', password: 'old', status: 'active' }
+    mocks.getAllAccounts.mockResolvedValue({ code: 0, data: { accounts: [account] } })
+    await desktopExternalMailSync.start(42)
+    mocks.getAllAccounts.mockResolvedValue({ code: 0, data: { accounts: [{ ...account, password: 'new' }] } })
+    invalidateDesktopMailboxes({ resource: 'accounts', mailbox_id: 2 })
+    await vi.waitFor(() => expect(mocks.invoke).toHaveBeenCalledWith('fetch_emails', expect.objectContaining({ password: 'new' })))
+    expect(mocks.getAllAccounts).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not let repeated IDLE events bypass failed upload backoff', async () => {
+    vi.useFakeTimers()
+    mocks.getAllAccounts.mockResolvedValue({ code: 0, data: { accounts: [{
+      id: 1, email: 'imap@test', protocol: 'imap', imap_host: 'imap.test', status: 'active'
+    }] } })
+    let reject!: (error: unknown) => void
+    let attempts = 0
+    mocks.invoke.mockImplementation(async command => {
+      if (command === 'start_imap_watch') return 7
+      if (command === 'fetch_emails' && ++attempts === 1) return new Promise((_resolve, fail) => { reject = fail })
+      return { count: 0 }
+    })
+    await desktopExternalMailSync.start(42)
+    await vi.advanceTimersByTimeAsync(0)
+    emit(1, 7, 'ready')
+    await vi.advanceTimersByTimeAsync(0)
+    for (let i = 0; i < 20; i++) emit(1, 7, 'changed')
+    reject({ message: '本地收取成功，但同步到服务器失败', failure_kind: 'network' })
+    await vi.advanceTimersByTimeAsync(0)
+    expect(attempts).toBe(1)
+    for (let i = 0; i < 20; i++) emit(1, 7, 'changed')
+    await vi.advanceTimersByTimeAsync(4999)
+    expect(attempts).toBe(1)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(attempts).toBe(2)
   })
 })

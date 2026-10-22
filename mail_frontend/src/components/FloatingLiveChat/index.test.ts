@@ -1,5 +1,5 @@
 import { flushPromises, mount } from '@vue/test-utils'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   get: vi.fn(),
@@ -19,11 +19,16 @@ vi.mock('@/stores/user', () => ({ useUserStore: () => ({ isAuthenticated: true, 
 vi.mock('@/utils/message', () => ({ showMessage: mocks.showMessage }))
 vi.mock('@/utils/imageUpload', () => ({ uploadImageFile: vi.fn() }))
 vi.mock('vue-router', () => ({ useRouter: () => ({ push: vi.fn() }) }))
-vi.mock('socket.io-client', () => ({ io: () => mocks.socket }))
+vi.mock('@/services/realtimeClient', () => ({
+  setRealtimeIdentity: vi.fn(), emitRealtime: vi.fn(),
+  onRealtimeEvent: (event: string, callback: unknown) => { mocks.socket.on(event, callback); return vi.fn() },
+  subscribeRealtime: (_events: string[], callback: unknown) => { mocks.socket.on('chat_state_changed', callback); return vi.fn() },
+}))
 
 import FloatingLiveChat from './index.vue'
 
 describe('admin support conversation list', () => {
+  afterEach(() => vi.useRealTimers())
   beforeEach(() => {
     mocks.get.mockReset().mockImplementation((path: string) => {
       if (path === '/live-chat/conversations') {
@@ -129,4 +134,19 @@ describe('admin support conversation list', () => {
     expect(wrapper.get('[data-testid="admin-conversation-unread--4"]').text()).toBe('2')
     wrapper.unmount()
   })
+  it('does not repeatedly query conversations while the socket is disconnected', async () => {
+    vi.useFakeTimers()
+    const wrapper = mount(FloatingLiveChat)
+    try {
+      await flushPromises()
+      const initial = mocks.get.mock.calls.length
+      await vi.advanceTimersByTimeAsync(60 * 60 * 1000)
+      expect(mocks.get).toHaveBeenCalledTimes(initial)
+      const handler = mocks.socket.on.mock.calls.filter(([name]) => name === 'chat_state_changed').at(-1)?.[1]
+      await handler({})
+      await flushPromises()
+      expect(mocks.get.mock.calls.length).toBeGreaterThan(initial)
+    } finally { wrapper.unmount() }
+  })
+
 })

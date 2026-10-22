@@ -12,7 +12,7 @@ pipeline {
         VERSION = "${new Date().format('yyyyMMdd-HHmmss')}"
         
         // 服务器配置（改这里的路径即可）
-        SERVER_HOST = '8.140.27.159'
+        SERVER_HOST = '118.178.181.189'
         SERVER_USER = 'root'
         DEPLOY_PATH = '/var/web/mail/mail_frontend'  // Nginx 静态文件路径
     }

@@ -4,7 +4,24 @@ const mocks = vi.hoisted(() => ({ showMessage: vi.fn() }))
 vi.mock('@/utils/message', () => ({ showMessage: mocks.showMessage }))
 vi.mock('@/i18n', () => ({ getCurrentLocale: () => 'zh-CN', i18n: { global: { t: (key: string) => key } } }))
 
-import { handleSessionUnauthorized, shouldSuppressErrorMessage } from './api'
+import api, { handleSessionUnauthorized, shouldSuppressErrorMessage } from './api'
+
+it('applies mailbox changes from the command response without waiting for a socket', async () => {
+  localStorage.setItem('token', 'command-session')
+  const listener = vi.fn()
+  window.addEventListener('external-mailboxes-changed', listener)
+  try {
+    await api.post('/unified-emails/external-mailboxes/12/proxy', {}, {
+      adapter: async config => ({ config, status: 200, statusText: 'OK', headers: {},
+        data: { code: 0, mailbox_change: { resource: 'proxy', mailbox_id: 12 } } }),
+    })
+    expect(listener).toHaveBeenCalledOnce()
+    expect(listener.mock.calls[0][0].detail).toEqual({ resource: 'proxy', mailboxId: 12 })
+  } finally {
+    window.removeEventListener('external-mailboxes-changed', listener)
+    localStorage.clear()
+  }
+})
 
 describe('API error message suppression', () => {
   it('treats boolean suppressErrorMessage as silent', () => {

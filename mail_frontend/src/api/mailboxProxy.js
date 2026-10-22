@@ -26,11 +26,11 @@ const mailboxProxyApi = {
   },
 
   previewRuntimeProxy(data) {
-    return api.post('/unified-emails/external-mailboxes/proxy/preview', data)
+    return api.post('/unified-emails/external-mailboxes/proxy/preview', data, { timeout: 15000 })
   },
 
   getRuntimeProxy(mailboxId) {
-    return api.get(`/unified-emails/external-mailboxes/${mailboxId}/proxy/runtime`)
+    return api.get(`/unified-emails/external-mailboxes/${mailboxId}/proxy/runtime`, { timeout: 15000 })
   },
 
   saveBatchMailboxOverride(data) {

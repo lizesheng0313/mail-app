@@ -139,7 +139,9 @@
             @deleted="handleExternalMailboxesDeleted"
             @fetch-all="fetchAllExternalEmails"
             @cancel-fetch-all="cancelExternalHistoryFetch"
+            @refresh-progress="refreshExternalHistoryFetchStatus"
             @refresh="handleRefreshExternalEmails"
+            @accounts-loaded="syncMailboxAuthTypeMap"
             @oauth-reauthorize="handleOAuthMailboxReauthorize"
             @batch-mode-start="handleMailboxBatchStart"
           >
@@ -532,6 +534,7 @@
 </template>
 
 <script setup lang="ts">
+import { invokeDesktopMailboxFetch } from '@/services/mailboxCollection'
 import { computed, defineAsyncComponent, ref, shallowRef, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
@@ -557,9 +560,12 @@ import EmailDetail from '@/components/Mail/EmailDetail/EmailDetail.vue'
 import Pagination from '@/components/Pagination/index.vue'
 import BaseIcon from '@/components/BaseIcon/index.vue'
 import ConfirmDialog from '@/components/ConfirmDialog/index.vue'
-import { useAutoRefresh } from '@/composables/useAutoRefresh'
+import { dispatchAccountState } from '@/services/accountRealtime'
+import { createRealtimeRefresh } from '@/services/realtimeRefresh'
+import { desktopExternalMailSync } from '@/services/desktopExternalMailSync'
 import { showMessage } from '@/utils/message'
-import { isTauri, getServerUrl, buildWebSocketURL } from '@/services/api'
+import { isTauri, getServerUrl } from '@/services/api'
+import { getDesktopMailboxAccounts, getDesktopRuntimeProxy } from '@/services/desktopMailboxCache'
 import { runDesktopOAuthMailboxAction } from '@/services/desktopOAuthMailbox'
 import { DESKTOP_DOWNLOAD_URLS } from '@/config/desktopRelease'
 import { normalizeOAuthRecoveryErrorMessage } from '@/utils/oauthRecovery'
@@ -575,7 +581,6 @@ import {
 import {
   isExternalMailboxNetworkFailure,
   runExternalMailboxWithRelayFallback,
-  runSerializedExternalMailboxRelayFetch,
   supportsExternalMailboxRelay,
   verifyExternalMailboxThroughRelay
 } from '@/utils/externalMailboxRelay'
@@ -585,8 +590,7 @@ import {
 import { getCurrentLocale } from '@/i18n'
 import {
   countGuestMailboxesCreatedToday,
-  GUEST_MAILBOX_DAILY_LIMIT,
-  loadStoredGuestMailboxes
+  GUEST_MAILBOX_DAILY_LIMIT
 } from '@/utils/guestMailboxes'
 import { trackProductEvent } from '@/services/productAnalytics'
 
@@ -769,6 +773,7 @@ const externalHistoryFetchProgress = ref<any>(null)
 const showOnlyUnreadExternal = ref(false)
 const externalEmailPage = ref(1)
 const externalEmailPageSize = ref(20)
+const externalSearchKeyword = ref('')
 const externalEmailTotal = ref(0)
 const externalMailboxAuthTypeMap = ref<Record<number, string>>({})
 const externalMailboxEmailMap = ref<Record<number, string>>({})
@@ -776,26 +781,35 @@ const externalMailboxRelayFetchMap = ref<Record<number, boolean>>({})
 const externalMailboxFetchingIds = ref<number[]>([])
 const externalEmailListRequestSeq = ref(0)
 const hostedEmailListRequestSeq = ref(0)
-const TITLE_ALERT_POLL_INTERVAL = 5
 const TITLE_ALERT_PREFIX_RE = /^[【\[].*?[】\]]/
 const browserBaseTitle = ref(t('home.defaultBrowserTitle'))
 const titleAlertHiddenAt = ref(0)
 let browserTitleScrollTimer: number | null = null
 let browserTitleScrollIndex = 0
 let browserTitleScrollSource = ''
-let externalHistoryFetchPollTimer: ReturnType<typeof window.setTimeout> | null = null
-let externalHistoryRefreshTimer: ReturnType<typeof window.setTimeout> | null = null
-let externalHistoryRefreshInFlight: Promise<void> | null = null
-let externalHistoryRefreshPending = false
-let externalRelayPollTimer: ReturnType<typeof window.setTimeout> | null = null
-let externalRelayPollDeadline = 0
-let externalRelayPollPromise: Promise<void> | null = null
+let externalAccountsDirty = false
+const externalMailRefresh = createRealtimeRefresh(async () => {
+  const reloadAccounts = externalAccountsDirty
+  externalAccountsDirty = false
+  if (mailboxType.value !== 'external' || !userStore.isAuthenticated) return
+  const results = await Promise.all([
+    selectedExternalMailboxId.value ? queryExternalMailboxEmails() : queryAllExternalEmails(),
+    reloadAccounts ? externalMailboxListRef.value?.loadAccounts?.() : undefined
+  ])
+  if (results.some(result => result === false)) {
+    externalAccountsDirty ||= reloadAccounts
+    return false
+  }
+}, { delay: 150 })
+const requestExternalMailRefresh = (accounts = false) => {
+  externalAccountsDirty ||= accounts
+  return externalMailRefresh.request()
+}
+const loadExternalMailboxEmails = () => requestExternalMailRefresh()
+const loadAllExternalEmails = () => requestExternalMailRefresh()
 let completedExternalHistoryFetchJobId: number | null = null
 let lastExternalHistoryFetchJobId: number | null = null
 let lastExternalHistoryFetchNewEmailCount = 0
-const EXTERNAL_HISTORY_FETCH_FALLBACK_POLL_INTERVAL_MS = 10000
-const EXTERNAL_RELAY_POLL_INTERVAL_MS = 8000
-const EXTERNAL_RELAY_POLL_WINDOW_MS = 10 * 60 * 1000
 const titleAlertSeenEmailIds: Record<'system' | 'hosted' | 'external', Set<number>> = {
   system: new Set<number>(),
   hosted: new Set<number>(),
@@ -865,6 +879,11 @@ const syncMailboxAuthTypeMap = (items: any[]) => {
       externalMailboxRelayFetchMap.value[id] = item?.relay_fetch_enabled === true
     }
   }
+  const selected = Number(selectedExternalMailboxId.value || 0)
+  if (selected && externalMailboxAuthTypeMap.value[selected]) {
+    selectedExternalAuthType.value = externalMailboxAuthTypeMap.value[selected]
+  }
+  syncRelayForeground()
 }
 
 const normalizeBrowserBaseTitle = (title?: string) => {
@@ -1037,32 +1056,10 @@ const loadTitleAlertEmailsByType = async (mailType: 'system' | 'hosted' | 'exter
   return response.data.emails || []
 }
 
-const pollBrowserTitleAlerts = async () => {
-  if (typeof document === 'undefined' || !document.hidden) {
-    return
-  }
-
-  if (browserTitleScrollTimer === null && pendingTitleAlertEmails.size === 0) {
-    rememberBrowserBaseTitle()
-  }
-
-  if (!userStore.isAuthenticated) {
-    applyBrowserTitleAlert()
-    return
-  }
-
-  try {
-    registerTitleAlertEmails('external', await loadTitleAlertEmailsByType('external'))
-  } catch (error) {
-    console.error('轮询第三方邮件标题提醒失败:', error)
-  }
-}
-
 const handleBrowserVisibilityChange = () => {
   if (document.hidden) {
     titleAlertHiddenAt.value = Date.now()
     rememberBrowserBaseTitle()
-    void pollBrowserTitleAlerts()
     return
   }
 
@@ -1071,7 +1068,7 @@ const handleBrowserVisibilityChange = () => {
   rememberBrowserBaseTitle()
 }
 
-const shouldPollSelectedExternalRelayMailbox = () => {
+const usesRelayForeground = () => {
   if (!isTauri()) return false
   const mailboxId = Number(selectedExternalMailboxId.value || 0)
   if (!userStore.isAuthenticated || mailboxType.value !== 'external' || currentView.value !== 'emails') {
@@ -1084,71 +1081,19 @@ const shouldPollSelectedExternalRelayMailbox = () => {
   )
 }
 
-const stopExternalRelayPolling = () => {
-  if (externalRelayPollTimer !== null) {
-    window.clearTimeout(externalRelayPollTimer)
-    externalRelayPollTimer = null
-  }
-  externalRelayPollDeadline = 0
-}
+const clearRelayForeground = () => desktopExternalMailSync.setRelayForeground(0)
+const syncRelayForeground = () => desktopExternalMailSync.setRelayForeground(
+  usesRelayForeground() && !fetchingExternalEmails.value
+    ? Number(selectedExternalMailboxId.value) : 0
+)
+const renewRelayForeground = () => desktopExternalMailSync.setRelayForeground(
+  usesRelayForeground() && !fetchingExternalEmails.value
+    ? Number(selectedExternalMailboxId.value) : 0, true
+)
 
-const scheduleExternalRelayPoll = (delay = EXTERNAL_RELAY_POLL_INTERVAL_MS) => {
-  if (externalRelayPollTimer !== null || !shouldPollSelectedExternalRelayMailbox()) return
-  if (externalRelayPollDeadline <= Date.now()) return
-  externalRelayPollTimer = window.setTimeout(runExternalRelayPoll, delay)
-}
-
-const runExternalRelayPoll = () => {
-  externalRelayPollTimer = null
-  if (!shouldPollSelectedExternalRelayMailbox() || externalRelayPollDeadline <= Date.now()) return
-  if (externalRelayPollPromise || fetchingExternalEmails.value) {
-    scheduleExternalRelayPoll()
-    return
-  }
-
-  const mailboxId = Number(selectedExternalMailboxId.value || 0)
-  externalRelayPollPromise = (async () => {
-    try {
-      const response = await runSerializedExternalMailboxRelayFetch(mailboxId, () =>
-        batchLoginAPI.fetchExternalMailboxOnline(mailboxId, {
-          suppressErrorMessage: true
-        })
-      )
-      if (response.code === 0 && Number(response.data?.new_email_count || 0) > 0) {
-        externalEmailPage.value = 1
-        await loadExternalMailboxEmails()
-        await externalMailboxListRef.value?.loadAccounts?.()
-      }
-    } catch (error) {
-      console.warn('189 邮箱国内线路自动收取失败:', error)
-    } finally {
-      externalRelayPollPromise = null
-      scheduleExternalRelayPoll()
-    }
-  })()
-}
-
-const ensureExternalRelayPolling = () => {
-  if (!shouldPollSelectedExternalRelayMailbox()) {
-    stopExternalRelayPolling()
-    return
-  }
-  if (externalRelayPollDeadline <= Date.now()) {
-    externalRelayPollDeadline = Date.now() + EXTERNAL_RELAY_POLL_WINDOW_MS
-  }
-  scheduleExternalRelayPoll()
-}
-
-const restartExternalRelayPolling = () => {
-  stopExternalRelayPolling()
-  if (!shouldPollSelectedExternalRelayMailbox()) return
-  externalRelayPollDeadline = Date.now() + EXTERNAL_RELAY_POLL_WINDOW_MS
-  scheduleExternalRelayPoll(0)
-}
-
-const syncAutoRefreshStates = () => {
-  if (mailboxType.value === 'external' && userStore.isAuthenticated) ensureExternalRelayPolling()
-  else stopExternalRelayPolling()
+const syncMailCollectionDemand = () => {
+  if (mailboxType.value === 'external' && userStore.isAuthenticated) syncRelayForeground()
+  else clearRelayForeground()
 }
 
 const setExternalMailboxFetchingIds = (ids: number[]) => {
@@ -1183,14 +1128,13 @@ const markRecoveredMailboxAsPassword = (mailboxId: number) => {
   if (selectedExternalMailboxId.value === mailboxId) {
     selectedExternalAuthType.value = 'password'
   }
-  window.dispatchEvent(
-    new CustomEvent('external-mailbox-recovered', {
-      detail: { mailboxId }
-    })
-  )
 }
 
 const loadExternalMailboxAccountById = async (mailboxId: number) => {
+  if (isTauri()) {
+    const accounts = await getDesktopMailboxAccounts()
+    return accounts.find((item: any) => Number(item?.id) === Number(mailboxId)) || null
+  }
   const response: any = await batchLoginAPI.getAllAccounts(100, {
     suppressErrorMessage: true
   })
@@ -1203,34 +1147,25 @@ const loadExternalMailboxAccountById = async (mailboxId: number) => {
 
 const loadMailboxRuntimeProxy = async (mailboxId: number) => {
   if (!mailboxId) return null
-  try {
-    const response: any = await mailboxProxyApi.getRuntimeProxy(mailboxId)
-    if (response.code !== 0) return null
-    return response?.data?.runtime_proxy || null
-  } catch {
-    return null
-  }
+  if (isTauri()) return getDesktopRuntimeProxy(mailboxId)
+  const response: any = await mailboxProxyApi.getRuntimeProxy(mailboxId)
+  if (response.code !== 0) throw new Error(response.message || '获取代理配置失败')
+  return response?.data?.runtime_proxy || null
 }
 
 const previewMailboxRuntimeProxy = async (email: string, oauthProvider: string | null = null, proxyId: number | null = null) => {
   if (!email && !proxyId) return null
-  try {
-    const response: any = await mailboxProxyApi.previewRuntimeProxy({
-      email,
-      oauth_provider: oauthProvider || null,
-      proxy_id: proxyId || null
-    })
-    if (response.code !== 0) return null
-    return response?.data?.runtime_proxy || null
-  } catch {
-    return null
-  }
+  const response: any = await mailboxProxyApi.previewRuntimeProxy({
+    email,
+    oauth_provider: oauthProvider || null,
+    proxy_id: proxyId || null
+  })
+  if (response.code !== 0) throw new Error(response.message || '获取代理配置失败')
+  return response?.data?.runtime_proxy || null
 }
 
 const fetchExternalMailboxThroughRelay = async (account: any) => {
-  const response: any = await runSerializedExternalMailboxRelayFetch(account.id, () =>
-    batchLoginAPI.fetchExternalMailboxOnline(account.id)
-  )
+  const response: any = await batchLoginAPI.fetchExternalMailboxOnline(account.id)
   if (response.code !== 0) {
     throw new Error(response.message || t('home.fetchFailed'))
   }
@@ -1248,7 +1183,7 @@ const enableExternalMailboxRelayFetch = async (mailboxId: number) => {
     }
     externalMailboxRelayFetchMap.value[mailboxId] = true
     if (Number(selectedExternalMailboxId.value || 0) === mailboxId) {
-      restartExternalRelayPolling()
+      renewRelayForeground()
     }
   } catch (error) {
     console.warn('保存国内线路收信设置失败:', error)
@@ -1285,7 +1220,8 @@ const fetchOAuthMailboxOnceById = async (
 
   try {
     const fetchResult = await runDesktopOAuthMailboxAction(mailboxId, async (tokenPayload) => {
-      return tauriInvoke('fetch_emails', {
+      return invokeDesktopMailboxFetch(tauriInvoke, {
+        forceStatusSync: !!account?.status && account.status !== 'active',
         mailboxId,
         email: tokenPayload.email,
         password: '',
@@ -1300,7 +1236,6 @@ const fetchOAuthMailboxOnceById = async (
       })
     })
 
-    await batchLoginAPI.updateMailboxStatus(mailboxId, 'active')
     return Number(fetchResult?.count || 0)
   } catch (error: any) {
     if (!account) {
@@ -1324,40 +1259,6 @@ const fetchOAuthMailboxOnceById = async (
     }
 
     throw error
-  }
-}
-
-const loadExternalMailboxAuthTypes = async () => {
-  try {
-    externalMailboxAuthTypeMap.value = {}
-    externalMailboxEmailMap.value = {}
-    externalMailboxRelayFetchMap.value = {}
-
-    const pageSize = 20
-    let page = 1
-    let totalPages = 1
-
-    while (page <= totalPages) {
-      const response = await batchLoginAPI.getAccounts(page, pageSize)
-      if (response.code !== 0) break
-
-      const data = response.data || {}
-      const list = Array.isArray(data) ? data : data.accounts || []
-      syncMailboxAuthTypeMap(list)
-
-      if (!Array.isArray(data) && data.pagination) {
-        totalPages = Number(data.pagination.total_pages || 1)
-      } else if (list.length < pageSize) {
-        totalPages = page
-      } else {
-        totalPages = page + 1
-      }
-
-      page += 1
-    }
-    ensureExternalRelayPolling()
-  } catch (error) {
-    console.error('加载外部邮箱认证类型失败:', error)
   }
 }
 
@@ -1748,7 +1649,7 @@ const switchMailboxType = async (type: 'system' | 'hosted' | 'external') => {
     } else {
       mailStore.clearSelectedEmail()
     }
-    syncAutoRefreshStates()
+    syncMailCollectionDemand()
     return
   }
 
@@ -1776,14 +1677,13 @@ const switchMailboxType = async (type: 'system' | 'hosted' | 'external') => {
     // 加载外部邮箱列表
     await Promise.all([
       externalMailboxListRef.value?.loadAccounts?.(),
-      loadExternalMailboxAuthTypes(),
       loadSmtpAccounts(),
       loadAllExternalEmails()
     ])
-    await resumeExternalHistoryFetchPolling()
+    await resumeExternalHistoryFetchStatus()
   }
 
-  syncAutoRefreshStates()
+  syncMailCollectionDemand()
 }
 
 // 批量登录 - 打开添加账号弹窗
@@ -2416,7 +2316,6 @@ const handleOAuth2Complete = async (result: {
       await externalMailboxListRef.value.loadAccounts()
     }
     await loadSmtpAccounts()
-    await loadExternalMailboxAuthTypes()
   } else if (result.failCount > 0) {
     showMessage(t('home.oauthCompleteFailed', { count: result.failCount }), 'error')
   }
@@ -2448,7 +2347,6 @@ const handleEmailBatchStart = () => {
 }
 
 const MANUAL_REFRESH_MIN_SPIN_MS = 1200
-let pendingSystemMailEventRefresh = false
 
 const refreshSystemEmails = async (options?: { minSpinMs?: number }) => {
   if (refreshingSystemEmails.value) {
@@ -2473,15 +2371,17 @@ const refreshSystemEmails = async (options?: { minSpinMs?: number }) => {
       // 保持搜索关键词
       if (mailStore.searchKeyword) params.search = mailStore.searchKeyword
       if (selectedMailboxId.value) {
-        await mailStore.fetchMailboxEmails(selectedMailboxId.value, params, true)
+        const result = await mailStore.fetchMailboxEmails(selectedMailboxId.value, params, true)
+        if (result?.success === false) return false
       } else {
-        await mailStore.fetchUserEmails(
+        const result = await mailStore.fetchUserEmails(
           mailStore.currentPage,
           20,
           true,
           showOnlyUnread.value || undefined,
           mailStore.searchKeyword || undefined
         )
+        if (result?.success === false) return false
       }
     } else if (mailboxStore.tempMailbox?.id) {
       // 临时用户：用临时邮箱接口刷新
@@ -2491,11 +2391,12 @@ const refreshSystemEmails = async (options?: { minSpinMs?: number }) => {
           {},
           String((mailboxStore.tempMailbox as any)?.claim_token || '')
         )
+        if (res.code !== 0) return false
         if (res.code === 0 && res.data) {
           mailStore.emails = res.data.emails || []
         }
       } catch (e) {
-        // 静默失败
+        return false
       }
     }
 
@@ -2508,10 +2409,6 @@ const refreshSystemEmails = async (options?: { minSpinMs?: number }) => {
       await new Promise((resolve) => setTimeout(resolve, minSpinMs - elapsed))
     }
     refreshingSystemEmails.value = false
-    if (pendingSystemMailEventRefresh) {
-      pendingSystemMailEventRefresh = false
-      void refreshSystemEmails()
-    }
   }
 }
 
@@ -2535,6 +2432,7 @@ const loadHostedEmails = async (page = hostedEmailPage.value) => {
 
     const response: any = await emailAPI.getUserEmails(params)
     if (requestSeq !== hostedEmailListRequestSeq.value) return
+    if (response.code !== 0) return false
     if (response.code === 0 && response.data) {
       hostedEmails.value = normalizeHostedEmailRows(response.data.emails || [])
       hostedEmailPage.value = response.data.pagination?.page || page
@@ -2544,6 +2442,7 @@ const loadHostedEmails = async (page = hostedEmailPage.value) => {
   } catch (error) {
     if (requestSeq !== hostedEmailListRequestSeq.value) return
     console.error('加载域名邮箱邮件失败:', error)
+    return false
   }
 }
 
@@ -2551,112 +2450,71 @@ const refreshHostedEmails = async () => {
   if (mailboxType.value !== 'hosted') {
     return
   }
-  await loadHostedEmails(hostedEmailPage.value || 1)
+  return loadHostedEmails(hostedEmailPage.value || 1)
 }
 
-const refreshSystemEmailsAfterPush = async () => {
+const refreshSystemEmailsWhenIdle = async () => {
   if (refreshingSystemEmails.value) {
-    pendingSystemMailEventRefresh = true
-    return
+    return false
   }
-  await refreshSystemEmails()
+  return refreshSystemEmails()
 }
 
-let mailRealtimeSocket: WebSocket | null = null
-let mailRealtimeRetryTimer: number | null = null
-let mailRealtimeHeartbeatTimer: number | null = null
-let mailRealtimeRetryDelay = 3000
-let mailRealtimeClosed = false
-
-const closeMailRealtime = () => {
-  if (mailRealtimeRetryTimer !== null) {
-    window.clearTimeout(mailRealtimeRetryTimer)
-    mailRealtimeRetryTimer = null
+const refreshSelectedMailAfterChange = async (type: 'system' | 'hosted' | 'external', emailId: number) => {
+  const selected = mailStore.selectedEmail
+  if (!selected || (emailId && Number(selected.id) !== emailId)
+    || String(selected.mailbox_type || 'system') !== type) return
+  const result = await mailStore.fetchEmailDetail(Number(selected.id), type, true)
+  if (result.unavailable) {
+    clearSavedSelectedEmails(email => Number(email?.id) === Number(selected.id)
+      && String(email?.mailbox_type || 'system') === type)
   }
-  if (mailRealtimeHeartbeatTimer !== null) {
-    window.clearInterval(mailRealtimeHeartbeatTimer)
-    mailRealtimeHeartbeatTimer = null
-  }
-  mailRealtimeSocket?.close()
-  mailRealtimeSocket = null
+  return result.success || result.error === 'stale' ? undefined : false
 }
 
-const refreshFromMailEvent = async (type: 'system' | 'hosted', emailId: number) => {
-  if (document.hidden) {
+const refreshFromMailEvent = async (type: 'system' | 'hosted' | 'external', emailId: number, received = true, mailboxId = 0) => {
+  // Incoming bounce mail can also change a sent record's delivery status.
+  if (type === 'external') dispatchAccountState('outbox')
+  const selectedMailbox = type === 'external' ? selectedExternalMailboxId.value
+    : type === 'hosted' ? selectedHostedMailboxId.value : selectedMailboxId.value
+  const page = type === 'external' ? externalEmailPage.value
+    : type === 'hosted' ? hostedEmailPage.value : mailStore.currentPage
+  const search = type === 'external' ? externalSearchKeyword.value
+    : type === 'hosted' ? hostedSearchKeyword.value : mailStore.searchKeyword
+  const listContainsMailbox = mailboxType.value === type
+    && page === 1 && !search
+    && (type !== 'external' || currentView.value === 'emails')
+    && (!selectedMailbox || (mailboxId > 0 && Number(selectedMailbox) === mailboxId))
+  // Active list watchers already feed title alerts. Query separately only for
+  // mail outside that list, so background notifications do not double the read.
+  if (document.hidden && received && !listContainsMailbox) {
     try {
       const emails = await loadTitleAlertEmailsByType(type)
       if (!titleAlertInitialized[type]) {
         for (const email of emails) {
           const id = Number(email?.id)
-          if (id > 0 && id !== emailId) titleAlertSeenEmailIds[type].add(id)
+          // A local collection reports a batch count, not an individual mail ID.
+          const newlyReceived = emailId > 0 ? id === emailId
+            : getEmailTimestamp(email) > titleAlertHiddenAt.value
+          if (id > 0 && !newlyReceived) titleAlertSeenEmailIds[type].add(id)
         }
         titleAlertInitialized[type] = true
       }
       registerTitleAlertEmails(type, emails)
     } catch (error) {
       console.error('加载新邮件标题提醒失败:', error)
+      return false
     }
   }
   if (mailboxType.value === type) {
-    if (type === 'system') await refreshSystemEmailsAfterPush()
-    else await refreshHostedEmails()
+    let result
+    if (type === 'system') result = await refreshSystemEmailsWhenIdle()
+    else if (type === 'hosted') result = await refreshHostedEmails()
+    else if (currentView.value === 'emails') result = await requestExternalMailRefresh(true)
+    else return
+    if (result === false) return false
+    if (!received) return refreshSelectedMailAfterChange(type, emailId)
   }
-}
-
-const connectMailRealtime = () => {
-  if (mailRealtimeClosed || mailRealtimeSocket) return
-  const token = localStorage.getItem('token') || ''
-  const guestMailboxes = loadStoredGuestMailboxes().map(({ id, claim_token }) => ({ id, claim_token }))
-  if (!token && guestMailboxes.length === 0) return
-
-  const socket = new WebSocket(buildWebSocketURL('/mail-events/ws'))
-  mailRealtimeSocket = socket
-  socket.onopen = () => {
-    socket.send(JSON.stringify({ type: 'auth', token, guest_mailboxes: guestMailboxes }))
-  }
-  socket.onmessage = (event) => {
-    try {
-      const payload = JSON.parse(String(event.data || '{}'))
-      if (payload.type === 'ready') {
-        mailRealtimeRetryDelay = 3000
-        if (mailRealtimeHeartbeatTimer === null) {
-          mailRealtimeHeartbeatTimer = window.setInterval(() => {
-            try {
-              if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: 'ping' }))
-            } catch { /* 断线由 onclose 处理 */ }
-          }, 25000)
-        }
-        // 断线期间的邮件靠重连时补查一次，连接期间只响应推送。
-        if (mailboxType.value === 'system') void refreshSystemEmailsAfterPush()
-        if (mailboxType.value === 'hosted') void refreshHostedEmails()
-      } else if (payload.type === 'email.received' && ['system', 'hosted'].includes(payload.mailbox_type)) {
-        void refreshFromMailEvent(payload.mailbox_type, Number(payload.email_id || 0))
-      }
-    } catch (error) {
-      console.error('解析新邮件实时通知失败:', error)
-    }
-  }
-  socket.onclose = (event) => {
-    if (mailRealtimeSocket !== socket) return
-    mailRealtimeSocket = null
-    if (mailRealtimeHeartbeatTimer !== null) {
-      window.clearInterval(mailRealtimeHeartbeatTimer)
-      mailRealtimeHeartbeatTimer = null
-    }
-    if (!mailRealtimeClosed && event.code !== 4401) {
-      const delay = mailRealtimeRetryDelay + Math.floor(Math.random() * 1000)
-      mailRealtimeRetryDelay = Math.min(mailRealtimeRetryDelay * 2, 30000)
-      mailRealtimeRetryTimer = window.setTimeout(() => {
-        mailRealtimeRetryTimer = null
-        connectMailRealtime()
-      }, delay)
-    }
-  }
-}
-
-const restartMailRealtime = () => {
-  closeMailRealtime()
-  connectMailRealtime()
 }
 
 const handleImmediateRefreshSystemEmails = async () => {
@@ -2799,10 +2657,6 @@ const removeHostedEmailsByMailboxIds = (mailboxIds: number[] = []) => {
   }
 }
 
-const titleAlertRefresh = useAutoRefresh(async () => {
-  await pollBrowserTitleAlerts()
-}, TITLE_ALERT_POLL_INTERVAL)
-
 watch(
   () => mailStore.emails,
   (emails) => {
@@ -2819,18 +2673,20 @@ watch(externalEmails, (emails) => {
   registerTitleAlertEmails('external', Array.isArray(emails) ? emails : [])
 })
 
-watch([mailboxType, currentView, selectedExternalMailboxId], () => {
-  if (shouldPollSelectedExternalRelayMailbox()) {
-    ensureExternalRelayPolling()
+watch(
+  () => [selectedExternalMailboxId.value, externalEmailPage.value, externalEmailPageSize.value,
+    externalSearchKeyword.value, showOnlyUnreadExternal.value, mailboxType.value, userStore.user?.id],
+  () => { externalEmailListRequestSeq.value++ },
+  { flush: 'sync' }
+)
+
+watch([mailboxType, currentView, selectedExternalMailboxId, fetchingExternalEmails], () => {
+  if (usesRelayForeground()) {
+    syncRelayForeground()
   } else {
-    stopExternalRelayPolling()
+    clearRelayForeground()
   }
 })
-
-watch(
-  () => [userStore.isAuthenticated, mailboxStore.guestMailboxes.map((item: any) => item.id).join(',')],
-  () => { if (!mailRealtimeClosed) restartMailRealtime() }
-)
 
 watch(() => props.initialMailboxType, type => {
   if (type !== mailboxType.value) switchMailboxType(type)
@@ -2859,9 +2715,6 @@ onMounted(async () => {
   )
   document.addEventListener('visibilitychange', handleBrowserVisibilityChange)
   rememberBrowserBaseTitle()
-  if (!titleAlertRefresh.isRunning.value) {
-    titleAlertRefresh.start()
-  }
 
   if (userStore.isAuthenticated) {
     const claimedCount = Number(sessionStorage.getItem('guest_mailboxes_claimed_count') || 0)
@@ -2873,7 +2726,7 @@ onMounted(async () => {
     await switchMailboxType(props.initialMailboxType)
   } else {
     mailboxType.value = 'system'
-    syncAutoRefreshStates()
+    syncMailCollectionDemand()
     mailboxStore.restoreGuestMailboxes()
     await mailboxStore.fetchGuestQuota()
     if (guestMailboxLimitReached.value && mailboxStore.guestMailboxes.length === 0) return
@@ -2881,18 +2734,14 @@ onMounted(async () => {
     if (!result.success) {
       showMessage(result.error || t('home.allocateMailboxFailed'), 'error')
     }
-    connectMailRealtime()
     return
   }
 
-  syncAutoRefreshStates()
-  connectMailRealtime()
+  syncMailCollectionDemand()
   await nextTick()
 })
 
 onBeforeUnmount(() => {
-  mailRealtimeClosed = true
-  closeMailRealtime()
   window.removeEventListener(
     'external-mailbox-recovered',
     handleRecoveredMailboxEvent as EventListener
@@ -2903,16 +2752,8 @@ onBeforeUnmount(() => {
     handleExternalHistoryFetchSocketProgress as EventListener
   )
   document.removeEventListener('visibilitychange', handleBrowserVisibilityChange)
-  titleAlertRefresh.stop()
-  stopExternalRelayPolling()
-  if (externalHistoryFetchPollTimer !== null) {
-    window.clearTimeout(externalHistoryFetchPollTimer)
-    externalHistoryFetchPollTimer = null
-  }
-  if (externalHistoryRefreshTimer !== null) {
-    window.clearTimeout(externalHistoryRefreshTimer)
-    externalHistoryRefreshTimer = null
-  }
+  clearRelayForeground()
+  externalMailRefresh.dispose()
   clearBrowserTitleAlerts()
 })
 
@@ -3013,7 +2854,7 @@ const handleSelectExternalMailbox = async (account: any) => {
   selectedExternalEmailId.value = null
   mailStore.clearSelectedEmail()
   await loadExternalMailboxEmails()
-  restartExternalRelayPolling()
+  renewRelayForeground()
   externalEmailListRef.value?.scrollToTop?.()
 }
 
@@ -3080,10 +2921,9 @@ const handleRecoveredMailboxEvent = (event: Event) => {
 
 const handleDesktopMailboxSynced = (event: Event) => {
   const mailboxId = Number((event as CustomEvent<{ mailboxId?: number }>)?.detail?.mailboxId || 0)
-  if (!mailboxId || mailboxType.value !== 'external') return
-  if (selectedExternalMailboxId.value && selectedExternalMailboxId.value !== mailboxId) return
-  void (selectedExternalMailboxId.value ? loadExternalMailboxEmails() : loadAllExternalEmails())
-  void externalMailboxListRef.value?.loadAccounts?.()
+  if (!mailboxId) return
+  // Collection completion updates this client directly; no owner WS echo needed.
+  void refreshFromMailEvent('external', 0, true, mailboxId)
 }
 
 const handleOAuthMailboxReauthorize = async (account: any) => {
@@ -3108,17 +2948,25 @@ const handleRemoveAccountFromPanel = (id: number) => {
 }
 
 // 加载外部邮箱邮件列表（带分页）
-const loadExternalMailboxEmails = async () => {
+const queryExternalMailPage = (mailboxId: number | null) => {
+  if (externalSearchKeyword.value || showOnlyUnreadExternal.value) {
+    return emailAPI.getUserEmails({
+      type: 'external', page: externalEmailPage.value, page_size: externalEmailPageSize.value,
+      ...(mailboxId ? { mailbox_id: mailboxId } : {}),
+      ...(externalSearchKeyword.value ? { search: externalSearchKeyword.value } : {}),
+      ...(showOnlyUnreadExternal.value ? { unread: true } : {})
+    })
+  }
+  return batchLoginAPI.getExternalEmails(externalEmailPage.value, externalEmailPageSize.value, mailboxId)
+}
+
+const queryExternalMailboxEmails = async () => {
   if (!selectedExternalMailboxId.value) return
 
   const requestSeq = ++externalEmailListRequestSeq.value
   try {
     const mailboxId = Number(selectedExternalMailboxId.value)
-    const response = await batchLoginAPI.getExternalEmails(
-      externalEmailPage.value,
-      externalEmailPageSize.value,
-      mailboxId
-    )
+    const response: any = await queryExternalMailPage(mailboxId)
     if (requestSeq !== externalEmailListRequestSeq.value) return
 
     if (response.code === 0 && response.data) {
@@ -3138,15 +2986,17 @@ const loadExternalMailboxEmails = async () => {
         clearSavedSelectedEmails(
           (email) => isExternalEmailRecord(email) && Number(email?.mailbox_id) === Number(mailboxId)
         )
-        await loadAllExternalEmails()
+        await queryAllExternalEmails()
       }
       showMessage(msg, 'error')
+      return false
     }
   } catch (error) {
     if (requestSeq !== externalEmailListRequestSeq.value) return
     console.error('❌ 获取外部邮箱邮件失败:', error)
     // 请求失败时保留已有邮件列表，不清空
     showMessage(t('home.loadEmailsFailed'), 'error')
+    return false
   }
 }
 
@@ -3166,10 +3016,7 @@ const handleExternalEmailPageChange = async (page: number) => {
 const fetchExternalMailboxEmails = async () => {
   if (!selectedExternalMailboxId.value) return
 
-  stopExternalRelayPolling()
-  if (externalRelayPollPromise) {
-    await externalRelayPollPromise
-  }
+  clearRelayForeground()
   fetchingExternalEmails.value = true
   try {
     if (!isTauri()) {
@@ -3230,9 +3077,7 @@ const fetchExternalMailboxEmails = async () => {
       }
 
       // 获取选中邮箱的详细信息
-      const res = await batchLoginAPI.getAccounts(1, 100)
-      const accountList = res.code === 0 ? res.data?.accounts || [] : []
-      const account = accountList.find((a: any) => a.id === mailboxId)
+      const account = await loadExternalMailboxAccountById(mailboxId)
       if (!account) {
         showMessage(t('home.mailboxNotFound'), 'error')
         return
@@ -3248,7 +3093,8 @@ const fetchExternalMailboxEmails = async () => {
           email: account.email,
           preferRelay: account?.relay_fetch_enabled === true,
           localAction: async () => {
-            const result: any = await tauriInvoke('fetch_emails', {
+            const result: any = await invokeDesktopMailboxFetch(tauriInvoke, {
+              forceStatusSync: account.status !== 'active',
               mailboxId: account.id,
               email: account.email,
               password: account.password,
@@ -3265,7 +3111,7 @@ const fetchExternalMailboxEmails = async () => {
         })
         newCount = fetchResult.result
         if (fetchResult.source === 'local') {
-          await batchLoginAPI.updateMailboxStatus(mailboxId, 'active')
+          if (account.status !== 'active') await batchLoginAPI.updateMailboxStatus(mailboxId, 'active')
         } else if (account?.relay_fetch_enabled !== true) {
           await enableExternalMailboxRelayFetch(mailboxId)
         }
@@ -3281,13 +3127,9 @@ const fetchExternalMailboxEmails = async () => {
     }
 
     // 收取成功，刷新列表
-    await new Promise((resolve) => setTimeout(resolve, 500))
     externalEmailPage.value = 1
-    await loadExternalMailboxEmails()
+    await requestExternalMailRefresh(true)
     showMessage(t('home.fetchSuccessNewCount', { count: newCount }), 'success')
-    if (externalMailboxListRef.value?.loadAccounts) {
-      externalMailboxListRef.value.loadAccounts()
-    }
   } catch (error: any) {
     console.error('❌ 收取邮件失败:', error)
     const errorMsg = error.response?.data?.message || error.message || t('common.operationFailed')
@@ -3299,7 +3141,7 @@ const fetchExternalMailboxEmails = async () => {
   } finally {
     fetchingExternalEmails.value = false
     clearExternalMailboxFetchingIds()
-    restartExternalRelayPolling()
+    renewRelayForeground()
   }
 }
 
@@ -3366,23 +3208,19 @@ const toggleExternalUnread = () => {
 }
 
 // 加载所有外部邮箱的所有邮件
-const loadAllExternalEmails = async () => {
+const queryAllExternalEmails = async () => {
   // 已选中具体邮箱时，不能被“全部外部邮件”请求覆盖当前列表。
   // 返回全部邮件的唯一入口是 backToAllExternalEmails，它会先清空选中邮箱。
   if (selectedExternalMailboxId.value) {
-    await loadExternalMailboxEmails()
-    return
+    return queryExternalMailboxEmails()
   }
 
   const requestSeq = ++externalEmailListRequestSeq.value
   try {
-    const response = await batchLoginAPI.getExternalEmails(
-      externalEmailPage.value,
-      externalEmailPageSize.value,
-      null // 不传 mailboxId，获取所有外部邮件
-    )
+    const response: any = await queryExternalMailPage(null)
     if (requestSeq !== externalEmailListRequestSeq.value) return
 
+    if (response.code !== 0) return false
     if (response.code === 0 && response.data) {
       externalEmails.value = response.data.emails || []
       externalEmailTotal.value = response.data.pagination?.total || 0
@@ -3390,62 +3228,21 @@ const loadAllExternalEmails = async () => {
   } catch (error) {
     if (requestSeq !== externalEmailListRequestSeq.value) return
     console.error('❌ 加载所有外部邮件失败:', error)
+    return false
     // 请求失败时保留已有邮件列表，不清空
   }
 }
 
 // 显式“收取全部”统一交给后台全历史任务，普通收件仍走桌面本地线路。
 const fetchAllExternalEmails = async () => {
-  stopExternalRelayPolling()
-  if (externalRelayPollPromise) {
-    await externalRelayPollPromise
-  }
+  clearRelayForeground()
   await fetchAllExternalEmailsOnline()
 }
 
-const stopExternalHistoryFetchPolling = () => {
-  if (externalHistoryFetchPollTimer !== null) {
-    window.clearTimeout(externalHistoryFetchPollTimer)
-    externalHistoryFetchPollTimer = null
-  }
-}
-
-const refreshExternalEmailsAfterHistoryFetch = async () => {
-  if (selectedExternalMailboxId.value) {
-    externalEmailPage.value = 1
-    await loadExternalMailboxEmails()
-  } else {
-    await loadAllExternalEmails()
-  }
-  await externalMailboxListRef.value?.loadAccounts?.()
-}
-
-const runScheduledExternalHistoryRefresh = async () => {
-  if (externalHistoryRefreshInFlight) return
-
-  externalHistoryRefreshPending = false
-  externalHistoryRefreshInFlight = refreshExternalEmailsAfterHistoryFetch()
-  try {
-    await externalHistoryRefreshInFlight
-  } finally {
-    externalHistoryRefreshInFlight = null
-    if (externalHistoryRefreshPending && externalHistoryRefreshTimer === null) {
-      externalHistoryRefreshTimer = window.setTimeout(() => {
-        externalHistoryRefreshTimer = null
-        void runScheduledExternalHistoryRefresh()
-      }, 300)
-    }
-  }
-}
-
+const refreshExternalEmailsAfterHistoryFetch = () => requestExternalMailRefresh(true)
 const scheduleExternalHistoryRefresh = () => {
-  externalHistoryRefreshPending = true
-  if (externalHistoryRefreshTimer !== null || externalHistoryRefreshInFlight) return
-
-  externalHistoryRefreshTimer = window.setTimeout(() => {
-    externalHistoryRefreshTimer = null
-    void runScheduledExternalHistoryRefresh()
-  }, 300)
+  externalAccountsDirty = true
+  externalMailRefresh.invalidate()
 }
 
 const refreshExternalEmailsWhenHistoryProgresses = async (progress: any) => {
@@ -3463,7 +3260,7 @@ const refreshExternalEmailsWhenHistoryProgresses = async (progress: any) => {
   scheduleExternalHistoryRefresh()
 }
 
-const handleExternalHistoryFetchSocketProgress = (event: Event) => {
+const handleExternalHistoryFetchSocketProgress = async (event: Event) => {
   const payload = (event as CustomEvent)?.detail
   if (payload?.type !== 'history_progress') return
 
@@ -3491,28 +3288,19 @@ const handleExternalHistoryFetchSocketProgress = (event: Event) => {
     payload.status === 'history_cancelled' ||
     payload.job_status === 'cancelled'
   ) {
-    void pollExternalHistoryFetchStatus()
+    return refreshExternalHistoryFetchStatus()
   }
 }
 
 const finishExternalHistoryFetch = async (progress: any) => {
-  stopExternalHistoryFetchPolling()
   fetchingExternalEmails.value = false
   clearExternalMailboxFetchingIds()
-  restartExternalRelayPolling()
+  renewRelayForeground()
 
   const jobId = Number(progress?.id || 0)
   if (jobId && completedExternalHistoryFetchJobId === jobId) return
   completedExternalHistoryFetchJobId = jobId || null
 
-  if (externalHistoryRefreshInFlight) {
-    await externalHistoryRefreshInFlight
-  }
-  if (externalHistoryRefreshTimer !== null) {
-    window.clearTimeout(externalHistoryRefreshTimer)
-    externalHistoryRefreshTimer = null
-  }
-  externalHistoryRefreshPending = false
   await refreshExternalEmailsAfterHistoryFetch()
   lastExternalHistoryFetchJobId = null
   lastExternalHistoryFetchNewEmailCount = 0
@@ -3550,7 +3338,7 @@ const finishExternalHistoryFetch = async (progress: any) => {
   )
 }
 
-const pollExternalHistoryFetchStatus = async () => {
+const refreshExternalHistoryFetchStatus = async () => {
   try {
     const response = await batchLoginAPI.getExternalMailFetchAllStatus()
     if (response.code !== 0) {
@@ -3563,10 +3351,9 @@ const pollExternalHistoryFetchStatus = async () => {
       if (progress) {
         await finishExternalHistoryFetch(progress)
       } else {
-        stopExternalHistoryFetchPolling()
         fetchingExternalEmails.value = false
         clearExternalMailboxFetchingIds()
-        restartExternalRelayPolling()
+        renewRelayForeground()
       }
       return
     }
@@ -3576,16 +3363,12 @@ const pollExternalHistoryFetchStatus = async () => {
     setExternalMailboxFetchingIds(
       externalMailboxListRef.value?.getOnlineFetchSupportedIds?.() || []
     )
-    externalHistoryFetchPollTimer = window.setTimeout(
-      pollExternalHistoryFetchStatus,
-      EXTERNAL_HISTORY_FETCH_FALLBACK_POLL_INTERVAL_MS
-    )
   } catch (error: any) {
-    stopExternalHistoryFetchPolling()
     fetchingExternalEmails.value = false
     clearExternalMailboxFetchingIds()
-    restartExternalRelayPolling()
+    renewRelayForeground()
     showMessage(error?.message || t('home.fetchFailed'), 'error')
+    return false
   }
 }
 
@@ -3601,10 +3384,9 @@ const cancelExternalHistoryFetch = async () => {
     if (progress) {
       await finishExternalHistoryFetch(progress)
     } else {
-      stopExternalHistoryFetchPolling()
       fetchingExternalEmails.value = false
       clearExternalMailboxFetchingIds()
-      restartExternalRelayPolling()
+      renewRelayForeground()
       showMessage(response.message || t('externalMailbox.historyFetchCancelled', { count: 0 }), 'success')
     }
   } catch (error: any) {
@@ -3612,14 +3394,23 @@ const cancelExternalHistoryFetch = async () => {
   }
 }
 
-// 页面刷新不会中断后端的历史收取任务；重新进入时恢复进度展示和轮询。
-const resumeExternalHistoryFetchPolling = async () => {
+// 页面进入/重连时补查一次；运行进度与完成状态由 Socket.IO 推送。
+const resumeExternalHistoryFetchStatus = async () => {
   try {
     const response = await batchLoginAPI.getExternalMailFetchAllStatus()
-    if (response.code !== 0) return
+    if (response.code !== 0) return false
 
     const progress = response.data
-    if (!progress || !['queued', 'running'].includes(String(progress.status || ''))) return
+    if (!progress || !['queued', 'running'].includes(String(progress.status || ''))) {
+      if (fetchingExternalEmails.value) {
+        if (progress) await finishExternalHistoryFetch(progress)
+        else {
+          fetchingExternalEmails.value = false
+          clearExternalMailboxFetchingIds()
+        }
+      }
+      return
+    }
 
     externalHistoryFetchProgress.value = progress
     lastExternalHistoryFetchJobId = Number(progress?.id || 0) || null
@@ -3628,9 +3419,10 @@ const resumeExternalHistoryFetchPolling = async () => {
     setExternalMailboxFetchingIds(
       externalMailboxListRef.value?.getOnlineFetchSupportedIds?.() || []
     )
-    await pollExternalHistoryFetchStatus()
+    await refreshExternalEmailsWhenHistoryProgresses(progress)
   } catch (error) {
     console.warn('恢复第三方邮箱历史收取状态失败', error)
+    return false
   }
 }
 
@@ -3651,7 +3443,7 @@ const fetchAllExternalEmailsOnline = async () => {
     if (progress?.no_accounts) {
       fetchingExternalEmails.value = false
       clearExternalMailboxFetchingIds()
-      restartExternalRelayPolling()
+      renewRelayForeground()
       showMessage(response.message || t('externalMailbox.fetchSuccess'), 'success')
       return
     }
@@ -3660,12 +3452,11 @@ const fetchAllExternalEmailsOnline = async () => {
     lastExternalHistoryFetchJobId = Number(progress?.id || 0) || null
     lastExternalHistoryFetchNewEmailCount = 0
     showMessage(response.message || t('externalMailbox.historyFetchStarted'), 'success')
-    await pollExternalHistoryFetchStatus()
+    await refreshExternalHistoryFetchStatus()
   } catch (error: any) {
-    stopExternalHistoryFetchPolling()
     fetchingExternalEmails.value = false
     clearExternalMailboxFetchingIds()
-    restartExternalRelayPolling()
+    renewRelayForeground()
     showMessage(error?.message || t('home.fetchFailed'), 'error')
   }
 }
@@ -3704,8 +3495,7 @@ const handleRefreshExternalEmails = async (payload?: { mailboxId?: number } | nu
     selectedExternalEmailId.value = null
     mailStore.clearSelectedEmail()
     await loadExternalMailboxEmails()
-    await loadExternalMailboxAuthTypes()
-    restartExternalRelayPolling()
+    renewRelayForeground()
     externalEmailListRef.value?.scrollToTop?.()
     return
   }
@@ -3786,16 +3576,9 @@ const handleSearchHostedEmails = async (keyword: string) => {
 
 // 搜索外部邮件
 const handleSearchExternalEmails = async (keyword: string) => {
-  const params: any = { page: 1, page_size: 20, type: 'external' }
-  if (showOnlyUnreadExternal.value) params.unread = true
-  if (keyword) params.search = keyword
-  if (selectedExternalMailboxId.value) {
-    params.mailbox_id = selectedExternalMailboxId.value
-  }
-  const res = await emailAPI.getUserEmails(params)
-  if (res.code === 0 && res.data) {
-    externalEmails.value = res.data.emails || []
-  }
+  externalSearchKeyword.value = keyword
+  externalEmailPage.value = 1
+  return requestExternalMailRefresh()
 }
 
 // 切换分页

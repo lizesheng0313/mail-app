@@ -592,6 +592,7 @@
   </div>
 </template>
 <script setup>
+import { onBeforeUnmount } from 'vue'
 import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
@@ -748,7 +749,6 @@ const showQrCode = ref(false)
 const qrCodeUrl = ref('')
 const qrcodeCanvas = ref(null)
 const currentOrderNo = ref('')
-let pollingTimer = null
 
 // 生成二维码
 const generateQRCode = async () => {
@@ -790,9 +790,7 @@ const submitRecharge = async () => {
       // 生成二维码
       await generateQRCode()
 
-      // 开始轮询订单状态
-      startPollingOrderStatus()
-    } else {
+          } else {
       showMessage(res.message || t('profile.createOrderFailed'), 'error')
     }
   } catch (error) {
@@ -801,23 +799,17 @@ const submitRecharge = async () => {
   }
 }
 
-// 开始轮询订单状态
-const startPollingOrderStatus = () => {
-  pollingTimer = setInterval(async () => {
-    await checkOrderStatus()
-  }, 3000)
-}
-
 // 检查订单状态
 const checkOrderStatus = async () => {
+  const orderNo = currentOrderNo.value
+  if (!orderNo) return
   try {
-    const res = await api.get(`/recharge/order-status/${currentOrderNo.value}`)
+    const res = await api.get(`/recharge/order-status/${orderNo}`, { timeout: 15000 })
 
+    if (orderNo !== currentOrderNo.value) return
+    if (res.code !== 0) return false
     if (res.code === 0 && res.data?.status === 'paid') {
-      if (pollingTimer) {
-        clearInterval(pollingTimer)
-        pollingTimer = null
-      }
+      currentOrderNo.value = ''
 
       showQrCode.value = false
       showMessage(t('profile.rechargeSuccess'), 'success')
@@ -827,6 +819,7 @@ const checkOrderStatus = async () => {
     }
   } catch (error) {
     console.error('查询订单状态失败:', error)
+    return false
   }
 }
 
@@ -835,10 +828,6 @@ const cancelRecharge = () => {
   showQrCode.value = false
   qrCodeUrl.value = ''
   currentOrderNo.value = ''
-  if (pollingTimer) {
-    clearInterval(pollingTimer)
-    pollingTimer = null
-  }
 }
 
 // 处理提现按钮点击

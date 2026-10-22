@@ -198,6 +198,12 @@
         </div>
       </div>
 
+      <div v-if="currentOrderNo && !showQrCode" class="mt-4 text-center">
+        <button class="btn-primary px-4 py-2 disabled:opacity-50" :disabled="checkingStatus" @click="checkPaymentStatus">
+          {{ checkingStatus ? '查询中…' : '已支付，查询结果' }}
+        </button>
+      </div>
+
       <!-- 二维码支付对话框 -->
       <div v-if="showQrCode" class="absolute inset-0 bg-white rounded-lg flex items-center justify-center">
         <div class="text-center">
@@ -318,8 +324,6 @@ const handlePurchase = async () => {
         // 提示用户
         showMessage('订单已创建，请在新窗口完成支付', 'success')
         
-        // 开始轮询订单状态
-        startPollingOrderStatus()
       } else {
         showMessage(response.message || '创建订单失败', 'error')
       }
@@ -346,38 +350,21 @@ const handlePurchase = async () => {
   }
 }
 
-// 轮询订单状态
-let pollingTimer = null
-const startPollingOrderStatus = () => {
-  // 每3秒查询一次订单状态
-  pollingTimer = setInterval(async () => {
-    await checkPaymentStatus()
-  }, 3000)
-  
-  // 15分钟后停止轮询
-  setTimeout(() => {
-    if (pollingTimer) {
-      clearInterval(pollingTimer)
-      pollingTimer = null
-    }
-  }, 15 * 60 * 1000)
-}
-
 // 检查支付状态
 const checkPaymentStatus = async () => {
-  if (!currentOrderNo.value) return
+  const orderNo = currentOrderNo.value
+  if (!orderNo || checkingStatus.value) return
   
   try {
     checkingStatus.value = true
-    const response = await pluginApi.queryPluginOrder(currentOrderNo.value)
+    const response = await pluginApi.queryPluginOrder(orderNo)
     
+    if (orderNo !== currentOrderNo.value) return
+    if (response.code !== 0) return false
     if (response.code === 0) {
       if (response.data.status === 'paid') {
+        currentOrderNo.value = ''
         // 支付成功
-        if (pollingTimer) {
-          clearInterval(pollingTimer)
-          pollingTimer = null
-        }
         
         showMessage('支付成功！插件已开通', 'success')
         emit('success')
@@ -386,6 +373,7 @@ const checkPaymentStatus = async () => {
     }
   } catch (error) {
     console.error('查询订单状态失败:', error)
+    return false
   } finally {
     checkingStatus.value = false
   }
@@ -398,20 +386,9 @@ const cancelPayment = () => {
   currentOrderNo.value = ''
 }
 
-// 组件卸载时清理定时器
+// 打开时加载价格
 onMounted(() => {
   fetchPricing()
 })
 
-// 清理定时器
-const cleanup = () => {
-  if (pollingTimer) {
-    clearInterval(pollingTimer)
-    pollingTimer = null
-  }
-}
-
-// 监听组件销毁
-import { onBeforeUnmount } from 'vue'
-onBeforeUnmount(cleanup)
 </script>

@@ -96,6 +96,7 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
+import { subscribeAccountState } from '@/services/accountRealtime'
 import { useRouter } from 'vue-router'
 import { getNotifications, getUnreadCount, markAsRead, markAllAsRead } from '@/api/notification'
 import { showMessage } from '@/utils/message'
@@ -112,11 +113,13 @@ const loadNotifications = async () => {
   loading.value = true
   try {
     const res = await getNotifications({ page: 1, page_size: 10 })
+    if (res.code !== 0) return false
     if (res.code === 0) {
       notifications.value = res.data.items || []
     }
   } catch (error) {
     console.error('加载通知失败:', error)
+    return false
   } finally {
     loading.value = false
   }
@@ -126,11 +129,13 @@ const loadNotifications = async () => {
 const loadUnreadCount = async () => {
   try {
     const res = await getUnreadCount()
+    if (res.code !== 0) return false
     if (res.code === 0) {
       unreadCount.value = res.data.count || 0
     }
   } catch (error) {
     console.error('加载未读数量失败:', error)
+    return false
   }
 }
 
@@ -231,19 +236,18 @@ const handleClickOutside = (event) => {
   }
 }
 
+let unsubscribeState
 onMounted(() => {
   loadUnreadCount()
-  // 定期刷新未读数量（每30秒）
-  const interval = setInterval(loadUnreadCount, 30000)
-
-  // 监听点击外部事件
-  document.addEventListener('click', handleClickOutside)
-
-  // 清理定时器
-  onUnmounted(() => {
-    clearInterval(interval)
-    document.removeEventListener('click', handleClickOutside)
+  unsubscribeState = subscribeAccountState(['notifications'], async () => {
+    if (await loadUnreadCount() === false) return false
+    if (showDropdown.value) return loadNotifications()
   })
+  document.addEventListener('click', handleClickOutside)
+})
+onUnmounted(() => {
+  unsubscribeState?.()
+  document.removeEventListener('click', handleClickOutside)
 })
 </script>
 

@@ -32,8 +32,9 @@
 </template>
 
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { nextTick, onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import api, { extractApiErrorMessage } from '@/services/api'
+import { registerRealtimeScope, subscribeRealtime } from '@/services/realtimeClient'
 import { getGuestVisitorId } from '@/utils/guestIdentity'
 
 type GuestMessage = { id: number; sender_type: 'guest' | 'admin'; content: string; created_at_ms: number }
@@ -44,15 +45,21 @@ const loading = ref(false)
 const sending = ref(false)
 const error = ref('')
 const messageContainer = ref<HTMLElement | null>(null)
-let timer: ReturnType<typeof setInterval> | undefined
+let refreshing = false
+let disposed = false
+let unsubscribeScope: (() => void) | undefined
+let unsubscribeRealtime: (() => void) | undefined
 
 async function loadMessages() {
-  if (!visible.value) return
+  if (!visible.value || disposed) return
+  if (refreshing) return false
+  refreshing = true
   try {
     const response: any = await api.get('/live-chat/guest/messages', {
       headers: { 'X-Guest-Chat-Token': getGuestVisitorId() },
       skipAuth: true,
       silentErrorMessage: true,
+      timeout: 15000,
     } as any)
     if (response.code !== 0) throw new Error(response.message || '加载会话失败')
     messages.value = response.data?.items || []
@@ -61,8 +68,10 @@ async function loadMessages() {
     if (messageContainer.value) messageContainer.value.scrollTop = messageContainer.value.scrollHeight
   } catch (cause: any) {
     error.value = extractApiErrorMessage(cause?.response?.data, cause?.message || '加载会话失败')
+    return false
   } finally {
     loading.value = false
+    refreshing = false
   }
 }
 
@@ -88,15 +97,19 @@ async function sendMessage() {
 }
 
 watch(visible, isVisible => {
-  if (timer) clearInterval(timer)
   if (isVisible) {
     loading.value = true
     void loadMessages()
-    timer = setInterval(() => void loadMessages(), 3000)
   }
 })
 
+onMounted(() => {
+  unsubscribeScope = registerRealtimeScope('guest-chat', { guest_chat_token: getGuestVisitorId() })
+  unsubscribeRealtime = subscribeRealtime(['guest_chat_changed'], loadMessages)
+})
 onBeforeUnmount(() => {
-  if (timer) clearInterval(timer)
+  disposed = true
+  unsubscribeRealtime?.()
+  unsubscribeScope?.()
 })
 </script>

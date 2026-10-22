@@ -3,7 +3,6 @@ import { extractEmailDomain } from '@/utils/externalMailboxRules'
 
 const RELAY_SUPPORTED_DOMAINS = new Set(['189.cn'])
 const RELAYABLE_FAILURE_KIND = 'network'
-const relayFetchPromises = new Map<number, Promise<unknown>>()
 
 type ExternalMailboxFailure = {
   message?: string
@@ -24,27 +23,6 @@ export const createExternalMailboxFailure = (result: ExternalMailboxFailure) => 
   const error = new Error(result?.message || '本地邮箱操作失败') as Error & ExternalMailboxFailure
   error.failure_kind = String(result?.failure_kind || result?.failureKind || 'unknown').toLowerCase()
   return error
-}
-
-export const runSerializedExternalMailboxRelayFetch = <T>(
-  mailboxId: number,
-  action: () => Promise<T>
-): Promise<T> => {
-  const normalizedMailboxId = Number(mailboxId || 0)
-  if (!normalizedMailboxId) return action()
-
-  const existing = relayFetchPromises.get(normalizedMailboxId)
-  if (existing) return existing as Promise<T>
-
-  const promise = Promise.resolve()
-    .then(action)
-    .finally(() => {
-      if (relayFetchPromises.get(normalizedMailboxId) === promise) {
-        relayFetchPromises.delete(normalizedMailboxId)
-      }
-    })
-  relayFetchPromises.set(normalizedMailboxId, promise)
-  return promise
 }
 
 export const runExternalMailboxWithRelayFallback = async <T>(options: {

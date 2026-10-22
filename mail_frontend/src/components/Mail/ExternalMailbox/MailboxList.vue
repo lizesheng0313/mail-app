@@ -34,6 +34,15 @@
           @click.stop
         >
           <button
+            v-if="props.fetchingAll"
+            type="button"
+            class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+            @click.stop="emit('refresh-progress')"
+          >
+            <BaseIcon name="refresh" size="sm" />
+            {{ t('externalMailbox.refreshHistoryProgress') }}
+          </button>
+          <button
             type="button"
             class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
             :disabled="!props.fetchingAll && fetchingAllDisabled"
@@ -260,6 +269,8 @@
 </template>
 
 <script setup lang="ts">
+import { invokeDesktopMailboxFetch } from '@/services/mailboxCollection'
+import { getDesktopRuntimeProxy } from '@/services/desktopMailboxCache'
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useI18n } from 'vue-i18n'
 import MailboxList from '@/components/Mail/MailboxList/MailboxList.vue'
@@ -279,7 +290,6 @@ import { runDesktopOAuthMailboxAction } from '@/services/desktopOAuthMailbox'
 import { canDesktopSmtpSend, normalizeSmtpEmail } from '@/utils/smtpCapability'
 import {
   runExternalMailboxWithRelayFallback,
-  runSerializedExternalMailboxRelayFetch
 } from '@/utils/externalMailboxRelay'
 
 const props = defineProps<{
@@ -399,13 +409,17 @@ const emit = defineEmits<{
   refresh: [payload?: { mailboxId?: number }]
   'fetch-all': []
   'cancel-fetch-all': []
+  'refresh-progress': []
   share: [mailboxes: any[]]
   'oauth-reauthorize': [account: any]
   'batch-mode-start': []
   deleted: [ids: number[]]
+  'accounts-loaded': [accounts: any[]]
 }>()
 
 const accounts = ref<any[]>([])
+let accountsRequestSeq = 0
+let accountsRequest: { key: string; promise: Promise<unknown> } | undefined
 const showConfirm = ref(false)
 const deleting = ref(false)
 const isDeleting = ref({ batch: false, ids: [] as number[] })
@@ -486,6 +500,12 @@ const handleRecoveredMailbox = () => {
   void loadAccounts(currentPage.value || 1)
 }
 
+const handleMailboxStatus = (event: Event) => {
+  const detail = (event as CustomEvent).detail
+  const account = accounts.value.find((item: any) => Number(item.id) === detail?.mailboxId)
+  if (account) Object.assign(account, { status: detail.status, error_message: detail.error_message })
+}
+
 const closeActionMenu = () => {
   if (closeMenuTimer) {
     clearTimeout(closeMenuTimer)
@@ -520,10 +540,6 @@ const resolveMenuPlacement = (event: Event) => {
 }
 
 const openActionMenu = (accountId: number, event: Event) => {
-  if (openMenuId.value === accountId) {
-    closeActionMenu()
-    return
-  }
   if (closeMenuTimer) {
     clearTimeout(closeMenuTimer)
     closeMenuTimer = null
@@ -568,6 +584,7 @@ const applyAccountsPagination = (pagination?: any, fallbackCount = accounts.valu
 
 const replaceAccounts = (items: any[] = [], pagination?: any) => {
   accounts.value = Array.isArray(items) ? [...items] : []
+  emit('accounts-loaded', accounts.value)
   applyAccountsPagination(pagination, accounts.value.length)
 
   if (accounts.value.length > 0) {
@@ -596,6 +613,7 @@ const upsertAccounts = (items: any[] = []) => {
   }
 
   accounts.value = nextAccounts
+  emit('accounts-loaded', accounts.value)
   if (addedCount > 0) {
     totalAccounts.value += addedCount
     totalPages.value = Math.max(1, Math.ceil(totalAccounts.value / 20))
@@ -629,22 +647,35 @@ const removeAccounts = (ids: number[] = []) => {
   }
 }
 
-const loadAccounts = async (page = 1) => {
+const queryAccounts = async (page = 1) => {
+  const requestSeq = ++accountsRequestSeq
   try {
     const res = await batchLoginAPI.getAccounts(page, 20, {
       search: searchKeyword.value
     })
+    if (requestSeq !== accountsRequestSeq) return
 
     if (res.code === 0) {
       const data = res.data || []
       replaceAccounts(Array.isArray(data) ? data : data.accounts || [], data.pagination)
-      window.dispatchEvent(new Event('external-mailboxes-changed'))
     } else {
       console.error('❌ API返回错误:', res.message)
+      return false
     }
   } catch (e) {
+    if (requestSeq !== accountsRequestSeq) return
     console.error('❌ 加载外部邮箱失败', e)
+    return false
   }
+}
+
+const loadAccounts = (page = 1, fresh = false) => {
+  const key = JSON.stringify([localStorage.getItem('token'), page, searchKeyword.value])
+  if (!fresh && accountsRequest?.key === key) return accountsRequest.promise
+  const promise = queryAccounts(page)
+  accountsRequest = { key, promise }
+  void promise.finally(() => { if (accountsRequest?.promise === promise) accountsRequest = undefined })
+  return promise
 }
 
 const ensureAccountVisible = async (accountId: number) => {
@@ -864,9 +895,7 @@ const handleRefreshAction = (accountId: number) => {
 }
 
 const fetchExternalMailboxThroughRelay = async (account: any) => {
-  const response: any = await runSerializedExternalMailboxRelayFetch(account.id, () =>
-    batchLoginAPI.fetchExternalMailboxOnline(account.id)
-  )
+  const response: any = await batchLoginAPI.fetchExternalMailboxOnline(account.id)
   if (response.code !== 0) {
     throw new Error(response.message || t('externalMailbox.fetchFailed'))
   }
@@ -957,7 +986,7 @@ const fetchSingleMailbox = async (accountId: number) => {
         const serverUrl = getServerUrl()
 
         await runDesktopOAuthMailboxAction(account.id, async (tokenPayload) => {
-          return invoke('fetch_emails', {
+          return invokeDesktopMailboxFetch(invoke, {
             mailboxId: account.id,
             email: tokenPayload.email,
             password: '',
@@ -967,7 +996,8 @@ const fetchSingleMailbox = async (accountId: number) => {
             token,
             serverUrl,
             authType: 'oauth2',
-            accessToken: tokenPayload.access_token
+            accessToken: tokenPayload.access_token,
+            proxy: await getDesktopRuntimeProxy(account.id)
           })
         })
         showMessage(t('externalMailbox.fetchSuccess'), 'success')
@@ -983,11 +1013,6 @@ const fetchSingleMailbox = async (accountId: number) => {
               token,
               serverUrl
             })
-            window.dispatchEvent(
-              new CustomEvent('external-mailbox-recovered', {
-                detail: { mailboxId: account.id }
-              })
-            )
             showMessage(t('externalMailbox.fetchSuccess'), 'success')
           } catch (recoveryError: any) {
             const recoveryMessage = normalizeOAuthRecoveryErrorMessage(
@@ -1022,7 +1047,7 @@ const fetchSingleMailbox = async (accountId: number) => {
             const host = account.protocol === 'imap' ? account.imap_host : account.pop3_host
             const port = account.protocol === 'imap' ? account.imap_port : account.pop3_port
 
-            return invoke('fetch_emails', {
+            return invokeDesktopMailboxFetch(invoke, {
               mailboxId: account.id,
               email: account.email,
               password: account.password,
@@ -1030,7 +1055,8 @@ const fetchSingleMailbox = async (accountId: number) => {
               host: host || null,
               port: port || null,
               token,
-              serverUrl
+              serverUrl,
+              proxy: await getDesktopRuntimeProxy(account.id)
             })
           },
           relayAction: () => fetchExternalMailboxThroughRelay(account)
@@ -1085,9 +1111,11 @@ onMounted(() => {
   window.addEventListener('click', handleWindowClick)
   window.addEventListener('external-mailbox-recovered', handleRecoveredMailbox)
   window.addEventListener('external-mailbox-updated', handleRecoveredMailbox)
+  window.addEventListener('external-mailbox-status', handleMailboxStatus)
 })
 
 onBeforeUnmount(() => {
+  accountsRequestSeq++
   if (closeMenuTimer) {
     clearTimeout(closeMenuTimer)
     closeMenuTimer = null
@@ -1095,5 +1123,6 @@ onBeforeUnmount(() => {
   window.removeEventListener('click', handleWindowClick)
   window.removeEventListener('external-mailbox-recovered', handleRecoveredMailbox)
   window.removeEventListener('external-mailbox-updated', handleRecoveredMailbox)
+  window.removeEventListener('external-mailbox-status', handleMailboxStatus)
 })
 </script>

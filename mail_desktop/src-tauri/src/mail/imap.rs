@@ -645,8 +645,11 @@ fn imap_fetch_oauth2_sync(
     sync_cursor: Option<&Value>,
 ) -> Result<FetchResult, String> {
     let (mut session, _) = connect_and_xoauth2(host, port, email, access_token, proxy_config)?;
-    let (emails, sync_cursor) =
+    let previous_cursor = sync_cursor.cloned();
+    let (emails, sync_cursor, remaining) =
         fetch_from_candidate_mailboxes(&mut session, limit, fetch_oldest, sync_cursor)?;
+    let has_more = previous_cursor.is_some() && remaining
+        && previous_cursor.as_ref() != Some(&sync_cursor);
 
     let _ = session.logout();
 
@@ -654,6 +657,7 @@ fn imap_fetch_oauth2_sync(
     Ok(FetchResult {
         success: true,
         message: format!("收取成功，共 {} 封邮件", emails.len()),
+        has_more,
         count: emails.len(),
         emails,
         sync_cursor: Some(sync_cursor),
@@ -990,7 +994,7 @@ fn fetch_from_candidate_mailboxes<T: Read + Write>(
     limit: usize,
     fetch_oldest: bool,
     sync_cursor: Option<&Value>,
-) -> Result<(Vec<EmailData>, Value), String> {
+) -> Result<(Vec<EmailData>, Value, bool), String> {
     let mailboxes = list_sync_candidate_mailboxes(session);
     let mailbox_count = mailboxes.len().max(1);
     let per_mailbox_limit = if mailbox_count == 1 {
@@ -1004,6 +1008,7 @@ fn fetch_from_candidate_mailboxes<T: Read + Write>(
     let mut seen_content_keys: HashSet<String> = HashSet::new();
     let mut seen_fallback_keys: HashSet<String> = HashSet::new();
     let mut scanned_any_mailbox = false;
+    let mut remaining = false;
     let mut last_error: Option<String> = None;
     let mut cursor_folders = sync_cursor
         .and_then(|cursor| cursor.get("protocol").and_then(Value::as_str).filter(|protocol| *protocol == "imap"))
@@ -1019,6 +1024,7 @@ fn fetch_from_candidate_mailboxes<T: Read + Write>(
 
     for mailbox in mailboxes {
         if emails.len() >= limit {
+            remaining = true;
             break;
         }
 
@@ -1110,6 +1116,12 @@ fn fetch_from_candidate_mailboxes<T: Read + Write>(
                     }
                 }
 
+                // Count remaining protocol UIDs, not deduplicated messages:
+                // duplicate Message-IDs can make a full batch look short.
+                if is_incremental && uids_vec.last().is_some_and(|uid|
+                    *uid > last_fetched_uid.unwrap_or(0)) {
+                    remaining = true;
+                }
                 if let Some(uid_validity) = uid_validity {
                     let last_uid = if is_incremental {
                         last_fetched_uid.or(previous_last_uid)
@@ -1144,6 +1156,7 @@ fn fetch_from_candidate_mailboxes<T: Read + Write>(
             "protocol": "imap",
             "folders": cursor_folders,
         }),
+        remaining,
     ))
 }
 
@@ -1194,8 +1207,11 @@ fn imap_fetch_sync(
     sync_cursor: Option<&Value>,
 ) -> Result<FetchResult, String> {
     let (mut session, _) = connect_and_login(host, port, email, password, proxy_config)?;
-    let (emails, sync_cursor) =
+    let previous_cursor = sync_cursor.cloned();
+    let (emails, sync_cursor, remaining) =
         fetch_from_candidate_mailboxes(&mut session, limit, fetch_oldest, sync_cursor)?;
+    let has_more = previous_cursor.is_some() && remaining
+        && previous_cursor.as_ref() != Some(&sync_cursor);
 
     let _ = session.logout();
 
@@ -1203,6 +1219,7 @@ fn imap_fetch_sync(
     Ok(FetchResult {
         success: true,
         message: format!("收取成功，共 {} 封邮件", emails.len()),
+        has_more,
         count: emails.len(),
         emails,
         sync_cursor: Some(sync_cursor),

@@ -10,7 +10,7 @@ const mocks = vi.hoisted(() => ({
     user: { email: 'user@example.com', is_admin: false },
     logout: vi.fn()
   },
-  apiGet: vi.fn(async () => ({ code: 0, data: { count: 0, items: [] } }))
+  apiGet: vi.fn(async (_path: string, _config?: unknown) => ({ code: 0, data: { count: 0, items: [] } }))
 }))
 vi.mock('@/stores/user', () => ({ useUserStore: () => mocks.userStore }))
 vi.mock('@/services/api', () => ({ default: { get: mocks.apiGet, post: vi.fn() } }))
@@ -18,13 +18,20 @@ vi.mock('@/utils/message', () => ({ showMessage: vi.fn() }))
 vi.mock('@/components/LanguageSwitcher/index.vue', () => ({ default: { template: '<div />' } }))
 
 import AccountActions from './index.vue'
+import { dispatchAccountState } from '@/services/accountRealtime'
 
 const cleanups: Array<() => void> = []
 beforeEach(() => {
+  mocks.apiGet.mockClear()
+  localStorage.setItem('token', 'test-session')
   mocks.userStore.isAuthenticated = true
   mocks.userStore.user.is_admin = false
 })
-afterEach(() => cleanups.splice(0).forEach((cleanup) => cleanup()))
+afterEach(() => {
+  cleanups.splice(0).forEach((cleanup) => cleanup())
+  vi.useRealTimers()
+  localStorage.clear()
+})
 
 const renderActions = async () => {
   const router = createRouter({
@@ -74,4 +81,30 @@ describe('Shared header account and notification entries', () => {
     expect(wrapper.find('a[href="/user/notifications?tab=personal"]').exists()).toBe(true)
     expect(wrapper.find('a[href="/user/announcements"]').exists()).toBe(true)
   })
+  it('updates unread counts on pushed changes without polling', async () => {
+    vi.useFakeTimers()
+    localStorage.setItem('token', 'test-session')
+    await renderActions()
+    const initial = mocks.apiGet.mock.calls.length
+    await vi.advanceTimersByTimeAsync(60 * 60 * 1000)
+    expect(mocks.apiGet).toHaveBeenCalledTimes(initial)
+    dispatchAccountState('notifications')
+    await flushPromises()
+    expect(mocks.apiGet).toHaveBeenCalledTimes(initial + 1)
+  })
+
+  it('shares unread snapshots across mounted headers and refreshes only the changed resource', async () => {
+    await renderActions()
+    await renderActions()
+    expect(mocks.apiGet.mock.calls.filter(([path]) => path === '/notifications/unread-count')).toHaveLength(1)
+    expect(mocks.apiGet.mock.calls.filter(([path]) => path === '/announcements/unread/count')).toHaveLength(1)
+    dispatchAccountState('notifications')
+    await flushPromises()
+    expect(mocks.apiGet.mock.calls.filter(([path]) => path === '/notifications/unread-count')).toHaveLength(2)
+    expect(mocks.apiGet.mock.calls.filter(([path]) => path === '/announcements/unread/count')).toHaveLength(1)
+    dispatchAccountState('announcements')
+    await flushPromises()
+    expect(mocks.apiGet.mock.calls.filter(([path]) => path === '/announcements/unread/count')).toHaveLength(2)
+  })
+
 })

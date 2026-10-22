@@ -13,14 +13,17 @@ import { RouterView, useRoute, useRouter } from 'vue-router'
 import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useUserStore } from '@/stores/user'
 import { usePageTracking } from '@/composables/usePageTracking'
-import { useOnlineSession } from '@/composables/useOnlineSession'
+import { useAuthSessionSync } from '@/composables/useAuthSessionSync'
 import { useDesktopOAuthKeepAlive } from '@/composables/useDesktopOAuthKeepAlive'
 import GuestLiveChat from '@/components/FloatingLiveChat/GuestLiveChat.vue'
 import SystemMaintenance from '@/components/SystemMaintenance/index.vue'
 import AppUpdater from '@/components/AppUpdater/index.vue'
 import { registerMaintenanceCallback, isTauri } from '@/services/api'
 import { showMessage } from '@/utils/message'
+import { stopDesktopMailboxCache } from '@/services/desktopMailboxCache'
 import { desktopExternalMailSync } from '@/services/desktopExternalMailSync'
+import { setRealtimeIdentity, stopRealtime } from '@/services/realtimeClient'
+import { dispatchMailboxChange } from '@/services/mailboxChanges'
 
 const FloatingLiveChat = defineAsyncComponent(() => import('@/components/FloatingLiveChat/index.vue'))
 
@@ -30,12 +33,20 @@ const userStore = useUserStore()
 const maintenanceRef = ref<InstanceType<typeof SystemMaintenance>>()
 const updaterRef = ref<InstanceType<typeof AppUpdater>>()
 let unlistenOAuthCallback: null | (() => void) = null
+let unlistenMailboxRecovery: null | (() => void) = null
 const desktopOAuthKeepAlive = useDesktopOAuthKeepAlive()
 const showFloatingTools = computed(() => !route.path.startsWith('/browser-workflows'))
 
 // 启用页面访问统计
 usePageTracking()
-useOnlineSession()
+useAuthSessionSync()
+
+watch(
+  () => [userStore.isAuthenticated, userStore.user] as const,
+  () => setRealtimeIdentity(userStore.isAuthenticated ? localStorage.getItem('token') || '' : '',
+    userStore.isAuthenticated ? Number(userStore.user?.id || 0) : 0),
+  { immediate: true }
+)
 
 // 应用启动时检查认证状态
 onMounted(async () => {
@@ -57,6 +68,12 @@ onMounted(async () => {
   if (isTauri()) {
     try {
       const { listen } = await import('@tauri-apps/api/event')
+      unlistenMailboxRecovery = await listen('desktop-mailbox-recovered', (event: any) => {
+        const mailboxId = Number(event.payload?.mailboxId || 0)
+        if (!userStore.isAuthenticated || !mailboxId) return
+        dispatchMailboxChange('accounts', mailboxId)
+        window.dispatchEvent(new CustomEvent('external-mailbox-recovered', { detail: { mailboxId } }))
+      })
       unlistenOAuthCallback = await listen('oauth-callback', async (event: any) => {
         const payload = event.payload || {}
         const path = payload.path || '/'
@@ -65,7 +82,7 @@ onMounted(async () => {
         if (path === '/oauth2/callback') {
           window.dispatchEvent(new CustomEvent('oauth2-callback', { detail: query }))
           if (query.oauth2_success === '1') {
-            void desktopOAuthKeepAlive.refreshNow()
+            dispatchMailboxChange('oauth')
             if (query.oauth2_warning) {
               showMessage(`邮箱授权成功${query.email ? `: ${query.email}` : ''}，但首次收取失败`, 'warning')
             } else {
@@ -88,7 +105,7 @@ onMounted(async () => {
 
   // 初始路由守卫统一校验登录，认证变化由下面的 watch 接续桌面同步。
   if (isTauri() && userStore.isAuthenticated) {
-    await desktopOAuthKeepAlive.start()
+    void desktopOAuthKeepAlive.start().catch(console.warn)
     void desktopExternalMailSync.start(Number(userStore.user?.id || 0)).catch(console.warn)
   }
 
@@ -103,18 +120,22 @@ watch(
     if (!isTauri()) return
 
     if (isAuthenticated) {
-      await desktopOAuthKeepAlive.start()
+      void desktopOAuthKeepAlive.start().catch(console.warn)
       void desktopExternalMailSync.start(Number(userId || 0)).catch(console.warn)
     } else {
       desktopOAuthKeepAlive.stop()
       void desktopExternalMailSync.stop()
+      stopDesktopMailboxCache()
     }
   }
 )
 
 onBeforeUnmount(() => {
+  stopRealtime()
   unlistenOAuthCallback?.()
+  unlistenMailboxRecovery?.()
   desktopOAuthKeepAlive.stop()
   void desktopExternalMailSync.stop()
+  stopDesktopMailboxCache()
 })
 </script>

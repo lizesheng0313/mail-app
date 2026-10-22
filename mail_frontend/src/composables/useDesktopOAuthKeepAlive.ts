@@ -4,9 +4,10 @@ import { batchLoginAPI } from '@/api/batchLogin'
 import { getServerUrl, isTauri } from '@/services/api'
 import { isAutoRecoveryLimitError, normalizeOAuthRecoveryErrorMessage } from '@/utils/oauthRecovery'
 
-const KEEP_ALIVE_INTERVAL_MS = 5 * 60 * 1000
-const KEEP_ALIVE_PAGE_SIZE = 100
-const WAKE_REFRESH_MIN_GAP_MS = 30 * 1000
+import { getDesktopMailboxAccounts, subscribeDesktopMailboxChanges } from '@/services/desktopMailboxCache'
+import { clearDesktopOAuthTokens, desktopOAuthRefreshAt, getDesktopOAuthAccessToken } from '@/services/desktopOAuthMailbox'
+
+const RETRY_DELAY_MS = 5 * 60 * 1000
 
 type OAuthMailboxAccount = {
   id: number
@@ -38,28 +39,28 @@ export function useDesktopOAuthKeepAlive() {
   const isRunning = ref(false)
   const isRefreshing = ref(false)
   let timer: number | null = null
-  let lastWakeRefreshAt = 0
+  let sessionVersion = 0
+  let sessionToken = ''
+  let configVersion = 0
+  let unsubscribeCache: (() => void) | undefined
+  const nextChecks = new Map<number, number>()
 
-  const scheduleNext = (delay = KEEP_ALIVE_INTERVAL_MS) => {
+  const scheduleNext = (delay?: number) => {
     if (!isRunning.value) return
     if (timer) {
       clearTimeout(timer)
     }
+    timer = null
+    const wait = delay ?? (nextChecks.size ? Math.max(1000, Math.min(...nextChecks.values()) - Date.now()) : undefined)
+    if (wait === undefined) return
     timer = window.setTimeout(() => {
+      timer = null
       void refreshAllOAuthTokens()
-    }, delay)
+    }, wait)
   }
 
   const loadOAuthAccounts = async (): Promise<OAuthMailboxAccount[]> => {
-    const response: any = await batchLoginAPI.getAllAccounts(KEEP_ALIVE_PAGE_SIZE, {
-      suppressErrorMessage: true
-    })
-    if (response.code !== 0) {
-      throw new Error(response.message || '获取外部邮箱列表失败')
-    }
-
-    const data = response.data || {}
-    const list = Array.isArray(data) ? data : data.accounts || []
+    const list = await getDesktopMailboxAccounts()
     return list.filter(
       (account: OAuthMailboxAccount) => String(account?.auth_type || '').toLowerCase() === 'oauth2'
     )
@@ -76,27 +77,25 @@ export function useDesktopOAuthKeepAlive() {
       return
     }
 
+    const version = sessionVersion
+    const config = configVersion
+    const current = () => isRunning.value && version === sessionVersion && config === configVersion && localStorage.getItem('token') === authToken
     isRefreshing.value = true
+    let retryDelay: number | undefined
     try {
       const oauthAccounts = await loadOAuthAccounts()
+      if (!current()) return
+      const ids = new Set(oauthAccounts.map(account => account.id))
+      for (const id of nextChecks.keys()) if (!ids.has(id)) nextChecks.delete(id)
       const tauriInvoke = await getTauriInvoke()
       for (const account of oauthAccounts) {
+        if (!current()) break
+        if ((nextChecks.get(account.id) || 0) > Date.now()) continue
         try {
-          const response: any = await batchLoginAPI.getOAuth2AccessToken(account.id, {
-            suppressErrorMessage: true
-          })
-          if (response.code !== 0) {
-            const recovered = await trySilentRecover(account, authToken, response.message, tauriInvoke)
-            if (recovered) {
-              continue
-            }
-            console.warn('[DesktopOAuthKeepAlive] token keep-alive failed:', {
-              mailboxId: account.id,
-              email: account.email,
-              provider: account.oauth_provider,
-              message: response.message
-            })
-          } else if (
+          await getDesktopOAuthAccessToken(account.id)
+          if (!current()) break
+          nextChecks.set(account.id, Math.max(Date.now() + 60000, desktopOAuthRefreshAt(account.id) || Date.now() + RETRY_DELAY_MS))
+          if (
             account.status === 'failed' &&
             AUTH_RECOVERY_KEYWORDS.some((keyword) =>
               String(account.error_message || '').toLowerCase().includes(keyword)
@@ -105,8 +104,10 @@ export function useDesktopOAuthKeepAlive() {
             await batchLoginAPI.updateMailboxStatus(account.id, 'active')
           }
         } catch (error: any) {
+          if (!current()) break
+          nextChecks.set(account.id, Date.now() + RETRY_DELAY_MS)
           const errorMessage = getErrorMessage(error)
-          const recovered = await trySilentRecover(account, authToken, errorMessage, tauriInvoke)
+          const recovered = await trySilentRecover(account, authToken, errorMessage, tauriInvoke, current)
           if (recovered) {
             continue
           }
@@ -119,13 +120,16 @@ export function useDesktopOAuthKeepAlive() {
         }
       }
     } catch (error: any) {
+      retryDelay = 60000
       console.warn(
         '[DesktopOAuthKeepAlive] load oauth accounts failed:',
         error?.response?.data?.message || error?.message || String(error || '')
       )
     } finally {
-      isRefreshing.value = false
-      scheduleNext()
+      if (version === sessionVersion) {
+        isRefreshing.value = false
+        scheduleNext(config !== configVersion ? 300 : retryDelay)
+      }
     }
   }
 
@@ -133,9 +137,10 @@ export function useDesktopOAuthKeepAlive() {
     account: OAuthMailboxAccount,
     authToken: string,
     rawMessage: string,
-    tauriInvoke: any
+    tauriInvoke: any,
+    current: () => boolean
   ) => {
-    if (!tauriInvoke || !shouldAttemptSilentRecovery(rawMessage) || !String(account.password || '').trim()) {
+    if (!current() || !tauriInvoke || !shouldAttemptSilentRecovery(rawMessage) || !String(account.password || '').trim()) {
       return false
     }
 
@@ -145,13 +150,10 @@ export function useDesktopOAuthKeepAlive() {
         token: authToken,
         serverUrl: getServerUrl()
       })
-      window.dispatchEvent(
-        new CustomEvent('external-mailbox-recovered', {
-          detail: { mailboxId: account.id }
-        })
-      )
+      if (!current()) return false
       return true
     } catch (recoveryError: any) {
+      if (!current()) return false
       const rawMessage = getErrorMessage(recoveryError)
       const message = normalizeOAuthRecoveryErrorMessage(rawMessage)
       if (isAutoRecoveryLimitError(rawMessage)) {
@@ -176,58 +178,49 @@ export function useDesktopOAuthKeepAlive() {
     }
   }
 
-  const triggerWakeRefresh = async () => {
-    if (!isRunning.value || !isTauri()) return
-
-    const now = Date.now()
-    if (now - lastWakeRefreshAt < WAKE_REFRESH_MIN_GAP_MS) {
-      return
-    }
-    lastWakeRefreshAt = now
-    await refreshAllOAuthTokens()
-  }
-
-  const handleVisibilityChange = () => {
-    if (document.visibilityState === 'visible') {
-      void triggerWakeRefresh()
-    }
-  }
-
-  const handleWindowFocus = () => {
-    void triggerWakeRefresh()
-  }
-
   const handleWindowOnline = () => {
-    void triggerWakeRefresh()
+    if (isRunning.value) void refreshAllOAuthTokens()
   }
 
   const start = async (runImmediately = true) => {
-    if (!isTauri() || isRunning.value) {
-      return
-    }
+    if (!isTauri()) return
+    const token = localStorage.getItem('token') || ''
+    if (isRunning.value && sessionToken === token) return
+    if (isRunning.value) stop()
+    sessionToken = token
 
+    sessionVersion++
     isRunning.value = true
-    window.addEventListener('focus', handleWindowFocus)
+    unsubscribeCache = subscribeDesktopMailboxChanges(change => {
+      if (change.resource === 'proxy') return
+      configVersion++
+      if (change.mailbox_id) nextChecks.delete(change.mailbox_id)
+      else nextChecks.clear()
+      scheduleNext(300)
+    })
     window.addEventListener('online', handleWindowOnline)
-    document.addEventListener('visibilitychange', handleVisibilityChange)
 
     if (runImmediately) {
       await refreshAllOAuthTokens()
       return
     }
-    scheduleNext()
+    scheduleNext(0)
   }
 
   const stop = () => {
+    sessionVersion++
     if (timer) {
       clearTimeout(timer)
       timer = null
     }
+    sessionToken = ''
     isRunning.value = false
     isRefreshing.value = false
-    window.removeEventListener('focus', handleWindowFocus)
+    unsubscribeCache?.()
+    unsubscribeCache = undefined
+    nextChecks.clear()
+    clearDesktopOAuthTokens()
     window.removeEventListener('online', handleWindowOnline)
-    document.removeEventListener('visibilitychange', handleVisibilityChange)
   }
 
   onUnmounted(() => {
@@ -238,7 +231,6 @@ export function useDesktopOAuthKeepAlive() {
     isRunning,
     isRefreshing,
     start,
-    stop,
-    refreshNow: refreshAllOAuthTokens
+    stop
   }
 }

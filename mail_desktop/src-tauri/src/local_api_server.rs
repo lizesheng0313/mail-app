@@ -433,6 +433,7 @@ async fn route_local_request(request: HttpRequest) -> HttpResponse {
                         resolved.auth_type,
                         resolved.access_token,
                         resolved.proxy,
+                        Some(true),
                     )
                     .await
                     {
