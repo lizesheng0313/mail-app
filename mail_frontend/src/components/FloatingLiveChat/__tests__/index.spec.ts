@@ -186,7 +186,7 @@ describe('FloatingLiveChat admin conversation layout', () => {
     vi.useRealTimers()
   })
 
-  it('renders customer contacts on the left and the selected chat on the right', async () => {
+  it('loads only contacts until the administrator explicitly selects a customer', async () => {
     wrapper = mount(FloatingLiveChat)
     await wrapper.find('button').trigger('click')
     await flushPromises()
@@ -195,7 +195,9 @@ describe('FloatingLiveChat admin conversation layout', () => {
     expect(wrapper.get('[data-testid="admin-conversation-list"]').text()).toContain(
       '请帮我看一下这个问题'
     )
-    expect(wrapper.get('[data-testid="admin-chat-pane"]').text()).toContain('客户甲')
+    expect(wrapper.get('[data-testid="admin-chat-pane"]').text()).toContain('请先在左侧选择客户会话。')
+    expect(mocks.apiGet.mock.calls.some(([url]) => url === '/live-chat/messages')).toBe(false)
+    expect(mocks.apiPost).not.toHaveBeenCalled()
     expect(wrapper.get('[data-testid="admin-chat-pane"]').classes()).toContain('min-h-0')
 
     const customerB = wrapper.get('[data-testid="admin-conversation-item-102"]')
@@ -203,6 +205,9 @@ describe('FloatingLiveChat admin conversation layout', () => {
     await flushPromises()
 
     expect(wrapper.get('[data-testid="admin-chat-pane"]').text()).toContain('客户乙')
+    expect(mocks.apiGet).toHaveBeenCalledWith('/live-chat/messages', expect.objectContaining({
+      params: { limit: 60, conversation_user_id: 102 },
+    }))
   })
 
   it('shows the contact list first on mobile and supports returning from chat', async () => {
@@ -519,6 +524,8 @@ describe('FloatingLiveChat admin conversation layout', () => {
     await flushPromises()
     await wrapper.get('[data-testid="chat-launcher"]').trigger('click')
     await flushPromises()
+    await wrapper.get('[data-testid="admin-conversation-item-101"]').trigger('click')
+    await flushPromises()
     expect(wrapper.get('[data-testid="admin-conversation-unread-102"]').text()).toBe('3')
     await wrapper.get('[aria-label="关闭在线客服"]').trigger('click')
     expect(wrapper.get('[data-testid="chat-launcher-unread"]').text()).toBe('3')
@@ -537,6 +544,8 @@ describe('FloatingLiveChat admin conversation layout', () => {
     await flushPromises()
     await wrapper.get('[data-testid="chat-launcher"]').trigger('click')
     await flushPromises()
+    await wrapper.get('[data-testid="admin-conversation-item-101"]').trigger('click')
+    await flushPromises()
     expect(wrapper.get('[data-testid="admin-conversation-unread-101"]').text()).toBe('2')
     await wrapper.get('[aria-label="关闭在线客服"]').trigger('click')
     expect(wrapper.get('[data-testid="chat-launcher-unread"]').text()).toBe('5')
@@ -548,6 +557,8 @@ describe('FloatingLiveChat admin conversation layout', () => {
     wrapper = mount(FloatingLiveChat)
     await flushPromises()
     await wrapper.get('[data-testid="chat-launcher"]').trigger('click')
+    await flushPromises()
+    await wrapper.get('[data-testid="admin-conversation-item-101"]').trigger('click')
     await flushPromises()
     mocks.apiGet.mockClear()
     mocks.apiPost.mockClear()
@@ -596,6 +607,8 @@ describe('FloatingLiveChat admin conversation layout', () => {
     const connect = mocks.socket.on.mock.calls.find(([name]) => name === 'connect')![1]
     connect()
     await wrapper.get('[data-testid="chat-launcher"]').trigger('click')
+    await flushPromises()
+    await wrapper.get('[data-testid="admin-conversation-item-101"]').trigger('click')
     await flushPromises()
     mocks.apiPost.mockClear()
     mocks.socket.disconnect.mockClear()
@@ -706,6 +719,8 @@ describe('FloatingLiveChat admin conversation layout', () => {
     await flushPromises()
     await wrapper.get('[data-testid="chat-launcher"]').trigger('click')
     await flushPromises()
+    await wrapper.get('[data-testid="admin-conversation-item--4"]').trigger('click')
+    await flushPromises()
     expect(wrapper.get('[data-testid="admin-chat-pane"]').text()).toContain('游客的第一条消息')
     mocks.apiGet.mockClear()
     mocks.apiPost.mockClear()
@@ -763,6 +778,8 @@ describe('FloatingLiveChat admin conversation layout', () => {
     await flushPromises()
     await wrapper.get('[data-testid="chat-launcher"]').trigger('click')
     await flushPromises()
+    await wrapper.get('[data-testid="admin-conversation-item-101"]').trigger('click')
+    await flushPromises()
     mocks.apiGet.mockClear()
 
     window.dispatchEvent(new Event('focus'))
@@ -796,6 +813,8 @@ describe('FloatingLiveChat admin conversation layout', () => {
     await flushPromises()
     await wrapper.get('[data-testid="chat-launcher"]').trigger('click')
     await flushPromises()
+    await wrapper.get('[data-testid="admin-conversation-item-101"]').trigger('click')
+    await flushPromises()
     mocks.apiPost.mockClear()
     Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' })
     try {
@@ -824,6 +843,8 @@ describe('FloatingLiveChat admin conversation layout', () => {
     wrapper = mount(FloatingLiveChat)
     await flushPromises()
     await wrapper.get('[data-testid="chat-launcher"]').trigger('click')
+    await flushPromises()
+    await wrapper.get('[data-testid="admin-conversation-item-101"]').trigger('click')
     await flushPromises()
     expect(wrapper.text()).toContain('2026-06-25 14:11')
     expect(wrapper.text()).toContain('今天 14:50')

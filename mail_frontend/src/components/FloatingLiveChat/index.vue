@@ -923,7 +923,6 @@ const loadConversations = async () => {
           } as LiveChatConversation
         })
       }
-      const items = conversationItems.value
       const activeStillExists = activeGuestConversationId.value
         ? guestConversations.value.some((conversation) => conversation.guest_id === activeGuestConversationId.value)
         : conversations.value.some((conversation) => conversation.user.id === activeConversationUserId.value)
@@ -941,10 +940,6 @@ const loadConversations = async () => {
         }
       }
 
-      const canAutoSelect = !isCompactViewport() || mobileShowConversation.value
-      if (!activeConversationUserId.value && !activeGuestConversationId.value && items.length > 0 && visible.value && canAutoSelect) {
-        await selectConversation(items[0])
-      }
     } catch (error) {
       console.error('加载客服会话失败:', error)
     } finally {
@@ -1176,6 +1171,7 @@ const loadHistory = async (force = false) => {
   const requestVersion = ++historyRequestVersion
   const requestedGuestId = activeGuestConversationId.value
   const requestedUserId = activeConversationUserId.value
+  if (isAdmin.value && !requestedGuestId && !requestedUserId) return
   historyRequest = (async () => {
     loadingHistory.value = true
     try {
@@ -1235,6 +1231,7 @@ const loadHistory = async (force = false) => {
 
 const loadOlderHistory = async () => {
   if (activeGuestConversationId.value) return
+  if (isAdmin.value && !activeConversationUserId.value) return
   if (loadingMoreHistory.value || loadingHistory.value || !hasMoreHistory.value) return
   const beforeMessageId = Number(historyCursor || messages.value[0]?.id || 0)
   if (beforeMessageId <= 0) return
