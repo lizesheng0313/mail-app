@@ -1,3 +1,4 @@
+import { invokeDesktopMailboxFetch, onMailboxCollected } from '@/services/mailboxCollection'
 import { batchLoginAPI } from '@/api/batchLogin'
 import { getDesktopMailboxAccounts, getDesktopRuntimeProxy, invalidateDesktopRuntimeProxy, startDesktopMailboxCache, subscribeDesktopMailboxChanges, type MailboxChange } from './desktopMailboxCache'
 import { getServerUrl, isTauri } from '@/services/api'
@@ -25,6 +26,8 @@ const IMAP_RETRY_MS = 30 * 1000
 const IMAP_MAX_RETRY_MS = 15 * 60 * 1000
 const MAX_IDLE_WATCHES = 20
 const MAX_FETCH_CONCURRENCY = 3
+const RELAY_FOREGROUND_INTERVAL_MS = 8000
+const RELAY_FOREGROUND_WINDOW_MS = 10 * 60 * 1000
 
 /** POP3 has no IDLE. IMAP servers without IDLE (or above the local connection cap) use fallback checks. */
 export const mailboxSyncMode = (account: ExternalAccount, idleSlotsAvailable: boolean) => {
@@ -45,6 +48,10 @@ class DesktopExternalMailSync {
   private activeFetches = 0
   private fetchWaiters: Array<() => void> = []
   private interval?: number
+  private nextChecks = new Map<number, number>()
+  private lastChecks = new Map<number, number>()
+  private relayForegroundId = 0
+  private relayForegroundUntil = 0
   private unlisten?: () => void
   private invoke?: <T>(command: string, args?: Record<string, unknown>) => Promise<T>
   private refreshing = false
@@ -52,6 +59,7 @@ class DesktopExternalMailSync {
   private userId = 0
   private sessionVersion = 0
   private unsubscribeCache?: () => void
+  private unsubscribeCollection?: () => void
   private retries = new Map<number, number>()
   private failures = new Map<number, number>()
 
@@ -78,10 +86,13 @@ class DesktopExternalMailSync {
     }
     this.unlisten = unlisten
     this.unsubscribeCache = subscribeDesktopMailboxChanges(this.onAccountsChanged)
+    this.unsubscribeCollection = onMailboxCollected((id, token) => {
+      if (!this.running || token !== localStorage.getItem('token') || !this.fallback.has(id)) return
+      this.lastChecks.set(id, Date.now())
+      this.nextChecks.set(id, Date.now() + this.checkInterval(id))
+      this.scheduleChecks()
+    })
     document.addEventListener('visibilitychange', this.onVisibilityChange)
-    this.interval = window.setInterval(() => {
-      void this.refreshAccounts().then(() => this.checkFallbackAccounts())
-    }, POP3_INTERVAL_MS)
     await this.refreshAccounts()
     await this.checkFallbackAccounts()
   }
@@ -90,10 +101,16 @@ class DesktopExternalMailSync {
     this.sessionVersion++
     this.running = false
     this.userId = 0
-    if (this.interval !== undefined) window.clearInterval(this.interval)
+    if (this.interval !== undefined) window.clearTimeout(this.interval)
     this.interval = undefined
+    this.nextChecks.clear()
+    this.lastChecks.clear()
+    this.relayForegroundId = 0
+    this.relayForegroundUntil = 0
     this.unsubscribeCache?.()
     this.unsubscribeCache = undefined
+    this.unsubscribeCollection?.()
+    this.unsubscribeCollection = undefined
     for (const timer of this.retries.values()) window.clearTimeout(timer)
     this.retries.clear()
     this.failures.clear()
@@ -116,6 +133,9 @@ class DesktopExternalMailSync {
   }
 
   private onAccountsChanged = (change: MailboxChange) => {
+    for (const id of this.fallback) {
+      if (!change.mailbox_id || change.mailbox_id === id) this.nextChecks.set(id, Date.now())
+    }
     for (const id of this.retries.keys()) {
       if (!change.mailbox_id || change.mailbox_id === id) this.clearFetchRetry(id)
     }
@@ -128,6 +148,42 @@ class DesktopExternalMailSync {
     if (!document.hidden && this.running) {
       void this.refreshAccounts().then(() => this.catchUpAll())
     }
+  }
+
+  /** The view supplies demand; only this service schedules collection. */
+  setRelayForeground(mailboxId: number, restart = false) {
+    const previous = this.relayForegroundId
+    if (previous === mailboxId && !restart) return
+    this.relayForegroundId = mailboxId
+    this.relayForegroundUntil = mailboxId ? Date.now() + RELAY_FOREGROUND_WINDOW_MS : 0
+    if (previous && this.fallback.has(previous)) {
+      this.nextChecks.set(previous, (this.lastChecks.get(previous) || Date.now()) + POP3_INTERVAL_MS)
+    }
+    if (mailboxId && this.fallback.has(mailboxId)) {
+      this.nextChecks.set(mailboxId, this.lastChecks.has(mailboxId)
+        ? this.lastChecks.get(mailboxId)! + RELAY_FOREGROUND_INTERVAL_MS : Date.now())
+    }
+    this.scheduleChecks()
+  }
+
+  private checkInterval(id: number) {
+    return id === this.relayForegroundId && Date.now() < this.relayForegroundUntil
+      && this.accounts.get(id)?.relay_fetch_enabled
+      ? RELAY_FOREGROUND_INTERVAL_MS : POP3_INTERVAL_MS
+  }
+
+  private scheduleChecks() {
+    if (this.interval !== undefined) window.clearTimeout(this.interval)
+    this.interval = undefined
+    if (!this.running) return
+    const due = [...this.nextChecks.entries()]
+      .filter(([id]) => this.fallback.has(id) && !this.fetching.has(id) && !this.retries.has(id))
+      .map(([, at]) => at)
+    if (!due.length) return
+    this.interval = window.setTimeout(() => {
+      this.interval = undefined
+      void this.refreshAccounts().then(() => this.checkFallbackAccounts())
+    }, Math.max(0, Math.min(...due) - Date.now()))
   }
 
   async refreshAccounts() {
@@ -155,6 +211,7 @@ class DesktopExternalMailSync {
         if (mode !== 'idle') {
           if (this.watches.has(account.id)) this.removeWatch(account.id)
           this.fallback.add(account.id)
+          if (!this.nextChecks.has(account.id)) this.nextChecks.set(account.id, Date.now())
           continue
         }
         const fingerprint = [account.email, account.imap_host, account.imap_port,
@@ -163,6 +220,7 @@ class DesktopExternalMailSync {
         if (old?.fingerprint === fingerprint) continue
         this.removeWatch(account.id)
         this.fallback.delete(account.id)
+        this.nextChecks.delete(account.id)
         const watch: Watch = { fingerprint, connecting: false, failures: 0 }
         this.watches.set(account.id, watch)
         void this.startWatch(account, watch)
@@ -192,6 +250,8 @@ class DesktopExternalMailSync {
     this.failures.delete(id)
     this.removeWatch(id)
     this.fallback.delete(id)
+    this.nextChecks.delete(id)
+    this.lastChecks.delete(id)
     this.pendingFetch.delete(id)
   }
 
@@ -258,7 +318,8 @@ class DesktopExternalMailSync {
 
   private async checkFallbackAccounts() {
     const version = this.sessionVersion
-    const ids = [...this.fallback]
+    if (this.relayForegroundId && Date.now() >= this.relayForegroundUntil) this.setRelayForeground(0)
+    const ids = [...this.fallback].filter(id => (this.nextChecks.get(id) || 0) <= Date.now())
     // A bounded batch avoids opening hundreds of POP3 connections at once.
     for (let offset = 0; offset < ids.length && this.running && this.sessionVersion === version; offset += 2) {
       await Promise.all(ids.slice(offset, offset + 2).map((id) => {
@@ -266,6 +327,7 @@ class DesktopExternalMailSync {
         return account && !this.retries.has(id) ? this.fetchAccount(account) : Promise.resolve()
       }))
     }
+    this.scheduleChecks()
   }
 
   private async catchUpAll() {
@@ -333,7 +395,7 @@ class DesktopExternalMailSync {
       if (account.auth_type === 'oauth2') {
         result = await runDesktopOAuthMailboxAction(id, (oauth) => {
           if (!this.running || this.sessionVersion !== version) throw new Error('自动收取已停止')
-          return this.invoke!('fetch_emails', {
+          return invokeDesktopMailboxFetch(this.invoke!, {
             ...shared,
             email: oauth.email,
             password: '',
@@ -346,7 +408,7 @@ class DesktopExternalMailSync {
         })
       } else {
         const imap = account.protocol?.toLowerCase() === 'imap'
-        result = await this.invoke!('fetch_emails', {
+        result = await invokeDesktopMailboxFetch(this.invoke!, {
           ...shared,
           email: account.email,
           password: account.password || '',
@@ -383,6 +445,11 @@ class DesktopExternalMailSync {
     } finally {
       releaseSlot()
       if (this.fetching.get(id) === version) this.fetching.delete(id)
+      if (this.running && this.sessionVersion === version && this.fallback.has(id)) {
+        this.lastChecks.set(id, Date.now())
+        this.nextChecks.set(id, Date.now() + this.checkInterval(id))
+        this.scheduleChecks()
+      }
       if (this.sessionVersion === version && this.pendingFetch.delete(id) && this.running) {
         const latest = this.accounts.get(id)
         if (latest && !this.retries.has(id)) void this.fetchAccount(latest)

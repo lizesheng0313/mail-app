@@ -38,9 +38,6 @@
               <PublicNavigation :guest="!userStore.isAuthenticated" />
             </div>
 
-            <div class="shrink-0">
-              <AccountActions />
-            </div>
           </div>
           <div class="ml-auto flex min-w-0 items-center gap-1 md:hidden">
             <router-link
@@ -59,8 +56,8 @@
             >
               <ShoppingCartIcon class="h-5 w-5" aria-hidden="true" />
             </router-link>
-            <AccountActions />
           </div>
+          <AccountActions class="shrink-0" />
         </div>
       </div>
     </nav>

@@ -26,6 +26,20 @@ const open = () => mount(ExternalMailboxList, {
 afterEach(() => { vi.restoreAllMocks(); mocks.getAccounts.mockReset(); mocks.unsubscribe.mockReset() })
 
 describe('external mailbox configuration delivery', () => {
+  it('shares concurrent reads of the same page and emits metadata from that response', async () => {
+    let finish!: (value: unknown) => void
+    mocks.getAccounts.mockReturnValueOnce(new Promise(resolve => { finish = resolve }))
+    const wrapper = open()
+    try {
+      const first = (wrapper.vm as any).loadAccounts()
+      const second = (wrapper.vm as any).loadAccounts()
+      expect(mocks.getAccounts).toHaveBeenCalledTimes(1)
+      finish(response(1, 'shared@example.test'))
+      await Promise.all([first, second])
+      expect(wrapper.emitted('accounts-loaded')).toHaveLength(1)
+      expect(wrapper.text()).toContain('shared@example.test')
+    } finally { wrapper.unmount() }
+  })
   it('renders a pushed account change, keeps existing rows on failure and unsubscribes on close', async () => {
     mocks.getAccounts.mockResolvedValueOnce(response(1, 'first@example.test'))
     const wrapper = open()

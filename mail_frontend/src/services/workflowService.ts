@@ -334,32 +334,6 @@ class WorkflowService {
   // ==================== 工具方法 ====================
 
   /**
-   * 轮询调用状态直到完成
-   */
-  async pollCallStatus(
-    callId: string,
-    onUpdate?: (status: WorkflowCallResponse) => void
-  ): Promise<WorkflowCallResponse> {
-    const poll = async (): Promise<WorkflowCallResponse> => {
-      const status = await this.getCallStatus(callId)
-
-      if (onUpdate) {
-        onUpdate(status)
-      }
-
-      if (['completed', 'failed', 'timeout'].includes(status.status)) {
-        return status
-      }
-
-      // 等待2秒后继续轮询
-      await new Promise((resolve) => setTimeout(resolve, 2000))
-      return poll()
-    }
-
-    return poll()
-  }
-
-  /**
    * 批量调用工作流
    */
   async batchCallWorkflows(

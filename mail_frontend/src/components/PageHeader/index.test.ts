@@ -38,6 +38,7 @@ describe('public page workbench entry', () => {
 
   it('stays visible on public pages and opens the guest mailbox for visitors', async () => {
     const { router, wrapper } = await mountHeader()
+    expect(wrapper.findAllComponents({ name: 'AccountActions' })).toHaveLength(1)
     expect(wrapper.get('.page-header-shell > div').classes()).toContain('h-[54px]')
     expect(wrapper.get('.page-header-shell').classes()).toContain('site-header-inline-padding')
     expect(wrapper.findAll('.h-\\[54px\\]')).toHaveLength(2)

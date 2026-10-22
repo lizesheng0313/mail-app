@@ -260,6 +260,8 @@
 </template>
 
 <script setup lang="ts">
+import { invokeDesktopMailboxFetch } from '@/services/mailboxCollection'
+import { getDesktopRuntimeProxy } from '@/services/desktopMailboxCache'
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useI18n } from 'vue-i18n'
 import MailboxList from '@/components/Mail/MailboxList/MailboxList.vue'
@@ -280,7 +282,6 @@ import { runDesktopOAuthMailboxAction } from '@/services/desktopOAuthMailbox'
 import { canDesktopSmtpSend, normalizeSmtpEmail } from '@/utils/smtpCapability'
 import {
   runExternalMailboxWithRelayFallback,
-  runSerializedExternalMailboxRelayFetch
 } from '@/utils/externalMailboxRelay'
 
 const props = defineProps<{
@@ -404,10 +405,12 @@ const emit = defineEmits<{
   'oauth-reauthorize': [account: any]
   'batch-mode-start': []
   deleted: [ids: number[]]
+  'accounts-loaded': [accounts: any[]]
 }>()
 
 const accounts = ref<any[]>([])
 let accountsRequestSeq = 0
+let accountsRequest: { key: string; promise: Promise<unknown> } | undefined
 let unsubscribeAccountsRealtime: (() => void) | undefined
 const showConfirm = ref(false)
 const deleting = ref(false)
@@ -567,6 +570,7 @@ const applyAccountsPagination = (pagination?: any, fallbackCount = accounts.valu
 
 const replaceAccounts = (items: any[] = [], pagination?: any) => {
   accounts.value = Array.isArray(items) ? [...items] : []
+  emit('accounts-loaded', accounts.value)
   applyAccountsPagination(pagination, accounts.value.length)
 
   if (accounts.value.length > 0) {
@@ -595,6 +599,7 @@ const upsertAccounts = (items: any[] = []) => {
   }
 
   accounts.value = nextAccounts
+  emit('accounts-loaded', accounts.value)
   if (addedCount > 0) {
     totalAccounts.value += addedCount
     totalPages.value = Math.max(1, Math.ceil(totalAccounts.value / 20))
@@ -628,7 +633,7 @@ const removeAccounts = (ids: number[] = []) => {
   }
 }
 
-const loadAccounts = async (page = 1) => {
+const queryAccounts = async (page = 1) => {
   const requestSeq = ++accountsRequestSeq
   try {
     const res = await batchLoginAPI.getAccounts(page, 20, {
@@ -648,6 +653,15 @@ const loadAccounts = async (page = 1) => {
     console.error('❌ 加载外部邮箱失败', e)
     return false
   }
+}
+
+const loadAccounts = (page = 1, fresh = false) => {
+  const key = JSON.stringify([localStorage.getItem('token'), page, searchKeyword.value])
+  if (!fresh && accountsRequest?.key === key) return accountsRequest.promise
+  const promise = queryAccounts(page)
+  accountsRequest = { key, promise }
+  void promise.finally(() => { if (accountsRequest?.promise === promise) accountsRequest = undefined })
+  return promise
 }
 
 const ensureAccountVisible = async (accountId: number) => {
@@ -867,9 +881,7 @@ const handleRefreshAction = (accountId: number) => {
 }
 
 const fetchExternalMailboxThroughRelay = async (account: any) => {
-  const response: any = await runSerializedExternalMailboxRelayFetch(account.id, () =>
-    batchLoginAPI.fetchExternalMailboxOnline(account.id)
-  )
+  const response: any = await batchLoginAPI.fetchExternalMailboxOnline(account.id)
   if (response.code !== 0) {
     throw new Error(response.message || t('externalMailbox.fetchFailed'))
   }
@@ -960,7 +972,7 @@ const fetchSingleMailbox = async (accountId: number) => {
         const serverUrl = getServerUrl()
 
         await runDesktopOAuthMailboxAction(account.id, async (tokenPayload) => {
-          return invoke('fetch_emails', {
+          return invokeDesktopMailboxFetch(invoke, {
             mailboxId: account.id,
             email: tokenPayload.email,
             password: '',
@@ -970,7 +982,8 @@ const fetchSingleMailbox = async (accountId: number) => {
             token,
             serverUrl,
             authType: 'oauth2',
-            accessToken: tokenPayload.access_token
+            accessToken: tokenPayload.access_token,
+            proxy: await getDesktopRuntimeProxy(account.id)
           })
         })
         showMessage(t('externalMailbox.fetchSuccess'), 'success')
@@ -1025,7 +1038,7 @@ const fetchSingleMailbox = async (accountId: number) => {
             const host = account.protocol === 'imap' ? account.imap_host : account.pop3_host
             const port = account.protocol === 'imap' ? account.imap_port : account.pop3_port
 
-            return invoke('fetch_emails', {
+            return invokeDesktopMailboxFetch(invoke, {
               mailboxId: account.id,
               email: account.email,
               password: account.password,
@@ -1033,7 +1046,8 @@ const fetchSingleMailbox = async (accountId: number) => {
               host: host || null,
               port: port || null,
               token,
-              serverUrl
+              serverUrl,
+              proxy: await getDesktopRuntimeProxy(account.id)
             })
           },
           relayAction: () => fetchExternalMailboxThroughRelay(account)
@@ -1086,7 +1100,7 @@ defineExpose({
 
 onMounted(() => {
   unsubscribeAccountsRealtime = subscribeRealtime(['mailbox_config_changed'],
-    () => loadAccounts(currentPage.value || 1),
+    () => loadAccounts(currentPage.value || 1, true),
     payload => payload?.resource === 'accounts' || payload?.resource === 'oauth')
   window.addEventListener('click', handleWindowClick)
   window.addEventListener('external-mailbox-recovered', handleRecoveredMailbox)
