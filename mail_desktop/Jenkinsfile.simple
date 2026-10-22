@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        SERVER_HOST = '8.140.27.159'
+        SERVER_HOST = '118.178.181.189'
         SERVER_USER = 'root'
         DOWNLOAD_PATH = '/var/www/html/downloads'
         UPDATE_PATH = '/var/www/html/desktop-updates'
