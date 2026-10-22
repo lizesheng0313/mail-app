@@ -66,6 +66,17 @@ describe('admin support conversation list', () => {
     expect(items[1].text()).toContain('注册用户')
     expect(wrapper.text()).toContain('游客消息')
     expect(wrapper.findAll('button').some(button => button.text().trim() === '游客会话')).toBe(false)
+    expect(wrapper.get('[data-testid="admin-chat-pane"]').text()).toContain('请先在左侧选择客户会话。')
+    expect(mocks.get.mock.calls.some(([path]) => path.endsWith('/messages'))).toBe(false)
+    expect(mocks.post).not.toHaveBeenCalled()
+    expect(wrapper.get('[data-testid="admin-conversation-unread--4"]').text()).toBe('2')
+
+    await items[0].trigger('click')
+    await flushPromises()
+    expect(mocks.get).toHaveBeenCalledWith(
+      '/live-chat/guest/conversations/4/messages',
+      expect.anything(),
+    )
     expect(mocks.post).toHaveBeenCalledWith(
       '/live-chat/guest/conversations/4/read',
       { last_read_message_id: 9 },
