@@ -126,13 +126,18 @@ describe('workspace loading', () => {
       expect(smtp).not.toHaveBeenCalled()
       finishMailboxes()
       await flushPromises()
+      document.dispatchEvent(new Event('visibilitychange'))
       await vi.advanceTimersByTimeAsync(60 * 60 * 1000)
       expect(backgroundEmails).not.toHaveBeenCalled()
       expect(emails).toHaveBeenCalledTimes(1)
-      await realtime.refresh({ mailbox_type: 'external', mailbox_id: 7, email_id: 99 }, 'mail_changed')
+      backgroundEmails.mockResolvedValueOnce({ code: 0, data: { emails: [{
+        id: 99, subject: 'New local receipt', is_read: false, received_at: Date.now()
+      }] } } as any)
+      window.dispatchEvent(new CustomEvent('external-mailbox-synced', { detail: { mailboxId: 7 } }))
       await flushPromises()
       expect(backgroundEmails).toHaveBeenCalledTimes(1)
       expect(backgroundEmails).toHaveBeenLastCalledWith(expect.objectContaining({ type: 'external' }))
+      expect(document.title).toContain('来新消息了')
       await realtime.refresh({ type: 'email.updated', mailbox_type: 'external', mailbox_id: 7, email_id: 99 }, 'mail_changed')
       await flushPromises()
       expect(backgroundEmails).toHaveBeenCalledTimes(1) // Reading/deleting mail is not a new-mail title alert.
@@ -141,7 +146,7 @@ describe('workspace loading', () => {
     }
   })
 
-  it('loads account metadata from the list and combines pushed, local and manual mail refreshes', async () => {
+  it('updates collected mail without a WebSocket echo and combines local and manual refreshes', async () => {
     vi.useFakeTimers()
     localStorage.setItem('token', 'test-session')
     const hidden = vi.spyOn(document, 'hidden', 'get').mockReturnValue(false)
@@ -181,11 +186,10 @@ describe('workspace loading', () => {
       expect(actions.externalMailboxAuthTypeMap[7]).toBe('oauth2')
       const titleQuery = vi.spyOn(emailAPI, 'getUserEmails')
       hidden.mockReturnValue(true)
-      const pushed = realtime.refresh({ mailbox_type: 'external', mailbox_id: 7, email_id: 99 }, 'mail_changed')
       window.dispatchEvent(new CustomEvent('external-mailbox-synced', { detail: { mailboxId: 7 } }))
       const manual = actions.handleRefreshExternalEmails({ mailboxId: 7 })
       await vi.advanceTimersByTimeAsync(150)
-      await Promise.all([pushed, manual])
+      await manual
       expect(emails).toHaveBeenCalledTimes(2)
       expect(emails).toHaveBeenLastCalledWith(1, 20, 7)
       expect(accountQuery).toHaveBeenCalledTimes(2)
@@ -208,16 +212,21 @@ describe('workspace loading', () => {
       await vi.advanceTimersByTimeAsync(150)
       await search
       expect(titleQuery).toHaveBeenLastCalledWith(expect.objectContaining({ search: 'invoice', mailbox_id: 8 }))
-      const filteredPush = realtime.refresh({ mailbox_type: 'external', mailbox_id: 8, email_id: 101 }, 'mail_changed')
+      window.dispatchEvent(new CustomEvent('external-mailbox-synced', { detail: { mailboxId: 8 } }))
       await flushPromises()
       await vi.advanceTimersByTimeAsync(150)
-      await filteredPush
+      await flushPromises()
       expect(titleQuery).toHaveBeenLastCalledWith(expect.objectContaining({ search: 'invoice', mailbox_id: 8 }))
       expect(actions.externalSearchKeyword).toBe('invoice')
       const queries = titleQuery.mock.calls.length
       await vi.advanceTimersByTimeAsync(3600000)
       expect(emails).toHaveBeenCalledTimes(4)
       expect(titleQuery).toHaveBeenCalledTimes(queries)
+      const resumed = realtime.refresh(undefined, 'realtime_reset')
+      await vi.advanceTimersByTimeAsync(150)
+      await resumed
+      expect(titleQuery).toHaveBeenCalledTimes(queries + 1)
+      expect(titleQuery).toHaveBeenLastCalledWith(expect.objectContaining({ search: 'invoice', mailbox_id: 8 }))
     } finally { wrapper.unmount() }
   })
 

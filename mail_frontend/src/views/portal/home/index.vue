@@ -2512,7 +2512,10 @@ const refreshFromMailEvent = async (type: 'system' | 'hosted' | 'external', emai
       if (!titleAlertInitialized[type]) {
         for (const email of emails) {
           const id = Number(email?.id)
-          if (id > 0 && id !== emailId) titleAlertSeenEmailIds[type].add(id)
+          // A local collection reports a batch count, not an individual mail ID.
+          const newlyReceived = emailId > 0 ? id === emailId
+            : getEmailTimestamp(email) > titleAlertHiddenAt.value
+          if (id > 0 && !newlyReceived) titleAlertSeenEmailIds[type].add(id)
         }
         titleAlertInitialized[type] = true
       }
@@ -2974,10 +2977,9 @@ const handleRecoveredMailboxEvent = (event: Event) => {
 
 const handleDesktopMailboxSynced = (event: Event) => {
   const mailboxId = Number((event as CustomEvent<{ mailboxId?: number }>)?.detail?.mailboxId || 0)
-  if (!mailboxId || mailboxType.value !== 'external') return
-  dispatchAccountState('outbox')
-  if (selectedExternalMailboxId.value && selectedExternalMailboxId.value !== mailboxId) return
-  if (currentView.value === 'emails') scheduleExternalHistoryRefresh()
+  if (!mailboxId) return
+  // Collection completion updates this client directly; no owner WS echo needed.
+  void refreshFromMailEvent('external', 0, true, mailboxId)
 }
 
 const handleOAuthMailboxReauthorize = async (account: any) => {
