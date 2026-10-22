@@ -67,7 +67,7 @@ describe('shared desktop configuration cache', () => {
     await vi.advanceTimersByTimeAsync(3600000)
     await getDesktopMailboxAccounts()
     expect(mocks.accounts).toHaveBeenCalledTimes(1)
-    mocks.realtime({ resource: 'accounts' }, 'mailbox_config_changed')
+    window.dispatchEvent(new CustomEvent('external-mailboxes-changed', { detail: { resource: 'accounts' } }))
     await getDesktopMailboxAccounts()
     expect(mocks.accounts).toHaveBeenCalledTimes(2)
   })

@@ -34,6 +34,15 @@
           @click.stop
         >
           <button
+            v-if="props.fetchingAll"
+            type="button"
+            class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+            @click.stop="emit('refresh-progress')"
+          >
+            <BaseIcon name="refresh" size="sm" />
+            {{ t('externalMailbox.refreshHistoryProgress') }}
+          </button>
+          <button
             type="button"
             class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
             :disabled="!props.fetchingAll && fetchingAllDisabled"
@@ -277,7 +286,6 @@ import { showMessage } from '@/utils/message'
 import { normalizeOAuthRecoveryErrorMessage } from '@/utils/oauthRecovery'
 import { formatTimestamp } from '@/utils/timeUtils'
 import { isTauri, getServerUrl } from '@/services/api'
-import { subscribeRealtime } from '@/services/realtimeClient'
 import { runDesktopOAuthMailboxAction } from '@/services/desktopOAuthMailbox'
 import { canDesktopSmtpSend, normalizeSmtpEmail } from '@/utils/smtpCapability'
 import {
@@ -401,6 +409,7 @@ const emit = defineEmits<{
   refresh: [payload?: { mailboxId?: number }]
   'fetch-all': []
   'cancel-fetch-all': []
+  'refresh-progress': []
   share: [mailboxes: any[]]
   'oauth-reauthorize': [account: any]
   'batch-mode-start': []
@@ -411,7 +420,6 @@ const emit = defineEmits<{
 const accounts = ref<any[]>([])
 let accountsRequestSeq = 0
 let accountsRequest: { key: string; promise: Promise<unknown> } | undefined
-let unsubscribeAccountsRealtime: (() => void) | undefined
 const showConfirm = ref(false)
 const deleting = ref(false)
 const isDeleting = ref({ batch: false, ids: [] as number[] })
@@ -1100,9 +1108,6 @@ defineExpose({
 })
 
 onMounted(() => {
-  unsubscribeAccountsRealtime = subscribeRealtime(['mailbox_config_changed'],
-    () => loadAccounts(currentPage.value || 1, true),
-    payload => payload?.resource === 'accounts' || payload?.resource === 'oauth')
   window.addEventListener('click', handleWindowClick)
   window.addEventListener('external-mailbox-recovered', handleRecoveredMailbox)
   window.addEventListener('external-mailbox-updated', handleRecoveredMailbox)
@@ -1111,7 +1116,6 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   accountsRequestSeq++
-  unsubscribeAccountsRealtime?.()
   if (closeMenuTimer) {
     clearTimeout(closeMenuTimer)
     closeMenuTimer = null

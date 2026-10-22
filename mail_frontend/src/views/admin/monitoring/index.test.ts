@@ -333,7 +333,7 @@ describe('independent mailbox monitoring dimensions', () => {
     expect(wrapper.text()).toContain('访问量趋势')
     wrapper.unmount()
   })
-  it('refreshes online counts on presence changes instead of every fifteen seconds', async () => {
+  it('loads online counts on manual refresh without a presence subscription', async () => {
     vi.useFakeTimers()
     localStorage.setItem('token', 'test-session')
     route.meta.monitoringSection = 'business'
@@ -343,12 +343,10 @@ describe('independent mailbox monitoring dimensions', () => {
       const count = api.getOnlineCount.mock.calls.length
       await vi.advanceTimersByTimeAsync(60 * 60 * 1000)
       expect(api.getOnlineCount).toHaveBeenCalledTimes(count)
-      await realtime.refresh({ online_users: 17, desktop_online_users: 8 }, 'presence_changed')
-      await flushPromises()
-      expect(api.getOnlineCount).toHaveBeenCalledTimes(count)
-      expect(wrapper.text()).toContain('17')
-      await realtime.refresh(undefined, 'realtime_reset')
-      expect(api.getOnlineCount).toHaveBeenCalledTimes(count + 1)
+      expect(realtime.refresh).toBeNull()
+      const initial = api.getBusinessStats.mock.calls.length
+      await (wrapper.vm as any).$.setupState.loadBusinessStats()
+      expect(api.getBusinessStats).toHaveBeenCalledTimes(initial + 1)
     } finally { wrapper.unmount() }
   })
 

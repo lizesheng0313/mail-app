@@ -74,7 +74,7 @@ describe('share page loading', () => {
       wrapper.unmount()
     }
   })
-  it('uses push and reconnect catch-up for external shares without recurring list requests', async () => {
+  it('queries shares only on entry and explicit refresh without a socket subscription', async () => {
     vi.useFakeTimers()
     api.getShareInfo.mockResolvedValue({ code: 0, data: {
       mailbox_type: 'external', expire_mode: 'permanent', mailboxes: [{ id: 1, email: 'shared@example.com' }]
@@ -86,18 +86,13 @@ describe('share page loading', () => {
       const initial = api.getShareEmails.mock.calls.length
       await vi.advanceTimersByTimeAsync(60 * 60 * 1000)
       expect(api.getShareEmails).toHaveBeenCalledTimes(initial)
-      expect(realtime.scope).toHaveBeenCalledWith('share-mail', { share_token: 'public-share' })
-      await realtime.refresh(undefined, 'realtime_reset')
+      expect(realtime.scope).not.toHaveBeenCalled()
+      expect(realtime.refresh).toBeNull()
+      await (wrapper.vm as any).$.setupState.loadEmails()
       await flushPromises()
       expect(api.getShareEmails).toHaveBeenCalledTimes(initial + 1)
-      const event = { mailbox_type: 'external', mailbox_id: 1, email_id: 9 }
-      expect(realtime.filter(event)).toBe(true)
-      expect(realtime.filter({ mailbox_type: 'system', mailbox_id: 1 })).toBe(false)
-      await realtime.refresh(event, 'mail_changed')
-      await flushPromises()
-      expect(api.getShareEmails).toHaveBeenCalledTimes(initial + 2)
       await vi.advanceTimersByTimeAsync(60 * 60 * 1000)
-      expect(api.getShareEmails).toHaveBeenCalledTimes(initial + 2)
+      expect(api.getShareEmails).toHaveBeenCalledTimes(initial + 1)
     } finally { wrapper.unmount() }
   })
 

@@ -13,7 +13,7 @@ import { RouterView, useRoute, useRouter } from 'vue-router'
 import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useUserStore } from '@/stores/user'
 import { usePageTracking } from '@/composables/usePageTracking'
-import { useOnlineSession } from '@/composables/useOnlineSession'
+import { useAuthSessionSync } from '@/composables/useAuthSessionSync'
 import { useDesktopOAuthKeepAlive } from '@/composables/useDesktopOAuthKeepAlive'
 import GuestLiveChat from '@/components/FloatingLiveChat/GuestLiveChat.vue'
 import SystemMaintenance from '@/components/SystemMaintenance/index.vue'
@@ -39,7 +39,7 @@ const showFloatingTools = computed(() => !route.path.startsWith('/browser-workfl
 
 // 启用页面访问统计
 usePageTracking()
-useOnlineSession()
+useAuthSessionSync()
 
 watch(
   () => [userStore.isAuthenticated, userStore.user] as const,

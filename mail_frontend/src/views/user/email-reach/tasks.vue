@@ -16,7 +16,7 @@
             class="h-10 rounded-xl bg-primary-600 px-5 text-sm font-medium text-white hover:bg-primary-700"
             @click="applyFilters"
           >
-            查询
+            刷新
           </button>
         </div>
         <button
@@ -99,8 +99,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
-import { subscribeRealtime } from '@/services/realtimeClient'
+import { computed, onMounted, reactive, ref } from 'vue'
 import ActionButton from '@/components/ActionButton/index.vue'
 import AdminDataTable from '@/components/AdminDataTable/index.vue'
 import BaseInput from '@/components/BaseInput/index.vue'
@@ -122,7 +121,6 @@ const tasks = ref([])
 const showEditorModal = ref(false)
 const showDetailModal = ref(false)
 const selectedTask = ref(null)
-let unsubscribeTaskEvents = null
 const access = ref({
   status: 'pending',
   reason: '',
@@ -186,29 +184,6 @@ const progressPercent = (item) => {
   return Math.min(100, Math.round((done * 100) / planned))
 }
 
-const upsertTask = (task) => {
-  if (!task?.id) return
-  const index = tasks.value.findIndex((item) => Number(item.id) === Number(task.id))
-  if (index >= 0) {
-    tasks.value.splice(index, 1, task)
-  } else {
-    tasks.value.unshift(task)
-  }
-}
-
-const cleanupSocket = () => {
-  unsubscribeTaskEvents?.()
-  unsubscribeTaskEvents = null
-}
-
-const connectTaskSocket = () => {
-  cleanupSocket()
-  unsubscribeTaskEvents = subscribeRealtime(['email_reach_event'], (payload, event) => {
-    if (event === 'realtime_reset') return loadTasks()
-    if (payload?.type === 'task_progress' && payload.task) upsertTask(payload.task)
-  })
-}
-
 const loadTasks = async () => {
   loading.value = true
   try {
@@ -244,11 +219,7 @@ onMounted(async () => {
   }
   if (canOperate.value) {
     await loadTasks()
-    connectTaskSocket()
   }
 })
 
-onUnmounted(() => {
-  cleanupSocket()
-})
 </script>

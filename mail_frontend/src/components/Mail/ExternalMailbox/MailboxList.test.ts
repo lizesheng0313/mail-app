@@ -40,7 +40,7 @@ describe('external mailbox configuration delivery', () => {
       expect(wrapper.text()).toContain('shared@example.test')
     } finally { wrapper.unmount() }
   })
-  it('renders a pushed account change, keeps existing rows on failure and unsubscribes on close', async () => {
+  it('renders a manual reload and keeps existing rows on failure without a socket subscription', async () => {
     mocks.getAccounts.mockResolvedValueOnce(response(1, 'first@example.test'))
     const wrapper = open()
     try {
@@ -50,14 +50,14 @@ describe('external mailbox configuration delivery', () => {
       window.addEventListener('external-mailboxes-changed', invalidations)
       try {
         mocks.getAccounts.mockResolvedValueOnce(response(2, 'second@example.test'))
-        await mocks.refresh()
+        await (wrapper.vm as any).loadAccounts(1, true)
         await flushPromises()
         expect(wrapper.text()).toContain('second@example.test')
         expect(wrapper.text()).not.toContain('first@example.test')
         expect(invalidations).not.toHaveBeenCalled()
         vi.spyOn(console, 'error').mockImplementation(() => {})
         mocks.getAccounts.mockRejectedValueOnce(new Error('temporary query failure'))
-        expect(await mocks.refresh()).toBe(false)
+        expect(await (wrapper.vm as any).loadAccounts(1, true)).toBe(false)
         expect(wrapper.text()).toContain('second@example.test')
       } finally {
         window.removeEventListener('external-mailboxes-changed', invalidations)
@@ -65,17 +65,17 @@ describe('external mailbox configuration delivery', () => {
     } finally {
       wrapper.unmount()
     }
-    expect(mocks.unsubscribe).toHaveBeenCalledOnce()
+    expect(mocks.unsubscribe).not.toHaveBeenCalled()
   })
 
-  it('does not overwrite a newer pushed snapshot with an older pending query', async () => {
+  it('does not overwrite a newer manual reload with an older pending query', async () => {
     let finish!: (value: unknown) => void
     mocks.getAccounts.mockReturnValueOnce(new Promise(resolve => { finish = resolve }))
     const wrapper = open()
     try {
       const older = (wrapper.vm as any).loadAccounts()
       mocks.getAccounts.mockResolvedValueOnce(response(2, 'newer@example.test'))
-      await mocks.refresh()
+      await (wrapper.vm as any).loadAccounts(1, true)
       finish(response(1, 'older@example.test'))
       await older
       await flushPromises()

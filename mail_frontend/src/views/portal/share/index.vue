@@ -255,7 +255,6 @@ import BaseIcon from '@/components/BaseIcon/index.vue'
 import { mailboxShareAPI } from '@/api/mailboxShare'
 import { showMessage } from '@/utils/message'
 import { getCurrentLocale } from '@/i18n'
-import { registerRealtimeScope, subscribeRealtime } from '@/services/realtimeClient'
 import { isShareTerminalState, resolveShareValidity } from './shareDisplay'
 
 const EmailContentModal = defineAsyncComponent(() => import('@/components/Mail/EmailContentModal.vue'))
@@ -334,28 +333,6 @@ const openEmailModal = (email) => {
   showEmailModal.value = true
 }
 
-let unsubscribeShareMail = null
-let unsubscribeShareScope = null
-let shareMailStopped = false
-
-const stopShareMailRealtime = () => {
-  shareMailStopped = true
-  unsubscribeShareMail?.()
-  unsubscribeShareMail = null
-  unsubscribeShareScope?.()
-  unsubscribeShareScope = null
-}
-
-const connectShareMailRealtime = () => {
-  if (shareMailStopped || unsubscribeShareMail || !['system', 'hosted', 'external'].includes(mailboxType.value)) return
-  const shareToken = String(route.params.token || '')
-  if (!shareToken) return
-  unsubscribeShareScope = registerRealtimeScope('share-mail', { share_token: shareToken })
-  unsubscribeShareMail = subscribeRealtime(['mail_changed'], () => loadEmails(), (payload) =>
-    payload?.mailbox_type === mailboxType.value &&
-    (!selectedMailbox.value || selectedMailbox.value.id === Number(payload.mailbox_id)))
-}
-
 const startValidityCountdown = () => {
   if (validityCountdownTimer) clearInterval(validityCountdownTimer)
   validityCountdownTimer = null
@@ -388,7 +365,6 @@ const markShareExpired = () => {
   selectedEmail.value = null
   showEmailModal.value = false
   modalEmail.value = null
-  stopShareMailRealtime()
   stopValidityCountdown()
 }
 
@@ -419,9 +395,7 @@ const loadShareInfo = async () => {
       loading.value = false
       await loadEmails()
       if (!isShareTerminalState(shareState.value) && ['system', 'hosted', 'external'].includes(mailboxType.value)) {
-        shareMailStopped = false
-        connectShareMailRealtime()
-      }
+            }
     } else {
       error.value = res.message || t('sharePage.loadShareFailed')
     }
@@ -461,8 +435,7 @@ const loadEmails = async () => {
       emailTotal.value = res.data.pagination?.total || 0
       totalPages.value = res.data.pagination?.total_pages || 1
       if (isShareTerminalState(shareState.value)) {
-        stopShareMailRealtime()
-      }
+            }
       // 不自动选中第一封邮件，保持空状态
     } else {
       showMessage(res.message || t('sharePage.loadEmailsFailed'), 'error')
@@ -616,9 +589,7 @@ const copyMailboxAddress = (email) => {
 watch(() => route.params.token, () => {
   emailLoadRequestId++
   loadingEmails.value = false
-  stopShareMailRealtime()
   stopValidityCountdown()
-  shareMailStopped = false
   loading.value = true
   error.value = ''
   latestOnly.value = false
@@ -636,7 +607,6 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  stopShareMailRealtime()
   stopValidityCountdown()
 })
 </script>

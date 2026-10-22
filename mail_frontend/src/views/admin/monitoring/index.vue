@@ -363,7 +363,6 @@
 </template>
 
 <script setup lang="ts">
-import { subscribeRealtime } from '@/services/realtimeClient'
 import { computed, ref, onMounted, nextTick, onUnmounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { monitoringAPI } from '@/api/monitoring'
@@ -705,7 +704,6 @@ const guestFunnelDays = ref('7')
 
 const worldMapChart = ref<HTMLDivElement>()
 let mapChart: echarts.ECharts | null = null
-let unsubscribeOnlineState: (() => void) | undefined
 
 // 格式化数字
 const formatNumber = (num: number | string | undefined | null) => {
@@ -799,33 +797,6 @@ const loadGuestConversionFunnel = async () => {
   }
 }
 
-const applyOnlineCount = (onlineData: any) => {
-      businessStats.value = {
-        ...businessStats.value,
-        summary: {
-          ...(businessStats.value.summary || {}),
-          online_users_now: onlineData.online_users || 0,
-          desktop_online_users_now: onlineData.desktop_online_users || 0,
-          web_online_users_now: onlineData.web_online_users || 0,
-          miniapp_online_users_now: onlineData.miniapp_online_users || 0
-        }
-      }
-}
-
-const refreshOnlineCount = async () => {
-  try {
-    const response: any = await monitoringAPI.getOnlineCount()
-    if (response.code !== 0) return false
-    if (response.code === 0) {
-      const onlineData = response.data || {}
-      applyOnlineCount(onlineData)
-    }
-  } catch (error) {
-    console.error('刷新在线人数失败:', error)
-    return false
-  }
-}
-
 // 加载地理分布数据
 const loadGeoDistribution = async () => {
   try {
@@ -903,11 +874,6 @@ const handleResize = () => {
 
 // 页面加载时
 onMounted(async () => {
-  unsubscribeOnlineState = subscribeRealtime(['presence_changed'], (payload, event) => {
-    if (monitoringSection.value !== 'business') return
-    if (event === 'realtime_reset') return refreshOnlineCount()
-    applyOnlineCount(payload || {})
-  })
   // 等待DOM完全渲染
   await nextTick()
   await loadCurrentSectionData()
@@ -929,6 +895,5 @@ onUnmounted(() => {
   window.removeEventListener('resize', handleResize)
 
   disposeTrafficCharts()
-  unsubscribeOnlineState?.()
 })
 </script>

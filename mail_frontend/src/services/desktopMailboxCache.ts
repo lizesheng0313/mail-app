@@ -1,7 +1,6 @@
 import { batchLoginAPI } from '@/api/batchLogin'
 import mailboxProxyApi from '@/api/mailboxProxy'
 import { getServerUrl } from './api'
-import { subscribeRealtime } from './realtimeClient'
 
 export type MailboxChange = { resource?: 'accounts' | 'proxy' | 'oauth'; mailbox_id?: number }
 type Listener = (change: MailboxChange) => void
@@ -10,7 +9,6 @@ let identity = ''
 let revision = 0
 let accounts: any[] | undefined
 let loading: Promise<any[]> | undefined
-let unsubscribe: (() => void) | undefined
 const proxies = new Map<number, { value: any; expires: number }>()
 const proxyLoads = new Map<number, Promise<any>>()
 
@@ -45,8 +43,6 @@ const onStatusChange = (event: Event) => {
 }
 
 export function stopDesktopMailboxCache() {
-  unsubscribe?.()
-  unsubscribe = undefined
   window.removeEventListener('external-mailboxes-changed', onLocalChange)
   window.removeEventListener('external-mailbox-updated', onLocalChange)
   window.removeEventListener('external-mailbox-status', onStatusChange)
@@ -66,9 +62,6 @@ export function startDesktopMailboxCache() {
   window.addEventListener('external-mailboxes-changed', onLocalChange)
   window.addEventListener('external-mailbox-updated', onLocalChange)
   window.addEventListener('external-mailbox-status', onStatusChange)
-  unsubscribe = subscribeRealtime(['mailbox_config_changed'], (payload, event) => {
-    invalidateDesktopMailboxes(event === 'realtime_reset' ? {} : payload || {})
-  })
 }
 
 export function getDesktopMailboxAccounts(): Promise<any[]> {

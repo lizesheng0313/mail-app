@@ -139,6 +139,7 @@
             @deleted="handleExternalMailboxesDeleted"
             @fetch-all="fetchAllExternalEmails"
             @cancel-fetch-all="cancelExternalHistoryFetch"
+            @refresh-progress="refreshExternalHistoryFetchStatus"
             @refresh="handleRefreshExternalEmails"
             @accounts-loaded="syncMailboxAuthTypeMap"
             @oauth-reauthorize="handleOAuthMailboxReauthorize"
@@ -559,10 +560,9 @@ import EmailDetail from '@/components/Mail/EmailDetail/EmailDetail.vue'
 import Pagination from '@/components/Pagination/index.vue'
 import BaseIcon from '@/components/BaseIcon/index.vue'
 import ConfirmDialog from '@/components/ConfirmDialog/index.vue'
-import { dispatchAccountState, subscribeAccountState } from '@/services/accountRealtime'
+import { dispatchAccountState } from '@/services/accountRealtime'
 import { createRealtimeRefresh } from '@/services/realtimeRefresh'
 import { desktopExternalMailSync } from '@/services/desktopExternalMailSync'
-import { registerRealtimeScope, subscribeRealtime } from '@/services/realtimeClient'
 import { showMessage } from '@/utils/message'
 import { isTauri, getServerUrl } from '@/services/api'
 import { getDesktopMailboxAccounts, getDesktopRuntimeProxy } from '@/services/desktopMailboxCache'
@@ -590,8 +590,7 @@ import {
 import { getCurrentLocale } from '@/i18n'
 import {
   countGuestMailboxesCreatedToday,
-  GUEST_MAILBOX_DAILY_LIMIT,
-  loadStoredGuestMailboxes
+  GUEST_MAILBOX_DAILY_LIMIT
 } from '@/utils/guestMailboxes'
 import { trackProductEvent } from '@/services/productAnalytics'
 
@@ -788,7 +787,6 @@ const titleAlertHiddenAt = ref(0)
 let browserTitleScrollTimer: number | null = null
 let browserTitleScrollIndex = 0
 let browserTitleScrollSource = ''
-let unsubscribeHistoryState: (() => void) | undefined
 let externalAccountsDirty = false
 const externalMailRefresh = createRealtimeRefresh(async () => {
   const reloadAccounts = externalAccountsDirty
@@ -2455,14 +2453,14 @@ const refreshHostedEmails = async () => {
   return loadHostedEmails(hostedEmailPage.value || 1)
 }
 
-const refreshSystemEmailsAfterPush = async () => {
+const refreshSystemEmailsWhenIdle = async () => {
   if (refreshingSystemEmails.value) {
     return false
   }
   return refreshSystemEmails()
 }
 
-const refreshSelectedMailAfterPush = async (type: 'system' | 'hosted' | 'external', emailId: number) => {
+const refreshSelectedMailAfterChange = async (type: 'system' | 'hosted' | 'external', emailId: number) => {
   const selected = mailStore.selectedEmail
   if (!selected || (emailId && Number(selected.id) !== emailId)
     || String(selected.mailbox_type || 'system') !== type) return
@@ -2472,18 +2470,6 @@ const refreshSelectedMailAfterPush = async (type: 'system' | 'hosted' | 'externa
       && String(email?.mailbox_type || 'system') === type)
   }
   return result.success || result.error === 'stale' ? undefined : false
-}
-
-let unsubscribeMailRealtime: (() => void) | undefined
-let unsubscribeMailScope: (() => void) | undefined
-let unsubscribeHistoryRealtime: (() => void) | undefined
-let mailRealtimeClosed = false
-
-const closeMailRealtime = () => {
-  unsubscribeMailRealtime?.()
-  unsubscribeMailRealtime = undefined
-  unsubscribeMailScope?.()
-  unsubscribeMailScope = undefined
 }
 
 const refreshFromMailEvent = async (type: 'system' | 'hosted' | 'external', emailId: number, received = true, mailboxId = 0) => {
@@ -2522,31 +2508,13 @@ const refreshFromMailEvent = async (type: 'system' | 'hosted' | 'external', emai
   }
   if (mailboxType.value === type) {
     let result
-    if (type === 'system') result = await refreshSystemEmailsAfterPush()
+    if (type === 'system') result = await refreshSystemEmailsWhenIdle()
     else if (type === 'hosted') result = await refreshHostedEmails()
     else if (currentView.value === 'emails') result = await requestExternalMailRefresh(true)
     else return
     if (result === false) return false
-    if (!received) return refreshSelectedMailAfterPush(type, emailId)
+    if (!received) return refreshSelectedMailAfterChange(type, emailId)
   }
-}
-
-const connectMailRealtime = () => {
-  if (mailRealtimeClosed || unsubscribeMailRealtime) return
-  const guestMailboxes = loadStoredGuestMailboxes().map(({ id, claim_token }) => ({ id, claim_token }))
-  unsubscribeMailScope = registerRealtimeScope('home-mail', { guest_mailboxes: guestMailboxes })
-  unsubscribeMailRealtime = subscribeRealtime(['mail_changed'], async (payload, event) => {
-    if (event !== 'realtime_reset' && payload?.mailbox_type) {
-      return refreshFromMailEvent(payload.mailbox_type, Number(payload.email_id || 0), payload.type !== 'email.updated', Number(payload.mailbox_id || 0))
-    }
-    if (mailboxType.value !== 'external') dispatchAccountState('outbox')
-    return refreshFromMailEvent(mailboxType.value, 0, false)
-  })
-}
-
-const restartMailRealtime = () => {
-  closeMailRealtime()
-  connectMailRealtime()
 }
 
 const handleImmediateRefreshSystemEmails = async () => {
@@ -2720,11 +2688,6 @@ watch([mailboxType, currentView, selectedExternalMailboxId, fetchingExternalEmai
   }
 })
 
-watch(
-  () => [userStore.isAuthenticated, mailboxStore.guestMailboxes.map((item: any) => item.id).join(',')],
-  () => { if (!mailRealtimeClosed) restartMailRealtime() }
-)
-
 watch(() => props.initialMailboxType, type => {
   if (type !== mailboxType.value) switchMailboxType(type)
 })
@@ -2750,14 +2713,6 @@ onMounted(async () => {
     'external-mail-fetch-progress',
     handleExternalHistoryFetchSocketProgress as EventListener
   )
-  unsubscribeHistoryRealtime = subscribeRealtime(['external_mail_fetch_event'], async (payload, event) => {
-    if (mailboxType.value !== 'external') return
-    if (event === 'realtime_reset') return resumeExternalHistoryFetchStatus()
-    return handleExternalHistoryFetchSocketProgress(new CustomEvent('progress', { detail: payload }))
-  })
-  unsubscribeHistoryState = subscribeAccountState(['history'], () => {
-    if (mailboxType.value === 'external') return resumeExternalHistoryFetchStatus()
-  })
   document.addEventListener('visibilitychange', handleBrowserVisibilityChange)
   rememberBrowserBaseTitle()
 
@@ -2779,18 +2734,14 @@ onMounted(async () => {
     if (!result.success) {
       showMessage(result.error || t('home.allocateMailboxFailed'), 'error')
     }
-    connectMailRealtime()
     return
   }
 
   syncMailCollectionDemand()
-  connectMailRealtime()
   await nextTick()
 })
 
 onBeforeUnmount(() => {
-  mailRealtimeClosed = true
-  closeMailRealtime()
   window.removeEventListener(
     'external-mailbox-recovered',
     handleRecoveredMailboxEvent as EventListener
@@ -2800,8 +2751,6 @@ onBeforeUnmount(() => {
     'external-mail-fetch-progress',
     handleExternalHistoryFetchSocketProgress as EventListener
   )
-  unsubscribeHistoryState?.()
-  unsubscribeHistoryRealtime?.()
   document.removeEventListener('visibilitychange', handleBrowserVisibilityChange)
   clearRelayForeground()
   externalMailRefresh.dispose()

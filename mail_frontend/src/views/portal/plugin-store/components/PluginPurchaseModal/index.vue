@@ -198,6 +198,12 @@
         </div>
       </div>
 
+      <div v-if="currentOrderNo && !showQrCode" class="mt-4 text-center">
+        <button class="btn-primary px-4 py-2 disabled:opacity-50" :disabled="checkingStatus" @click="checkPaymentStatus">
+          {{ checkingStatus ? '查询中…' : '已支付，查询结果' }}
+        </button>
+      </div>
+
       <!-- 二维码支付对话框 -->
       <div v-if="showQrCode" class="absolute inset-0 bg-white rounded-lg flex items-center justify-center">
         <div class="text-center">
@@ -236,7 +242,6 @@
 </template>
 
 <script setup>
-import { subscribeRealtime } from '@/services/realtimeClient'
 import { ref, onMounted } from 'vue'
 import PluginIcon from '@/components/PluginIcon/index.vue'
 import { pluginApi } from '@/api/plugin'
@@ -319,8 +324,6 @@ const handlePurchase = async () => {
         // 提示用户
         showMessage('订单已创建，请在新窗口完成支付', 'success')
         
-        // 订阅支付结果；断线恢复时查询最终状态
-        subscribeOrderStatus()
       } else {
         showMessage(response.message || '创建订单失败', 'error')
       }
@@ -347,18 +350,10 @@ const handlePurchase = async () => {
   }
 }
 
-// 订阅支付结果
-let unsubscribePayment = null
-const subscribeOrderStatus = () => {
-  unsubscribePayment?.()
-  unsubscribePayment = subscribeRealtime(['payment_changed'], checkPaymentStatus, payload =>
-    payload?.kind === 'plugin' && payload.order_no === currentOrderNo.value, { immediate: true })
-}
-
 // 检查支付状态
 const checkPaymentStatus = async () => {
   const orderNo = currentOrderNo.value
-  if (!orderNo) return
+  if (!orderNo || checkingStatus.value) return
   
   try {
     checkingStatus.value = true
@@ -370,10 +365,6 @@ const checkPaymentStatus = async () => {
       if (response.data.status === 'paid') {
         currentOrderNo.value = ''
         // 支付成功
-        if (unsubscribePayment) {
-          unsubscribePayment()
-          unsubscribePayment = null
-        }
         
         showMessage('支付成功！插件已开通', 'success')
         emit('success')
@@ -390,27 +381,14 @@ const checkPaymentStatus = async () => {
 
 // 取消支付
 const cancelPayment = () => {
-  unsubscribePayment?.()
-  unsubscribePayment = null
   showQrCode.value = false
   qrCodeUrl.value = ''
   currentOrderNo.value = ''
 }
 
-// 组件卸载时清理定时器
+// 打开时加载价格
 onMounted(() => {
   fetchPricing()
 })
 
-// 清理定时器
-const cleanup = () => {
-  if (unsubscribePayment) {
-    unsubscribePayment()
-    unsubscribePayment = null
-  }
-}
-
-// 监听组件销毁
-import { onBeforeUnmount } from 'vue'
-onBeforeUnmount(cleanup)
 </script>

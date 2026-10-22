@@ -3,7 +3,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({ io: vi.fn(), bind: vi.fn(), unbind: vi.fn(), unauthorized: vi.fn() }))
 vi.mock('socket.io-client', () => ({ io: mocks.io }))
 vi.mock('@/services/api', () => ({ getApiBaseURL: () => '/mail-api/v1', handleSessionUnauthorized: mocks.unauthorized }))
-vi.mock('./onlineSessionTransport', () => ({ bindOnlineSessionSocket: mocks.bind, unbindOnlineSessionSocket: mocks.unbind }))
 import { registerRealtimeScope, setRealtimeIdentity, stopRealtime, subscribeRealtime } from './realtimeClient'
 
 const cleanups: Array<() => void> = []
@@ -12,7 +11,7 @@ let sockets: any[]
 let response: any
 const head = (seq = 0) => ({ 'user:1': { stream: 'stream-1', seq } })
 const packet = (seq: number, payload: any = {}) => ({
-  epoch: 'boot', scope: 'user:1', stream: 'stream-1', seq, event: 'mail_changed', payload,
+  epoch: 'boot', scope: 'user:1', stream: 'stream-1', seq, event: 'chat_state_changed', payload,
 })
 
 beforeEach(() => {
@@ -48,9 +47,20 @@ async function connect() {
 }
 
 describe('shared application realtime transport', () => {
+  it('never subscribes mail, payment, configuration, tasks or presence, including on reconnect', async () => {
+    const refresh = vi.fn()
+    cleanups.push(subscribeRealtime(['mail_changed', 'payment_changed', 'mailbox_config_changed', 'presence_changed', 'login_changed', 'external_mail_fetch_event', 'email_reach_event'], refresh, undefined, { immediate: true }))
+    const socket = await connect()
+    socket.handlers.realtime_event({ ...packet(1), event: 'mail_changed' })
+    socket.handlers.connect()
+    await settle()
+    expect(refresh).not.toHaveBeenCalled()
+  })
+
+
   it('does not reset views or check cursors when switching windows', async () => {
     const refresh = vi.fn()
-    cleanups.push(subscribeRealtime(['mailbox_config_changed'], refresh))
+    cleanups.push(subscribeRealtime(['chat_state_changed'], refresh))
     const socket = await connect()
     refresh.mockClear()
     socket.emitWithAck.mockClear()
@@ -66,13 +76,13 @@ describe('shared application realtime transport', () => {
   it('shares one live connection, and replaces it when authentication/capabilities change', async () => {
     const socket = await connect()
     setRealtimeIdentity('token', 1)
-    cleanups.push(subscribeRealtime(['mail_changed'], vi.fn()))
+    cleanups.push(subscribeRealtime(['chat_state_changed'], vi.fn()))
     cleanups.push(subscribeRealtime(['account_state_changed'], vi.fn()))
     expect(mocks.io).toHaveBeenCalledTimes(1)
-    cleanups.push(registerRealtimeScope('share', { share_token: 'secret' }))
+    cleanups.push(registerRealtimeScope('guest', { guest_chat_token: 'a'.repeat(64) }))
     expect(socket.disconnect).toHaveBeenCalledOnce()
     expect(mocks.io).toHaveBeenLastCalledWith(expect.any(String), expect.objectContaining({
-      auth: expect.objectContaining({ token: 'token', share_token: 'secret', realtime_version: 1 }),
+      auth: expect.objectContaining({ token: 'token', guest_chat_token: 'a'.repeat(64), realtime_version: 1 }),
     }))
     const old = sockets[sockets.length - 1]
     setRealtimeIdentity('', 0)
@@ -84,7 +94,7 @@ describe('shared application realtime transport', () => {
 
   it('deduplicates notifications and replays gaps through the socket without idle list polling', async () => {
     const refresh = vi.fn()
-    cleanups.push(subscribeRealtime(['mail_changed'], refresh))
+    cleanups.push(subscribeRealtime(['chat_state_changed'], refresh))
     const socket = await connect()
     expect(refresh).toHaveBeenCalledTimes(1) // authoritative initial snapshot
     socket.handlers.realtime_event(packet(1, { id: 1 }))
@@ -108,7 +118,7 @@ describe('shared application realtime transport', () => {
 
   it('retries failed snapshots without losing dirty state and cancels retries on unsubscribe', async () => {
     const refresh = vi.fn().mockResolvedValueOnce(false).mockRejectedValueOnce(new Error('offline')).mockResolvedValue(true)
-    const stop = subscribeRealtime(['mail_changed'], refresh)
+    const stop = subscribeRealtime(['chat_state_changed'], refresh)
     cleanups.push(stop)
     const socket = await connect()
     expect(refresh).toHaveBeenCalledTimes(1)
@@ -127,7 +137,7 @@ describe('shared application realtime transport', () => {
 
   it('requests a snapshot after a server restart and does not dispatch stale epochs', async () => {
     const refresh = vi.fn()
-    cleanups.push(subscribeRealtime(['mail_changed'], refresh))
+    cleanups.push(subscribeRealtime(['chat_state_changed'], refresh))
     const socket = await connect()
     response = { ok: true, epoch: 'new-boot', reset: true, heads: head(0), events: [] }
     socket.handlers.realtime_event({ ...packet(9), epoch: 'new-boot' })
@@ -142,7 +152,7 @@ describe('shared application realtime transport', () => {
   it('coalesces different changes into a snapshot and respects retry backoff under a flood', async () => {
     let finish!: (result?: unknown) => void
     const refresh = vi.fn(() => new Promise(resolve => { finish = resolve }))
-    cleanups.push(subscribeRealtime(['mail_changed'], refresh))
+    cleanups.push(subscribeRealtime(['chat_state_changed'], refresh))
     const socket = await connect()
     finish(true)
     await settle()
@@ -196,12 +206,12 @@ describe('shared application realtime transport', () => {
 
   it('does not let an outstanding acknowledgement delay or overwrite a new connection', async () => {
     const refresh = vi.fn()
-    cleanups.push(subscribeRealtime(['mail_changed'], refresh))
+    cleanups.push(subscribeRealtime(['chat_state_changed'], refresh))
     const old = await connect()
     let finish!: (result: any) => void
     old.emitWithAck.mockImplementationOnce(() => new Promise(resolve => { finish = resolve }))
     old.handlers.realtime_event(packet(3))
-    cleanups.push(registerRealtimeScope('new-capability', { login_state: 'test-state' }))
+    cleanups.push(registerRealtimeScope('new-capability', { guest_chat_token: 'b'.repeat(64) }))
     const next = sockets[sockets.length - 1]
     next.connected = true
     next.handlers.connect()

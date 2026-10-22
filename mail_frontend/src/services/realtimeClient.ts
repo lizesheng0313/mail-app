@@ -1,12 +1,13 @@
 import { io, type Socket } from 'socket.io-client'
 import { getApiBaseURL, handleSessionUnauthorized } from '@/services/api'
-import { bindOnlineSessionSocket, unbindOnlineSessionSocket } from './onlineSessionTransport'
 import { createRealtimeRefresh } from './realtimeRefresh'
+import { getClientPlatform } from './sessionIdentity'
 
 type Cursor = { stream: string; seq: number }
 type Packet = Cursor & { epoch: string; scope: string; event: string; payload: any }
 type Listener = (payload?: any, event?: string) => unknown | Promise<unknown>
-type Scope = { share_token?: string; guest_mailboxes?: { id: number; claim_token?: string }[]; guest_chat_token?: string; login_state?: string }
+type Scope = { guest_chat_token: string }
+const messageEvents = new Set(['account_state_changed', 'chat_state_changed', 'guest_chat_changed'])
 let identity = { token: '', userId: 0 }
 let socket: Socket | null = null
 let signature = ''
@@ -24,6 +25,8 @@ const listeners = new Set<{ events: string[]; listener: Listener; invalidate: ()
 const rawListeners = new Map<string, Set<Listener>>()
 
 function dispatch(event: string, payload?: any) {
+  if (event !== 'realtime_reset' && !messageEvents.has(event)) return
+  if (event === 'account_state_changed' && !['announcements', 'notifications'].includes(payload?.resource)) return
   for (const listener of listeners) {
     if (event === 'realtime_reset' || listener.events.includes(event)) {
       // Each listener owns its snapshot/retry queue, independent of other views.
@@ -93,7 +96,6 @@ function disconnect() {
   if (heartbeat) clearInterval(heartbeat)
   heartbeat = undefined
   if (socket) {
-    unbindOnlineSessionSocket(socket)
     socket.removeAllListeners()
     socket.disconnect()
   }
@@ -102,7 +104,8 @@ function disconnect() {
 
 function connect() {
   if (!enabled) return
-  const auth = Object.assign({ realtime_version: 1, token: identity.token }, ...scopes.values())
+  if (!identity.token && !scopes.size) { disconnect(); signature = ''; return }
+  const auth = Object.assign({ realtime_version: 1, token: identity.token, client_platform: getClientPlatform() }, ...scopes.values())
   const nextSignature = JSON.stringify(auth)
   if (socket && signature === nextSignature) return
   disconnect()
@@ -124,12 +127,10 @@ function connect() {
     if (syncRetry) clearTimeout(syncRetry)
     syncRetry = undefined
     needsSnapshot = true
-    if (identity.userId && identity.token) bindOnlineSessionSocket(current, identity.userId, identity.token)
     void sync()
     for (const listener of rawListeners.get('connect') || []) listener()
   })
   current.on('disconnect', (reason: string) => {
-    unbindOnlineSessionSocket(current)
     if (reason === 'io server disconnect' && identity.token) {
       handleSessionUnauthorized({ detail: '会话已失效' }, identity.token)
     }
@@ -166,7 +167,7 @@ export function onRealtimeEvent(event: string, listener: Listener) {
 }
 
 export function emitRealtime(event: string, payload: unknown): boolean {
-  if (!socket?.connected) return false
+  if (event !== 'chat_event' || !socket?.connected) return false
   socket.emit(event, payload)
   return true
 }
@@ -174,6 +175,8 @@ export function emitRealtime(event: string, payload: unknown): boolean {
 /** Snapshot callbacks must throw or return false on failure; retries are bounded in rate. */
 export function subscribeRealtime(events: string[], refresh: Listener,
   filter?: (payload: any, event: string) => boolean, options: { immediate?: boolean } = {}) {
+  const acceptedEvents = events.filter(event => messageEvents.has(event))
+  if (!acceptedEvents.length) return () => {}
   let payload: any
   let event = 'realtime_reset'
   let pending = false
@@ -194,7 +197,7 @@ export function subscribeRealtime(events: string[], refresh: Listener,
     return false
   })
   const entry = {
-    events,
+    events: acceptedEvents,
     listener(nextPayload: any, nextEvent = '') {
       if (filter && nextEvent !== 'realtime_reset' && !filter(nextPayload, nextEvent)) return
       payload = pending ? undefined : nextPayload

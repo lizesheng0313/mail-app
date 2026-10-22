@@ -138,9 +138,7 @@ describe('workspace loading', () => {
       expect(backgroundEmails).toHaveBeenCalledTimes(1)
       expect(backgroundEmails).toHaveBeenLastCalledWith(expect.objectContaining({ type: 'external' }))
       expect(document.title).toContain('来新消息了')
-      await realtime.refresh({ type: 'email.updated', mailbox_type: 'external', mailbox_id: 7, email_id: 99 }, 'mail_changed')
-      await flushPromises()
-      expect(backgroundEmails).toHaveBeenCalledTimes(1) // Reading/deleting mail is not a new-mail title alert.
+      expect(realtime.refresh).toBeNull()
     } finally {
       wrapper.unmount()
     }
@@ -222,11 +220,7 @@ describe('workspace loading', () => {
       await vi.advanceTimersByTimeAsync(3600000)
       expect(emails).toHaveBeenCalledTimes(4)
       expect(titleQuery).toHaveBeenCalledTimes(queries)
-      const resumed = realtime.refresh(undefined, 'realtime_reset')
-      await vi.advanceTimersByTimeAsync(150)
-      await resumed
-      expect(titleQuery).toHaveBeenCalledTimes(queries + 1)
-      expect(titleQuery).toHaveBeenLastCalledWith(expect.objectContaining({ search: 'invoice', mailbox_id: 8 }))
+      expect(realtime.refresh).toBeNull()
     } finally { wrapper.unmount() }
   })
 

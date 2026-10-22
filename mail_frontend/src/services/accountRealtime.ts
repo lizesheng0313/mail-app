@@ -11,7 +11,11 @@ export const subscribeAccountState = (resources: AccountResource[], refresh: () 
   const guardedRefresh = () => { if (localStorage.getItem('token')) return refresh() }
   const queue = createRealtimeRefresh(guardedRefresh)
   const matches = (resource: AccountResource | 'all') => resource === 'all' || resources.includes(resource)
-  const unsubscribe = subscribeRealtime(['account_state_changed'], () => queue.invalidate(), payload => matches(payload?.resource))
+  // Outbox/history changes are local command results, never socket subscriptions.
+  const pushedResources = resources.filter(resource => resource === 'notifications' || resource === 'announcements')
+  const unsubscribe = pushedResources.length
+    ? subscribeRealtime(['account_state_changed'], () => queue.invalidate(), payload => pushedResources.includes(payload?.resource))
+    : () => {}
   const onChange = (event: Event) => {
     if (matches((event as CustomEvent)?.detail?.resource)) queue.invalidate()
   }

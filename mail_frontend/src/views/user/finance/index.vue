@@ -593,7 +593,6 @@
 </template>
 <script setup>
 import { onBeforeUnmount } from 'vue'
-import { subscribeRealtime } from '@/services/realtimeClient'
 import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
@@ -750,7 +749,6 @@ const showQrCode = ref(false)
 const qrCodeUrl = ref('')
 const qrcodeCanvas = ref(null)
 const currentOrderNo = ref('')
-let unsubscribePayment = null
 
 // 生成二维码
 const generateQRCode = async () => {
@@ -792,22 +790,13 @@ const submitRecharge = async () => {
       // 生成二维码
       await generateQRCode()
 
-      // 订阅支付结果；断线恢复时查询最终状态
-      subscribeOrderStatus()
-    } else {
+          } else {
       showMessage(res.message || t('profile.createOrderFailed'), 'error')
     }
   } catch (error) {
     console.error('创建充值订单失败:', error)
     showMessage(error.response?.data?.detail || t('financePage.rechargeFailed'), 'error')
   }
-}
-
-// 订阅支付结果；断线恢复时查询最终状态
-const subscribeOrderStatus = () => {
-  unsubscribePayment?.()
-  unsubscribePayment = subscribeRealtime(['payment_changed'], checkOrderStatus, payload =>
-    payload?.kind === 'recharge' && payload.order_no === currentOrderNo.value, { immediate: true })
 }
 
 // 检查订单状态
@@ -821,10 +810,6 @@ const checkOrderStatus = async () => {
     if (res.code !== 0) return false
     if (res.code === 0 && res.data?.status === 'paid') {
       currentOrderNo.value = ''
-      if (unsubscribePayment) {
-        unsubscribePayment()
-        unsubscribePayment = null
-      }
 
       showQrCode.value = false
       showMessage(t('profile.rechargeSuccess'), 'success')
@@ -843,10 +828,6 @@ const cancelRecharge = () => {
   showQrCode.value = false
   qrCodeUrl.value = ''
   currentOrderNo.value = ''
-  if (unsubscribePayment) {
-    unsubscribePayment()
-    unsubscribePayment = null
-  }
 }
 
 // 处理提现按钮点击
@@ -1070,5 +1051,4 @@ onMounted(() => {
     }, 500)
   }
 })
-onBeforeUnmount(() => { unsubscribePayment?.() })
 </script>

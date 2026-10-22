@@ -59,7 +59,6 @@ vi.mock('socket.io-client', () => ({
 
 import FloatingLiveChat from '../index.vue'
 import { stopRealtime } from '@/services/realtimeClient'
-import { sendOnlineSessionHeartbeat } from '@/services/onlineSessionTransport'
 
 let serverSeq = 0
 const deliverChatState = async (payload: unknown) => {
@@ -578,26 +577,6 @@ describe('FloatingLiveChat admin conversation layout', () => {
     expect(mocks.apiPost).not.toHaveBeenCalled()
   })
 
-  it('keeps the application heartbeat connection until the application stops', async () => {
-    wrapper = mount(FloatingLiveChat)
-    await flushPromises()
-    const connect = mocks.socket.on.mock.calls.find(([name]) => name === 'connect')![1]
-    connect()
-    await flushPromises()
-    const payload = {
-      session_id: 'tab-id', browser_instance_id: 'browser-id', user_id: 1,
-      page_path: '/', client_platform: 'web', device_type: 'desktop', user_agent: 'test-agent',
-    }
-    expect(await sendOnlineSessionHeartbeat(payload)).toBe(true)
-    expect(mocks.socket.emitWithAck).toHaveBeenCalledWith('online_session_heartbeat', payload)
-
-    wrapper.unmount()
-    wrapper = null
-    expect(await sendOnlineSessionHeartbeat(payload)).toBe(true)
-    stopRealtime()
-    expect(await sendOnlineSessionHeartbeat(payload)).toBe(false)
-  })
-
   it('does not poll a regular users summary while the socket is connected', async () => {
     vi.useFakeTimers()
     mocks.userStore.user = { id: 2, is_admin: false }
@@ -632,10 +611,7 @@ describe('FloatingLiveChat admin conversation layout', () => {
     } })
     await flushPromises()
     expect(mocks.apiPost).not.toHaveBeenCalled()
-    expect(await sendOnlineSessionHeartbeat({
-      session_id: 'tab-id', browser_instance_id: 'browser-id', user_id: 1,
-      page_path: '/browser-workflows', client_platform: 'web', device_type: 'desktop', user_agent: 'test-agent',
-    })).toBe(true)
+    expect(mocks.socket.emitWithAck.mock.calls.some(([event]) => event === 'online_session_heartbeat')).toBe(false)
     await wrapper.setProps({ active: true })
     expect(wrapper.attributes('style')).not.toContain('display: none')
     expect(mocks.io).toHaveBeenCalledTimes(1)
