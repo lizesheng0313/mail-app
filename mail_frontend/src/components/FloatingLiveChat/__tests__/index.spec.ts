@@ -701,7 +701,7 @@ describe('FloatingLiveChat admin conversation layout', () => {
     expect(mocks.apiPost).not.toHaveBeenCalled()
   })
 
-  it('refreshes unread counts when another tab marks messages read', async () => {
+  it('refreshes unread counts for an incoming chat state event', async () => {
     mocks.userStore.user = { id: 2, is_admin: false }
     mocks.apiGet.mockResolvedValue({ code: 0, data: { unread_count: 3 } })
     wrapper = mount(FloatingLiveChat)
@@ -766,14 +766,14 @@ describe('FloatingLiveChat admin conversation layout', () => {
     expect(mocks.apiPost).not.toHaveBeenCalled()
   })
 
-  it('refreshes unread counts when the page resumes and the socket reconnects', async () => {
+  it('keeps window switches quiet and recovers unread counts on a socket reconnect', async () => {
     const contacts = configureUnreadInbox()
     wrapper = mount(FloatingLiveChat)
     await flushPromises()
     contacts[1].unread_count = 5
     window.dispatchEvent(new Event('focus'))
     await flushPromises()
-    expect(wrapper.get('[data-testid="chat-launcher-unread"]').text()).toBe('7')
+    expect(wrapper.get('[data-testid="chat-launcher-unread"]').text()).toBe('5')
     const disconnect = mocks.socket.on.mock.calls.find(([name]) => name === 'disconnect')![1]
     const connect = mocks.socket.on.mock.calls.find(([name]) => name === 'connect')![1]
     disconnect()
@@ -784,7 +784,7 @@ describe('FloatingLiveChat admin conversation layout', () => {
     expect(mocks.io).toHaveBeenCalledTimes(1)
   })
 
-  it('coalesces focus and visibility refreshes into one history request', async () => {
+  it('does not query chat history or contacts on focus and visibility changes', async () => {
     configureUnreadInbox()
     wrapper = mount(FloatingLiveChat)
     await flushPromises()
@@ -797,8 +797,7 @@ describe('FloatingLiveChat admin conversation layout', () => {
     window.dispatchEvent(new Event('focus'))
     document.dispatchEvent(new Event('visibilitychange'))
     await flushPromises()
-    expect(mocks.apiGet.mock.calls.filter(([url]) => url === '/live-chat/messages')).toHaveLength(1)
-    expect(mocks.apiGet.mock.calls.filter(([url]) => url === '/live-chat/conversations')).toHaveLength(1)
+    expect(mocks.apiGet).not.toHaveBeenCalled()
   })
 
   it('ignores a repeated socket delivery of the same customer message', async () => {

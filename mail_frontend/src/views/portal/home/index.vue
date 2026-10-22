@@ -1130,11 +1130,6 @@ const markRecoveredMailboxAsPassword = (mailboxId: number) => {
   if (selectedExternalMailboxId.value === mailboxId) {
     selectedExternalAuthType.value = 'password'
   }
-  window.dispatchEvent(
-    new CustomEvent('external-mailbox-recovered', {
-      detail: { mailboxId }
-    })
-  )
 }
 
 const loadExternalMailboxAccountById = async (mailboxId: number) => {

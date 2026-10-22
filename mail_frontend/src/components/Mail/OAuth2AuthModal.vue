@@ -103,6 +103,7 @@
 import { ref, computed, watch } from 'vue'
 import batchLoginAPI from '@/api/batchLogin'
 import { isTauri } from '@/services/api'
+import { dispatchMailboxChange } from '@/services/mailboxChanges'
 
 interface OpenExternalResult {
   opened: boolean
@@ -301,6 +302,7 @@ const waitForWebOAuthCallback = (
       if (detail.source !== 'oauth2-callback') return
 
       if (detail.oauth2_success === '1') {
+        dispatchMailboxChange('oauth')
         cleanup()
         resolve({ success: true, email: (detail.email || '').trim() })
         return

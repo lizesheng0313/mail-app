@@ -43,16 +43,17 @@ describe('account view refresh', () => {
     expect(refresh).toHaveBeenCalledTimes(2)
   })
 
-  it('catches up on foreground entry and stops requesting after logout', async () => {
+  it('does not query on window switches and stops requesting after logout', async () => {
     const refresh = vi.fn()
     cleanups.push(subscribeAccountState(['announcements'], refresh))
     window.dispatchEvent(new Event('focus'))
+    document.dispatchEvent(new Event('visibilitychange'))
     await settle()
-    expect(refresh).toHaveBeenCalledTimes(1)
+    expect(refresh).not.toHaveBeenCalled()
     localStorage.removeItem('token')
     window.dispatchEvent(new Event('online'))
     dispatchAccountState('all')
     await settle()
-    expect(refresh).toHaveBeenCalledTimes(1)
+    expect(refresh).not.toHaveBeenCalled()
   })
 })

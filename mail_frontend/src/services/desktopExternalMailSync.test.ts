@@ -62,6 +62,26 @@ afterEach(async () => {
 })
 
 describe('desktop external mail sync', () => {
+  it('keeps POP3 deadlines and IMAP connections unchanged across window switches', async () => {
+    vi.useFakeTimers()
+    mocks.getAllAccounts.mockResolvedValue({ code: 0, data: { accounts: [
+      { id: 1, email: 'imap@test.local', protocol: 'imap', imap_host: 'imap.test', status: 'active' },
+      { id: 2, email: 'pop@test.local', protocol: 'pop3', status: 'active' },
+    ] } })
+    await desktopExternalMailSync.start(42)
+    const before = mocks.invoke.mock.calls.length
+    await vi.advanceTimersByTimeAsync(299000)
+    for (let i = 0; i < 5; i++) {
+      window.dispatchEvent(new Event('focus'))
+      document.dispatchEvent(new Event('visibilitychange'))
+      await vi.advanceTimersByTimeAsync(1)
+    }
+    expect(mocks.invoke).toHaveBeenCalledTimes(before)
+    expect(mocks.getAllAccounts).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(995)
+    expect(mocks.invoke.mock.calls.filter(([command]) => command === 'fetch_emails')).toHaveLength(2)
+    expect(mocks.invoke.mock.calls.filter(([command]) => command === 'start_imap_watch')).toHaveLength(1)
+  })
   it('selects IDLE only for locally connected IMAP and bounds the connections', () => {
     expect(mailboxSyncMode({ id: 1, email: 'a@test', protocol: 'imap', imap_host: 'imap.test' }, true)).toBe('idle')
     expect(mailboxSyncMode({ id: 1, email: 'a@test', protocol: 'imap', imap_host: 'imap.test' }, false)).toBe('interval')

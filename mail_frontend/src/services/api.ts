@@ -4,6 +4,7 @@ import { getCurrentLocale, i18n } from '@/i18n'
 import { getClientPlatform, isTauri } from '@/services/clientPlatform'
 import { classifySessionError } from '@/services/sessionAuth'
 import { getBrowserInstanceId } from '@/services/sessionIdentity'
+import { applyMailboxMutationResponse } from './mailboxChanges'
 
 const normalizeMessageValue = (value: any): string => {
   if (value === undefined || value === null) return ''
@@ -216,6 +217,7 @@ api.interceptors.response.use(
     }
 
     const data = response.data
+    applyMailboxMutationResponse(data, (response.config as any).__authTokenSnapshot || '')
 
     // 请求成功，重置错误计数
     resetErrorCount()

@@ -2,6 +2,7 @@
  * 公告相关 API
  */
 import api from '@/services/api'
+import { withUnreadMutation } from '@/services/accountUnread'
 
 const pendingReadRequests = new Map()
 
@@ -23,12 +24,11 @@ export function getAnnouncementDetail(id) {
  * 标记公告为已读
  */
 export function markAnnouncementAsRead(id) {
-  const key = String(id)
+  const key = `${localStorage.getItem('token') || ''}:${id}`
   const pending = pendingReadRequests.get(key)
   if (pending) return pending
 
-  const request = api
-    .post(`/announcements/${id}/read`)
+  const request = withUnreadMutation('announcements', api.post(`/announcements/${id}/read`))
     .finally(() => pendingReadRequests.delete(key))
 
   pendingReadRequests.set(key, request)
@@ -39,5 +39,5 @@ export function markAnnouncementAsRead(id) {
  * 标记所有公告为已读
  */
 export function markAllAnnouncementsAsRead() {
-  return api.post('/announcements/read-all')
+  return withUnreadMutation('announcements', api.post('/announcements/read-all'))
 }

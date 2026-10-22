@@ -8,7 +8,7 @@ vi.mock('./accountRealtime', () => ({
     return () => { mocks.listeners.delete(resources[0]) }
   }
 }))
-import { accountUnreadCount, refreshUnreadCounts, retainAccountUnread } from './accountUnread'
+import { accountUnreadCount, refreshUnreadCounts, retainAccountUnread, withUnreadMutation } from './accountUnread'
 
 const cleanups: Array<() => void> = []
 let caseId = 0
@@ -23,6 +23,32 @@ afterEach(() => {
 })
 
 describe('shared unread snapshots', () => {
+  it('applies command results without count requests and ignores an older query', async () => {
+    cleanups.push(retainAccountUnread())
+    let finish!: (result: any) => void
+    mocks.get.mockImplementationOnce(() => new Promise(resolve => { finish = resolve }))
+    const old = refreshUnreadCounts(['notifications'])
+    await withUnreadMutation('notifications', Promise.resolve({ code: 0, data: { unread_count: 2 } }))
+    expect(accountUnreadCount.value).toBe(2)
+    finish({ code: 0, data: { count: 8 } })
+    await old
+    expect(accountUnreadCount.value).toBe(2)
+    expect(mocks.get).toHaveBeenCalledTimes(1)
+    await mocks.listeners.get('notifications')!()
+    expect(accountUnreadCount.value).toBe(1) // New incoming notices still refresh.
+  })
+
+  it('does not apply a failed or old-session command result', async () => {
+    cleanups.push(retainAccountUnread())
+    await withUnreadMutation('notifications', Promise.resolve({ code: 1, data: { unread_count: 50 } }))
+    let finish!: (result: any) => void
+    const old = withUnreadMutation('notifications', new Promise(resolve => { finish = resolve }))
+    localStorage.setItem('token', 'replacement-session')
+    finish({ code: 0, data: { unread_count: 99 } })
+    await old
+    expect(accountUnreadCount.value).toBe(0)
+    expect(mocks.get).not.toHaveBeenCalled()
+  })
   it('shares the first request, keeps resource changes separate and makes no idle requests', async () => {
     cleanups.push(retainAccountUnread(), retainAccountUnread())
     await Promise.all([refreshUnreadCounts(undefined, true), refreshUnreadCounts(undefined, true)])

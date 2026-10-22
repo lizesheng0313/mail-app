@@ -92,7 +92,6 @@ class DesktopExternalMailSync {
       this.nextChecks.set(id, Date.now() + this.checkInterval(id))
       this.scheduleChecks()
     })
-    document.addEventListener('visibilitychange', this.onVisibilityChange)
     await this.refreshAccounts()
     await this.checkFallbackAccounts()
   }
@@ -114,7 +113,6 @@ class DesktopExternalMailSync {
     for (const timer of this.retries.values()) window.clearTimeout(timer)
     this.retries.clear()
     this.failures.clear()
-    document.removeEventListener('visibilitychange', this.onVisibilityChange)
     this.unlisten?.()
     this.unlisten = undefined
     for (const watch of this.watches.values()) {
@@ -144,12 +142,6 @@ class DesktopExternalMailSync {
     }
     void this.refreshAccounts().then(() => this.checkFallbackAccounts())
   }
-  private onVisibilityChange = () => {
-    if (!document.hidden && this.running) {
-      void this.refreshAccounts().then(() => this.catchUpAll())
-    }
-  }
-
   /** The view supplies demand; only this service schedules collection. */
   setRelayForeground(mailboxId: number, restart = false) {
     const previous = this.relayForegroundId
@@ -328,14 +320,6 @@ class DesktopExternalMailSync {
       }))
     }
     this.scheduleChecks()
-  }
-
-  private async catchUpAll() {
-    const version = this.sessionVersion
-    const accounts = [...this.accounts.values()]
-    for (let offset = 0; offset < accounts.length && this.running && this.sessionVersion === version; offset += 2) {
-      await Promise.all(accounts.slice(offset, offset + 2).map((account) => this.fetchAccount(account)))
-    }
   }
 
   private async acquireFetchSlot(): Promise<() => void> {

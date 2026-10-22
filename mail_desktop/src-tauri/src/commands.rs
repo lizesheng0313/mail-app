@@ -112,6 +112,11 @@ struct RecoveryRetryState {
 }
 
 static RECOVERY_RETRY_STATES: OnceLock<Mutex<HashMap<i64, RecoveryRetryState>>> = OnceLock::new();
+static MAILBOX_EVENT_APP: OnceLock<AppHandle> = OnceLock::new();
+
+pub fn initialize_mailbox_events(app: AppHandle) {
+    let _ = MAILBOX_EVENT_APP.set(app);
+}
 
 fn recovery_retry_states() -> &'static Mutex<HashMap<i64, RecoveryRetryState>> {
     RECOVERY_RETRY_STATES.get_or_init(|| Mutex::new(HashMap::new()))
@@ -953,6 +958,14 @@ async fn recover_external_mailbox_session_inner(
     .map_err(|e| finalize_recovery_failure(mailbox_id, e))?;
 
     mark_recovery_success(mailbox_id);
+    if let Some(app) = MAILBOX_EVENT_APP.get() {
+        // The credentials changed inside the native command. Notify this app
+        // directly, including when the subsequent fetch fails.
+        let _ = app.emit(
+            "desktop-mailbox-recovered",
+            serde_json::json!({ "mailboxId": mailbox_id }),
+        );
+    }
 
     Ok((config, login_result))
 }

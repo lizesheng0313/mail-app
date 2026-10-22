@@ -12,6 +12,7 @@ let identity = ''
 let generation = 0
 let users = 0
 let stops: Array<() => void> = []
+const revisions = { announcements: 0, notifications: 0 }
 
 const ensureIdentity = () => {
   const next = localStorage.getItem('token') || ''
@@ -27,6 +28,23 @@ const ensureIdentity = () => {
 
 export const accountUnreadCount = computed(() => counts.announcements + counts.notifications)
 
+/** The command response updates the badge; it needs no socket echo or count GET. */
+export async function withUnreadMutation(resource: Resource, request: Promise<any>) {
+  const token = ensureIdentity()
+  const result = await request
+  if (result?.code !== 0 || !token || token !== localStorage.getItem('token')) return result
+  const count = result.data?.unread_count
+  if (typeof count === 'number' && Number.isFinite(count) && count >= 0) {
+    revisions[resource]++
+    counts[resource] = count
+    loaded.add(resource)
+  } else {
+    // Compatibility with a backend that has not received the response change.
+    await refreshUnreadCounts([resource])
+  }
+  return result
+}
+
 export function refreshUnreadCounts(resources: Resource[] = ['announcements', 'notifications'], cached = false): Promise<boolean> {
   const token = ensureIdentity()
   if (!token) return Promise.resolve(true)
@@ -36,9 +54,11 @@ export function refreshUnreadCounts(resources: Resource[] = ['announcements', 'n
     if (!queues.has(resource)) {
       const version = generation
       queues.set(resource, createRealtimeRefresh(async () => {
+        const revision = revisions[resource]
         const path = resource === 'announcements' ? '/announcements/unread/count' : '/notifications/unread-count'
         const result: any = await api.get(path, { timeout: 15000 })
         if (version !== generation || token !== (localStorage.getItem('token') || '') || token !== identity) return true
+        if (revision !== revisions[resource]) return true
         if (result.code !== 0) return false
         counts[resource] = Number(result.data?.count || 0)
         loaded.add(resource)

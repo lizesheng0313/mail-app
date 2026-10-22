@@ -36,7 +36,12 @@ export function invalidateDesktopMailboxes(change: MailboxChange = {}) {
 
 const onLocalChange = (event: Event) => {
   const detail = (event as CustomEvent).detail || {}
-  invalidateDesktopMailboxes({ mailbox_id: Number(detail.mailboxId) || undefined })
+  invalidateDesktopMailboxes({ resource: detail.resource, mailbox_id: Number(detail.mailboxId) || undefined })
+}
+const onStatusChange = (event: Event) => {
+  const detail = (event as CustomEvent).detail
+  const account = accounts?.find(account => Number(account.id) === detail?.mailboxId)
+  if (account) Object.assign(account, { status: detail.status, error_message: detail.error_message })
 }
 
 export function stopDesktopMailboxCache() {
@@ -44,6 +49,7 @@ export function stopDesktopMailboxCache() {
   unsubscribe = undefined
   window.removeEventListener('external-mailboxes-changed', onLocalChange)
   window.removeEventListener('external-mailbox-updated', onLocalChange)
+  window.removeEventListener('external-mailbox-status', onStatusChange)
   identity = ''
   revision++
   accounts = undefined
@@ -59,6 +65,7 @@ export function startDesktopMailboxCache() {
   identity = next
   window.addEventListener('external-mailboxes-changed', onLocalChange)
   window.addEventListener('external-mailbox-updated', onLocalChange)
+  window.addEventListener('external-mailbox-status', onStatusChange)
   unsubscribe = subscribeRealtime(['mailbox_config_changed'], (payload, event) => {
     invalidateDesktopMailboxes(event === 'realtime_reset' ? {} : payload || {})
   })

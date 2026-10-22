@@ -8,6 +8,7 @@ vi.mock('./realtimeClient', () => ({ subscribeRealtime: (_events: any, listener:
 
 import { getDesktopMailboxAccounts, getDesktopRuntimeProxy, invalidateDesktopMailboxes, stopDesktopMailboxCache } from './desktopMailboxCache'
 import { clearDesktopOAuthTokens, forceRefreshDesktopOAuthAccessToken, getDesktopOAuthAccessToken, runDesktopOAuthMailboxAction } from './desktopOAuthMailbox'
+import { dispatchMailboxStatus } from './mailboxChanges'
 
 beforeEach(() => {
   vi.useFakeTimers()
@@ -23,6 +24,18 @@ beforeEach(() => {
 afterEach(() => { stopDesktopMailboxCache(); clearDesktopOAuthTokens(); localStorage.clear(); vi.useRealTimers() })
 
 describe('shared desktop configuration cache', () => {
+  it('applies collection status locally without clearing accounts, proxies or tokens', async () => {
+    await getDesktopMailboxAccounts()
+    await getDesktopRuntimeProxy(1)
+    await getDesktopOAuthAccessToken(1)
+    dispatchMailboxStatus(1, 'failed', 'auth failed')
+    expect((await getDesktopMailboxAccounts())[0]).toMatchObject({ status: 'failed', error_message: 'auth failed' })
+    await getDesktopRuntimeProxy(1)
+    await getDesktopOAuthAccessToken(1)
+    expect(mocks.accounts).toHaveBeenCalledTimes(1)
+    expect(mocks.proxy).toHaveBeenCalledTimes(1)
+    expect(mocks.token).toHaveBeenCalledTimes(1)
+  })
   it('performs and deduplicates forced renewal behind an ordinary token read', async () => {
     let resolve!: (response: any) => void
     mocks.token.mockImplementationOnce(() => new Promise(done => { resolve = done }))

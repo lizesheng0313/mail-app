@@ -48,6 +48,21 @@ async function connect() {
 }
 
 describe('shared application realtime transport', () => {
+  it('does not reset views or check cursors when switching windows', async () => {
+    const refresh = vi.fn()
+    cleanups.push(subscribeRealtime(['mailbox_config_changed'], refresh))
+    const socket = await connect()
+    refresh.mockClear()
+    socket.emitWithAck.mockClear()
+    for (let i = 0; i < 5; i++) {
+      window.dispatchEvent(new Event('focus'))
+      document.dispatchEvent(new Event('visibilitychange'))
+      await settle()
+    }
+    expect(refresh).not.toHaveBeenCalled()
+    expect(socket.emitWithAck).not.toHaveBeenCalled()
+    expect(socket.disconnect).not.toHaveBeenCalled()
+  })
   it('shares one live connection, and replaces it when authentication/capabilities change', async () => {
     const socket = await connect()
     setRealtimeIdentity('token', 1)

@@ -3,6 +3,7 @@
  */
 
 import api from '@/services/api'
+import { withUnreadMutation } from '@/services/accountUnread'
 
 /**
  * 获取通知列表
@@ -24,7 +25,7 @@ export function getPendingImportantNotifications() {
 }
 
 export function acknowledgeImportantNotification(notificationId, options = {}) {
-  return api.put(`/notifications/important/${notificationId}/acknowledge`, options)
+  return withUnreadMutation('announcements', api.put(`/notifications/important/${notificationId}/acknowledge`, options))
 }
 
 export function getSharedEarningsNoticePreference() {
@@ -39,21 +40,21 @@ export function setSharedEarningsNoticePreference(enabled) {
  * 标记通知为已读
  */
 export function markAsRead(notificationId) {
-  return api.put(`/notifications/${notificationId}/read`)
+  return withUnreadMutation('notifications', api.put(`/notifications/${notificationId}/read`))
 }
 
 /**
  * 标记所有通知为已读
  */
 export function markAllAsRead() {
-  return api.put('/notifications/read-all')
+  return withUnreadMutation('notifications', api.put('/notifications/read-all'))
 }
 
 /**
  * 删除通知
  */
 export function deleteNotification(notificationId) {
-  return api.delete(`/notifications/${notificationId}`)
+  return withUnreadMutation('notifications', api.delete(`/notifications/${notificationId}`))
 }
 
 /**

@@ -17,7 +17,6 @@ let syncRunning = false
 let syncAgain = false
 let syncGeneration = 0
 let needsSnapshot = true
-let resumeQueued = false
 let heartbeat: ReturnType<typeof setInterval> | undefined
 let syncRetry: ReturnType<typeof setTimeout> | undefined
 const scopes = new Map<string, Scope>()
@@ -211,23 +210,11 @@ export function subscribeRealtime(events: string[], refresh: Listener,
   return () => { listeners.delete(entry); queue.dispose() }
 }
 
-export function refreshRealtimeViews() {
-  if (document.hidden || resumeQueued) return
-  resumeQueued = true
-  queueMicrotask(() => {
-    resumeQueued = false
-    if (!document.hidden) { dispatch('realtime_reset'); void sync() }
-  })
-}
-
-window.addEventListener('focus', refreshRealtimeViews)
 window.addEventListener('online', () => {
   // A short outage can leave Socket.IO marked connected until its ping timeout.
   // Replace that transport now, instead of waiting to discover the dead socket.
   if (enabled && socket) { disconnect(); connect() }
-  refreshRealtimeViews()
 })
-document.addEventListener('visibilitychange', refreshRealtimeViews)
 
 export function stopRealtime() {
   enabled = false

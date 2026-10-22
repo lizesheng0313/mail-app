@@ -4,11 +4,10 @@ import { batchLoginAPI } from '@/api/batchLogin'
 import { getServerUrl, isTauri } from '@/services/api'
 import { isAutoRecoveryLimitError, normalizeOAuthRecoveryErrorMessage } from '@/utils/oauthRecovery'
 
-import { getDesktopMailboxAccounts, invalidateDesktopMailboxes, subscribeDesktopMailboxChanges } from '@/services/desktopMailboxCache'
+import { getDesktopMailboxAccounts, subscribeDesktopMailboxChanges } from '@/services/desktopMailboxCache'
 import { clearDesktopOAuthTokens, desktopOAuthRefreshAt, getDesktopOAuthAccessToken } from '@/services/desktopOAuthMailbox'
 
 const RETRY_DELAY_MS = 5 * 60 * 1000
-const WAKE_REFRESH_MIN_GAP_MS = 30 * 1000
 
 type OAuthMailboxAccount = {
   id: number
@@ -40,7 +39,6 @@ export function useDesktopOAuthKeepAlive() {
   const isRunning = ref(false)
   const isRefreshing = ref(false)
   let timer: number | null = null
-  let lastWakeRefreshAt = 0
   let sessionVersion = 0
   let sessionToken = ''
   let configVersion = 0
@@ -153,11 +151,6 @@ export function useDesktopOAuthKeepAlive() {
         serverUrl: getServerUrl()
       })
       if (!current()) return false
-      window.dispatchEvent(
-        new CustomEvent('external-mailbox-recovered', {
-          detail: { mailboxId: account.id }
-        })
-      )
       return true
     } catch (recoveryError: any) {
       if (!current()) return false
@@ -185,29 +178,8 @@ export function useDesktopOAuthKeepAlive() {
     }
   }
 
-  const triggerWakeRefresh = async () => {
-    if (!isRunning.value || !isTauri()) return
-
-    const now = Date.now()
-    if (now - lastWakeRefreshAt < WAKE_REFRESH_MIN_GAP_MS) {
-      return
-    }
-    lastWakeRefreshAt = now
-    await refreshAllOAuthTokens()
-  }
-
-  const handleVisibilityChange = () => {
-    if (document.visibilityState === 'visible') {
-      void triggerWakeRefresh()
-    }
-  }
-
-  const handleWindowFocus = () => {
-    void triggerWakeRefresh()
-  }
-
   const handleWindowOnline = () => {
-    void triggerWakeRefresh()
+    if (isRunning.value) void refreshAllOAuthTokens()
   }
 
   const start = async (runImmediately = true) => {
@@ -226,9 +198,7 @@ export function useDesktopOAuthKeepAlive() {
       else nextChecks.clear()
       scheduleNext(300)
     })
-    window.addEventListener('focus', handleWindowFocus)
     window.addEventListener('online', handleWindowOnline)
-    document.addEventListener('visibilitychange', handleVisibilityChange)
 
     if (runImmediately) {
       await refreshAllOAuthTokens()
@@ -250,9 +220,7 @@ export function useDesktopOAuthKeepAlive() {
     unsubscribeCache = undefined
     nextChecks.clear()
     clearDesktopOAuthTokens()
-    window.removeEventListener('focus', handleWindowFocus)
     window.removeEventListener('online', handleWindowOnline)
-    document.removeEventListener('visibilitychange', handleVisibilityChange)
   }
 
   onUnmounted(() => {
@@ -263,7 +231,6 @@ export function useDesktopOAuthKeepAlive() {
     isRunning,
     isRefreshing,
     start,
-    stop,
-    refreshNow: async () => { invalidateDesktopMailboxes(); await refreshAllOAuthTokens() }
+    stop
   }
 }

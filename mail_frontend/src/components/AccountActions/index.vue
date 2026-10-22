@@ -350,7 +350,6 @@ const goToNotification = async (notification: any) => {
       const result: any = await markNotificationAsRead(notification.id)
       if (result.code === 0) {
         notification.is_read = true
-        await loadUnreadCount()
       }
     } catch (error) {
       console.error('标记个人通知已读失败:', error)
@@ -429,12 +428,6 @@ const loadPersonalNotifications = async () => {
   }
 }
 
-// 加载未读数量
-const loadUnreadCount = async () => {
-  if (!userStore.isAuthenticated) return
-  return refreshUnreadCounts()
-}
-
 const refreshAfterImportantNotification = async () => {
   if (showAnnouncements.value) return loadAnnouncements()
 }
@@ -456,7 +449,8 @@ const handleMarkAllRead = async () => {
     }
 
     if (tasks.length > 0) {
-      await Promise.all(tasks)
+      const results = await Promise.all(tasks)
+      if (results.some(result => result?.code !== 0)) throw new Error('一键已读失败')
     }
 
     personalNotifications.value = personalNotifications.value.map((item) => ({
@@ -464,7 +458,6 @@ const handleMarkAllRead = async () => {
       is_read: true
     }))
     announcements.value = announcements.value.map((item) => ({ ...item, is_read: true }))
-    await loadUnreadCount()
     showMessage(t('pageHeader.markedAllRead'), 'success')
   } catch (error) {
     console.error('一键已读失败:', error)

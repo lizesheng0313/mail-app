@@ -161,10 +161,6 @@ export function useOnlineSession() {
     startHeartbeat()
   }
 
-  const handleVisibilityChange = () => {
-    if (document.visibilityState === 'visible') void refreshOnlineSession()
-  }
-
   onMounted(() => {
     stopSocketReadyListener = onOnlineSessionSocketReady(() => { void refreshOnlineSession() })
     if (typeof BroadcastChannel !== 'undefined') {
@@ -178,7 +174,6 @@ export function useOnlineSession() {
 
     window.addEventListener('pagehide', handlePageHide)
     window.addEventListener('pageshow', handlePageShow)
-    document.addEventListener('visibilitychange', handleVisibilityChange)
   })
 
   onBeforeUnmount(() => {
@@ -190,7 +185,6 @@ export function useOnlineSession() {
     window.removeEventListener('storage', handleStorage)
     window.removeEventListener('pagehide', handlePageHide)
     window.removeEventListener('pageshow', handlePageShow)
-    document.removeEventListener('visibilitychange', handleVisibilityChange)
   })
 
   watch(

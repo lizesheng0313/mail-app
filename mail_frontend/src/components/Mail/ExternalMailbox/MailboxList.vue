@@ -492,6 +492,12 @@ const handleRecoveredMailbox = () => {
   void loadAccounts(currentPage.value || 1)
 }
 
+const handleMailboxStatus = (event: Event) => {
+  const detail = (event as CustomEvent).detail
+  const account = accounts.value.find((item: any) => Number(item.id) === detail?.mailboxId)
+  if (account) Object.assign(account, { status: detail.status, error_message: detail.error_message })
+}
+
 const closeActionMenu = () => {
   if (closeMenuTimer) {
     clearTimeout(closeMenuTimer)
@@ -999,11 +1005,6 @@ const fetchSingleMailbox = async (accountId: number) => {
               token,
               serverUrl
             })
-            window.dispatchEvent(
-              new CustomEvent('external-mailbox-recovered', {
-                detail: { mailboxId: account.id }
-              })
-            )
             showMessage(t('externalMailbox.fetchSuccess'), 'success')
           } catch (recoveryError: any) {
             const recoveryMessage = normalizeOAuthRecoveryErrorMessage(
@@ -1105,6 +1106,7 @@ onMounted(() => {
   window.addEventListener('click', handleWindowClick)
   window.addEventListener('external-mailbox-recovered', handleRecoveredMailbox)
   window.addEventListener('external-mailbox-updated', handleRecoveredMailbox)
+  window.addEventListener('external-mailbox-status', handleMailboxStatus)
 })
 
 onBeforeUnmount(() => {
@@ -1117,5 +1119,6 @@ onBeforeUnmount(() => {
   window.removeEventListener('click', handleWindowClick)
   window.removeEventListener('external-mailbox-recovered', handleRecoveredMailbox)
   window.removeEventListener('external-mailbox-updated', handleRecoveredMailbox)
+  window.removeEventListener('external-mailbox-status', handleMailboxStatus)
 })
 </script>

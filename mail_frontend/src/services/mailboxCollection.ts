@@ -1,3 +1,5 @@
+import { dispatchMailboxStatus } from './mailboxChanges'
+
 type Invoke = <T = any>(command: string, args?: any) => Promise<T>
 
 const collections = new Map<string, Promise<any>>()
@@ -16,6 +18,9 @@ export function collectMailbox<T>(mailboxId: number, transport: string, action: 
   if (current) return current
   const request = Promise.resolve().then(action).then(result => {
     if ((result as any)?.code === undefined || (result as any).code === 0) {
+      if (token === localStorage.getItem('token') && (result as any)?.success !== false) {
+        dispatchMailboxStatus(mailboxId, 'active')
+      }
       for (const listener of listeners) listener(Number(mailboxId), token)
     }
     return result
