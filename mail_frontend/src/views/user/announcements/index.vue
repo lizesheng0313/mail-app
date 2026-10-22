@@ -176,7 +176,8 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onBeforeUnmount, onMounted } from 'vue'
+import { subscribeAccountState } from '@/services/accountRealtime'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { showMessage } from '@/utils/message'
@@ -219,10 +220,12 @@ const loadAnnouncements = async () => {
       }
     } else {
       showMessage(result.message || t('announcementsPage.loadFailed'), 'error')
+      return false
     }
   } catch (error) {
     console.error('加载公告失败:', error)
     showMessage(t('announcementsPage.loadFailed'), 'error')
+    return false
   } finally {
     loading.value = false
   }
@@ -287,9 +290,12 @@ const changePage = (newPage) => {
   }
 }
 
+let unsubscribeState
 onMounted(() => {
+  unsubscribeState = subscribeAccountState(['announcements'], loadAnnouncements)
   loadAnnouncements()
 })
+onBeforeUnmount(() => unsubscribeState?.())
 </script>
 
 <style scoped>

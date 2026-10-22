@@ -361,6 +361,11 @@ class DesktopExternalMailSync {
         }))
       }
       if (this.sessionVersion === version) this.clearFetchRetry(id)
+      // A single IDLE event can cover more than the native batch limit. Drain
+      // the persisted cursor before waiting for a new notification.
+      if (this.running && this.sessionVersion === version && result?.has_more === true) {
+        this.pendingFetch.add(id)
+      }
     } catch (error) {
       console.warn(`桌面邮箱 ${id} 自动收取失败，稍后重试:`, error)
       const message = String((error as any)?.message || error)

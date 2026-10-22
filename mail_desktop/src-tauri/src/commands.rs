@@ -1083,6 +1083,7 @@ pub async fn recover_and_fetch_external_mailbox(
                     message: format!("收取成功，新增 {} 封邮件", new_count),
                     emails: vec![],
                     count: new_count,
+                    has_more: result.has_more,
                     sync_cursor: None,
                 });
             }
@@ -1272,6 +1273,7 @@ async fn fetch_emails_inner(
                     message: format!("收取成功，新增 {} 封邮件", new_count),
                     emails: vec![],
                     count: new_count,
+                    has_more: result.has_more,
                     sync_cursor: None,
                 });
             }
@@ -2103,6 +2105,7 @@ mod tests {
                     success: true,
                     message: "ok".to_string(),
                     count: 1,
+                    has_more: false,
                     emails: Vec::new(),
                     sync_cursor: None,
                 })
@@ -2124,6 +2127,7 @@ mod tests {
                     success: true,
                     message: "ok".to_string(),
                     count: 0,
+                    has_more: false,
                     emails: Vec::new(),
                     sync_cursor: None,
                 })
@@ -2142,6 +2146,75 @@ mod durable_upload_tests {
     use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
     use serde_json::json;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    /// Explicitly opt in with a private temporary file; never include credentials in source.
+    #[tokio::test]
+    #[ignore = "requires dedicated MAIL_OUTLOOK_E2E_CREDENTIALS"]
+    async fn real_outlook_refresh_e2e() {
+        let path = std::env::var("MAIL_OUTLOOK_E2E_CREDENTIALS").unwrap();
+        let mut config: Value = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+        let result = refresh_oauth2_token_locally("outlook".into(),
+            config["email"].as_str().unwrap().into(), config["refresh_token"].as_str().unwrap().into(),
+            config["client_id"].as_str().unwrap().into()).await.unwrap();
+        assert!(!result.access_token.is_empty());
+        config["access_token"] = json!(result.access_token);
+        config["refresh_token"] = json!(result.refresh_token);
+        std::fs::write(path, serde_json::to_vec(&config).unwrap()).unwrap();
+    }
+
+    /// Called by the opt-in Python E2E stack with loopback TLS mail providers,
+    /// the actual backend, MySQL, and an already mounted frontend browser.
+    #[tokio::test]
+    #[ignore = "requires MAIL_LOCAL_E2E_CONFIG from the isolated E2E stack"]
+    async fn local_provider_delivery_e2e() {
+        let config_path = std::env::var("MAIL_LOCAL_E2E_CONFIG").unwrap();
+        let config: serde_json::Value = serde_json::from_slice(&std::fs::read(config_path).unwrap()).unwrap();
+        let server_url = config["server_url"].as_str().unwrap();
+        let parsed = url::Url::parse(server_url).unwrap();
+        assert_eq!(parsed.host_str(), Some("127.0.0.1"));
+        let token = config["token"].as_str().unwrap();
+        let mailbox_id = config["mailbox_id"].as_i64().unwrap();
+        let path = crate::desktop_sync_store::scope_path(server_url, token, mailbox_id).unwrap();
+        if config["watch"].as_bool().unwrap_or(false) {
+            use std::sync::atomic::{AtomicBool, Ordering};
+            let stopped = AtomicBool::new(false);
+            let (mut ready, mut changed) = (0, 0);
+            assert!(mail::imap::watch_inbox(config["email"].as_str().unwrap(), "local-only",
+                "127.0.0.1", config["port"].as_u64().unwrap() as u16, None, None, &stopped,
+                || { changed += 1; stopped.store(true, Ordering::Relaxed); },
+                || { ready += 1; }).unwrap());
+            assert_eq!((ready, changed), (1, 1));
+        }
+        let credentials = config["credentials_file"].as_str().map(|file| {
+            serde_json::from_slice::<Value>(&std::fs::read(file).unwrap()).unwrap()
+        });
+        let (email, host, auth_type, access_token) = match credentials.as_ref() {
+            Some(credentials) => (credentials["email"].as_str().unwrap(), "outlook.office365.com",
+                Some("oauth2".into()), Some(credentials["access_token"].as_str().unwrap().into())),
+            None => (config["email"].as_str().unwrap(), "127.0.0.1", None, None),
+        };
+        let result = fetch_emails_inner(mailbox_id, email.into(),
+            "local-only".into(), config["protocol"].as_str().unwrap().into(),
+            Some(host.into()), Some(config["port"].as_u64().unwrap() as u16),
+            token.into(), server_url.into(), auth_type, access_token, None, false).await;
+        if config["expect_failure"].as_bool().unwrap_or(false) {
+            assert!(result.is_err());
+            let state = crate::desktop_sync_store::load(&path).unwrap();
+            assert!(state.pending.is_some());
+            assert!(state.cursor.is_none());
+        } else {
+            let result = result.unwrap();
+            assert!(result.success);
+            if let Some(expected) = config["expected_count"].as_u64() {
+                assert_eq!(result.count, expected as usize);
+            }
+            assert_eq!(result.has_more, config["has_more"].as_bool().unwrap_or(false));
+            assert!(crate::desktop_sync_store::load(&path).unwrap().pending.is_none());
+        }
+        if config["cleanup"].as_bool().unwrap_or(false) {
+            std::fs::remove_dir_all(path).unwrap();
+        }
+    }
 
     #[tokio::test]
     async fn business_failure_keeps_pending_mail_then_retry_commits_and_empty_check_skips_http() {

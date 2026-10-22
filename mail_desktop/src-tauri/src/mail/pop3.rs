@@ -422,6 +422,12 @@ fn pop3_fetch_sync(
 
     let _ = tls.write_all(b"QUIT\r\n");
 
+    // An initialized but previously empty mailbox also needs to drain bursts.
+    let has_more = sync_cursor.is_some_and(|cursor|
+            cursor.get("protocol").and_then(Value::as_str) == Some("pop3"))
+        && !successful_uidls.is_empty()
+        && current_uidls.as_ref().is_some_and(|uidls| uidls.iter().any(|(_, uidl)|
+            !previous_uidls.contains(uidl) && !successful_uidls.contains(uidl)));
     let sync_cursor = current_uidls.map(|uidls| {
         let uidls = uidls
             .into_iter()
@@ -444,6 +450,7 @@ fn pop3_fetch_sync(
     Ok(FetchResult {
         success: true,
         message: format!("收取成功，共 {} 封邮件", emails.len()),
+        has_more,
         count: emails.len(),
         emails,
         sync_cursor,

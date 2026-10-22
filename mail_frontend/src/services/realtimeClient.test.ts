@@ -165,4 +165,39 @@ describe('shared application realtime transport', () => {
     socket.handlers.disconnect('io server disconnect')
     expect(mocks.unauthorized).toHaveBeenCalledWith({ detail: '会话已失效' }, 'token')
   })
+
+  it('replaces a stale connected transport immediately when the browser comes online', async () => {
+    const old = await connect()
+    window.dispatchEvent(new Event('online'))
+    await settle()
+    expect(old.disconnect).toHaveBeenCalledOnce()
+    expect(mocks.io).toHaveBeenCalledTimes(2)
+    const next = sockets[sockets.length - 1]
+    next.connected = true
+    next.handlers.connect()
+    await settle()
+    expect(next.emitWithAck).toHaveBeenCalledOnce()
+  })
+
+  it('does not let an outstanding acknowledgement delay or overwrite a new connection', async () => {
+    const refresh = vi.fn()
+    cleanups.push(subscribeRealtime(['mail_changed'], refresh))
+    const old = await connect()
+    let finish!: (result: any) => void
+    old.emitWithAck.mockImplementationOnce(() => new Promise(resolve => { finish = resolve }))
+    old.handlers.realtime_event(packet(3))
+    cleanups.push(registerRealtimeScope('new-capability', { login_state: 'test-state' }))
+    const next = sockets[sockets.length - 1]
+    next.connected = true
+    next.handlers.connect()
+    await settle()
+    expect(next.emitWithAck).toHaveBeenCalledOnce()
+    const count = refresh.mock.calls.length
+    finish({ ok: true, epoch: 'obsolete', reset: true, heads: head(99), events: [] })
+    await settle()
+    expect(refresh).toHaveBeenCalledTimes(count)
+    next.handlers.realtime_event(packet(1))
+    await settle()
+    expect(refresh).toHaveBeenCalledTimes(count + 1)
+  })
 })

@@ -158,12 +158,15 @@ export const useMailStore = defineStore('mail', () => {
 
 
 
-  const fetchEmailDetail = async (id: number, type: string = 'system') => {
+  const fetchEmailDetail = async (id: number, type: string = 'system', refreshSelected = false) => {
+    const selection = selectedEmail.value
+    if (refreshSelected && (!selection || Number(selection.id) !== id
+      || (selection.mailbox_type || 'system') !== type)) return { success: true }
     const requestSeq = ++detailRequestSeq
-    loading.value = true
+    if (!refreshSelected) loading.value = true
     try {
       const response: any = await emailAPI.getEmail(id, type, guestClaimTokenForEmail(id, type))
-      if (requestSeq !== detailRequestSeq) {
+      if (requestSeq !== detailRequestSeq || (refreshSelected && selectedEmail.value !== selection)) {
         return { success: false, error: 'stale' }
       }
 
@@ -173,6 +176,11 @@ export const useMailStore = defineStore('mail', () => {
       }
       return { success: false, error: response.message }
     } catch (error: any) {
+      if (refreshSelected && requestSeq === detailRequestSeq && selectedEmail.value === selection
+        && [403, 404].includes(error.response?.status)) {
+        selectedEmail.value = null
+        return { success: true, unavailable: true }
+      }
       return {
         success: false,
         error: error.response?.data?.message || '获取邮件详情失败'

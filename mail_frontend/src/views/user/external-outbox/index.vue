@@ -152,7 +152,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { subscribeAccountState } from '@/services/accountRealtime'
 import { useRouter } from 'vue-router'
 import ActionButton from '@/components/ActionButton/index.vue'
 import AdminDataTable from '@/components/AdminDataTable/index.vue'
@@ -207,10 +208,11 @@ const loadRecords = async () => {
     if (response?.code === 0) {
       records.value = response.data?.records || []
       total.value = response.data?.pagination?.total || 0
+    } else {
+      return false
     }
   } catch {
-    records.value = []
-    total.value = 0
+    return false
   } finally {
     loading.value = false
   }
@@ -259,5 +261,10 @@ const resolveStatusLabel = (status?: string) => {
   return '已发送'
 }
 
-onMounted(loadRecords)
+let unsubscribeState: (() => void) | undefined
+onMounted(() => {
+  unsubscribeState = subscribeAccountState(['outbox'], loadRecords)
+  void loadRecords()
+})
+onBeforeUnmount(() => unsubscribeState?.())
 </script>

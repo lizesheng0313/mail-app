@@ -100,6 +100,27 @@ describe('desktop external mail sync', () => {
     expect(mocks.invoke).toHaveBeenCalledWith('stop_all_imap_watches')
   })
 
+  it('drains a full native batch after one IDLE event even when the server deduplicates it', async () => {
+    mocks.getAllAccounts.mockResolvedValue({ code: 0, data: { accounts: [{
+      id: 1, email: 'imap@test.local', protocol: 'imap', status: 'active'
+    }] } })
+    let collections = 0
+    mocks.invoke.mockImplementation(async command => {
+      if (command === 'start_imap_watch') return 7
+      if (command === 'fetch_emails') {
+        collections++
+        return collections === 1 ? { count: 0, has_more: true } : { count: 5, has_more: false }
+      }
+    })
+    await desktopExternalMailSync.start(42)
+    emit(1, 7, 'changed')
+    await vi.waitFor(() => expect(collections).toBe(2))
+    await new Promise(resolve => setTimeout(resolve, 10))
+    expect(collections).toBe(2)
+    expect(mocks.getAllAccounts).toHaveBeenCalledTimes(1)
+    expect(mocks.getRuntimeProxy).toHaveBeenCalledTimes(1)
+  })
+
   it('checks POP3 again every five minutes while the desktop session stays open', async () => {
     vi.useFakeTimers()
     mocks.getAllAccounts.mockResolvedValue({ code: 0, data: { accounts: [{

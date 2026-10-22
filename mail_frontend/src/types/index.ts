@@ -35,6 +35,7 @@ export interface Mailbox {
 export interface Email {
   id: number
   mailbox_id: number
+  mailbox_type?: 'system' | 'hosted' | 'external'
   sender: string
   recipient: string
   subject: string

@@ -2532,6 +2532,18 @@ const refreshSystemEmailsAfterPush = async () => {
   return refreshSystemEmails()
 }
 
+const refreshSelectedMailAfterPush = async (type: 'system' | 'hosted' | 'external', emailId: number) => {
+  const selected = mailStore.selectedEmail
+  if (!selected || (emailId && Number(selected.id) !== emailId)
+    || String(selected.mailbox_type || 'system') !== type) return
+  const result = await mailStore.fetchEmailDetail(Number(selected.id), type, true)
+  if (result.unavailable) {
+    clearSavedSelectedEmails(email => Number(email?.id) === Number(selected.id)
+      && String(email?.mailbox_type || 'system') === type)
+  }
+  return result.success || result.error === 'stale' ? undefined : false
+}
+
 let unsubscribeMailRealtime: (() => void) | undefined
 let unsubscribeMailScope: (() => void) | undefined
 let unsubscribeHistoryRealtime: (() => void) | undefined
@@ -2564,9 +2576,13 @@ const refreshFromMailEvent = async (type: 'system' | 'hosted' | 'external', emai
     }
   }
   if (mailboxType.value === type) {
-    if (type === 'system') return refreshSystemEmailsAfterPush()
-    if (type === 'hosted') return refreshHostedEmails()
-    if (currentView.value === 'emails') return selectedExternalMailboxId.value ? loadExternalMailboxEmails() : loadAllExternalEmails()
+    let result
+    if (type === 'system') result = await refreshSystemEmailsAfterPush()
+    else if (type === 'hosted') result = await refreshHostedEmails()
+    else if (currentView.value === 'emails') result = await (selectedExternalMailboxId.value ? loadExternalMailboxEmails() : loadAllExternalEmails())
+    else return
+    if (result === false) return false
+    if (!received) return refreshSelectedMailAfterPush(type, emailId)
   }
 }
 
@@ -2578,12 +2594,8 @@ const connectMailRealtime = () => {
     if (event !== 'realtime_reset' && payload?.mailbox_type) {
       return refreshFromMailEvent(payload.mailbox_type, Number(payload.email_id || 0), payload.type !== 'email.updated')
     }
-    dispatchAccountState('outbox')
-    if (mailboxType.value === 'system') return refreshSystemEmailsAfterPush()
-    if (mailboxType.value === 'hosted') return refreshHostedEmails()
-    if (mailboxType.value === 'external' && currentView.value === 'emails') {
-      return selectedExternalMailboxId.value ? loadExternalMailboxEmails() : loadAllExternalEmails()
-    }
+    if (mailboxType.value !== 'external') dispatchAccountState('outbox')
+    return refreshFromMailEvent(mailboxType.value, 0, false)
   })
 }
 

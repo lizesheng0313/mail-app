@@ -15,6 +15,7 @@ let epoch: string | null = null
 let cursors: Record<string, Cursor> = {}
 let syncRunning = false
 let syncAgain = false
+let syncGeneration = 0
 let needsSnapshot = true
 let resumeQueued = false
 let heartbeat: ReturnType<typeof setInterval> | undefined
@@ -46,12 +47,13 @@ function receive(packet: Packet) {
 
 async function sync() {
   const current = socket
+  const generation = syncGeneration
   if (!current?.connected || syncRetry) return
   if (syncRunning) { syncAgain = true; return }
   syncRunning = true
   try {
     const result = await current.timeout(8000).emitWithAck('realtime_sync', { epoch, cursors: { ...cursors } })
-    if (current !== socket) return
+    if (current !== socket || generation !== syncGeneration) return
     if (result?.status === 401) handleSessionUnauthorized(result, identity.token)
     if (!result?.ok) {
       if (result?.status !== 401) scheduleSync(result?.retry_after_ms || 2000)
@@ -68,10 +70,12 @@ async function sync() {
       for (const scope of Object.keys(cursors)) if (!(scope in result.heads)) delete cursors[scope]
     }
   } catch {
-    if (current === socket) scheduleSync(2000)
+    if (current === socket && generation === syncGeneration) scheduleSync(2000)
   } finally {
-    syncRunning = false
-    if (syncAgain) { syncAgain = false; void sync() }
+    if (generation === syncGeneration) {
+      syncRunning = false
+      if (syncAgain) { syncAgain = false; void sync() }
+    }
   }
 }
 
@@ -81,6 +85,10 @@ function scheduleSync(delay: number) {
 }
 
 function disconnect() {
+  // Acknowledgements from an old connection must not hold up the new one.
+  syncGeneration++
+  syncRunning = false
+  syncAgain = false
   if (syncRetry) clearTimeout(syncRetry)
   syncRetry = undefined
   if (heartbeat) clearInterval(heartbeat)
@@ -111,6 +119,9 @@ function connect() {
   })
   socket = current
   current.on('connect', () => {
+    syncGeneration++
+    syncRunning = false
+    syncAgain = false
     if (syncRetry) clearTimeout(syncRetry)
     syncRetry = undefined
     needsSnapshot = true
@@ -210,7 +221,12 @@ export function refreshRealtimeViews() {
 }
 
 window.addEventListener('focus', refreshRealtimeViews)
-window.addEventListener('online', refreshRealtimeViews)
+window.addEventListener('online', () => {
+  // A short outage can leave Socket.IO marked connected until its ping timeout.
+  // Replace that transport now, instead of waiting to discover the dead socket.
+  if (enabled && socket) { disconnect(); connect() }
+  refreshRealtimeViews()
+})
 document.addEventListener('visibilitychange', refreshRealtimeViews)
 
 export function stopRealtime() {
