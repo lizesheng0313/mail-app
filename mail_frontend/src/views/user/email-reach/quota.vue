@@ -232,16 +232,29 @@ const createTrendOption = ({ labels, counts, color }) => ({
   ]
 })
 
-const updateTrendCharts = async (records = [], unsubscribes = []) => {
+const buildDayBoundaries = () => {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  return Array.from({ length: 8 }, (_, index) => {
+    const date = new Date(today)
+    date.setDate(today.getDate() - 6 + index)
+    return date.getTime()
+  })
+}
+
+const updateTrendCharts = async (trendItems = [], unsubscribes = [], boundaries = []) => {
   await nextTick()
 
-  const sentRecords = records.filter((item) => item?.status === 'sent')
-  const failedRecords = records.filter((item) => item?.status === 'failed')
-  const blockedRecords = records.filter((item) => item?.status === 'blocked')
-  const sendTrend = buildLast7DayBuckets(sentRecords, 'sent_at')
+  const byDay = new Map(trendItems.map((item) => [Number(item.start_at_ms), item]))
+  const labels = boundaries.slice(0, 7).map((timestamp) => formatDayLabel(new Date(timestamp)))
+  const buildTrend = (metric) => ({
+    labels,
+    counts: boundaries.slice(0, 7).map((timestamp) => Number(byDay.get(timestamp)?.[metric] || 0))
+  })
+  const sendTrend = buildTrend('sent_count')
+  const failedTrend = buildTrend('failed_count')
+  const blockedTrend = buildTrend('blocked_count')
   const unsubscribeTrend = buildLast7DayBuckets(unsubscribes, 'created_at')
-  const failedTrend = buildLast7DayBuckets(failedRecords, 'updated_at')
-  const blockedTrend = buildLast7DayBuckets(blockedRecords, 'updated_at')
 
   sevenDaySentTotal.value = sendTrend.counts.reduce((sum, item) => sum + item, 0)
   sevenDayUnsubscribeTotal.value = unsubscribeTrend.counts.reduce((sum, item) => sum + item, 0)
@@ -276,10 +289,11 @@ const updateTrendCharts = async (records = [], unsubscribes = []) => {
 }
 
 const loadPageData = async () => {
-  const [accessRes, quotaRes, recordRes, unsubscribeRes] = await Promise.all([
+  const boundaries = buildDayBoundaries()
+  const [accessRes, quotaRes, trendRes, unsubscribeRes] = await Promise.all([
     emailReachApi.getAccessSummary(),
     emailReachApi.getQuotaSummary(),
-    emailReachApi.getSendRecords(),
+    emailReachApi.getSendTrend({ day_boundaries: boundaries }),
     emailReachApi.getUnsubscribes()
   ])
   accessLoaded.value = true
@@ -320,18 +334,14 @@ const loadPageData = async () => {
       }
     }
   }
-  if (recordRes.code === 0 || unsubscribeRes.code === 0) {
-    const recordItems = Array.isArray(recordRes.data)
-      ? recordRes.data
-      : Array.isArray(recordRes.data?.items)
-        ? recordRes.data.items
-        : []
+  if (trendRes.code === 0 || unsubscribeRes.code === 0) {
+    const trendItems = trendRes.code === 0 && Array.isArray(trendRes.data?.items) ? trendRes.data.items : []
     const unsubscribeItems = Array.isArray(unsubscribeRes.data)
       ? unsubscribeRes.data
       : Array.isArray(unsubscribeRes.data?.items)
         ? unsubscribeRes.data.items
         : []
-    await updateTrendCharts(recordItems, unsubscribeItems)
+    await updateTrendCharts(trendItems, unsubscribeItems, boundaries)
   }
 }
 

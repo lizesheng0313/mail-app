@@ -237,6 +237,13 @@ export const emailReachApi = {
     return api.get('/email-reach/analytics/overview', { params })
   },
 
+  getSendTrend(params) {
+    return api.get('/email-reach/analytics/send-trend', {
+      params,
+      paramsSerializer: { indexes: null }
+    })
+  },
+
   getLinkClickStats(params = {}) {
     return api.get('/email-reach/analytics/link-clicks', { params })
   },
@@ -253,8 +260,8 @@ export const emailReachApi = {
     return api.get('/email-reach/recipient-behaviors', { params })
   },
 
-  getTaskSendRecords(taskId) {
-    return api.get(`/email-reach/tasks/${taskId}/send-records`)
+  getTaskSendRecords(taskId, params = {}) {
+    return api.get(`/email-reach/tasks/${taskId}/send-records`, { params })
   },
 
   getTaskAnalytics(taskId) {

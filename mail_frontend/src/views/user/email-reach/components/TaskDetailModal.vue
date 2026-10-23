@@ -31,8 +31,10 @@
         class="h-[420px]"
         title="收件人明细"
         :loading="loading"
+        :pagination="pagination"
         :column-count="7"
         table-class="min-w-[1140px] table-fixed"
+        @page-change="loadRecords"
       >
         <template #thead>
           <tr>
@@ -75,7 +77,7 @@
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import BaseModal from '@/components/BaseModal/index.vue'
 import AdminDataTable from '@/components/AdminDataTable/index.vue'
 import emailReachApi from '@/api/emailReach'
@@ -98,6 +100,8 @@ const emit = defineEmits(['update:visible'])
 
 const loading = ref(false)
 const records = ref([])
+const pagination = reactive({ page: 1, limit: 50, total: 0, pages: 1 })
+let requestVersion = 0
 
 const taskName = computed(() => props.task?.task_name || '发送任务')
 const summaryItems = computed(() => [
@@ -123,32 +127,51 @@ const handleClose = () => {
   emit('update:visible', false)
 }
 
-const loadRecords = async () => {
+const loadRecords = async (page = 1) => {
+  const version = ++requestVersion
   if (!props.task?.id) {
     records.value = []
+    loading.value = false
     return
   }
   loading.value = true
   try {
-    const res = await emailReachApi.getTaskSendRecords(props.task.id)
+    const res = await emailReachApi.getTaskSendRecords(props.task.id, { page, limit: pagination.limit })
+    if (version !== requestVersion) return
     if (res.code === 0) {
       records.value = res.data?.items || []
+      Object.assign(pagination, {
+        page: res.data?.page || page,
+        limit: res.data?.limit || pagination.limit,
+        total: res.data?.total || 0,
+        pages: res.data?.pages || 1
+      })
+    } else {
+      showMessage(res.message || '任务明细获取失败', 'error')
     }
   } catch (error) {
-    showMessage(error?.response?.data?.message || '任务明细获取失败', 'error')
+    if (version === requestVersion) {
+      showMessage(error?.response?.data?.message || '任务明细获取失败', 'error')
+    }
   } finally {
-    loading.value = false
+    if (version === requestVersion) loading.value = false
   }
 }
+
+onBeforeUnmount(() => { requestVersion += 1 })
 
 watch(
   () => [props.visible, props.task?.id],
   ([visible]) => {
+    requestVersion += 1
+    records.value = []
+    Object.assign(pagination, { page: 1, total: 0, pages: 1 })
     if (visible) {
-      loadRecords()
+      loadRecords(1)
     } else {
-      records.value = []
+      loading.value = false
     }
-  }
+  },
+  { immediate: true }
 )
 </script>
