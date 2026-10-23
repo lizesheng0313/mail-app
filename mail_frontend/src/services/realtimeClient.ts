@@ -6,8 +6,8 @@ import { getClientPlatform } from './sessionIdentity'
 type Cursor = { stream: string; seq: number }
 type Packet = Cursor & { epoch: string; scope: string; event: string; payload: any }
 type Listener = (payload?: any, event?: string) => unknown | Promise<unknown>
-type Scope = { guest_chat_token: string }
-const messageEvents = new Set(['account_state_changed', 'chat_state_changed', 'guest_chat_changed'])
+type Scope = { guest_chat_token?: string; guest_mailboxes?: { id: number; claim_token?: string }[]; share_token?: string }
+const messageEvents = new Set(['account_state_changed', 'chat_state_changed', 'guest_chat_changed', 'mail_changed'])
 let identity = { token: '', userId: 0 }
 let socket: Socket | null = null
 let signature = ''

@@ -562,6 +562,7 @@ import BaseIcon from '@/components/BaseIcon/index.vue'
 import ConfirmDialog from '@/components/ConfirmDialog/index.vue'
 import { dispatchAccountState } from '@/services/accountRealtime'
 import { createRealtimeRefresh } from '@/services/realtimeRefresh'
+import { registerRealtimeScope, subscribeRealtime } from '@/services/realtimeClient'
 import { desktopExternalMailSync } from '@/services/desktopExternalMailSync'
 import { showMessage } from '@/utils/message'
 import { isTauri, getServerUrl } from '@/services/api'
@@ -590,7 +591,8 @@ import {
 import { getCurrentLocale } from '@/i18n'
 import {
   countGuestMailboxesCreatedToday,
-  GUEST_MAILBOX_DAILY_LIMIT
+  GUEST_MAILBOX_DAILY_LIMIT,
+  loadStoredGuestMailboxes
 } from '@/utils/guestMailboxes'
 import { trackProductEvent } from '@/services/productAnalytics'
 
@@ -2517,6 +2519,37 @@ const refreshFromMailEvent = async (type: 'system' | 'hosted' | 'external', emai
   }
 }
 
+let unsubscribeMailRealtime: (() => void) | undefined
+let unsubscribeMailScope: (() => void) | undefined
+let mailRealtimeClosed = false
+
+const closeMailRealtime = () => {
+  unsubscribeMailRealtime?.()
+  unsubscribeMailRealtime = undefined
+  unsubscribeMailScope?.()
+  unsubscribeMailScope = undefined
+}
+
+const connectMailRealtime = () => {
+  if (mailRealtimeClosed || unsubscribeMailRealtime) return
+  const guestMailboxes = loadStoredGuestMailboxes().map(({ id, claim_token }) => ({ id, claim_token }))
+  unsubscribeMailScope = registerRealtimeScope('home-mail', { guest_mailboxes: guestMailboxes })
+  unsubscribeMailRealtime = subscribeRealtime(['mail_changed'], async (payload, event) => {
+    if (event !== 'realtime_reset' && payload?.mailbox_type) {
+      return refreshFromMailEvent(payload.mailbox_type, Number(payload.email_id || 0), true, Number(payload.mailbox_id || 0))
+    }
+    // Reconnect/replay gaps must catch up without changing the selected mail.
+    return refreshFromMailEvent(mailboxType.value, 0, true)
+  })
+}
+
+watch(
+  () => [userStore.isAuthenticated, mailboxStore.guestMailboxes.map((item: any) => item.id).join(',')],
+  () => {
+    if (!mailRealtimeClosed) { closeMailRealtime(); connectMailRealtime() }
+  }
+)
+
 const handleImmediateRefreshSystemEmails = async () => {
   hideRefreshTooltip()
   await refreshSystemEmails({ minSpinMs: MANUAL_REFRESH_MIN_SPIN_MS })
@@ -2734,14 +2767,18 @@ onMounted(async () => {
     if (!result.success) {
       showMessage(result.error || t('home.allocateMailboxFailed'), 'error')
     }
+    connectMailRealtime()
     return
   }
 
   syncMailCollectionDemand()
+  connectMailRealtime()
   await nextTick()
 })
 
 onBeforeUnmount(() => {
+  mailRealtimeClosed = true
+  closeMailRealtime()
   window.removeEventListener(
     'external-mailbox-recovered',
     handleRecoveredMailboxEvent as EventListener

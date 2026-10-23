@@ -126,10 +126,15 @@ describe('workspace loading', () => {
       expect(smtp).not.toHaveBeenCalled()
       finishMailboxes()
       await flushPromises()
+      await realtime.refresh({ mailbox_type: 'system', email_id: 99, mailbox_id: 1 }, 'mail_changed')
+      expect(emails).toHaveBeenCalledTimes(2)
+      expect(mailboxes).toHaveBeenCalledTimes(1)
+      expect(useMailStore().selectedEmail).toBeNull()
+
       document.dispatchEvent(new Event('visibilitychange'))
       await vi.advanceTimersByTimeAsync(60 * 60 * 1000)
       expect(backgroundEmails).not.toHaveBeenCalled()
-      expect(emails).toHaveBeenCalledTimes(1)
+      expect(emails).toHaveBeenCalledTimes(2)
       backgroundEmails.mockResolvedValueOnce({ code: 0, data: { emails: [{
         id: 99, subject: 'New local receipt', is_read: false, received_at: Date.now()
       }] } } as any)
@@ -138,7 +143,7 @@ describe('workspace loading', () => {
       expect(backgroundEmails).toHaveBeenCalledTimes(1)
       expect(backgroundEmails).toHaveBeenLastCalledWith(expect.objectContaining({ type: 'external' }))
       expect(document.title).toContain('来新消息了')
-      expect(realtime.refresh).toBeNull()
+      expect(realtime.refresh).toBeTypeOf('function')
     } finally {
       wrapper.unmount()
     }
@@ -220,7 +225,7 @@ describe('workspace loading', () => {
       await vi.advanceTimersByTimeAsync(3600000)
       expect(emails).toHaveBeenCalledTimes(4)
       expect(titleQuery).toHaveBeenCalledTimes(queries)
-      expect(realtime.refresh).toBeNull()
+      expect(realtime.refresh).toBeTypeOf('function')
     } finally { wrapper.unmount() }
   })
 

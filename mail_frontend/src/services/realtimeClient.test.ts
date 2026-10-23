@@ -47,9 +47,9 @@ async function connect() {
 }
 
 describe('shared application realtime transport', () => {
-  it('never subscribes mail, payment, configuration, tasks or presence, including on reconnect', async () => {
+  it('keeps unrelated business events out of the transport, including on reconnect', async () => {
     const refresh = vi.fn()
-    cleanups.push(subscribeRealtime(['mail_changed', 'payment_changed', 'mailbox_config_changed', 'presence_changed', 'login_changed', 'external_mail_fetch_event', 'email_reach_event'], refresh, undefined, { immediate: true }))
+    cleanups.push(subscribeRealtime(['payment_changed', 'mailbox_config_changed', 'presence_changed', 'login_changed', 'external_mail_fetch_event', 'email_reach_event'], refresh, undefined, { immediate: true }))
     const socket = await connect()
     socket.handlers.realtime_event({ ...packet(1), event: 'mail_changed' })
     socket.handlers.connect()
@@ -57,6 +57,26 @@ describe('shared application realtime transport', () => {
     expect(refresh).not.toHaveBeenCalled()
   })
 
+
+  it('refreshes new mail immediately, deduplicates replay, and catches up after reconnect', async () => {
+    const refresh = vi.fn()
+    cleanups.push(subscribeRealtime(['mail_changed'], refresh))
+    const socket = await connect()
+    refresh.mockClear()
+    const delivery = { ...packet(1), event: 'mail_changed', payload: { type: 'email.received', mailbox_type: 'system', mailbox_id: 7, email_id: 99 } }
+    socket.handlers.realtime_event(delivery)
+    socket.handlers.realtime_event(delivery)
+    await settle()
+    expect(refresh).toHaveBeenCalledTimes(1)
+    expect(refresh).toHaveBeenLastCalledWith(delivery.payload, 'mail_changed')
+    socket.handlers.connect()
+    await settle()
+    expect(refresh).toHaveBeenCalledTimes(2)
+    expect(refresh).toHaveBeenLastCalledWith(undefined, 'realtime_reset')
+    const count = refresh.mock.calls.length
+    await vi.advanceTimersByTimeAsync(60000)
+    expect(refresh).toHaveBeenCalledTimes(count)
+  })
 
   it('does not reset views or check cursors when switching windows', async () => {
     const refresh = vi.fn()
