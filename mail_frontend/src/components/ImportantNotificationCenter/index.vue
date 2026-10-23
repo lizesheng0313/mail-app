@@ -127,7 +127,7 @@
 </template>
 
 <script setup>
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useUserStore } from '@/stores/user'
 import {
@@ -135,6 +135,8 @@ import {
   getPendingImportantNotifications
 } from '@/api/notification'
 import { presentImportantNotification } from '@/config/importantNotifications'
+import { subscribeAccountState } from '@/services/accountRealtime'
+import { createRealtimeRefresh } from '@/services/realtimeRefresh'
 
 const { t } = useI18n()
 const userStore = useUserStore()
@@ -149,16 +151,24 @@ const confirmRef = ref(null)
 const acknowledgingIds = new Set()
 const errorMessage = ref('')
 const suppressFutureEarnings = ref(false)
+let identityVersion = 0
+let pendingVersion = 0
+let unsubscribeAccountState = () => {}
+const pendingRefresh = createRealtimeRefresh(loadPending)
 
 async function loadPending() {
   const userId = Number(userStore.user?.id || 0)
   if (!userStore.isAuthenticated || !userId) return
+  const version = pendingVersion
   try {
     const response = await getPendingImportantNotifications()
-    if (response?.code === 0 && Number(userStore.user?.id || 0) === userId)
-      pending.value = response.data?.items || []
+    if (version !== pendingVersion) return
+    if (response?.code !== 0) return false
+    pending.value = (response.data?.items || []).filter(item => !acknowledgingIds.has(item.id))
   } catch (error) {
+    if (version !== pendingVersion) return
     console.warn('加载重要通知失败:', error)
+    return false
   }
 }
 
@@ -211,6 +221,7 @@ function acknowledge() {
   const disableFutureEarnings =
     notice.notification_type === 'shared_domain_earnings' && suppressFutureEarnings.value
   acknowledgingIds.add(notice.id)
+  pendingVersion++
   errorMessage.value = ''
 
   if (presentation.value.effect === 'coins') {
@@ -227,16 +238,16 @@ function acknowledge() {
   if (disableFutureEarnings)
     pending.value = pending.value.filter((item) => item.notification_type !== 'shared_domain_earnings')
 
-  void acknowledgeInBackground(notice, userId, disableFutureEarnings, skippedEarnings)
+  void acknowledgeInBackground(notice, userId, identityVersion, disableFutureEarnings, skippedEarnings)
 }
 
-async function acknowledgeInBackground(notice, userId, disableFutureEarnings, skippedEarnings) {
+async function acknowledgeInBackground(notice, userId, version, disableFutureEarnings, skippedEarnings) {
   try {
     const response = await acknowledgeImportantNotification(notice.id, {
       disable_future_earnings_notice: disableFutureEarnings
     })
     if (response?.code !== 0) throw new Error('acknowledge failed')
-    if (Number(userStore.user?.id || 0) === userId) {
+    if (identityVersion === version && Number(userStore.user?.id || 0) === userId) {
       window.dispatchEvent(new Event('important-notification:acknowledged'))
       if (disableFutureEarnings)
         window.dispatchEvent(new CustomEvent('shared-earnings-notice:preference-changed', {
@@ -245,20 +256,19 @@ async function acknowledgeInBackground(notice, userId, disableFutureEarnings, sk
     }
   } catch (error) {
     console.error('确认重要通知失败:', error)
-    if (Number(userStore.user?.id || 0) === userId) {
-      pending.value.unshift(notice, ...skippedEarnings)
+    if (identityVersion === version && Number(userStore.user?.id || 0) === userId) {
+      const restored = [notice, ...skippedEarnings]
+      pending.value = [...restored, ...pending.value.filter(item => !restored.some(old => old.id === item.id))]
       await nextTick()
       suppressFutureEarnings.value = disableFutureEarnings
       errorMessage.value = t('importantNotifications.retry')
     }
   } finally {
-    acknowledgingIds.delete(notice.id)
-    if (
-      Number(userStore.user?.id || 0) === userId &&
-      !pending.value.length &&
-      !acknowledgingIds.size
-    )
-      void loadPending()
+    if (identityVersion === version) {
+      pendingVersion++
+      acknowledgingIds.delete(notice.id)
+      if (!acknowledgingIds.size) pendingRefresh.invalidate()
+    }
   }
 }
 
@@ -271,14 +281,29 @@ watch(current, async (notice, previousNotice) => {
 })
 
 watch(
-  () => Number(userStore.user?.id || 0),
-  (userId, previousId) => {
-    if (userId === previousId) return
+  [() => userStore.isAuthenticated, () => Number(userStore.user?.id || 0)],
+  ([authenticated, userId]) => {
+    identityVersion++
+    pendingVersion++
+    unsubscribeAccountState()
     pending.value = []
-    if (userStore.isAuthenticated && userId > 0) void loadPending()
+    acknowledgingIds.clear()
+    if (authenticated && userId > 0) {
+      unsubscribeAccountState = subscribeAccountState(['notifications', 'announcements'], () => {
+        pendingRefresh.invalidate()
+      })
+      pendingRefresh.invalidate()
+    }
   },
   { immediate: true }
 )
+
+onBeforeUnmount(() => {
+  identityVersion++
+  pendingVersion++
+  unsubscribeAccountState()
+  pendingRefresh.dispose()
+})
 </script>
 
 <style scoped>

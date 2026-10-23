@@ -256,6 +256,7 @@ import { mailboxShareAPI } from '@/api/mailboxShare'
 import { showMessage } from '@/utils/message'
 import { getCurrentLocale } from '@/i18n'
 import { registerRealtimeScope, subscribeRealtime } from '@/services/realtimeClient'
+import { createRealtimeRefresh } from '@/services/realtimeRefresh'
 import { isShareTerminalState, resolveShareValidity } from './shareDisplay'
 
 const EmailContentModal = defineAsyncComponent(() => import('@/components/Mail/EmailContentModal.vue'))
@@ -337,6 +338,11 @@ const openEmailModal = (email) => {
 let unsubscribeShareMail = null
 let unsubscribeShareScope = null
 let shareMailStopped = false
+let shareGeneration = 0
+let shareUnavailable = false
+let shareInfoLoaded = false
+let shareNeedsRecovery = false
+let shareRecovery = null
 
 const stopShareMailRealtime = () => {
   shareMailStopped = true
@@ -381,6 +387,13 @@ const stopValidityCountdown = () => {
 }
 
 const markShareExpired = () => {
+  shareUnavailable = true
+  shareGeneration++
+  emailLoadRequestId++
+  loading.value = false
+  loadingEmails.value = false
+  shareNeedsRecovery = false
+  shareRecovery?.dispose()
   shareState.value = 'expired'
   emails.value = []
   emailTotal.value = 0
@@ -392,7 +405,22 @@ const markShareExpired = () => {
   stopValidityCountdown()
 }
 
+const handleUnavailableShare = (err) => {
+  const status = err.response?.status
+  if (status !== 404 && status !== 410) return false
+  markShareExpired()
+  error.value = t(status === 404 ? 'sharePage.shareNotFound' : 'sharePage.shareExpired')
+  if (status === 404) {
+    shareState.value = 'revoked'
+    mailboxes.value = []
+    mailboxCount.value = 0
+    selectedMailbox.value = null
+  }
+  return true
+}
+
 const loadShareInfo = async () => {
+  const generation = shareGeneration
   const shareToken = String(route.params.token || '')
   if (!shareToken) {
     error.value = t('sharePage.invalidLink')
@@ -401,8 +429,10 @@ const loadShareInfo = async () => {
   }
   try {
     const res = await mailboxShareAPI.getShareInfo(shareToken)
-    if (String(route.params.token || '') !== shareToken) return
+    if (generation !== shareGeneration || shareUnavailable) return
     if (res.code === 0) {
+      error.value = ''
+      shareInfoLoaded = true
       mailboxType.value = res.data.mailbox_type
       mailboxes.value = res.data.mailboxes || []
       mailboxCount.value = mailboxes.value.length
@@ -417,32 +447,30 @@ const loadShareInfo = async () => {
       selectedMailbox.value = null
       // 邮箱信息已就绪，先显示列表；邮件列表单独展示加载状态。
       loading.value = false
-      await loadEmails()
+      const result = await loadEmails()
+      if (generation !== shareGeneration || shareUnavailable) return
       if (!isShareTerminalState(shareState.value) && ['system', 'hosted', 'external'].includes(mailboxType.value)) {
         shareMailStopped = false
         connectShareMailRealtime()
       }
+      return result
     } else {
       error.value = res.message || t('sharePage.loadShareFailed')
+      return false
     }
   } catch (err) {
-    if (String(route.params.token || '') !== shareToken) return
+    if (generation !== shareGeneration || shareUnavailable) return
     console.error('加载分享信息失败:', err)
-    if (err.response?.status === 404) {
-      error.value = t('sharePage.shareNotFound')
-    } else if (err.response?.status === 410) {
-      stopValidityCountdown()
-      error.value = t('sharePage.shareExpired')
-    } else {
-      error.value = err.response?.data?.detail || t('sharePage.loadFailed')
-    }
+    if (handleUnavailableShare(err)) return
+    error.value = err.response?.data?.detail || t('sharePage.loadFailed')
+    return false
   } finally {
-    if (String(route.params.token || '') === shareToken) loading.value = false
+    if (generation === shareGeneration) loading.value = false
   }
 }
 
 const loadEmails = async () => {
-  if (isShareTerminalState(shareState.value) || shareState.value === 'expired') return
+  if (shareUnavailable || isShareTerminalState(shareState.value)) return
   const shareToken = String(route.params.token || '')
   const requestId = ++emailLoadRequestId
   loadingEmails.value = true
@@ -462,6 +490,8 @@ const loadEmails = async () => {
       totalPages.value = res.data.pagination?.total_pages || 1
       if (isShareTerminalState(shareState.value)) {
         stopShareMailRealtime()
+        shareRecovery?.dispose()
+        shareNeedsRecovery = false
       }
       // 不自动选中第一封邮件，保持空状态
     } else {
@@ -471,10 +501,7 @@ const loadEmails = async () => {
   } catch (err) {
     if (String(route.params.token || '') !== shareToken || requestId !== emailLoadRequestId) return
     console.error('加载邮件失败:', err)
-    if (err.response?.status === 410) {
-      markShareExpired()
-      return
-    }
+    if (handleUnavailableShare(err)) return
     showMessage(t('sharePage.loadEmailsFailed'), 'error')
     return false
   } finally {
@@ -491,6 +518,8 @@ const handleSelectMailbox = (mailbox) => {
 }
 
 const handleSelectEmail = async (email) => {
+  if (shareUnavailable) return
+  const generation = shareGeneration
   mobileActivePane.value = 'right'
   // 先设置选中状态（显示基本信息）
   selectedEmail.value = email
@@ -502,6 +531,7 @@ const handleSelectEmail = async (email) => {
   try {
     const shareToken = route.params.token
     const res = await mailboxShareAPI.getShareEmailDetail(shareToken, email.id, mailboxType.value)
+    if (generation !== shareGeneration || selectedEmail.value?.id !== email.id) return
     if (res.code === 0 && res.data) {
       // 更新选中邮件的完整内容
       selectedEmail.value = {
@@ -516,11 +546,9 @@ const handleSelectEmail = async (email) => {
       }
     }
   } catch (err) {
+    if (generation !== shareGeneration) return
     console.error('获取邮件详情失败:', err)
-    if (err.response?.status === 410) {
-      markShareExpired()
-      return
-    }
+    if (handleUnavailableShare(err)) return
     showMessage(t('sharePage.loadEmailDetailFailed'), 'error')
   }
 }
@@ -573,12 +601,14 @@ const handleFetchShareEmails = async (mailbox) => {
   )
     return
   const shareToken = route.params.token
+  const generation = shareGeneration
   fetchingShareEmailIds.value = [...fetchingShareEmailIds.value, targetMailboxId]
   closeActionMenu()
   try {
     const res = await mailboxShareAPI.fetchShareEmails(shareToken, {
       mailbox_id: targetMailboxId
     })
+    if (generation !== shareGeneration) return
     if (res.code === 0) {
       const messageType =
         res.data?.success_count === 0 && res.data?.fail_count > 0 ? 'error' : 'success'
@@ -593,7 +623,9 @@ const handleFetchShareEmails = async (mailbox) => {
       showMessage(res.message || t('sharePage.loadEmailsFailed'), 'error')
     }
   } catch (err) {
+    if (generation !== shareGeneration) return
     console.error('分享收取邮件失败:', err)
+    if (handleUnavailableShare(err)) return
     showMessage(err.response?.data?.detail || t('sharePage.loadEmailsFailed'), 'error')
   } finally {
     fetchingShareEmailIds.value = fetchingShareEmailIds.value.filter((id) => id !== targetMailboxId)
@@ -613,7 +645,28 @@ const copyMailboxAddress = (email) => {
   showMessage(t('sharePage.copied'), 'success')
 }
 
+// 仅失败的请求进入退避重试；正常页面依靠既有实时推送。
+const startShareRecovery = () => {
+  shareRecovery?.dispose()
+  const generation = shareGeneration
+  shareRecovery = createRealtimeRefresh(async () => {
+    shareNeedsRecovery = false
+    const result = shareInfoLoaded ? await loadEmails() : await loadShareInfo()
+    if (generation === shareGeneration && !shareUnavailable) shareNeedsRecovery = result === false
+    return result
+  })
+  shareRecovery.invalidate()
+}
+
+const recoverShareOnOnline = () => {
+  if (shareNeedsRecovery && !shareUnavailable) startShareRecovery()
+}
+
 watch(() => route.params.token, () => {
+  shareGeneration++
+  shareUnavailable = false
+  shareInfoLoaded = false
+  shareNeedsRecovery = false
   emailLoadRequestId++
   loadingEmails.value = false
   stopShareMailRealtime()
@@ -627,15 +680,29 @@ watch(() => route.params.token, () => {
   emails.value = []
   selectedMailbox.value = null
   selectedEmail.value = null
+  showEmailModal.value = false
+  modalEmail.value = null
+  emailTotal.value = 0
+  totalPages.value = 1
+  currentPage.value = 1
+  readEmailIds.value = new Set()
+  expireAt.value = null
+  expireMode.value = null
   shareState.value = 'ready'
-  void loadShareInfo()
+  startShareRecovery()
 })
 
 onMounted(() => {
-  loadShareInfo()
+  window.addEventListener('online', recoverShareOnOnline)
+  startShareRecovery()
 })
 
 onUnmounted(() => {
+  shareGeneration++
+  emailLoadRequestId++
+  shareUnavailable = true
+  shareRecovery?.dispose()
+  window.removeEventListener('online', recoverShareOnOnline)
   stopShareMailRealtime()
   stopValidityCountdown()
 })

@@ -1,6 +1,7 @@
 /**
  * 全局消息提示工具
  */
+import { i18n } from '@/i18n'
 
 let messageContainer: HTMLElement | null = null
 let messageTimeout: number | null = null
@@ -16,7 +17,7 @@ export const showMessage = (
   type: 'success' | 'error' | 'info' | 'warning' | 'primary' = 'success',
   duration?: number
 ) => {
-  const displayText = (() => {
+  let displayText = (() => {
     if (typeof msg === 'string') return msg
     if (msg === undefined || msg === null) return ''
     try {
@@ -25,6 +26,11 @@ export const showMessage = (
       return String(msg)
     }
   })()
+
+  // 网关返回的 HTML 错误页只展示可读提示，保留普通业务错误原文。
+  if (type === 'error' && /(?:<|&lt;)\s*(?:!doctype\b|\/?(?:html|head|body|title|h1|center)(?:\s|\/?>|&gt;))/i.test(displayText)) {
+    displayText = i18n.global.t('common.networkErrorRetry')
+  }
 
   // 清除之前的消息
   if (messageContainer) {

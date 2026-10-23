@@ -2,7 +2,10 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { describe, expect, it, vi } from 'vitest'
 
 const { getAccounts } = vi.hoisted(() => ({ getAccounts: vi.fn() }))
-vi.mock('vue-i18n', () => ({ useI18n: () => ({ t: (key: string) => key }) }))
+vi.mock('vue-i18n', async importOriginal => ({
+  ...await importOriginal<typeof import('vue-i18n')>(),
+  useI18n: () => ({ t: (key: string) => key })
+}))
 vi.mock('@/services/api', () => ({ isTauri: () => false }))
 vi.mock('@/api/smtpAccounts', () => ({ default: { getAccounts } }))
 vi.mock('@/api/mailboxProxy', () => ({ default: {} }))

@@ -371,6 +371,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import browserWorkflowApi from '@/api/browserWorkflow'
+import { createWorkflowExecutionConnection } from '@/services/browserWorkflowRealtime'
 import CustomSelect from '@/components/CustomSelect/index.vue'
 import BrowserRuntimeDialog from '@/components/BrowserRuntimeDialog/index.vue'
 import OAuth2AuthModal from '@/components/Mail/OAuth2AuthModal.vue'
@@ -514,8 +515,7 @@ const dragState = ref(null)
 const panState = ref(null)
 const linkPreview = ref({ x: 0, y: 0, visible: false })
 const nodeWasDragged = ref(false)
-let executionSocket
-let executionSocketConnectVersion = 0
+let executionConnection
 const insertedRecordingGroupKeys = new Set()
 
 const nodeMenuGroups = ref(NODE_MENU_GROUPS)
@@ -1901,6 +1901,7 @@ function handleExecutionMessage(payload) {
         })
       }
     }
+    if (['succeeded', 'failed', 'cancelled'].includes(executionStatus.value) && !recordingSessionActive.value) closeExecutionSocket()
     return
   }
   if (payload?.type === 'execution_event') {
@@ -2036,32 +2037,19 @@ function handleExecutionMessage(payload) {
     showMessage(payload.message || '浏览器助手已更新工作流', 'success')
   }
 }
-async function connectExecutionSocket() {
+function connectExecutionSocket() {
   closeExecutionSocket()
   if (!executionId.value) return
-  const connectVersion = executionSocketConnectVersion
-  const targetExecutionId = executionId.value
-  try {
-    const response = await browserWorkflowApi.createExecutionSocketTicket(targetExecutionId, { suppressErrorMessage: true })
-    const ticket = String(response?.data?.ticket || '')
-    if (connectVersion !== executionSocketConnectVersion || executionId.value !== targetExecutionId) return
-    if (!ticket) throw new Error('未获取到连接票据')
-    executionSocket = new WebSocket(browserWorkflowApi.executionSocketUrl(targetExecutionId, ticket))
-  } catch {
-    showMessage('执行日志连接失败，浏览器操作不受影响', 'warning')
-    return
-  }
-  executionSocket.onmessage = event => {
-    try { handleExecutionMessage(JSON.parse(event.data)) } catch { /* ignore malformed push */ }
-  }
-  executionSocket.onerror = () => showMessage('执行日志连接中断，浏览器操作不受影响', 'warning')
+  executionConnection = createWorkflowExecutionConnection(
+    executionId.value,
+    handleExecutionMessage,
+    () => showMessage('执行日志暂不可用，浏览器操作不受影响', 'warning'),
+  )
+  executionConnection.start()
 }
 function closeExecutionSocket() {
-  executionSocketConnectVersion += 1
-  if (!executionSocket) return
-  executionSocket.onclose = null
-  executionSocket.close()
-  executionSocket = null
+  executionConnection?.stop()
+  executionConnection = null
 }
 async function resumeExecution() {
   if (!executionId.value || !waitingNodeId.value) return
