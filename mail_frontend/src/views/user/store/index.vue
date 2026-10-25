@@ -87,8 +87,8 @@
           <PayoutAccountCard :accounts="accounts" :loading="accountsLoading" :error="accountsError" @refresh="loadAccounts" />
           <div class="rounded-xl border border-emerald-100 bg-emerald-50/70 px-4 py-4 text-xs leading-5 text-emerald-900">
             <p class="font-semibold">关于收款</p>
-            <p class="mt-1 text-emerald-800">销售收益先进入平台奶片余额。需要提现时，选择已绑定账户提交申请；审核通过后由平台打款。</p>
-            <router-link to="/user/finance" class="mt-2 inline-flex font-semibold text-emerald-700 hover:underline">查看财务与提现 →</router-link>
+            <p class="mt-1 text-emerald-800">销售收益进入通用奶片余额，可继续消费。当前已关闭新的提现申请。</p>
+            <router-link to="/user/finance" class="mt-2 inline-flex font-semibold text-emerald-700 hover:underline">查看余额与流水 →</router-link>
           </div>
         </div>
       </div>

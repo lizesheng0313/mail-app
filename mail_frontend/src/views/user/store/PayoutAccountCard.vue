@@ -9,7 +9,7 @@
             </span>
             <h2 class="text-base font-semibold text-slate-900">收款账户</h2>
           </div>
-          <p class="mt-2 text-sm leading-6 text-slate-500">填写真实收款人和账号，提现申请会使用选定的账户。</p>
+          <p class="mt-2 text-sm leading-6 text-slate-500">保留已有收款资料供历史记录核对；当前已关闭新的提现申请。</p>
         </div>
         <span v-if="defaultAccount" class="shrink-0 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">已绑定</span>
       </div>
@@ -173,7 +173,7 @@ const makeDefault = async account => {
   }
 }
 const remove = async account => {
-  if (!await showConfirm('删除后此账户不能用于新的提现申请，确定删除吗？', '删除收款账户')) return
+  if (!await showConfirm('确定删除此收款账户资料吗？', '删除收款账户')) return
   busy.value = true
   try {
     const response = await deleteAccount(account.id)
