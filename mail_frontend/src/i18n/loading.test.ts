@@ -8,6 +8,10 @@ beforeEach(() => {
 })
 
 describe('language loading', () => {
+  it.each([['zh-CN', 'zh-CN'], ['zh-SG', 'zh-CN'], ['zh-TW', 'zh-TW'], ['zh-Hant', 'zh-TW'], ['en-US', 'en'], ['fr-FR', 'en'], ['de-DE', 'en'], ['ja-JP', 'en']])('selects %s browser language as %s', async (browser, expected) => {
+    const { normalizeLocale } = await import('./index')
+    expect(normalizeLocale(browser)).toBe(expected)
+  })
   it('loads English and Traditional Chinese only when selected', async () => {
     const { i18n, setI18nLocale } = await import('./index')
     expect(i18n.global.availableLocales).toEqual(['zh-CN'])

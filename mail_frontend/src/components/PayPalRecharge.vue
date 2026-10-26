@@ -13,8 +13,9 @@
     <p v-if="loading || pending" role="status" class="mt-4 text-sm text-gray-600">{{ t(pending ? 'paypalRecharge.confirming' : 'paypalRecharge.loading') }}</p>
     <p v-if="!loading && !enabled" class="mt-4 text-sm text-gray-500">{{ t(setupRequired ? 'paypalRecharge.setupRequired' : 'paypalRecharge.unavailable') }}</p>
     <p v-if="error" role="alert" class="mt-3 text-sm text-red-600">{{ error }}</p>
-    <div ref="buttonContainer" class="mt-4 min-h-10" />
-    <button v-if="error && !pending" class="mt-3 text-sm text-primary-600 underline" type="button" @click="initialize">{{ t('common.retry') }}</button>
+    <p v-if="enabled && !amountValid" role="alert" class="mt-3 text-sm text-red-600">{{ t('paypalRecharge.invalidAmount') }}</p>
+    <div v-show="amountValid" ref="buttonContainer" class="mt-4 min-h-10" />
+    <button v-if="error && !pending" class="mt-3 text-sm text-primary-600 underline" type="button" @click="activeOrderNo ? checkOriginalOrder() : initialize()">{{ t(activeOrderNo ? 'paypalOrders.check' : 'common.retry') }}</button>
   </section>
 </template>
 
@@ -24,7 +25,7 @@ import { useI18n } from 'vue-i18n'
 import api from '@/services/api'
 
 const props = defineProps({ initialAmount: { type: [String, Number], default: '' }, checkoutOnly: Boolean })
-const emit = defineEmits(['paid', 'busy-change'])
+const emit = defineEmits(['paid', 'busy-change', 'order-created'])
 const { t } = useI18n()
 const amount = ref(props.initialAmount)
 const displayAmount = computed(() => {
@@ -38,11 +39,30 @@ const sandbox = ref(false)
 const setupRequired = ref(false)
 const loading = ref(true)
 const error = ref('')
+const minAmount = ref(1), maxAmount = ref(1000)
+const amountValid = computed(() => /^\d+(\.\d{1,2})?$/.test(String(amount.value).trim()) && Number(amount.value) >= minAmount.value && Number(amount.value) <= maxAmount.value)
+const activeOrderNo = ref('')
 const buttonContainer = ref(null)
 let buttons
 let active = true
 let initializing = false
 watch(() => props.initialAmount, value => { if (!pending.value) amount.value = value })
+
+async function checkOriginalOrder() {
+  if (pending.value || !activeOrderNo.value) return
+  pending.value = true
+  try {
+    const response = await api.post(`/recharge/paypal/orders/${encodeURIComponent(activeOrderNo.value)}/check`, {}, { timeout: 60000, silentErrorMessage: true })
+    if (!active) return
+    if (response.code !== 0 || !['paid', 'review'].includes(response.data?.status)) throw new Error('Pending')
+    error.value = response.data.status === 'review' ? t('paypalRecharge.review') : ''
+    emit('paid', response.data)
+  } catch {
+    if (active) error.value = t('paypalRecharge.pending')
+  } finally {
+    pending.value = false
+  }
+}
 
 async function loadSdk(clientId) {
   const scriptId = 'mail-paypal-sdk'
@@ -84,6 +104,8 @@ async function initialize() {
     enabled.value = config.code === 0 && config.data?.enabled === true
     sandbox.value = config.data?.environment === 'sandbox'
     setupRequired.value = config.data?.setup_required === true
+    minAmount.value = Number(config.data?.min_amount || 1)
+    maxAmount.value = Number(config.data?.max_amount || 1000)
     if (!enabled.value) return
     const sdk = await loadSdk(config.data.client_id)
     if (!active) return
@@ -92,7 +114,7 @@ async function initialize() {
       style: { layout: 'vertical', label: 'pay' },
       async createOrder() {
         const value = String(amount.value).trim()
-        if (!/^\d+(\.\d{1,2})?$/.test(value) || Number(value) < 1 || Number(value) > 1000) {
+        if (!amountValid.value) {
           error.value = t('paypalRecharge.invalidAmount')
           throw new Error('Invalid amount')
         }
@@ -101,6 +123,8 @@ async function initialize() {
         try {
           const response = await api.post('/recharge/paypal/create-order', { amount: value })
           if (response.code !== 0 || !response.data?.paypal_order_id) throw new Error('Order unavailable')
+          activeOrderNo.value = response.data.order_no || ''
+          emit('order-created')
           return response.data.paypal_order_id
         } catch {
           pending.value = false
@@ -112,6 +136,7 @@ async function initialize() {
         pending.value = true
         try {
           const response = await api.post(`/recharge/paypal/capture/${encodeURIComponent(data.orderID)}`, {}, { timeout: 60000 })
+          if (!active) return
           if (response.code !== 0 || !['paid', 'review'].includes(response.data?.status)) throw new Error('Payment pending')
           error.value = response.data.status === 'review' ? t('paypalRecharge.review') : ''
           emit('paid', response.data)

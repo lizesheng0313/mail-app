@@ -82,6 +82,7 @@
         </div>
       </div>
 
+      <PayPalFinance v-if="activeTab === 'paypal'" />
       <!-- 提现申请 -->
       <div v-if="activeTab === 'withdrawals'">
         <!-- 筛选栏 -->
@@ -244,10 +245,12 @@ import CustomSelect from '@/components/CustomSelect/index.vue'
 import ActionButton from '@/components/ActionButton/index.vue'
 import BaseIcon from '@/components/BaseIcon/index.vue'
 import api from '@/services/api'
+import PayPalFinance from './PayPalFinance.vue'
 
 // Tab 切换
 const activeTab = ref('withdrawals')
 const tabs = [
+  { key: 'paypal', label: 'PayPal 充值与核对' },
   { key: 'withdrawals', label: '提现申请' },
   { key: 'statistics', label: '收益统计' }
 ]

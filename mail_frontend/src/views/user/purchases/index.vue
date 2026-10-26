@@ -293,6 +293,13 @@
           </div>
 
           <div v-if="selectedItem" class="space-y-4">
+            <dl v-if="selectedItem.paypal_order_id" class="space-y-2 rounded-xl bg-gray-50 p-4 text-sm break-all">
+              <div class="font-semibold">PayPal · {{ selectedItem.payment_currency }} {{ selectedItem.payment_amount }}</div>
+              <div>{{ t('paypalOrders.orderNo') }}: {{ selectedItem.order_no }}</div>
+              <div>PayPal: {{ selectedItem.paypal_order_id }}</div>
+              <div v-if="selectedItem.capture_id">{{ t('paypalOrders.captureId') }}: {{ selectedItem.capture_id }}</div>
+              <div>{{ t(`paypalOrders.${selectedItem.payment_status}`) }}</div>
+            </dl>
             <div class="grid grid-cols-2 gap-4">
               <div>
                 <div class="text-sm text-gray-600 mb-1">{{ t('purchasesPage.transactionNo') }}</div>

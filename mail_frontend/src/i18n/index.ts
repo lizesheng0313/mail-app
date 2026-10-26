@@ -17,7 +17,7 @@ export const normalizeLocale = (value?: string | null): SupportedLocale => {
   ) {
     return 'zh-TW'
   }
-  return 'zh-CN'
+  return !raw || raw.startsWith('zh') ? 'zh-CN' : 'en'
 }
 
 export const detectInitialLocale = (): SupportedLocale => {

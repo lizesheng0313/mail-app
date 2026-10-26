@@ -1884,9 +1884,9 @@ const executeNow = async () => {
   // 如果是付费工作流,检查余额
   if (model === 'per_use' && price > 0) {
     try {
-      const balanceRes = await getBalance()
+      const balanceRes = await getBalance('general')
       if (balanceRes.code === 0) {
-        const userBalance = balanceRes.data.balance || 0
+        const userBalance = balanceRes.data.purchase_balance ?? balanceRes.data.general_balance ?? 0
         const totalPrice = totalExecutionPrice.value
 
         // 余额不足,引导充值

@@ -408,7 +408,13 @@ const customGenerateLoading = ref(false)
 const domainLoading = ref(false)
 const domainOptions = ref<any[]>([])
 const allSystemDomainsSelected = ref(false)
-const customGenerateBalance = ref(0)
+const customGenerateWallet = ref<any>({ balance: 0 })
+const customGenerateBalance = computed(() => {
+  const wallet = customGenerateWallet.value
+  const serviceAllowed = isHostedMailbox.value || selectedSystemDomains.value.every(item =>
+    item.domain_source ? item.domain_source === 'platform' : !String(item.id).startsWith('shared:'))
+  return Number(serviceAllowed ? wallet.balance || 0 : wallet.general_balance ?? (wallet.paypal_service_balance ? 0 : wallet.balance) ?? 0)
+})
 const domainSearchKeyword = ref('')
 const customGenerateForm = ref({
   domain_ids: [] as string[],
@@ -546,7 +552,7 @@ const customGeneratePricingSummary = computed(() => {
           ? `${uniqueUnitPrices[0]}`
           : `${Math.min(...uniqueUnitPrices)}-${Math.max(...uniqueUnitPrices)}`,
       totalCostText: total.toFixed(2),
-      balanceRequired: total,
+      balanceRequired: Number(total.toFixed(2)),
       isRange: uniqueUnitPrices.length > 1
     }
   }
@@ -556,7 +562,7 @@ const customGeneratePricingSummary = computed(() => {
     return {
       unitPriceText: `${uniqueUnitPrices[0]}`,
       totalCostText: total.toFixed(2),
-      balanceRequired: total,
+      balanceRequired: Number(total.toFixed(2)),
       isRange: false
     }
   }
@@ -566,7 +572,7 @@ const customGeneratePricingSummary = computed(() => {
   return {
     unitPriceText: `${minUnit}-${maxUnit}`,
     totalCostText: `${(minUnit * normalizedCustomGenerateQuantity.value).toFixed(2)}-${(maxUnit * normalizedCustomGenerateQuantity.value).toFixed(2)}`,
-    balanceRequired: maxUnit * normalizedCustomGenerateQuantity.value,
+    balanceRequired: Number((maxUnit * normalizedCustomGenerateQuantity.value).toFixed(2)),
     isRange: true
   }
 })
@@ -704,7 +710,7 @@ const loadCustomGenerateResources = async () => {
         syncCustomGenerateDomainSelection()
       }
       const balanceRes = await balancePromise
-      customGenerateBalance.value = balanceRes.code === 0 ? Number(balanceRes.data?.balance || 0) : 0
+      customGenerateWallet.value = balanceRes.code === 0 ? balanceRes.data || { balance: 0 } : { balance: 0 }
       return
     }
 
@@ -715,7 +721,7 @@ const loadCustomGenerateResources = async () => {
     const balanceRes = await balancePromise
 
     if (balanceRes.code === 0 && balanceRes.data) {
-      customGenerateBalance.value = Number(balanceRes.data.balance || 0)
+      customGenerateWallet.value = balanceRes.data
     }
   } catch (error) {
     console.error('加载指定生成配置失败:', error)

@@ -70,6 +70,7 @@
             </button>
           </div>
         </section>
+        <PayPalOrders ref="paypalOrders" @paid="handlePayPalPaid" />
       </div>
     </div>
 
@@ -103,7 +104,7 @@
                 <span class="text-2xl font-bold text-gray-900">{{ selectedMethod === 'paypal' ? 'USD' : 'CNY' }} {{ checkoutAmount }}</span>
               </div>
 
-              <PayPalRecharge v-if="selectedMethod === 'paypal'" :initial-amount="checkoutAmount" checkout-only @paid="handlePayPalPaid" @busy-change="paypalBusy = $event" />
+              <PayPalRecharge v-if="selectedMethod === 'paypal'" :initial-amount="checkoutAmount" checkout-only @paid="handlePayPalPaid" @order-created="paypalOrders?.reload()" @busy-change="paypalBusy = $event" />
               <div v-else>
                 <button type="button" :disabled="creating" @click="submitRecharge"
                   class="mt-4 w-full rounded-lg bg-primary-600 px-4 py-3 font-medium text-white hover:bg-primary-700 disabled:opacity-50">
@@ -139,6 +140,7 @@ import { ArrowRightIcon, WalletIcon, XMarkIcon } from '@heroicons/vue/24/outline
 import { CheckCircleIcon } from '@heroicons/vue/24/solid'
 import MilkAccountTabs from '@/components/MilkAccountTabs.vue'
 import PayPalRecharge from '@/components/PayPalRecharge.vue'
+import PayPalOrders from '@/components/PayPalOrders.vue'
 import { getBalance } from '@/api/milkCoin'
 import api from '@/services/api'
 import { showMessage } from '@/utils/message'
@@ -158,6 +160,7 @@ const checkoutAmount = ref('')
 const paymentMethods = getRechargePaymentMethods()
 const selectedMethod = ref(paymentMethods[0])
 const paypalBusy = ref(false)
+const paypalOrders = ref(null)
 const checkoutBusy = computed(() => creating.value || paypalBusy.value)
 const showQrCode = ref(false)
 const qrcodeCanvas = ref(null)
@@ -192,6 +195,7 @@ async function loadBalance() {
 
 function handlePayPalPaid(result) {
   loadBalance()
+  paypalOrders.value?.reload()
   showMessage(t(result.status === 'review' ? 'paypalRecharge.review' : 'profile.rechargeSuccess'), result.status === 'review' ? 'warning' : 'success')
   // onApprove is still finishing; let the child unlock before closing the dialog.
   nextTick(() => closePayment())

@@ -13,7 +13,7 @@
           <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
           </svg>
-          <span class="text-sm">{{ t('paymentPage.currentBalance') }}</span>
+          <span class="text-sm">{{ t('purchaseBalance.available') }}</span>
           <span class="text-xl font-bold ml-1">{{ userMilkCoins }}</span>
           <span class="text-sm ml-1">{{ t('paymentPage.coins') }}</span>
           <router-link to="/user/finance#recharge" class="ml-3 text-xs bg-white text-primary-600 px-3 py-1 rounded-full hover:bg-opacity-90 transition-colors">
@@ -68,7 +68,7 @@
               <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
               </svg>
-              <span class="font-semibold">{{ pkg.quota.toLocaleString() }} 封</span>
+              <span class="font-semibold">{{ t('paypalRecharge.emailCount', { count: pkg.quota.toLocaleString() }) }}</span>
             </div>
           </div>
 
@@ -116,6 +116,7 @@
             <div v-if="buyingPackageId === pkg.id" class="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
             <span>{{ buyingPackageId === pkg.id ? t('paymentPage.processing') : t('paymentPage.buyNow') }}</span>
           </button>
+          <p v-if="shortfall(pkg.price) > 0" class="mt-2 text-center text-sm text-gray-500">{{ t('purchaseBalance.shortfall', { count: shortfall(pkg.price).toFixed(2) }) }}</p>
         </div>
       </div>
 
@@ -211,6 +212,7 @@
             <span v-else-if="pluginInfo?.user_has_authorization">{{ t('paymentPage.renew') }}</span>
             <span v-else>{{ t('paymentPage.buyNow') }}</span>
           </button>
+          <p v-if="shortfall(pricing.price) > 0" class="mt-2 text-center text-sm text-gray-500">{{ t('purchaseBalance.shortfall', { count: shortfall(pricing.price).toFixed(2) }) }}</p>
         </div>
       </div>
     </div>
@@ -267,6 +269,7 @@ const pluginInfo = ref<any>(null)
 const loading = ref(true)
 const buyingPackageId = ref<number | null>(null)
 const userMilkCoins = ref(0)
+const shortfall = (price: number) => Math.max(0, Number(price) - Number(userMilkCoins.value))
 const showConfirmDialog = ref(false)
 const confirmDialogTitle = ref('')
 const confirmDialogMessage = ref('')
@@ -283,7 +286,7 @@ const pageTitle = computed(() => {
     return pluginInfo.value?.name || t('paymentPage.choosePluginPlan')
   }
   if (purchaseType.value === 'email-package') {
-    return '购买邮件包'
+    return t('purchaseBalance.emailTitle')
   }
   return ''
 })
@@ -293,7 +296,7 @@ const pageSubtitle = computed(() => {
     return t('paymentPage.pluginSubtitle')
   }
   if (purchaseType.value === 'email-package') {
-    return '按邮件封数补充发送额度'
+    return t('purchaseBalance.emailSubtitle')
   }
   return ''
 })
@@ -301,13 +304,16 @@ const pageSubtitle = computed(() => {
 // 获取用户奶片余额
 const loadUserMilkCoins = async () => {
   try {
-    const res = await api.get('/milk-coins/balance')
+    const scope = purchaseType.value === 'email-package' ? 'platform_services' : 'general'
+    const res = await api.get('/milk-coins/balance', { params: { scope } })
     if (res.code === 0 && res.data) {
-      userMilkCoins.value = res.data.balance || 0
+      userMilkCoins.value = res.data.purchase_balance ?? (scope === 'general' ? res.data.general_balance : res.data.balance) ?? 0
+      return true
     }
   } catch (error: any) {
     console.error('获取奶片余额错误：', error)
   }
+  return false
 }
 
 const loadEmailPackages = async () => {
@@ -317,7 +323,7 @@ const loadEmailPackages = async () => {
     if (res.code === 0) {
       emailPackages.value = (res.data?.packages || []).map((item: any) => ({
         id: Number(item.quota || 0),
-        name: item.name || `${Number(item.quota || 0).toLocaleString()}封套餐`,
+        name: item.name || t('purchaseBalance.emailPackage', { count: Number(item.quota || 0).toLocaleString() }),
         quota: Number(item.quota || 0),
         price: Number(item.price || 0),
         originalPrice: Number(item.original_price || item.price || 0),
@@ -356,6 +362,14 @@ const loadPluginPricing = async () => {
 
 // 统一购买处理（使用奶片）
 const handleBuy = async (item: any) => {
+  if (!await loadUserMilkCoins()) {
+    showMessage(t('common.networkErrorRetry'), 'error')
+    return
+  }
+  if (shortfall(item.price) > 0) {
+    showMessage(t('purchaseBalance.shortfall', { count: shortfall(item.price).toFixed(2) }), 'warning')
+    return
+  }
   // 设置确认对话框内容
   if (purchaseType.value === 'plugin') {
     // 检查是否已有套餐
@@ -365,7 +379,7 @@ const handleBuy = async (item: any) => {
     let message = t('paymentPage.confirmPluginMessage', {
       name: getDurationName(item.duration_type),
       days: item.duration_days,
-      price: Math.floor(item.price)
+      price: Number(item.price).toFixed(2)
     })
     
     if (hasActivePlan) {
@@ -374,8 +388,8 @@ const handleBuy = async (item: any) => {
     
     confirmDialogMessage.value = message
   } else if (purchaseType.value === 'email-package') {
-    confirmDialogTitle.value = '购买邮件包'
-    confirmDialogMessage.value = `确认购买 ${Number(item.quota).toLocaleString()} 封邮件吗？本次将扣除 ${item.price} 奶片。`
+    confirmDialogTitle.value = t('purchaseBalance.emailTitle')
+    confirmDialogMessage.value = t('purchaseBalance.emailConfirm', { count: Number(item.quota).toLocaleString(), price: item.price })
   }
   
   currentBuyingItem.value = item
@@ -411,7 +425,7 @@ const confirmBuy = async () => {
       })
 
       if (res.code === 0) {
-        showMessage('购买成功', 'success')
+        showMessage(t('purchaseBalance.success'), 'success')
         showConfirmDialog.value = false
         setTimeout(() => {
           router.push('/user/email-reach/dashboard')

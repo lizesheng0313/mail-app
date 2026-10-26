@@ -13,8 +13,8 @@ export function getFeeConfig() {
 /**
  * 获取用户奶片余额 (从token自动获取user_id)
  */
-export function getBalance() {
-  return api.get('/milk-coins/balance')
+export function getBalance(scope) {
+  return scope ? api.get('/milk-coins/balance', { params: { scope } }) : api.get('/milk-coins/balance')
 }
 
 /**

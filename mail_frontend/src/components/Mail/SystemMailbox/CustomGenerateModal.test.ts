@@ -99,6 +99,59 @@ describe('temporary mailbox random length', () => {
     }))
     wrapper.unmount()
   })
+
+  it.each(['round_robin', 'random'])('accepts an exact 0.60 balance for three mailboxes with %s domains', async (domainStrategy) => {
+    getBalance.mockResolvedValue({ code: 0, data: { balance: '0.60', general_balance: '0.00', paypal_service_balance: '0.60' } })
+    const wrapper = mount(CustomGenerateModal, {
+      props: { visible: true, mailboxType: 'system' },
+      global: { stubs: { teleport: true } }
+    })
+    try {
+      await flushPromises()
+      await wrapper.get('input[type="number"][max="200"]').setValue('3')
+      wrapper.findComponent(CustomSelect).vm.$emit('update:modelValue', domainStrategy)
+      await flushPromises()
+      const generateButton = wrapper.findComponent(BaseModal).findAll('button')
+        .find(button => button.text() === 'home.customGenerateConfirm')!
+      await generateButton.trigger('click')
+      await flushPromises()
+      const dialog = wrapper.findComponent(ConfirmDialog)
+      expect(dialog.props('confirmText')).toBe('home.customGenerateConfirm')
+      expect(dialog.props('message')).toContain('"cost":"0.60"')
+      await dialog.get('button').trigger('click')
+      await flushPromises()
+      expect(customGenerateSystemMailboxes).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ quantity: 3 }))
+    } finally { wrapper.unmount() }
+  })
+
+  it.each([
+    { source: 'platform', held: false, allowed: true },
+    { source: 'shared', held: false, allowed: false },
+    { source: 'platform', held: true, allowed: false },
+  ])('checks the selected $source domain against usable PayPal credits (held=$held)', async ({ source, held, allowed }) => {
+    getSystemDomains.mockResolvedValue({ code: 0, data: { items: [{
+      id: `${source}:1`, domain_source: source, domain_name: 'selected.example', expires_at: null
+    }] } })
+    getBalance.mockResolvedValue({ code: 0, data: {
+      balance: held ? '0.00' : '1.00', general_balance: '0.00', paypal_service_balance: '1.00', paypal_wallet_blocked: held
+    } })
+    const wrapper = mount(CustomGenerateModal, {
+      props: { visible: true, mailboxType: 'system' },
+      global: { stubs: { teleport: true } }
+    })
+    try {
+      await flushPromises()
+      await wrapper.get('input[type="number"][max="200"]').setValue('1')
+      const generateButton = wrapper.findComponent(BaseModal).findAll('button')
+        .find(button => button.text() === 'home.customGenerateConfirm')!
+      await generateButton.trigger('click')
+      await flushPromises()
+      const dialog = wrapper.findComponent(ConfirmDialog)
+      expect(dialog.props('confirmText')).toBe(allowed ? 'home.customGenerateConfirm' : 'home.goRecharge')
+      if (!allowed) expect(dialog.props('message')).toContain('"balance":"0.00"')
+      expect(customGenerateSystemMailboxes).not.toHaveBeenCalled()
+    } finally { wrapper.unmount() }
+  })
 })
 
 describe('hosted mailbox generation domain picker', () => {
