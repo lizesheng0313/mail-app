@@ -86,14 +86,45 @@ export const mailboxShareAPI = {
    * @param {number} page
    * @param {number} pageSize
    */
-  getMyShares(page = 1, pageSize = 20, asGuest = false, search = '') {
+  getMyShares(page = 1, pageSize = 20, asGuest = false, search = '', groupByBatch = false) {
     const guestTokens = asGuest ? getStoredGuestClaimTokens() : []
     if (asGuest && !guestTokens.length) {
       return Promise.resolve({ code: 0, data: { shares: [], pagination: { total: 0 } } })
     }
     return request.get('/mailbox-share/my/list', {
-      params: { page, page_size: pageSize, ...(search ? { search } : {}) },
+      params: { page, page_size: pageSize, ...(search ? { search } : {}), ...(groupByBatch ? { group_by_batch: true } : {}) },
       skipAuth: asGuest,
+      ...(guestTokens.length ? { headers: { 'X-Guest-Mailbox-Tokens': guestTokens.join(',') } } : {})
+    })
+  },
+
+  getMyShareBatches(page = 1, pageSize = 20, asGuest = false, search = '') {
+    return mailboxShareAPI.getMyShares(page, pageSize, asGuest, search, true)
+  },
+
+  updateBatchNote(batchKey, note, asGuest = false) {
+    const guestTokens = asGuest ? getStoredGuestClaimTokens() : []
+    return request.patch(`/mailbox-share/batches/${encodeURIComponent(batchKey)}/note`, { batch_title: note }, {
+      skipAuth: asGuest,
+      suppressErrorMessage: true,
+      ...(guestTokens.length ? { headers: { 'X-Guest-Mailbox-Tokens': guestTokens.join(',') } } : {})
+    })
+  },
+
+  updateLinkNote(shareId, note, asGuest = false) {
+    const guestTokens = asGuest ? getStoredGuestClaimTokens() : []
+    return request.patch(`/mailbox-share/${shareId}/note`, { link_note: note }, {
+      skipAuth: asGuest,
+      suppressErrorMessage: true,
+      ...(guestTokens.length ? { headers: { 'X-Guest-Mailbox-Tokens': guestTokens.join(',') } } : {})
+    })
+  },
+
+  deleteShareBatches(batchKeys, asGuest = false) {
+    const guestTokens = asGuest ? getStoredGuestClaimTokens() : []
+    return request.post('/mailbox-share/batch-delete-groups', { batch_keys: batchKeys }, {
+      skipAuth: asGuest,
+      suppressErrorMessage: true,
       ...(guestTokens.length ? { headers: { 'X-Guest-Mailbox-Tokens': guestTokens.join(',') } } : {})
     })
   },

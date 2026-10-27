@@ -268,7 +268,7 @@ type ApiKeyItem = {
 }
 
 const userStore = useUserStore()
-const { t } = useI18n()
+const { t, locale } = useI18n()
 
 const keysLoading = ref(false)
 const submittingKey = ref(false)
@@ -326,7 +326,7 @@ const fallbackRecommendedScopes = [
 const availableScopes = ref<string[]>([...fallbackAvailableScopes])
 const recommendedScopes = ref<string[]>([...fallbackRecommendedScopes])
 const localizedScopeLabelMap = ref<Record<string, string>>({})
-const listSeparator = computed(() => getCurrentLocale().startsWith('en') ? ', ' : '、')
+const listSeparator = computed(() => /^(zh|ja)/.test(locale.value) ? '、' : ', ')
 
 const statusOptions = computed(() => [
   { label: t('developer.allStatus'), value: '' },
@@ -382,13 +382,11 @@ const deleteConfirmMessage = computed(() => {
   return t('developer.deleteMessageNamed', { name: pendingDeleteKey.value.name })
 })
 
-const getScopeLabel = (scope: string) => localizedScopeLabelMap.value[scope] || fallbackScopeLabelMap.value[scope] || scope
+const getScopeLabel = (scope: string) => fallbackScopeLabelMap.value[scope] || localizedScopeLabelMap.value[scope] || scope
 
 const getScopeSummary = (item: ApiKeyItem) => {
   const scopes = (item.scopes || []).filter((scope) => availableScopes.value.includes(scope))
-  const labels = item.scope_labels?.length
-    ? item.scope_labels.filter((_, index) => availableScopes.value.includes((item.scopes || [])[index]))
-    : scopes.map(getScopeLabel)
+  const labels = scopes.map(getScopeLabel)
 
   if (labels.length === 0) return '-'
   if (labels.length <= 2) return labels.join(listSeparator.value)

@@ -1,104 +1,130 @@
 <template>
   <section class="flex h-full min-h-0 flex-col gap-3">
     <div class="flex shrink-0 flex-wrap items-center gap-2 rounded-lg border border-gray-200 bg-white p-3 shadow-sm sm:p-4">
-      <BaseInput
-        v-model="searchInput"
-        type="search"
-        size="sm"
-        class="min-w-[180px] flex-1 sm:max-w-xs"
-        :placeholder="t('shareMailbox.searchPlaceholder')"
-        :aria-label="t('shareMailbox.searchPlaceholder')"
-        @enter="handleSearch"
-      />
+      <BaseInput v-model="searchInput" type="search" size="sm" class="min-w-[180px] flex-1 sm:max-w-xs" :placeholder="t('shareMailbox.batchSearchPlaceholder')" :aria-label="t('shareMailbox.batchSearchPlaceholder')" @enter="handleSearch" />
       <button type="button" class="rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50" :disabled="loadingShares" @click="handleSearch">{{ t('shareMailbox.search') }}</button>
       <button v-if="activeSearch" type="button" class="rounded-md px-3 py-2 text-sm text-gray-600 hover:bg-gray-100" @click="clearSearch">{{ t('shareMailbox.clearSearch') }}</button>
-      <div v-if="selectedShareIds.length" class="ml-auto flex items-center gap-3">
-        <span class="whitespace-nowrap text-sm text-gray-600">{{ t('shareMailbox.selectedCount', { count: selectedShareIds.length }) }}</span>
-        <button type="button" class="inline-flex items-center gap-1 rounded-md bg-primary-600 px-3 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50" :disabled="deletingShares || loadingShares" @click="pendingRevokeShares = selectedShares">
-          <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-          {{ t('shareMailbox.batchDelete') }}
-        </button>
+      <div v-if="selectedBatchKeys.length" class="ml-auto flex flex-wrap items-center gap-3">
+        <span class="whitespace-nowrap text-sm text-gray-600">{{ t('shareMailbox.selectedBatchCount', { count: selectedBatchKeys.length }) }}</span>
+        <button type="button" class="rounded-md bg-primary-600 px-3 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50" :disabled="deletingShares || loadingShares" @click="confirmBatchDeletion(selectedBatches)">{{ t('shareMailbox.batchDelete') }}</button>
       </div>
     </div>
-    <AdminDataTable
-      class="min-h-0 flex-1"
-      :loading="loadingShares"
-      :pagination="{ page: sharePage, pages: Math.max(1, Math.ceil(totalShares / pageSize)), total: totalShares, limit: pageSize }"
-      :show-page-size-selector="false"
-      :column-count="8"
-      table-class="w-full min-w-[1180px] sm:min-w-[1180px] table-fixed"
-      :fill-empty-height="!managedShares.length"
-      @page-change="loadShares"
-    >
+    <AdminDataTable class="min-h-0 flex-1" :loading="loadingShares" :pagination="{ page: sharePage, pages: Math.max(1, Math.ceil(totalBatches / pageSize)), total: totalBatches, limit: pageSize }" :show-page-size-selector="false" :column-count="9" table-class="w-full min-w-[1280px] sm:min-w-[1280px] table-fixed" :fill-empty-height="!managedBatches.length" @page-change="loadShares">
       <template #thead>
         <tr>
-          <th class="w-[4%] px-3 py-3 text-left"><input type="checkbox" class="h-4 w-4 accent-primary-600" :aria-label="t('shareMailbox.selectPage')" :checked="allPageSelected" :disabled="!managedShares.length || deletingShares || loadingShares" @change="togglePageSelection($event.target.checked)" /></th>
-          <th class="w-[20%] px-4 py-3 text-left text-xs font-medium text-gray-600">{{ t('shareMailbox.mailboxColumn') }}</th>
-          <th class="w-[9%] px-4 py-3 text-left text-xs font-medium text-gray-600">{{ t('shareMailbox.typeColumn') }}</th>
-          <th class="w-[16%] px-4 py-3 text-left text-xs font-medium text-gray-600">{{ t('shareMailbox.createdAtColumn') }}</th>
-          <th class="w-[21%] px-4 py-3 text-left text-xs font-medium text-gray-600">{{ t('shareMailbox.validityColumn') }}</th>
-          <th class="w-[9%] px-4 py-3 text-left text-xs font-medium text-gray-600">{{ t('shareMailbox.statusColumn') }}</th>
-          <th class="w-[13%] px-4 py-3 text-left text-xs font-medium text-gray-600">{{ t('shareMailbox.openCountColumn') }}</th>
-          <th class="w-[8%] px-4 py-3 text-left text-xs font-medium text-gray-600">{{ t('shareMailbox.actionColumn') }}</th>
+          <th class="w-[4%] px-3 py-3 text-left"><input type="checkbox" class="h-4 w-4 accent-primary-600" :aria-label="t('shareMailbox.selectBatchPage')" :checked="allPageSelected" :disabled="!managedBatches.length || deletingShares || loadingShares" @change="togglePageSelection($event.target.checked)" /></th>
+          <th class="w-[23%] px-4 py-3 text-left text-xs font-medium text-gray-600">{{ t('shareMailbox.batchColumn') }}</th>
+          <th class="w-[7%] px-4 py-3 text-left text-xs font-medium text-gray-600">{{ t('shareMailbox.typeColumn') }}</th>
+          <th class="w-[7%] px-4 py-3 text-left text-xs font-medium text-gray-600">{{ t('shareMailbox.linkCountColumn') }}</th>
+          <th class="w-[14%] px-4 py-3 text-left text-xs font-medium text-gray-600">{{ t('shareMailbox.createdAtColumn') }}</th>
+          <th class="w-[15%] px-4 py-3 text-left text-xs font-medium text-gray-600">{{ t('shareMailbox.validityColumn') }}</th>
+          <th class="w-[10%] px-4 py-3 text-left text-xs font-medium text-gray-600">{{ t('shareMailbox.statusColumn') }}</th>
+          <th class="w-[10%] px-4 py-3 text-left text-xs font-medium text-gray-600">{{ t('shareMailbox.openCountColumn') }}</th>
+          <th class="w-[10%] px-4 py-3 text-left text-xs font-medium text-gray-600">{{ t('shareMailbox.actionColumn') }}</th>
         </tr>
       </template>
       <template #tbody>
-        <tr v-if="loadError">
-          <td colspan="8" class="px-6 py-12 text-center text-sm text-red-600">
-            {{ loadError }}
-            <button type="button" class="ml-2 font-medium text-primary-700 hover:underline" @click="loadShares(sharePage)">{{ t('common.retry') }}</button>
+        <tr v-if="loadError"><td colspan="9" class="px-6 py-12 text-center text-sm text-red-600">{{ loadError }} <button type="button" class="ml-2 font-medium text-primary-700 hover:underline" @click="loadShares(sharePage)">{{ t('common.retry') }}</button></td></tr>
+        <tr v-else-if="!managedBatches.length"><td colspan="9" class="px-6 py-12 text-center text-sm text-gray-500">{{ activeSearch ? t('shareMailbox.noSearchResults') : t('shareMailbox.noShares') }}</td></tr>
+        <tr v-for="batch in loadError ? [] : managedBatches" :key="batch.batch_key" class="hover:bg-gray-50">
+          <td class="px-3 py-3"><input type="checkbox" class="h-4 w-4 accent-primary-600" :aria-label="t('shareMailbox.selectBatch', { title: batchTitle(batch) })" :checked="selectedBatchKeys.includes(batch.batch_key)" :disabled="deletingShares || loadingShares" @change="toggleBatchSelection(batch.batch_key, $event.target.checked)" /></td>
+          <td class="px-4 py-3 text-sm">
+            <p class="truncate font-medium text-gray-900" :title="batchTitle(batch)">{{ batchTitle(batch) }}</p>
+            <p class="mt-1 truncate text-xs text-gray-500" :title="mailboxAddresses(batch).join('、')">{{ mailboxSummary(batch) }}</p>
           </td>
-        </tr>
-        <tr v-else-if="!managedShares.length">
-          <td colspan="8" class="px-6 py-12 text-center text-sm text-gray-500">{{ activeSearch ? t('shareMailbox.noSearchResults') : t('shareMailbox.noShares') }}</td>
-        </tr>
-        <tr v-for="share in loadError ? [] : managedShares" :key="share.id" class="hover:bg-gray-50">
-          <td class="px-3 py-3"><input type="checkbox" class="h-4 w-4 accent-primary-600" :aria-label="t('shareMailbox.selectShare', { email: share.mailbox_emails?.join('、') || `#${share.mailbox_ids}` })" :checked="selectedShareIds.includes(share.id)" :disabled="deletingShares || loadingShares" @change="toggleShareSelection(share.id, $event.target.checked)" /></td>
-          <td class="px-4 py-3 text-sm font-medium text-gray-900">
-            <p class="max-w-full truncate" :title="share.mailbox_emails?.join('、') || `#${share.mailbox_ids}`">{{ share.mailbox_emails?.join('、') || `#${share.mailbox_ids}` }}</p>
-          </td>
-          <td class="whitespace-nowrap px-4 py-3 text-sm text-gray-600">{{ share.miniapp_path ? t('shareMailbox.miniappShare') : t('shareMailbox.webShare') }}</td>
-          <td class="whitespace-nowrap px-4 py-3 text-sm text-gray-600">{{ formatShareDate(share.created_at) }}</td>
-          <td class="px-4 py-3 text-sm text-gray-600"><span class="block truncate" :title="shareValidity(share)">{{ shareValidity(share) }}</span></td>
-          <td class="whitespace-nowrap px-4 py-3 text-sm">
-            <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium" :class="isShareExpired(share) ? 'bg-gray-100 text-gray-600' : isAwaitingFirstOpen(share) ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'">{{ isShareExpired(share) ? t('shareMailbox.expired') : isAwaitingFirstOpen(share) ? t('shareMailbox.awaitingFirstOpen') : t('shareMailbox.active') }}</span>
+          <td class="whitespace-nowrap px-4 py-3 text-sm text-gray-600">{{ batch.miniapp_path ? t('shareMailbox.miniappShare') : t('shareMailbox.webShare') }}</td>
+          <td class="px-4 py-3 text-sm text-gray-700">{{ t('shareMailbox.batchLinkCount', { count: batch.link_count }) }}</td>
+          <td class="whitespace-nowrap px-4 py-3 text-sm text-gray-600">{{ formatShareDate(batch.created_at) }}</td>
+          <td class="px-4 py-3 text-sm text-gray-600"><span class="block truncate" :title="batchValidity(batch)">{{ batchValidity(batch) }}</span></td>
+          <td class="px-4 py-3 text-sm">
+            <span class="inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium" :class="!batch.active_count ? 'bg-gray-100 text-gray-600' : batch.awaiting_count === batch.link_count ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'">{{ !batch.active_count ? t('shareMailbox.expired') : batch.awaiting_count === batch.link_count ? t('shareMailbox.awaitingFirstOpen') : t('shareMailbox.active') }}</span>
+            <p v-if="batch.active_count && batch.active_count < batch.link_count" class="mt-1 text-xs text-gray-500">{{ t('shareMailbox.activeLinkCount', { count: batch.active_count }) }}</p>
           </td>
           <td class="px-4 py-3 text-sm text-gray-700">
-            <div>{{ share.open_count ? t('shareMailbox.openCountValue', { count: share.open_count }) : t('shareMailbox.notOpened') }}</div>
-            <div v-if="share.last_opened_at" class="mt-1 truncate text-xs text-gray-500" :title="formatShareDate(share.last_opened_at)">{{ t('shareMailbox.lastOpened', { date: formatShareDate(share.last_opened_at) }) }}</div>
+            <div>{{ batch.open_count ? t('shareMailbox.openCountValue', { count: batch.open_count }) : t('shareMailbox.notOpened') }}</div>
+            <div v-if="batch.last_opened_at" class="mt-1 truncate text-xs text-gray-500" :title="formatShareDate(batch.last_opened_at)">{{ t('shareMailbox.lastOpened', { date: formatShareDate(batch.last_opened_at) }) }}</div>
           </td>
-          <td class="whitespace-nowrap px-4 py-3 text-sm">
-            <div class="flex items-center gap-1">
-              <ActionButton v-if="share.share_url && !isShareExpired(share)" icon="copy" variant="copy" :tooltip="t('common.copy')" @click="copyShareUrl(share.share_url)" />
-              <ActionButton :icon="isShareExpired(share) ? 'delete' : 'ban'" :variant="isShareExpired(share) ? 'delete' : 'danger'" :tooltip="isShareExpired(share) ? t('shareMailbox.deleteRecord') : t('shareMailbox.revoke')" :disabled="deletingShares || loadingShares" @click="pendingRevokeShares = [share]" />
-            </div>
-          </td>
+          <td class="whitespace-nowrap px-4 py-3 text-sm"><div class="flex items-center gap-1">
+            <ActionButton icon="eye" variant="view" :tooltip="t('shareMailbox.viewBatchLinks')" @click="previewBatch = batch" />
+            <ActionButton v-if="batch.active_count" icon="copy" variant="copy" :tooltip="t('shareMailbox.copyActiveLinks')" @click="copyBatchLinks(batch)" />
+            <ActionButton :icon="batch.active_count ? 'ban' : 'delete'" :variant="batch.active_count ? 'danger' : 'delete'" :tooltip="t('shareMailbox.deleteBatch')" :disabled="deletingShares || loadingShares" @click="confirmBatchDeletion([batch])" />
+          </div></td>
         </tr>
       </template>
     </AdminDataTable>
 
-    <ConfirmDialog
-      :visible="pendingRevokeShares.length > 0"
-      :title="confirmTitle"
-      :message="confirmMessage"
-      :confirm-text="confirmTitle"
-      :cancel-text="t('common.cancel')"
-      :loading="deletingShares"
-      :show-warning="false"
-      @confirm="revokeShare"
-      @cancel="pendingRevokeShares = []"
-    />
+    <Dialog :open="Boolean(previewBatch)" :initial-focus="previewCloseButton" class="relative z-[200]" @close="previewBatch = null">
+      <div class="fixed inset-0 bg-gray-900/40" aria-hidden="true" />
+      <div class="fixed inset-0 flex items-center justify-center p-3 sm:p-6">
+        <DialogPanel v-if="previewBatch" class="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-4xl flex-col overflow-hidden rounded-xl bg-white shadow-xl sm:max-h-[calc(100dvh-3rem)]">
+          <DialogTitle class="sr-only">{{ t('shareMailbox.viewBatchLinks') }}</DialogTitle>
+          <header class="shrink-0 border-b border-gray-200 px-4 py-5 sm:px-6">
+            <div class="flex items-start gap-3">
+              <div class="mt-0.5 hidden h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary-600 sm:flex"><BaseIcon name="share" size="h-5 w-5" /></div>
+              <div class="min-w-0 flex-1">
+                <ShareNoteEditor :model-value="previewBatch.batch_title" :placeholder="batchTitle(previewBatch)" :label="t('shareMailbox.batchNote')" variant="heading" :max-length="100" :save-note="(value) => saveBatchNote(previewBatch, value)" />
+                <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-gray-500">
+                  <span class="rounded bg-gray-100 px-2 py-0.5 text-gray-600">{{ t(previewBatch.miniapp_path ? 'shareMailbox.miniappShare' : 'shareMailbox.webShare') }} · {{ t('shareMailbox.batchLinkCount', { count: previewBatch.link_count }) }}</span>
+                  <span>{{ t('shareMailbox.createdAtColumn') }} {{ formatShareDate(previewBatch.created_at) }}</span>
+                </div>
+                <ShareMailboxScope class="mt-2" :mailboxes="previewMailboxAddresses" :label="t('shareMailbox.batchMailboxes')" />
+                <p v-if="previewBatch.miniapp_path" class="mt-2 text-xs text-gray-500">{{ t('shareMailbox.miniappPathHint') }}</p>
+              </div>
+              <button ref="previewCloseButton" type="button" :aria-label="t('common.close')" class="-mr-1 -mt-1 shrink-0 rounded-md p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-500" @click="previewBatch = null"><BaseIcon name="x" size="h-5 w-5" /></button>
+            </div>
+          </header>
+          <div class="min-h-0 overflow-y-auto">
+            <div class="share-preview-columns sticky top-0 z-10 hidden border-b border-gray-100 bg-gray-50 px-6 py-2.5 text-xs font-medium text-gray-500 md:grid" aria-hidden="true">
+              <span>#</span><span>{{ t(previewBatch.miniapp_path ? 'shareMailbox.miniappPath' : 'shareMailbox.linkAddress') }}</span><span>{{ t('shareMailbox.noteColumn') }}</span><span>{{ t('shareMailbox.statusAndValidity') }}</span><span class="text-right">{{ t('shareMailbox.actionColumn') }}</span>
+            </div>
+            <div class="divide-y divide-gray-100">
+              <div v-for="(share, index) in previewBatch.shares" :key="share.id" class="share-preview-columns share-preview-row px-4 py-4 transition-colors hover:bg-gray-50/70 sm:px-6">
+                <span class="share-row-number pt-0.5 text-xs tabular-nums text-gray-400">{{ String(index + 1).padStart(2, '0') }}</span>
+                <div class="share-row-link min-w-0">
+                  <input :aria-label="t(share.miniapp_path ? 'shareMailbox.miniappPath' : 'shareMailbox.linkAddress') + ' ' + (index + 1)" :title="shareLink(share)" :value="shareLink(share)" readonly class="block w-full min-w-0 truncate rounded-sm border-0 bg-transparent p-0 font-mono text-xs leading-5 text-gray-700 focus:outline-none focus:ring-1 focus:ring-primary-300" @focus="$event.target.select()" />
+                  <div class="mt-1 flex flex-wrap items-start gap-x-3 gap-y-1 text-xs text-gray-400">
+                    <span>{{ share.open_count ? t('shareMailbox.openCountDetail', { count: share.open_count }) : t('shareMailbox.notOpened') }}</span>
+                    <ShareMailboxScope :mailboxes="mailboxAddresses(share)" :label="t('shareMailbox.linkMailboxes', { index: index + 1 })" compact />
+                  </div>
+                </div>
+                <ShareNoteEditor class="share-row-note min-w-0" :model-value="share.link_note" :label="t('shareMailbox.linkNote', { index: index + 1 })" :save-note="(value) => saveLinkNote(share, value)" />
+                <div class="share-row-status flex flex-wrap items-center gap-x-2 gap-y-1 md:block">
+                  <span class="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium" :class="isShareExpired(share) ? 'bg-gray-100 text-gray-500' : 'bg-primary-50 text-primary-700'"><span class="h-1.5 w-1.5 rounded-full bg-current" />{{ isShareExpired(share) ? t('shareMailbox.expired') : t('shareMailbox.active') }}</span>
+                  <p class="text-xs leading-5 text-gray-400 md:mt-1">{{ shareValidity(share) }}</p>
+                </div>
+                <div class="share-row-actions flex items-center justify-end gap-1">
+                  <a v-if="share.share_url && !isShareExpired(share)" :href="shareLink(share)" target="_blank" rel="noopener noreferrer" :aria-label="t('shareMailbox.openLink')" :title="t('shareMailbox.openLink')" class="rounded p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-500" @click="openShareLink($event, share)"><ArrowTopRightOnSquareIcon class="h-4 w-4" aria-hidden="true" /></a>
+                  <ActionButton v-if="!isShareExpired(share)" icon="copy" variant="copy" :tooltip="share.miniapp_path ? t('shareMailbox.copyPath') : t('shareMailbox.copyLink')" @click="copyText(shareLink(share))" />
+                  <ActionButton :icon="isShareExpired(share) ? 'delete' : 'ban'" :variant="isShareExpired(share) ? 'delete' : 'danger'" :tooltip="isShareExpired(share) ? t('shareMailbox.deleteRecord') : t('shareMailbox.revoke')" @click="confirmLinkDeletion(share)" />
+                </div>
+              </div>
+            </div>
+          </div>
+          <footer class="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-gray-200 bg-gray-50/60 px-4 py-4 sm:px-6">
+            <p class="flex items-center gap-1.5 text-xs text-gray-400"><BaseIcon name="lock" size="h-3.5 w-3.5" />{{ t('shareMailbox.notesPrivate') }}</p>
+            <button type="button" :title="t('shareMailbox.copyActiveLinksHint')" class="inline-flex items-center gap-2 rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50" :disabled="!copyableLinks(previewBatch).length" @click="copyBatchLinks(previewBatch)"><BaseIcon name="copy" size="h-4 w-4" />{{ t('shareMailbox.copyBatchCount', { count: copyableLinks(previewBatch).length }) }}</button>
+          </footer>
+        </DialogPanel>
+      </div>
+    </Dialog>
+
+    <ConfirmDialog :visible="Boolean(pendingDeletion)" :title="confirmTitle" :message="confirmMessage" :confirm-text="confirmTitle" :cancel-text="t('common.cancel')" :loading="deletingShares" :show-warning="false" @confirm="deleteShares" @cancel="cancelDeletion" />
   </section>
 </template>
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
+import { Dialog, DialogPanel, DialogTitle } from '@headlessui/vue'
+import { ArrowTopRightOnSquareIcon } from '@heroicons/vue/24/outline'
 import { useI18n } from 'vue-i18n'
 import { mailboxShareAPI } from '@/api/mailboxShare'
 import AdminDataTable from '@/components/AdminDataTable/index.vue'
 import ActionButton from '@/components/ActionButton/index.vue'
 import BaseInput from '@/components/BaseInput/index.vue'
+import BaseIcon from '@/components/BaseIcon/index.vue'
 import ConfirmDialog from '@/components/ConfirmDialog/index.vue'
+import ShareNoteEditor from '@/components/Mail/ShareNoteEditor.vue'
+import ShareMailboxScope from '@/components/Mail/ShareMailboxScope.vue'
 import { isTauri } from '@/services/api'
 import { useUserStore } from '@/stores/user'
 import { showMessage } from '@/utils/message'
@@ -107,104 +133,143 @@ const pageSize = 20
 const { t } = useI18n()
 const userStore = useUserStore()
 const guestMode = computed(() => !userStore.isAuthenticated)
-const managedShares = ref([])
+const managedBatches = ref([])
 const loadingShares = ref(false)
 const loadError = ref('')
 const sharePage = ref(1)
-const totalShares = ref(0)
+const totalBatches = ref(0)
 const searchInput = ref('')
 const activeSearch = ref('')
-const selectedShareIds = ref([])
-const selectedShares = computed(() => managedShares.value.filter((share) => selectedShareIds.value.includes(share.id)))
-const allPageSelected = computed(() => managedShares.value.length > 0 && selectedShareIds.value.length === managedShares.value.length)
-const pendingRevokeShares = ref([])
+const selectedBatchKeys = ref([])
+const selectedBatches = computed(() => managedBatches.value.filter((batch) => selectedBatchKeys.value.includes(batch.batch_key)))
+const allPageSelected = computed(() => managedBatches.value.length > 0 && selectedBatchKeys.value.length === managedBatches.value.length)
+const previewBatch = ref(null)
+const previewCloseButton = ref(null)
+const pendingDeletion = ref(null)
+const resumePreviewKey = ref('')
 const deletingShares = ref(false)
-const isBulkAction = computed(() => pendingRevokeShares.value.length > 1)
-const confirmTitle = computed(() => isBulkAction.value
-  ? t('shareMailbox.batchDelete')
-  : pendingRevokeShares.value[0] && isShareExpired(pendingRevokeShares.value[0])
-    ? t('shareMailbox.deleteRecord')
-    : t('shareMailbox.revoke'))
-const confirmMessage = computed(() => isBulkAction.value
-  ? t('shareMailbox.deleteSelectedConfirm', { count: pendingRevokeShares.value.length })
-  : pendingRevokeShares.value[0] && isShareExpired(pendingRevokeShares.value[0])
-    ? t('shareMailbox.deleteRecordConfirm')
-    : t('shareMailbox.revokeConfirm'))
-
-const formatShareDate = (value) => value
-  ? new Date(value).toLocaleString(undefined, { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false })
-  : '-'
-const shareValidity = (share) => share.expire_at
-  ? formatShareDate(share.expire_at)
-  : share.expire_mode === 'minutes'
-    ? (share.expire_minutes ? t('shareMailbox.firstOpenMinutes', { count: share.expire_minutes }) : t('shareMailbox.waitingFirstOpen'))
-    : t('shareMailbox.permanentValid')
+const mailboxAddresses = (scope) => {
+  const addresses = scope.mailbox_emails?.filter(Boolean) || []
+  return [...new Set(addresses.length ? addresses : String(scope.mailbox_ids || '').split(',').map((id) => id.trim()).filter(Boolean).map((id) => `#${id}`))]
+}
+const previewMailboxAddresses = computed(() => previewBatch.value ? mailboxAddresses(previewBatch.value) : [])
+const mailboxSummary = (scope) => {
+  const addresses = mailboxAddresses(scope)
+  return addresses.length > 1 ? `${t('shareMailbox.scopeMailboxCount', { count: addresses.length })} · ${addresses[0]}` : addresses[0] || '-'
+}
+const batchTitle = (batch) => batch.batch_title || (batch.batch_key.startsWith('legacy-') ? t('shareMailbox.legacyShare', { id: batch.id }) : t('shareMailbox.untitledBatch'))
+const shareLink = (share) => share.miniapp_path || (share.share_url ? `${isTauri() ? 'https://zjkdongao.cn' : window.location.origin}${share.share_url}` : '')
 const isShareExpired = (share) => share.status !== 'active' || Boolean(share.expire_at && new Date(share.expire_at).getTime() <= Date.now())
-const isAwaitingFirstOpen = (share) => share.status === 'active' && share.expire_mode === 'minutes' && !share.expire_at
-const toggleShareSelection = (id, checked) => {
-  selectedShareIds.value = checked
-    ? [...selectedShareIds.value, id]
-    : selectedShareIds.value.filter((shareId) => shareId !== id)
+const copyableLinks = (batch) => batch.shares.filter((share) => !isShareExpired(share)).map(shareLink).filter(Boolean)
+const formatShareDate = (value) => value ? new Date(value).toLocaleString(undefined, { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }) : '-'
+const shareValidity = (share) => share.expire_at ? formatShareDate(share.expire_at) : share.expire_mode === 'minutes' ? (share.expire_minutes ? t('shareMailbox.firstOpenMinutes', { count: share.expire_minutes }) : t('shareMailbox.waitingFirstOpen')) : t('shareMailbox.permanentValid')
+const batchValidity = (batch) => batch.expire_mode === 'minutes' && batch.expire_start_mode === 'first_opened' ? t('shareMailbox.firstOpenMinutes', { count: batch.expire_minutes }) : shareValidity(batch)
+const confirmTitle = computed(() => pendingDeletion.value?.kind === 'batches' ? t(pendingDeletion.value.items.length > 1 ? 'shareMailbox.batchDelete' : 'shareMailbox.deleteBatch') : t(pendingDeletion.value?.items[0] && isShareExpired(pendingDeletion.value.items[0]) ? 'shareMailbox.deleteRecord' : 'shareMailbox.revoke'))
+const confirmMessage = computed(() => pendingDeletion.value?.kind === 'batches' ? t('shareMailbox.deleteBatchesConfirm', { count: pendingDeletion.value.items.length, links: pendingDeletion.value.items.reduce((total, batch) => total + batch.link_count, 0) }) : t(pendingDeletion.value?.items[0] && isShareExpired(pendingDeletion.value.items[0]) ? 'shareMailbox.deleteRecordConfirm' : 'shareMailbox.revokeConfirm'))
+const toggleBatchSelection = (key, checked) => { selectedBatchKeys.value = checked ? [...selectedBatchKeys.value, key] : selectedBatchKeys.value.filter((item) => item !== key) }
+const togglePageSelection = (checked) => { selectedBatchKeys.value = checked ? managedBatches.value.map((batch) => batch.batch_key) : [] }
+const handleSearch = () => { activeSearch.value = searchInput.value.trim(); loadShares(1) }
+const clearSearch = () => { searchInput.value = ''; activeSearch.value = ''; loadShares(1) }
+
+const saveBatchNote = async (batch, value) => {
+  const res = await mailboxShareAPI.updateBatchNote(batch.batch_key, value, guestMode.value)
+  if (res.code !== 0) throw new Error(res.message || t('shareMailbox.noteSaveFailed'))
+  batch.batch_title = res.data.batch_title
+  batch.shares.forEach((share) => { share.batch_title = res.data.batch_title })
+  showMessage(t('shareMailbox.noteSaved'), 'success')
 }
-const togglePageSelection = (checked) => {
-  selectedShareIds.value = checked ? managedShares.value.map((share) => share.id) : []
-}
-const handleSearch = () => {
-  activeSearch.value = searchInput.value.trim()
-  loadShares(1)
-}
-const clearSearch = () => {
-  searchInput.value = ''
-  activeSearch.value = ''
-  loadShares(1)
+const saveLinkNote = async (share, value) => {
+  const res = await mailboxShareAPI.updateLinkNote(share.id, value, guestMode.value)
+  if (res.code !== 0) throw new Error(res.message || t('shareMailbox.noteSaveFailed'))
+  share.link_note = res.data.link_note
+  showMessage(t('shareMailbox.noteSaved'), 'success')
 }
 
 const loadShares = async (page = 1) => {
   loadingShares.value = true
   loadError.value = ''
   try {
-    const res = await mailboxShareAPI.getMyShares(page, pageSize, guestMode.value, activeSearch.value)
+    const res = await mailboxShareAPI.getMyShareBatches(page, pageSize, guestMode.value, activeSearch.value)
     if (res.code !== 0) throw new Error(res.message || t('shareMailbox.loadFailed'))
-    managedShares.value = res.data?.shares || []
-    selectedShareIds.value = []
+    totalBatches.value = Number(res.data?.pagination?.total || 0)
+    const lastPage = Math.max(1, Math.ceil(totalBatches.value / pageSize))
+    if (page > lastPage) return await loadShares(lastPage)
+    managedBatches.value = res.data?.batches || []
+    selectedBatchKeys.value = []
     sharePage.value = page
-    totalShares.value = Number(res.data?.pagination?.total || 0)
   } catch (error) {
     loadError.value = error?.message || t('shareMailbox.loadFailed')
   } finally {
     loadingShares.value = false
   }
 }
-
-const copyShareUrl = async (path) => {
-  const origin = isTauri() ? 'https://zjkdongao.cn' : window.location.origin
-  try {
-    await navigator.clipboard.writeText(`${origin}${path}`)
-    showMessage(t('shareMailbox.copied'), 'success')
-  } catch {
-    showMessage(t('common.copyFailed'), 'error')
-  }
+const copyText = async (text) => {
+  try { await navigator.clipboard.writeText(text); showMessage(t('shareMailbox.copied'), 'success') }
+  catch { showMessage(t('common.copyFailed'), 'error') }
 }
-
-const revokeShare = async () => {
-  const shares = pendingRevokeShares.value
-  if (!shares.length || deletingShares.value) return
-  const deletingExpiredRecord = shares.length === 1 && isShareExpired(shares[0])
+const copyBatchLinks = (batch) => {
+  const links = copyableLinks(batch)
+  if (links.length) return copyText(links.join('\n'))
+}
+const openShareLink = async (event, share) => {
+  if (!isTauri()) return
+  event.preventDefault()
+  try { const { open } = await import('@tauri-apps/plugin-shell'); await open(shareLink(share)) }
+  catch { showMessage(t('shareMailbox.openLinkFailed'), 'error') }
+}
+const confirmBatchDeletion = (batches) => { pendingDeletion.value = { kind: 'batches', items: batches } }
+const confirmLinkDeletion = (share) => {
+  resumePreviewKey.value = previewBatch.value.batch_key
+  previewBatch.value = null
+  pendingDeletion.value = { kind: 'link', items: [share] }
+}
+const restorePreview = () => {
+  if (resumePreviewKey.value) previewBatch.value = managedBatches.value.find((batch) => batch.batch_key === resumePreviewKey.value) || null
+  resumePreviewKey.value = ''
+}
+const cancelDeletion = () => { if (!deletingShares.value) { pendingDeletion.value = null; restorePreview() } }
+const deleteShares = async () => {
+  const action = pendingDeletion.value
+  if (!action || deletingShares.value) return
   deletingShares.value = true
   try {
-    const res = shares.length > 1
-      ? await mailboxShareAPI.batchDeleteShares(shares.map((share) => share.id), guestMode.value)
-      : await mailboxShareAPI.deleteShare(shares[0].id, guestMode.value)
+    const res = action.kind === 'batches' ? await mailboxShareAPI.deleteShareBatches(action.items.map((batch) => batch.batch_key), guestMode.value) : await mailboxShareAPI.deleteShare(action.items[0].id, guestMode.value)
     if (res.code !== 0) throw new Error(res.message || t('shareMailbox.revokeFailed'))
-    showMessage(t(shares.length > 1 ? 'shareMailbox.selectedDeleted' : deletingExpiredRecord ? 'shareMailbox.recordDeleted' : 'shareMailbox.revoked', { count: shares.length }), 'success')
-    await loadShares(managedShares.value.length === shares.length && sharePage.value > 1 ? sharePage.value - 1 : sharePage.value)
+    showMessage(t(action.kind === 'batches' ? 'shareMailbox.batchesDeleted' : isShareExpired(action.items[0]) ? 'shareMailbox.recordDeleted' : 'shareMailbox.revoked', { count: action.items.length }), 'success')
+    await loadShares(sharePage.value)
   } catch (error) {
-    showMessage(error?.message || t(shares.length > 1 ? 'shareMailbox.deleteSelectedFailed' : deletingExpiredRecord ? 'shareMailbox.deleteRecordFailed' : 'shareMailbox.revokeFailed'), 'error')
+    showMessage(error?.message || t('shareMailbox.revokeFailed'), 'error')
   } finally {
     deletingShares.value = false
-    pendingRevokeShares.value = []
+    pendingDeletion.value = null
+    restorePreview()
   }
 }
-
 onMounted(() => loadShares())
 </script>
+
+<style scoped>
+.share-preview-row {
+  display: grid;
+  grid-template-columns: 1.25rem minmax(0, 1fr) auto;
+  grid-template-areas: 'number link actions' '. status status' '. note note';
+  column-gap: 0.5rem;
+  row-gap: 0.625rem;
+  align-items: start;
+}
+.share-row-number { grid-area: number; }
+.share-row-link { grid-area: link; }
+.share-row-note { grid-area: note; }
+.share-row-status { grid-area: status; }
+.share-row-actions { grid-area: actions; }
+@media (min-width: 768px) {
+  .share-preview-columns {
+    grid-template-columns: 1.5rem minmax(0, 1.4fr) minmax(0, 1.15fr) 6rem 6rem;
+    column-gap: 1.25rem;
+  }
+  .share-preview-row {
+    grid-template-areas: 'number link note status actions';
+    align-items: start;
+  }
+}
+</style>

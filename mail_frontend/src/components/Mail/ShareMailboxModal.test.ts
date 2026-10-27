@@ -1,4 +1,4 @@
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('vue-i18n', async importOriginal => ({
@@ -7,10 +7,33 @@ vi.mock('vue-i18n', async importOriginal => ({
 }))
 vi.mock('@/stores/user', () => ({ useUserStore: () => ({ isAuthenticated: true }) }))
 vi.mock('@/services/api', () => ({ isTauri: () => false, extractApiErrorMessage: () => '' }))
+vi.mock('@/utils/message', () => ({ showMessage: vi.fn() }))
 
 import ShareMailboxModal from './ShareMailboxModal.vue'
+import { mailboxShareAPI } from '@/api/mailboxShare'
 
 describe('share creation dialog', () => {
+  it('sends all selected mailboxes in one creation request and shows exactly the requested number of links', async () => {
+    const createShare = vi.spyOn(mailboxShareAPI, 'createShare').mockResolvedValue({ code: 0, data: {
+      batch_title: '客户第一批', shares: [{ share_url: '/share/one' }, { share_url: '/share/two' }, { share_url: '/share/three' }]
+    } })
+    const wrapper = mount(ShareMailboxModal, {
+      props: { visible: true, mailboxIds: [1, 2, 3], mailboxType: 'system', selectedMailboxes: [
+        { id: 1, email: 'one@example.com' }, { id: 2, email: 'two@example.com' }, { id: 3, email: 'three@example.com' }
+      ] },
+      global: { stubs: { Teleport: true } }
+    })
+    await wrapper.get('#share-batch-title').setValue('  客户第一批  ')
+    await wrapper.get('#share-link-count').setValue(3)
+    await wrapper.findAll('button').find((button) => button.text() === 'shareMailbox.create')!.trigger('click')
+    await flushPromises()
+    expect(createShare).toHaveBeenCalledWith(expect.objectContaining({ mailbox_ids: [1, 2, 3], batch_title: '客户第一批', share_count: 3 }), '')
+    expect(wrapper.findAll('input[readonly]')).toHaveLength(3)
+    expect(wrapper.text()).toContain('客户第一批')
+    wrapper.unmount()
+    createShare.mockRestore()
+  })
+
   it('does not duplicate the sidebar share-link management entry', () => {
     const wrapper = mount(ShareMailboxModal, {
       props: { visible: true, mailboxIds: [1], mailboxType: 'system' },

@@ -67,7 +67,7 @@
           <input
             v-model="searchKeyword"
             type="text"
-            placeholder="搜索用户邮箱或描述..."
+            placeholder="搜索用户邮箱、微信昵称、ID 或描述..."
             class="h-10 w-full px-3 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             @keyup.enter="handleSearch"
           />
@@ -124,13 +124,13 @@
             暂无交易记录
           </td>
         </tr>
-        <tr v-for="item in transactions" :key="item.id" class="hover:bg-gray-50">
+        <tr v-for="item in transactions" :key="`${item.account_type || 'web'}:${item.id}`" class="hover:bg-gray-50">
           <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900">
             {{ item.transaction_no || '#' + item.id }}
           </td>
           <td class="px-6 py-4 whitespace-nowrap">
-            <div class="text-sm font-medium text-gray-900">{{ item.user_email || '-' }}</div>
-            <div class="text-xs text-gray-500">ID: {{ item.user_id }}</div>
+            <div class="text-sm font-medium text-gray-900">{{ getAccountName(item) }}</div>
+            <div class="text-xs text-gray-500">{{ getAccountType(item) }} · ID: {{ getAccountId(item) }}</div>
           </td>
           <td class="px-6 py-4 whitespace-nowrap">
             <span :class="getTypeClass(item.transaction_type)" class="px-2 py-1 text-xs font-medium rounded-full">
@@ -266,12 +266,12 @@
                 <div class="text-sm font-medium">{{ getTypeName(selectedItem.transaction_type) }}</div>
               </div>
               <div>
-                <div class="text-sm text-gray-600 mb-1">用户邮箱</div>
-                <div class="text-sm font-medium">{{ selectedItem.user_email || '-' }}</div>
+                <div class="text-sm text-gray-600 mb-1">用户</div>
+                <div class="text-sm font-medium">{{ getAccountName(selectedItem) }}</div>
               </div>
               <div>
-                <div class="text-sm text-gray-600 mb-1">用户ID</div>
-                <div class="text-sm font-medium">{{ selectedItem.user_id }}</div>
+                <div class="text-sm text-gray-600 mb-1">账户来源 / 用户 ID</div>
+                <div class="text-sm font-medium">{{ getAccountType(selectedItem) }} · ID: {{ getAccountId(selectedItem) }}</div>
               </div>
               <div>
                 <div class="text-sm text-gray-600 mb-1">{{ selectedItem.amount > 0 ? '充值金额' : '消费金额' }}</div>
@@ -437,6 +437,10 @@ const viewDetail = (item) => {
   selectedItem.value = item
   showDetailModal.value = true
 }
+
+const getAccountType = (item) => item.account_type === 'wechat' ? '小程序' : '网站'
+const getAccountId = (item) => item.account_type === 'wechat' ? item.wechat_user_id : item.user_id
+const getAccountName = (item) => item.user_display_name?.trim() || item.user_email || `${getAccountType(item)}用户 ${getAccountId(item)}`
 
 const handleRefundPageChange = (newPage) => {
   refundPage.value = newPage

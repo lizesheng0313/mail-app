@@ -640,6 +640,7 @@ import { showMessage } from '@/utils/message'
 import { isTauri } from '@/services/api'
 import api from '@/services/api'
 import { buildDesktopSendableSmtpAccountMap, normalizeSmtpEmail } from '@/utils/smtpCapability'
+import { getLocaleOption } from '@/i18n/locales'
 
 const { t, locale } = useI18n()
 const tc = (key: string, params?: Record<string, unknown>) => t(`sendEmail.compose.${key}`, params)
@@ -1552,7 +1553,7 @@ const composeEmailWithAI = async () => {
     const response: any = await api.post('/ai/compose-email', {
       prompt,
       tone: selectedToneLabel.value,
-      language: locale.value.startsWith('en') ? 'English' : '中文',
+      language: getLocaleOption(locale.value).aiLanguage,
       subject: form.value.subject || null,
       content: bodyContentText.value || null,
     })

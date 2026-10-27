@@ -1,30 +1,34 @@
 import { createI18n } from 'vue-i18n'
 
 import zhCN from './messages/zh-CN'
+import { localeOptions, type SupportedLocale } from './locales'
 
-export type SupportedLocale = 'zh-CN' | 'zh-TW' | 'en'
+export type { SupportedLocale } from './locales'
 
 export const LOCALE_STORAGE_KEY = 'app.locale'
 
 export const normalizeLocale = (value?: string | null): SupportedLocale => {
-  const raw = String(value || '').trim().toLowerCase()
-  if (raw.startsWith('en')) return 'en'
-  if (
-    raw.startsWith('zh-tw')
-    || raw.startsWith('zh-hk')
-    || raw.startsWith('zh-mo')
-    || raw.includes('hant')
-  ) {
+  const raw = String(value || '').split(',')[0].split(';')[0].trim().replaceAll('_', '-').toLowerCase()
+  const language = raw.split('-')[0]
+  if (language === 'zh' && raw.split('-').some(part => ['tw', 'hk', 'mo', 'hant'].includes(part))) {
     return 'zh-TW'
   }
-  return !raw || raw.startsWith('zh') ? 'zh-CN' : 'en'
+  if (!raw || language === 'zh') return 'zh-CN'
+  return localeOptions.some(option => option.value === language) ? language as SupportedLocale : 'en'
 }
 
 export const detectInitialLocale = (): SupportedLocale => {
   if (typeof window === 'undefined') return 'zh-CN'
   const stored = window.localStorage.getItem(LOCALE_STORAGE_KEY)
   if (stored) return normalizeLocale(stored)
-  return normalizeLocale(window.navigator.language)
+  const browserLanguages = window.navigator.languages?.length
+    ? window.navigator.languages
+    : [window.navigator.language]
+  const supported = browserLanguages.find(value => {
+    const language = value.replaceAll('_', '-').split('-')[0].toLowerCase()
+    return language === 'zh' || localeOptions.some(option => option.value === language)
+  })
+  return normalizeLocale(supported || window.navigator.language)
 }
 
 export const messages = {
@@ -34,13 +38,19 @@ export const messages = {
 export const i18n = createI18n({
   legacy: false,
   locale: detectInitialLocale(),
-  fallbackLocale: 'zh-CN',
+  fallbackLocale: { 'zh-TW': ['zh-CN'], default: ['en', 'zh-CN'] },
   messages: messages as Record<string, typeof zhCN>
 })
 
 const localeLoaders = {
   en: () => import('./messages/en'),
-  'zh-TW': () => import('./messages/zh-TW')
+  'zh-TW': () => import('./messages/zh-TW'),
+  ja: () => import('./messages/ja'),
+  ko: () => import('./messages/ko'),
+  de: () => import('./messages/de'),
+  fr: () => import('./messages/fr'),
+  es: () => import('./messages/es'),
+  pt: () => import('./messages/pt')
 }
 const localeRequests = new Map<SupportedLocale, Promise<void>>()
 let localeChangeId = 0
@@ -64,7 +74,10 @@ export const setI18nLocale = (locale: SupportedLocale) => {
     i18n.global.locale.value = locale
     return Promise.resolve()
   }
-  return loadLocaleMessages(locale).then(() => {
+  return Promise.all([
+    loadLocaleMessages(locale),
+    ...(locale !== 'en' && !locale.startsWith('zh') ? [loadLocaleMessages('en')] : [])
+  ]).then(() => {
     if (changeId === localeChangeId) i18n.global.locale.value = locale
   })
 }

@@ -61,8 +61,10 @@ const t = (key: string) => String(i18n.global.t(key))
 
 export const handleSessionUnauthorized = (payload: any, tokenSnapshot: string) => {
   const detail = extractApiErrorMessage(payload, '').trim().toLowerCase()
-  const disabled = detail === '账户已被禁用' || detail === 'this account has been disabled'
-  const replaced = classifySessionError(payload) === 'replaced'
+  const kind = classifySessionError(payload)
+  const disabled = kind === 'disabled' || payload?.message_key === 'auth.account_disabled'
+    || detail === '账户已被禁用' || detail === 'this account has been disabled'
+  const replaced = kind === 'replaced'
   const message = t(disabled ? 'common.accountDisabled' : replaced ? 'common.sessionReplaced' : 'common.sessionExpired')
   if (!tokenSnapshot || tokenSnapshot !== (localStorage.getItem('token') || '')) return message
 

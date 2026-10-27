@@ -40,13 +40,16 @@
     >
       <div
         v-if="isOpen"
-        class="absolute right-0 top-full z-[90] mt-2 w-44 rounded-2xl border border-gray-200 bg-white p-1.5 shadow-xl ring-1 ring-black/5"
+        class="absolute right-0 top-full z-[90] mt-2 max-h-[min(24rem,70vh)] w-44 overflow-y-auto rounded-2xl border border-gray-200 bg-white p-1.5 shadow-xl ring-1 ring-black/5"
         role="menu"
       >
         <button
           v-for="option in localeOptions"
           :key="option.value"
           type="button"
+          role="menuitemradio"
+          :aria-checked="option.value === localeStore.locale"
+          :lang="option.value"
           class="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left transition-colors hover:bg-gray-50 focus:outline-none focus:bg-gray-50"
           :class="option.value === localeStore.locale ? 'bg-primary-50 text-primary-700' : 'text-gray-700'"
           @click="selectLocale(option.value)"
@@ -75,7 +78,7 @@ withDefaults(defineProps<{ compact?: boolean }>(), { compact: false })
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-import type { SupportedLocale } from '@/i18n'
+import { localeOptions } from '@/i18n/locales'
 import { useLocaleStore } from '@/stores/locale'
 import { showMessage } from '@/utils/message'
 
@@ -84,24 +87,6 @@ const localeStore = useLocaleStore()
 
 const switcherRef = ref<HTMLElement | null>(null)
 const isOpen = ref(false)
-
-const localeOptions: ReadonlyArray<{ value: SupportedLocale; label: string; shortLabel: string }> = [
-  {
-    value: 'zh-CN',
-    label: '简体中文',
-    shortLabel: '简中'
-  },
-  {
-    value: 'zh-TW',
-    label: '繁體中文',
-    shortLabel: '繁中'
-  },
-  {
-    value: 'en',
-    label: 'English',
-    shortLabel: 'EN'
-  }
-]
 
 const currentOption = computed(() => {
   return localeOptions.find(option => option.value === localeStore.locale) ?? localeOptions[0]

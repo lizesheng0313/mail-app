@@ -2,7 +2,9 @@ import api from '@/services/api'
 
 export const helpCenterAPI = {
   listPublicArticles(locale = 'zh-CN') {
-    return api.get('/help-center/articles', { params: { locale } })
+    // Editorial articles currently have Chinese and English editions only.
+    const articleLocale = ['zh-CN', 'zh-TW'].includes(locale) ? locale : 'en'
+    return api.get('/help-center/articles', { params: { locale: articleLocale } })
   },
 
   listAdminArticles() {

@@ -102,14 +102,14 @@ export function getTimezoneName() {
 export function formatDuration(duration) {
   if (!duration || duration === 0) return '0ms'
   const locale = getCurrentLocale()
-  const isEnglish = locale.startsWith('en')
-  const minuteUnit = isEnglish ? 'min' : locale === 'zh-TW' ? '分鐘' : '分钟'
-  const hourUnit = isEnglish ? 'h' : locale === 'zh-TW' ? '小時' : '小时'
-  
-  if (duration < 1000) return `${duration}ms`
-  if (duration < 60000) return `${(duration / 1000).toFixed(1)}s`
-  if (duration < 3600000) return `${(duration / 60000).toFixed(1)}${minuteUnit}`
-  return `${(duration / 3600000).toFixed(1)}${hourUnit}`
+  const [unit, divisor] = duration < 1000 ? ['millisecond', 1]
+    : duration < 60000 ? ['second', 1000]
+      : duration < 3600000 ? ['minute', 60000] : ['hour', 3600000]
+  return new Intl.NumberFormat(locale, {
+    style: 'unit', unit, unitDisplay: 'short',
+    minimumFractionDigits: divisor === 1 ? 0 : 1,
+    maximumFractionDigits: divisor === 1 ? 0 : 1
+  }).format(duration / divisor)
 }
 
 /**

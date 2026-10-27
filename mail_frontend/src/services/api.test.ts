@@ -1,10 +1,24 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const mocks = vi.hoisted(() => ({ showMessage: vi.fn() }))
+const mocks = vi.hoisted(() => ({ showMessage: vi.fn(), locale: 'zh-CN' }))
 vi.mock('@/utils/message', () => ({ showMessage: mocks.showMessage }))
-vi.mock('@/i18n', () => ({ getCurrentLocale: () => 'zh-CN', i18n: { global: { t: (key: string) => key } } }))
+vi.mock('@/i18n', () => ({ getCurrentLocale: () => mocks.locale, i18n: { global: { t: (key: string) => key } } }))
 
 import api, { handleSessionUnauthorized, shouldSuppressErrorMessage } from './api'
+
+it.each(['ja', 'ko', 'de', 'fr', 'es', 'pt'])('sends the selected %s language to the API', async locale => {
+  mocks.locale = locale
+  try {
+    await api.get('/test-language', {
+      adapter: async config => {
+        expect(config.headers['Accept-Language']).toBe(locale)
+        return { config, status: 200, statusText: 'OK', headers: {}, data: { code: 0 } }
+      }
+    })
+  } finally {
+    mocks.locale = 'zh-CN'
+  }
+})
 
 it('applies mailbox changes from the command response without waiting for a socket', async () => {
   localStorage.setItem('token', 'command-session')
@@ -71,5 +85,14 @@ describe('session authorization failures', () => {
     handleSessionUnauthorized({ detail: 'Could not validate credentials' }, 'current-token')
     expect(localStorage.getItem('token')).toBeNull()
     expect(mocks.showMessage).toHaveBeenCalledWith('common.sessionExpired', 'error')
+  })
+
+  it.each([
+    { error_code: 'ACCOUNT_DISABLED', message: 'Dieses Konto wurde deaktiviert' },
+    { message_key: 'auth.account_disabled', message: 'このアカウントは無効になっています' }
+  ])('keeps the disabled-account reason independent of translated message text', payload => {
+    handleSessionUnauthorized(payload, 'current-token')
+    expect(sessionStorage.getItem('login_error_message')).toBe('common.accountDisabled')
+    expect(mocks.showMessage).toHaveBeenCalledWith('common.accountDisabled', 'error')
   })
 })

@@ -14,12 +14,12 @@
       :class="mobileMenuOpen ? 'fixed inset-y-0 left-0 flex w-72 max-w-[calc(100vw-3rem)]' : 'hidden'"
     >
       <!-- 头部Logo -->
-      <div class="flex h-16 items-center border-b border-gray-200 px-4 md:h-[87px] md:px-6">
+      <div class="flex h-[54px] flex-shrink-0 items-center border-b border-gray-200 px-4 md:px-6">
         <router-link to="/" class="flex min-w-0 flex-1 items-center" @click="closeMobileMenu">
-          <div class="relative flex h-12 w-12 flex-shrink-0 items-center justify-center overflow-visible bg-transparent">
-            <img :src="logoImage" alt="logo" class="absolute h-[68px] w-[68px] max-w-none object-contain" />
+          <div class="relative flex h-9 w-9 flex-shrink-0 items-center justify-center overflow-visible bg-transparent">
+            <img :src="logoImage" alt="logo" class="absolute h-12 w-12 max-w-none object-contain" />
           </div>
-          <h1 class="ml-6 text-lg font-semibold text-gray-900">管理后台</h1>
+          <h1 class="ml-3 text-base font-semibold text-gray-900">管理后台</h1>
         </router-link>
         <button
           type="button"
@@ -367,7 +367,7 @@
     <!-- 右侧内容区域 -->
     <div class="flex h-screen min-w-0 flex-1 flex-col overflow-hidden" style="height: 100dvh;">
       <!-- 顶部导航栏 -->
-      <header class="h-16 flex-shrink-0 border-b border-gray-200 bg-white shadow-sm md:h-[87px]">
+      <header class="h-[54px] flex-shrink-0 border-b border-gray-200 bg-white shadow-sm">
         <div class="h-full px-4 md:px-6">
           <div class="flex h-full min-w-0 items-center justify-between gap-3">
             <button
@@ -383,8 +383,7 @@
               </svg>
             </button>
             <div class="min-w-0 flex-1">
-              <h1 class="truncate text-lg font-semibold text-gray-900 md:text-2xl">{{ pageTitle }}</h1>
-              <p v-if="pageDescription" class="mt-1 hidden text-sm text-gray-600 md:block">{{ pageDescription }}</p>
+              <h1 class="truncate text-base font-semibold text-gray-900">{{ pageTitle }}</h1>
             </div>
             <div class="flex flex-shrink-0 items-center">
               <router-link
@@ -492,7 +491,7 @@ watch(() => route.path, () => {
   autoExpandMenu()
 })
 
-// 页面标题和描述
+// 页面标题
 const pageTitle = computed(() => {
   const titles: Record<string, string> = {
     '/admin/domains': '域名管理',
@@ -519,31 +518,6 @@ const pageTitle = computed(() => {
     '/admin/email-reach-settings': '邮件触达发信配置'
   }
   return titles[route.path] || '管理后台'
-})
-
-const pageDescription = computed(() => {
-  if (route.path === '/admin/monitoring' || route.path.startsWith('/admin/monitoring/')) return ''
-  const descriptions: Record<string, string> = {
-    '/admin/domains': '管理邮箱域名配置',
-    '/admin/proxy': '管理付费代理配置和使用监控',
-    '/admin/users': '查看和管理用户账户及代理权限',
-    '/admin/workflow-review': '审核和管理工作流市场的所有工作流',
-    '/admin/store-review': '审核和暂停私人店铺',
-    '/admin/resource-sources': '管理资源市场供货商、货源池和 SKU 货源绑定',
-    '/admin/finance-settlement': '查看和管理工作流销售收入结算',
-    '/admin/announcements': '发布和管理系统公告通知',
-    '/admin/help-center': '管理帮助中心目录和文章',
-    '/admin/transactions': '查看和管理所有用户的奶片交易记录',
-    '/admin/miniapp-management': '管理小程序基本信息和配置',
-    '/admin/miniapp-config': '配置小程序工作流和视频奖励规则',
-    '/admin/email-reach-overview': '看使用账户数、模板数和整体发送量',
-    '/admin/email-reach-users': '查看所有使用邮件触达的客户和发件情况',
-    '/admin/email-reach-templates': '查看所有客户模板和审核拒绝记录',
-    '/admin/email-reach-unsubscribes': '查看所有客户的退订记录',
-    '/admin/email-reach-image-reviews': '查看客户上传图片的审核结果',
-    '/admin/email-reach-settings': '配置当前发件账号并查看失败统计'
-  }
-  return descriptions[route.path] || '系统管理中心'
 })
 
 // 处理退出登录

@@ -23,6 +23,7 @@ export const hostedDomainAPI = {
   deleteDomain: (domainId) => api.delete(`/hosted-domains/${domainId}`),
   transferToAdmin: (data) => api.post('/hosted-domains/transfer-to-admin', data),
   refreshDns: (domainId) => api.post(`/hosted-domains/${domainId}/refresh-dns`),
+  diagnoseDns: (domainId) => api.post(`/hosted-domains/${domainId}/diagnose-dns`, {}, { timeout: 45000, suppressErrorMessage: true }),
   createMailbox: (domainId, data) => api.post(`/hosted-domains/${domainId}/mailboxes`, data),
   updateMailbox: (domainId, mailboxId, data) =>
     api.put(`/hosted-domains/${domainId}/mailboxes/${mailboxId}`, data),

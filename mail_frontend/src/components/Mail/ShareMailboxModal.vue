@@ -4,9 +4,9 @@
       v-if="visible"
       class="fixed inset-0 z-[11000] flex items-center justify-center bg-black bg-opacity-50 p-4"
     >
-      <div v-if="!shareUrls.length" class="bg-white rounded-xl shadow-2xl w-full max-w-lg">
+      <div v-if="!shareUrls.length" class="flex max-h-[calc(100dvh-2rem)] w-full max-w-lg flex-col overflow-hidden rounded-xl bg-white shadow-2xl">
         <!-- 标题栏 -->
-        <div class="px-6 py-5 border-b border-gray-200 flex items-center justify-between">
+        <div class="shrink-0 px-6 py-5 border-b border-gray-200 flex items-center justify-between">
           <div class="flex items-center gap-3">
             <div class="w-10 h-10 bg-primary-100 rounded-lg flex items-center justify-center">
               <svg
@@ -40,7 +40,7 @@
           </button>
         </div>
 
-        <div class="p-6">
+        <div class="min-h-0 overflow-y-auto p-6">
           <div class="space-y-6">
             <!-- 已选择的邮箱 -->
             <div>
@@ -74,6 +74,12 @@
                   <code class="text-sm text-gray-700 font-medium">{{ mailbox.email }}</code>
                 </div>
               </div>
+            </div>
+
+            <div>
+              <label for="share-batch-title" class="block text-sm font-semibold text-gray-700">{{ t('shareMailbox.batchTitle') }}</label>
+              <input id="share-batch-title" v-model="batchTitle" type="text" maxlength="100" :placeholder="t('shareMailbox.batchTitlePlaceholder')" class="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+              <p class="mt-1 text-xs text-gray-500">{{ t('shareMailbox.batchTitleHint') }}</p>
             </div>
 
             <!-- 有效期选择 -->
@@ -308,6 +314,7 @@
                 {{ t('shareMailbox.linkGenerated') }}
               </h3>
             </div>
+            <p v-if="batchTitle.trim()" class="mt-2 break-all text-sm font-medium text-gray-700">{{ batchTitle.trim() }}</p>
             <p class="mt-1 text-sm text-gray-500">
               {{ t('shareMailbox.generatedCount', { count: shareUrls.length }) }}
             </p>
@@ -423,6 +430,7 @@ const expireStartMode = ref(savedPreferences.expireStartMode)
 const shareCount = ref(savedPreferences.shareCount)
 const latestOnly = ref(savedPreferences.latestOnly)
 const creating = ref(false)
+const batchTitle = ref('')
 const shareUrls = ref([])
 const guestMode = computed(() => !userStore.isAuthenticated && Boolean(props.selectedMailboxes[0]?.claim_token))
 
@@ -455,6 +463,7 @@ const handleCreateShare = async () => {
     const res = await mailboxShareAPI.createShare({
       mailbox_ids: props.mailboxIds,
       mailbox_type: props.mailboxType,
+      batch_title: batchTitle.value.trim(),
       share_count: guestMode.value ? 1 : Math.max(1, Math.min(100, Number(shareCount.value) || 1)),
       expire_mode: guestMode.value ? 'days' : selectedExpireMode.value,
       expire_days: guestMode.value ? 1 : selectedExpireMode.value === 'days' ? selectedExpireDays.value : 0,
@@ -518,6 +527,7 @@ watch(
         if (props.visible) return
         restoreSavedPreferences()
         shareUrls.value = []
+        batchTitle.value = ''
         creating.value = false
       }, 300)
     }

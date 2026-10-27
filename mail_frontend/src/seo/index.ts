@@ -1,6 +1,7 @@
 import { watch } from 'vue'
 import type { I18n } from 'vue-i18n'
 import type { RouteLocationNormalizedLoaded, Router } from 'vue-router'
+import { getLocaleOption } from '@/i18n/locales'
 
 export interface PageSeo {
   title: string
@@ -88,7 +89,7 @@ const upsertLink = (rel: string, href: string) => {
 
 export const applyPageSeo = (seo: PageSeo) => {
   const canonicalUrl = buildCanonicalUrl(seo.canonicalPath || '/')
-  const locale = seo.lang === 'en' ? 'en_US' : seo.lang === 'zh-TW' ? 'zh_TW' : 'zh_CN'
+  const locale = getLocaleOption(seo.lang || 'zh-CN').ogLocale
 
   document.documentElement.setAttribute('lang', seo.lang || DEFAULT_SEO.lang || 'zh-CN')
   document.title = seo.title

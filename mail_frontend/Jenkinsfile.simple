@@ -1,4 +1,5 @@
 pipeline {
+    options { disableConcurrentBuilds() }
     agent {
         docker {
             image 'node:22'
@@ -15,14 +16,6 @@ pipeline {
         SERVER_HOST = '118.178.181.189'
         SERVER_USER = 'root'
         DEPLOY_PATH = '/var/web/mail/mail_frontend'  // Nginx 静态文件路径
-    }
-    
-    parameters {
-        booleanParam(
-            name: 'AUTO_DEPLOY',
-            defaultValue: true,
-            description: '自动传输到服务器'
-        )
     }
     
     stages {
@@ -62,59 +55,32 @@ pipeline {
                 script {
                     sh """
                         cd mail_frontend
-                        tar -czf /tmp/dist.tar.gz dist
+                        tar -czf dist.tar.gz dist
+                        sha256sum dist.tar.gz > dist.tar.gz.sha256
                     """
+                    archiveArtifacts artifacts: 'mail_frontend/dist.tar.gz*', fingerprint: true
                 }
             }
         }
         
         stage('部署') {
-            when {
-                expression { params.AUTO_DEPLOY == true }
-            }
             steps {
                 script {
+                    def packageSha = sh(returnStdout: true, script: 'sha256sum mail_frontend/dist.tar.gz').trim().tokenize(' ')[0]
                     sshagent(credentials: ['server-ssh-key']) {
                         sh """
-                            ssh -o StrictHostKeyChecking=no ${SERVER_USER}@${SERVER_HOST} \
-                                "mkdir -p /tmp/frontend_deploy"
-                            
-                            scp -o StrictHostKeyChecking=no \
-                                /tmp/dist.tar.gz \
-                                ${SERVER_USER}@${SERVER_HOST}:/tmp/frontend_deploy/
-                            
-                            ssh -o StrictHostKeyChecking=no ${SERVER_USER}@${SERVER_HOST} << 'ENDSSH'
-                                # 创建部署目录
-                                mkdir -p ${DEPLOY_PATH}
-                                
-                                # 备份旧文件（如果存在）
-                                if [ -d "${DEPLOY_PATH}" ] && [ "\$(ls -A ${DEPLOY_PATH})" ]; then
-                                    BACKUP_DIR="${DEPLOY_PATH}_backup_\$(date +%Y%m%d_%H%M%S)"
-                                    mkdir -p "\$BACKUP_DIR"
-                                    cp -r ${DEPLOY_PATH}/* "\$BACKUP_DIR/" 2>/dev/null || true
-                                    echo "📦 已备份到: \$BACKUP_DIR"
-                                fi
-                                
-                                # 清空旧文件
-                                rm -rf ${DEPLOY_PATH}/*
-                                
-                                # 解压新文件（dist 目录下的内容）
-                                cd /tmp/frontend_deploy
-                                tar -xzf dist.tar.gz
-                                mv dist/* ${DEPLOY_PATH}/
-                                
-                                # 设置权限
-                                chmod -R 755 ${DEPLOY_PATH}
-                                
-                                # 清理临时文件
-                                rm -rf /tmp/frontend_deploy
-                                
-                                # 验证部署
-                                echo "📁 部署的文件列表："
-                                ls -lh ${DEPLOY_PATH}
-                                
-                                echo "✅ 前端部署完成！路径: ${DEPLOY_PATH}"
-ENDSSH
+                            ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new ${SERVER_USER}@${SERVER_HOST} \
+                                'mkdir -p /tmp/frontend_deploy/${VERSION}-${BUILD_NUMBER}'
+                            scp -o StrictHostKeyChecking=accept-new \
+                                mail_frontend/dist.tar.gz mail_frontend/scripts/deploy_frontend.py \
+                                ${SERVER_USER}@${SERVER_HOST}:/tmp/frontend_deploy/${VERSION}-${BUILD_NUMBER}/
+                            ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new ${SERVER_USER}@${SERVER_HOST} \
+                                'python3 /tmp/frontend_deploy/${VERSION}-${BUILD_NUMBER}/deploy_frontend.py \
+                                --archive /tmp/frontend_deploy/${VERSION}-${BUILD_NUMBER}/dist.tar.gz \
+                                --root ${DEPLOY_PATH} --version ${VERSION}-${BUILD_NUMBER} \
+                                --sha256 ${packageSha} --verify-url https://zjkdongao.cn/'
+                            ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new ${SERVER_USER}@${SERVER_HOST} \
+                                'rm -rf /tmp/frontend_deploy/${VERSION}-${BUILD_NUMBER}'
                         """
                     }
                 }
@@ -130,7 +96,7 @@ ENDSSH
             echo "❌ 构建失败"
         }
         always {
-            sh "rm -f /tmp/dist.tar.gz || true"
+            sh "rm -f mail_frontend/dist.tar.gz mail_frontend/dist.tar.gz.sha256 || true"
         }
     }
 }

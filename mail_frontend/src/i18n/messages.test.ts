@@ -22,5 +22,7 @@ describe('runtime i18n messages', () => {
     expect(i18n.global.t('batchAdd.inputPlaceholder')).toContain('you@163.com')
     expect(i18n.global.t('triggerModal.placeholderSender')).toContain('admin@example.com')
     expect(i18n.global.t('triggerModal.placeholderRecipient')).toContain('user@example.com')
+    expect(i18n.global.t('automationModal.extractRulesPlaceholder')).toBe('[{"selector": "h1", "field": "title"}]')
+    expect(i18n.global.t('inventoryModal.placeholderSingle')).toContain('account(at)example.com|password456')
   })
 })

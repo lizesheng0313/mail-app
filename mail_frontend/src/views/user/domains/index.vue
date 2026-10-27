@@ -373,8 +373,18 @@
             </button>
           </div>
         </div>
+        <DnsDiagnosisPanel
+          :diagnosis="dnsDiagnosis"
+          :loading="diagnosingDomainId === domainModalDetail.domain.id"
+          :error="dnsDiagnosisError"
+          @retry="diagnoseDns(domainModalDetail.domain.id)"
+          @copy="copyDnsValue"
+        />
         <div>
           <h3 class="text-sm font-semibold text-black mb-3">DNS 配置</h3>
+          <p class="mb-3 text-xs text-gray-500">
+            {{ domainModalDetail.dns_zone ? t('dnsDiagnosis.zone', { zone: domainModalDetail.dns_zone }) : t('dnsDiagnosis.zoneUnknown') }}
+          </p>
           <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200 text-sm">
               <thead>
@@ -401,6 +411,7 @@
                     <div class="flex items-center gap-2">
                       <div class="max-w-[240px] break-all text-gray-700">
                         {{ formatRecordHost(record) }}
+                        <div class="mt-1 text-xs text-gray-500">{{ record.record_name }}</div>
                       </div>
                       <ActionButton
                         icon="copy"
@@ -620,6 +631,7 @@ import BaseInput from '@/components/BaseInput/index.vue'
 import BaseModal from '@/components/BaseModal/index.vue'
 import ConfirmDialog from '@/components/ConfirmDialog/index.vue'
 import CatchAllSettingCard from '@/views/user/domains/components/CatchAllSettingCard.vue'
+import DnsDiagnosisPanel from '@/views/user/domains/components/DnsDiagnosisPanel.vue'
 import { hostedDomainAPI } from '@/api/hostedDomain'
 import {
   getSharedEarningsNoticePreference,
@@ -674,6 +686,17 @@ const deleting = ref(false)
 const creatingDomain = ref(false)
 const savingEdit = ref(false)
 const refreshingDomainId = ref<number | null>(null)
+const diagnosingDomainId = ref<number | null>(null)
+const dnsDiagnosis = ref<any>(null)
+const dnsDiagnosisError = ref(false)
+let diagnosisVersion = 0
+
+const resetDnsDiagnosis = () => {
+  diagnosisVersion += 1
+  diagnosingDomainId.value = null
+  dnsDiagnosis.value = null
+  dnsDiagnosisError.value = false
+}
 const transferringDomains = ref(false)
 const authorizingAdminQuickBind = ref(false)
 
@@ -805,12 +828,14 @@ const loadDomains = async (targetPage = pagination.value.page) => {
 }
 
 const openCreateModal = () => {
+  resetDnsDiagnosis()
   showDomainModal.value = true
   domainModalDetail.value = null
   createForm.value = getDefaultCreateForm()
 }
 
 const closeDomainModal = () => {
+  resetDnsDiagnosis()
   showDomainModal.value = false
   domainModalDetail.value = null
   createForm.value = getDefaultCreateForm()
@@ -910,6 +935,7 @@ const getDnsDetailDotClass = (status: string) => {
 }
 
 const applyDomainDetailToModal = (detail: any, _created = false) => {
+  if (domainModalDetail.value?.domain?.id !== detail?.domain?.id) resetDnsDiagnosis()
   domainModalDetail.value = detail || null
   showDomainModal.value = true
 }
@@ -917,6 +943,7 @@ const applyDomainDetailToModal = (detail: any, _created = false) => {
 const getModalDomainId = () => Number(domainModalDetail.value?.domain?.id || 0)
 
 const openVerifyModal = async (domain: any) => {
+  resetDnsDiagnosis()
   const domainId = Number(domain?.id || 0)
   if (!domainId) return
   loading.value = true
@@ -931,54 +958,39 @@ const openVerifyModal = async (domain: any) => {
 }
 
 const formatRecordHost = (record: any) => {
-  const value = String(record?.record_host || '@').trim() || '@'
-  const domainName = String(domainModalDetail.value?.domain?.domain_name || '').trim().toLowerCase()
-  const hostPrefix = getDnsZoneHostPrefix(domainName)
-  if (!hostPrefix) return value
-  if (value === '@') return hostPrefix
-  return `${value}.${hostPrefix}`
+  return String(record?.configuration_host || record?.record_host || '@')
 }
 
-const getDnsZoneHostPrefix = (domainName: string) => {
-  const parts = String(domainName || '')
-    .trim()
-    .toLowerCase()
-    .replace(/\.$/, '')
-    .split('.')
-    .filter(Boolean)
-  if (parts.length <= 2) return ''
-
-  const publicSuffix2 = parts.slice(-2).join('.')
-  const secondLevelPublicSuffixes = new Set([
-    'com.cn',
-    'net.cn',
-    'org.cn',
-    'gov.cn',
-    'edu.cn',
-    'com.tw',
-    'net.tw',
-    'org.tw',
-    'com.hk',
-    'net.hk',
-    'org.hk',
-    'co.uk',
-    'com.au',
-    'co.jp'
-  ])
-  const rootPartCount = secondLevelPublicSuffixes.has(publicSuffix2) ? 3 : 2
-  if (parts.length <= rootPartCount) return ''
-  return parts.slice(0, -rootPartCount).join('.')
+const diagnoseDns = async (domainId: number | string) => {
+  const numericId = Number(domainId)
+  if (diagnosingDomainId.value === numericId) return
+  const version = ++diagnosisVersion
+  diagnosingDomainId.value = numericId
+  dnsDiagnosisError.value = false
+  try {
+    const response: any = await hostedDomainAPI.diagnoseDns(numericId)
+    if (version !== diagnosisVersion || getModalDomainId() !== numericId || !showDomainModal.value) return
+    if (response.code !== 0 || !response.data) throw new Error('diagnosis failed')
+    dnsDiagnosis.value = response.data
+  } catch {
+    if (version === diagnosisVersion && getModalDomainId() === numericId) dnsDiagnosisError.value = true
+  } finally {
+    if (version === diagnosisVersion) diagnosingDomainId.value = null
+  }
 }
 
 const refreshDns = async (domainId: number | string) => {
   const numericId = Number(domainId || 0)
-  if (!numericId) return
+  if (!numericId || refreshingDomainId.value) return
+  resetDnsDiagnosis()
+  const version = diagnosisVersion
   refreshingDomainId.value = numericId
   try {
     const response: any = await hostedDomainAPI.refreshDns(numericId)
     if (response.code === 0 && response.data) {
-      if (getModalDomainId() === numericId) {
+      if (version === diagnosisVersion && getModalDomainId() === numericId && showDomainModal.value) {
         applyDomainDetailToModal(response.data)
+        if (response.data.domain?.status !== 'verified') void diagnoseDns(numericId)
       }
       await loadDomains()
     }
@@ -1160,6 +1172,7 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  resetDnsDiagnosis()
   window.removeEventListener('shared-earnings-notice:preference-changed', onEarningsPreferenceChanged)
   if ((window as any).feimaomao === openTransferModal) {
     delete (window as any).feimaomao
