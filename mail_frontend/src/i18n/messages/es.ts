@@ -971,7 +971,7 @@ export default {
     "priority": "Prioridad",
     "copyHostRecord": "Copiar registro de host",
     "copyValue": "Copiar valor",
-    "catchAllTitle": "Comodín para direcciones inigualables",
+    "catchAllTitle": "Recibir en admin los correos de direcciones sin buzón",
     "catchAllCreateDesc": "Cuando está habilitado, el correo de las direcciones que no ha creado va a {mailbox}.",
     "catchAllDetailDesc": "Cuando está habilitado, {mailbox} se usa solo después de pasar la verificación; Antes de la verificación, no recibe correo.",
     "catchAllMailbox": "Buzón general: {mailbox}",

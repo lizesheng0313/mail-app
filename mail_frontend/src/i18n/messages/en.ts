@@ -997,7 +997,7 @@ const en = {
     priority: 'Priority',
     copyHostRecord: 'Copy host record',
     copyValue: 'Copy value',
-    catchAllTitle: 'Catch-All for Unmatched Addresses',
+    catchAllTitle: 'Use admin to receive mail for unmatched addresses',
     catchAllCreateDesc: 'When enabled, mail for addresses you haven’t created goes to {mailbox}.',
     catchAllDetailDesc:
       'When enabled, {mailbox} is used only after verification passes; before verification, it does not receive mail.',

@@ -971,7 +971,7 @@ export default {
     "priority": "Priorité",
     "copyHostRecord": "Copier l'enregistrement de l'hôte",
     "copyValue": "Copier la valeur",
-    "catchAllTitle": "Fourre-tout pour les adresses sans correspondance",
+    "catchAllTitle": "Recevoir dans admin les e-mails des adresses sans boîte",
     "catchAllCreateDesc": "Lorsqu'il est activé, le courrier des adresses que vous n'avez pas créées est envoyé à {mailbox}.",
     "catchAllDetailDesc": "Lorsqu'il est activé, {mailbox} est utilisé uniquement après la réussite de la vérification ; avant vérification, il ne reçoit pas de courrier.",
     "catchAllMailbox": "Boîte aux lettres fourre-tout : {mailbox}",

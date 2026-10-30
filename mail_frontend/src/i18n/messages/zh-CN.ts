@@ -962,7 +962,7 @@ const zhCN = {
     priority: '优先级',
     copyHostRecord: '复制主机记录',
     copyValue: '复制记录值',
-    catchAllTitle: '未匹配邮箱代收',
+    catchAllTitle: '使用 admin 代收未匹配邮箱',
     catchAllCreateDesc: '开启后，未创建邮箱的来信也会存入 {mailbox}。',
     catchAllDetailDesc: '开启后，验证通过才会启用 {mailbox} 代收；未验证前不会代收。',
     catchAllMailbox: '代收邮箱：{mailbox}',

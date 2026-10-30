@@ -971,7 +971,7 @@ export default {
     "priority": "Priorität",
     "copyHostRecord": "Hostdatensatz kopieren",
     "copyValue": "Wert kopieren",
-    "catchAllTitle": "Catch-All für nicht übereinstimmende Adressen",
+    "catchAllTitle": "E-Mails für nicht zugeordnete Adressen über admin empfangen",
     "catchAllCreateDesc": "Wenn diese Option aktiviert ist, werden E-Mails für Adressen, die Sie nicht erstellt haben, an {mailbox} gesendet.",
     "catchAllDetailDesc": "Wenn aktiviert, wird {mailbox} nur verwendet, nachdem die Überprüfung erfolgreich war. Vor der Überprüfung erhält es keine E-Mails.",
     "catchAllMailbox": "Sammelpostfach: {mailbox}",

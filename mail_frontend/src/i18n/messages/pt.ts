@@ -971,7 +971,7 @@ export default {
     "priority": "Prioridade",
     "copyHostRecord": "Copiar registro do host",
     "copyValue": "Copiar valor",
-    "catchAllTitle": "Catch-All para endereços incomparáveis",
+    "catchAllTitle": "Receber no admin os e-mails de endereços sem caixa",
     "catchAllCreateDesc": "Quando ativado, os e-mails dos endereços que você não criou vão para {mailbox}.",
     "catchAllDetailDesc": "Quando ativado, {mailbox} é usado somente após a verificação ser aprovada; antes da verificação, ele não recebe correspondência.",
     "catchAllMailbox": "Caixa de correio pega-tudo: {mailbox}",

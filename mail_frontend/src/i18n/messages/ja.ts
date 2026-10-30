@@ -971,7 +971,7 @@ export default {
     "priority": "優先順位",
     "copyHostRecord": "ホストレコードをコピーする",
     "copyValue": "値をコピーする",
-    "catchAllTitle": "一致しないアドレスのキャッチオール",
+    "catchAllTitle": "未作成のアドレス宛メールを admin で受信",
     "catchAllCreateDesc": "有効にすると、作成していないアドレスへのメールは {mailbox} に送信されます。",
     "catchAllDetailDesc": "有効にすると、{mailbox} は検証に合格した後にのみ使用されます。認証前はメールが届きません。",
     "catchAllMailbox": "キャッチオール メールボックス: {mailbox}",

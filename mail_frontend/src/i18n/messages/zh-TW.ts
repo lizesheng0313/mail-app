@@ -961,7 +961,7 @@ const zhTW = {
     priority: '優先級',
     copyHostRecord: '複製主機記錄',
     copyValue: '複製記錄值',
-    catchAllTitle: '未匹配郵箱代收',
+    catchAllTitle: '使用 admin 代收未匹配郵箱',
     catchAllCreateDesc: '開啟後，未建立郵箱的來信也會存入 {mailbox}。',
     catchAllDetailDesc: '開啟後，驗證通過才會啟用 {mailbox} 代收；未驗證前不會代收。',
     catchAllMailbox: '代收郵箱：{mailbox}',

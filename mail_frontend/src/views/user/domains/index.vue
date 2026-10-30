@@ -298,7 +298,6 @@
           auto-show-picker
         />
         <CatchAllSettingCard
-          :domain-name="createForm.domain_name"
           :enabled="createForm.catch_all_enabled"
           @update:enabled="createForm.catch_all_enabled = $event"
         />
@@ -525,7 +524,6 @@
           auto-show-picker
         />
         <CatchAllSettingCard
-          :domain-name="editForm.domain_name"
           :enabled="editForm.catch_all_enabled"
           @update:enabled="editForm.catch_all_enabled = $event"
         />

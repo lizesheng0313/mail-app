@@ -1,18 +1,13 @@
 <template>
   <div class="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
-    <div class="flex items-start justify-between gap-4">
-      <div class="flex-1">
-        <div class="text-sm font-medium text-black">{{ t('domainsPage.catchAllTitle') }}</div>
-        <p class="mt-1 text-xs leading-5 text-gray-500">
-          {{ t('domainsPage.catchAllCreateDesc', { mailbox: getCatchAllMailbox(domainName) }) }}
-        </p>
-      </div>
+    <div class="flex items-center justify-between gap-4">
+      <div class="min-w-0 flex-1 text-sm font-medium text-black">{{ t('domainsPage.catchAllTitle') }}</div>
       <button
         type="button"
         role="switch"
         :aria-checked="enabled"
         :aria-label="t('domainsPage.catchAllTitle')"
-        class="relative mt-0.5 inline-block h-6 w-11 flex-shrink-0 cursor-pointer"
+        class="relative inline-block h-6 w-11 flex-shrink-0 cursor-pointer"
         @click="emit('update:enabled', !enabled)"
       >
         <div
@@ -32,22 +27,10 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 
-withDefaults(
-  defineProps<{
-    domainName?: string
-    enabled: boolean
-  }>(),
-  {
-    domainName: ''
-  }
-)
+defineProps<{ enabled: boolean }>()
 
 const emit = defineEmits<{
   (e: 'update:enabled', value: boolean): void
 }>()
 const { t } = useI18n()
-
-const normalizeCatchAllDomain = (domainName?: string) =>
-  String(domainName || '').trim() || t('domainsPage.yourDomain')
-const getCatchAllMailbox = (domainName?: string) => `admin@${normalizeCatchAllDomain(domainName)}`
 </script>

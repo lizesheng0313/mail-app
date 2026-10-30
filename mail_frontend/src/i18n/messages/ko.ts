@@ -971,7 +971,7 @@ export default {
     "priority": "우선순위",
     "copyHostRecord": "호스트 기록 복사",
     "copyValue": "값 복사",
-    "catchAllTitle": "일치하지 않는 주소에 대한 포괄 기능",
+    "catchAllTitle": "등록되지 않은 주소의 메일을 admin으로 수신",
     "catchAllCreateDesc": "활성화되면 귀하가 생성하지 않은 주소의 메일이 {mailbox}로 이동됩니다.",
     "catchAllDetailDesc": "활성화되면 {mailbox}는 확인이 통과된 후에만 사용됩니다. 확인 전 메일은 수신되지 않습니다.",
     "catchAllMailbox": "포괄 사서함: {mailbox}",
