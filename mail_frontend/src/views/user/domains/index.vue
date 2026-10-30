@@ -443,9 +443,12 @@
                     <span v-else-if="diagnosingDomainId === domainModalDetail.domain.id" role="status" class="text-gray-500">
                       {{ t('dnsDiagnosis.adviceLoading') }}
                     </span>
-                    <p v-else-if="getDnsAdvice(record)" class="whitespace-pre-line break-words text-gray-700">
-                      {{ getDnsAdvice(record) }}
-                    </p>
+                    <DnsRecordAdvice
+                      v-else-if="getDnsAdvice(record)"
+                      :record="getDnsAdvice(record)"
+                      :zone-confirmed="dnsDiagnosis.zone_confirmed ?? Boolean(dnsDiagnosis.dns_zone)"
+                      @copy="copyDnsValue"
+                    />
                     <span v-else-if="dnsDiagnosisError || dnsDiagnosis" class="text-gray-500">
                       {{ t('dnsDiagnosis.adviceUnavailable') }}
                     </span>
@@ -623,6 +626,7 @@ import BaseInput from '@/components/BaseInput/index.vue'
 import BaseModal from '@/components/BaseModal/index.vue'
 import ConfirmDialog from '@/components/ConfirmDialog/index.vue'
 import CatchAllSettingCard from '@/views/user/domains/components/CatchAllSettingCard.vue'
+import DnsRecordAdvice from '@/views/user/domains/components/DnsRecordAdvice.vue'
 import { dnsRecordKey, dnsStatusClass, dnsStatusKey } from '@/views/user/domains/components/dnsStatus'
 import { hostedDomainAPI } from '@/api/hostedDomain'
 import {
@@ -904,7 +908,7 @@ const getDnsDiagnosisRecord = (record: any) =>
   dnsDiagnosis.value?.records?.find((row: any) => dnsRecordKey(row) === dnsRecordKey(record))
 const getDnsDisplayStatus = (record: any) => getDnsDiagnosisRecord(record)?.status || record.status
 const getDnsAdvice = (record: any) =>
-  dnsDiagnosis.value?.source === 'ai' ? getDnsDiagnosisRecord(record)?.explanation || '' : ''
+  dnsDiagnosis.value?.source === 'ai' ? getDnsDiagnosisRecord(record) : null
 
 const applyDomainDetailToModal = (detail: any, _created = false) => {
   if (domainModalDetail.value?.domain?.id !== detail?.domain?.id) resetDnsDiagnosis()
