@@ -53,14 +53,13 @@
           type="button"
           :title="tc('downloadRecipientTemplate')"
           :aria-label="tc('downloadRecipientTemplate')"
-          class="inline-flex h-8 w-8 items-center justify-center rounded text-gray-500 hover:bg-gray-100"
+          class="inline-flex h-8 shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded px-2 text-xs text-gray-600 hover:bg-gray-100"
           @click="downloadTemplate"
         >
-          <ArrowDownTrayIcon class="h-4 w-4" aria-hidden="true" />
+          <ArrowDownTrayIcon class="h-4 w-4" aria-hidden="true" />{{
+            tc('downloadRecipientTemplate')
+          }}
         </button>
-        <span class="ml-auto truncate px-1 text-xs text-gray-400">{{
-          tc('selectedSenderCount', { count: selectedAccountIds.length })
-        }}</span>
         <div class="ml-auto flex shrink-0 items-center gap-0.5">
           <button
             type="button"
@@ -156,9 +155,11 @@
           <div
             class="flex min-h-10 shrink-0 items-center gap-2 border-b border-gray-100 px-3 py-1.5"
           >
-            <label :for="`${composeId}-subject`" class="w-14 shrink-0 text-xs text-gray-500">{{
-              t('sendEmail.subject')
-            }}</label>
+            <label
+              :for="`${composeId}-subject`"
+              class="w-20 shrink-0 whitespace-nowrap text-xs text-gray-500"
+              >{{ t('sendEmail.subject') }}</label
+            >
             <input
               :id="`${composeId}-subject`"
               v-model="form.subject"
@@ -402,12 +403,6 @@
           </div>
         </aside>
       </div>
-      <p
-        v-if="!isDesktop"
-        class="shrink-0 border-t border-gray-100 px-3 py-1 text-xs text-gray-400"
-      >
-        {{ te('webEditingHint') }}
-      </p>
     </section>
   </div>
 </template>

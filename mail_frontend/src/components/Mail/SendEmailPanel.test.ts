@@ -137,7 +137,7 @@ describe('compact composer', () => {
     mocks.desktop = false
     const wrapper = await setup()
     await loadDraft(wrapper)
-    expect(wrapper.text()).toContain('网页可编辑，发送请使用桌面端。')
+    expect(wrapper.text()).not.toContain('网页可编辑，发送请使用桌面端。')
     expect(wrapper.get('.ProseMirror').attributes('contenteditable')).toBe('true')
     expect(
       wrapper

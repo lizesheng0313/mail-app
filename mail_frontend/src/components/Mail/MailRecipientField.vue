@@ -1,8 +1,10 @@
 <template>
   <div class="flex min-h-10 shrink-0 items-start gap-2 border-b border-gray-100 px-3 py-1.5">
-    <label :for="inputId" class="w-14 shrink-0 pt-1 text-xs leading-5 text-gray-500">{{
-      label
-    }}</label>
+    <label
+      :for="inputId"
+      class="w-20 shrink-0 whitespace-nowrap pt-1 text-xs leading-5 text-gray-500"
+      >{{ label }}</label
+    >
     <div
       class="flex max-h-24 min-w-0 flex-1 flex-wrap items-center gap-1 overflow-y-auto"
       @click="input?.focus()"
