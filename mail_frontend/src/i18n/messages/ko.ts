@@ -1313,6 +1313,9 @@ export default {
   },
   "sendEmail": {
     editor: {
+      "cut": "잘라내기",
+      "paste": "붙여넣기",
+      "clipboardShortcutHint": "이 작업은 {shortcut} 키를 사용해 주세요.",
       "formatting": "서식",
       "fontFamily": "글꼴",
       "defaultFont": "기본 글꼴",

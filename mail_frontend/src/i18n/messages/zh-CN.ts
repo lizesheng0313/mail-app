@@ -1310,6 +1310,9 @@ const zhCN = {
   },
   sendEmail: {
     editor: {
+      "cut": "剪切",
+      "paste": "粘贴",
+      "clipboardShortcutHint": "请使用 {shortcut} 完成此操作。",
       "formatting": "正文格式",
       "fontFamily": "字体",
       "defaultFont": "默认字体",

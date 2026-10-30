@@ -7,15 +7,9 @@
       <EnvelopeIcon class="h-10 w-10 text-gray-200" aria-hidden="true" />
       <p class="text-sm">{{ tc('emptyState') }}</p>
     </div>
-    <div
-      v-if="useComposeOverlay"
-      class="fixed inset-0 z-[70] bg-slate-950/20"
-      @click="toggleComposeFullscreen"
-    />
     <section
       v-if="selectedAccountIds.length || pageMode"
-      ref="composeSectionRef"
-      :class="composeSectionClass"
+      class="compose-section flex h-full min-h-0 flex-col overflow-hidden bg-white"
     >
       <header
         class="flex shrink-0 flex-wrap items-center gap-1.5 border-b border-gray-200 bg-gray-50/70 px-2 py-2"
@@ -74,18 +68,6 @@
         <div class="ml-auto flex shrink-0 items-center gap-0.5">
           <button
             type="button"
-            :title="showAiPanel ? tc('aiHide') : tc('aiShow')"
-            :aria-label="showAiPanel ? tc('aiHide') : tc('aiShow')"
-            :aria-pressed="showAiPanel"
-            :disabled="sending"
-            class="inline-flex h-8 w-8 items-center justify-center rounded text-gray-500 hover:bg-gray-100 disabled:opacity-40"
-            :class="{ 'bg-primary-50 text-primary-700': showAiPanel }"
-            @click="showAiPanel = !showAiPanel"
-          >
-            <SparklesIcon class="h-4 w-4" aria-hidden="true" />
-          </button>
-          <button
-            type="button"
             :title="bodyMode === 'html' ? te('richEditor') : te('htmlSource')"
             :aria-label="bodyMode === 'html' ? te('richEditor') : te('htmlSource')"
             :aria-pressed="bodyMode === 'html'"
@@ -95,19 +77,6 @@
             @click="bodyMode = bodyMode === 'rich' ? 'html' : 'rich'"
           >
             <CodeBracketIcon class="h-4 w-4" aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            :title="isComposeFullscreen ? tc('fullscreenExit') : tc('fullscreenEnter')"
-            :aria-label="isComposeFullscreen ? tc('fullscreenExit') : tc('fullscreenEnter')"
-            class="inline-flex h-8 w-8 items-center justify-center rounded text-gray-500 hover:bg-gray-100"
-            @click="toggleComposeFullscreen"
-          >
-            <component
-              :is="isComposeFullscreen ? ArrowsPointingInIcon : ArrowsPointingOutIcon"
-              class="h-4 w-4"
-              aria-hidden="true"
-            />
           </button>
         </div>
         <input
@@ -235,7 +204,12 @@
                 :editor="bodyEditor"
                 :class="['mail-body-editor', editorContentClass]"
               />
-              <MailTableContextMenu v-if="bodyEditor" :editor="bodyEditor" :disabled="sending" />
+              <MailEditorContextMenu
+                v-if="bodyEditor"
+                :editor="bodyEditor"
+                :disabled="sending"
+                @ai="openAiPanel"
+              />
             </div>
             <textarea
               v-else
@@ -253,7 +227,7 @@
         </div>
         <aside v-if="showAiPanel" :class="aiPanelClass">
           <div class="border-b border-slate-100 bg-white p-4">
-            <div class="mb-4 flex items-center gap-3">
+            <div class="mb-3 flex items-center gap-3">
               <div
                 class="flex h-9 w-9 items-center justify-center rounded-2xl bg-primary-50 text-primary-700"
               >
@@ -266,12 +240,18 @@
                   />
                 </svg>
               </div>
-              <div>
+              <div class="min-w-0 flex-1">
                 <p class="text-base font-semibold text-slate-900">{{ tc('aiTitle') }}</p>
-                <p v-if="!isCompactAiPanel" class="mt-1 text-xs text-slate-500">
-                  {{ tc('aiSubtitle') }}
-                </p>
               </div>
+              <button
+                type="button"
+                :aria-label="tc('aiHide')"
+                :title="tc('aiHide')"
+                class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                @click="closeAiPanel"
+              >
+                <XMarkIcon class="h-4 w-4" aria-hidden="true" />
+              </button>
             </div>
             <div class="rounded-full bg-slate-100 p-1">
               <div class="grid grid-cols-2 gap-1">
@@ -306,6 +286,7 @@
           <div :class="aiPanelBodyClass">
             <div :class="aiPromptCardClass">
               <textarea
+                ref="aiPromptInput"
                 v-model="aiPrompt"
                 :placeholder="
                   aiMode === 'compose' ? tc('aiComposePlaceholder') : tc('aiPolishPlaceholder')
@@ -313,12 +294,7 @@
                 :class="aiPromptTextareaClass"
               ></textarea>
 
-              <div
-                v-if="visibleAiQuickOptions.length > 0"
-                :class="
-                  isCompactAiPanel ? 'mt-3 grid grid-cols-2 gap-2' : 'mt-3 grid grid-cols-4 gap-2'
-                "
-              >
+              <div v-if="visibleAiQuickOptions.length > 0" class="mt-3 grid grid-cols-2 gap-2">
                 <button
                   v-for="option in visibleAiQuickOptions"
                   :key="option.label"
@@ -369,10 +345,7 @@
               </div>
             </div>
 
-            <div
-              v-if="!isCompactAiPanel"
-              class="mt-4 rounded-[22px] border border-slate-200 bg-white p-3"
-            >
+            <div class="mt-3 rounded-lg border border-slate-200 bg-white p-3">
               <div class="flex items-center justify-between">
                 <span class="text-xs font-medium text-slate-500">{{ tc('aiTone') }}</span>
                 <div class="flex rounded-full bg-slate-100 p-1">
@@ -419,13 +392,13 @@
   </div>
 </template>
 <script setup lang="ts">
-import { computed, getCurrentInstance, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, getCurrentInstance, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { EditorContent, useEditor } from '@tiptap/vue-3'
 import { createMailEditorExtensions, mailHtmlToText, prepareMailHtml } from '@/utils/mailEditor'
 import MailEditorToolbar from './MailEditorToolbar.vue'
 import MailRecipientField from './MailRecipientField.vue'
-import MailTableContextMenu from './MailTableContextMenu.vue'
+import MailEditorContextMenu from './MailEditorContextMenu.vue'
 import HoverTooltip from '@/components/HoverTooltip/index.vue'
 import {
   EnvelopeIcon,
@@ -433,10 +406,7 @@ import {
   PaperClipIcon,
   ArrowUpTrayIcon,
   ArrowDownTrayIcon,
-  SparklesIcon,
   CodeBracketIcon,
-  ArrowsPointingInIcon,
-  ArrowsPointingOutIcon,
   XMarkIcon
 } from '@heroicons/vue/24/outline'
 import { batchLoginAPI } from '@/api/batchLogin'
@@ -534,7 +504,6 @@ const props = defineProps<{
 }>()
 
 const loading = ref(false)
-const composeSectionRef = ref<HTMLElement | null>(null)
 const smtpAccounts = ref<SmtpAccount[]>([])
 const externalAccounts = ref<ExternalAccount[]>([])
 const sending = ref(false)
@@ -559,10 +528,7 @@ const aiLength = ref<'short' | 'medium' | 'long'>('medium')
 const aiGenerating = ref(false)
 const pageMode = computed(() => Boolean(props.pageMode))
 const showAiPanel = ref(false)
-const isComposeFullscreen = ref(false)
 const aiBusy = computed(() => aiGenerating.value || polishing.value)
-const useComposeOverlay = computed(() => isComposeFullscreen.value)
-const isCompactAiPanel = computed(() => showAiPanel.value && !isComposeFullscreen.value)
 const aiToneOptions = computed(() => [
   { value: 'formal' as const, label: tc('toneFormal') },
   { value: 'friendly' as const, label: tc('toneFriendly') },
@@ -588,7 +554,7 @@ const aiPolishQuickOptions = computed(() => [
 const visibleAiQuickOptions = computed(() => {
   const options =
     aiMode.value === 'compose' ? aiComposeQuickOptions.value : aiPolishQuickOptions.value
-  return isComposeFullscreen.value ? options : options.slice(0, 2)
+  return options
 })
 const selectedToneLabel = computed(
   () => aiToneOptions.value.find((item) => item.value === aiTone.value)?.label || ''
@@ -606,26 +572,21 @@ const aiPanelClass = computed(
     'absolute inset-y-0 right-0 z-20 flex w-72 max-w-[90%] flex-col overflow-hidden border-l border-gray-200 bg-white shadow-lg xl:static xl:shrink-0 xl:shadow-none'
 )
 
-const aiPanelBodyClass = computed(() => {
-  return isCompactAiPanel.value
-    ? 'flex min-h-0 flex-1 flex-col overflow-y-auto p-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
-    : 'min-h-0 flex-1 overflow-y-auto p-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
-})
-const aiPromptCardClass = computed(() => {
-  return isCompactAiPanel.value
-    ? 'flex min-h-0 flex-1 flex-col rounded-[26px] border border-slate-200 bg-white p-3 shadow-sm'
-    : 'rounded-[26px] border border-slate-200 bg-white p-3 shadow-sm'
-})
-const aiPromptTextareaClass = computed(() => {
-  return isCompactAiPanel.value
-    ? 'min-h-[150px] flex-1 w-full resize-none border-none bg-transparent px-1 py-1 text-sm leading-6 text-slate-700 outline-none placeholder:text-slate-400 focus:ring-0'
-    : 'min-h-[150px] w-full resize-none border-none bg-transparent px-1 py-1 text-sm leading-6 text-slate-700 outline-none placeholder:text-slate-400 focus:ring-0'
-})
-const composeSectionClass = computed(() =>
-  useComposeOverlay.value
-    ? 'compose-section fixed inset-2 z-[80] flex min-h-0 flex-col overflow-hidden rounded-lg border border-gray-200 bg-white shadow-xl sm:inset-4'
-    : 'compose-section flex h-full min-h-0 flex-col overflow-hidden bg-white'
-)
+const aiPanelBodyClass = 'min-h-0 flex-1 overflow-y-auto p-3'
+const aiPromptCardClass = 'rounded-lg border border-slate-200 bg-white p-3'
+const aiPromptTextareaClass =
+  'min-h-[150px] w-full resize-y border-none bg-transparent px-1 py-1 text-sm leading-6 text-slate-700 outline-none placeholder:text-slate-400 focus:ring-0'
+const aiPromptInput = ref<HTMLTextAreaElement | null>(null)
+const openAiPanel = async () => {
+  if (sending.value) return
+  showAiPanel.value = true
+  await nextTick()
+  aiPromptInput.value?.focus()
+}
+const closeAiPanel = () => {
+  showAiPanel.value = false
+  bodyEditor.value?.view.focus()
+}
 const composeGridClass = computed(() => 'relative flex min-h-0 flex-1 overflow-hidden')
 
 const selectedAccountIds = computed(() => props.selectedMailboxIds || [])
@@ -1279,22 +1240,6 @@ const runAiAction = async () => {
   await composeEmailWithAI()
 }
 
-const syncComposeOverlay = () => {
-  if (typeof document === 'undefined') return
-  const shouldLock = useComposeOverlay.value
-  document.body.style.overflow = shouldLock ? 'hidden' : ''
-  document.documentElement.style.overflow = shouldLock ? 'hidden' : ''
-}
-
-const handleComposeOverlayKeydown = (event: KeyboardEvent) => {
-  if (event.key !== 'Escape' || !useComposeOverlay.value) return
-  isComposeFullscreen.value = false
-}
-
-const toggleComposeFullscreen = async () => {
-  isComposeFullscreen.value = !isComposeFullscreen.value
-}
-
 defineExpose({
   smtpAccounts,
   loadData,
@@ -1326,41 +1271,16 @@ watch(bodyEditor, (editor) => {
 
 watch(sending, (value) => bodyEditor.value?.setEditable(!value))
 
-watch(useComposeOverlay, () => {
-  syncComposeOverlay()
-})
-
 onMounted(() => {
   loadData()
-  if (typeof document !== 'undefined') {
-    document.addEventListener('keydown', handleComposeOverlayKeydown)
-  }
 })
 
 onBeforeUnmount(() => {
-  if (typeof document !== 'undefined') {
-    document.removeEventListener('keydown', handleComposeOverlayKeydown)
-    document.body.style.overflow = ''
-    document.documentElement.style.overflow = ''
-  }
   bodyEditor.value?.destroy()
 })
 </script>
 
 <style scoped>
-.compose-section:fullscreen {
-  width: 100vw;
-  height: 100vh;
-  max-width: none;
-  padding: 20px 20px 16px;
-  border-radius: 0;
-  background: #ffffff;
-}
-
-:deep(.compose-section:fullscreen .mail-body-editor .ProseMirror) {
-  min-height: 360px;
-}
-
 :deep(.mail-body-editor .ProseMirror) {
   min-height: 100%;
   box-sizing: border-box;

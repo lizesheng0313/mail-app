@@ -1313,6 +1313,9 @@ export default {
   },
   "sendEmail": {
     editor: {
+      "cut": "Ausschneiden",
+      "paste": "Einfügen",
+      "clipboardShortcutHint": "Verwenden Sie für diese Aktion {shortcut}.",
       "formatting": "Formatierung",
       "fontFamily": "Schriftart",
       "defaultFont": "Standardschrift",

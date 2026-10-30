@@ -4,7 +4,10 @@ import { createI18n } from 'vue-i18n'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createMailEditorExtensions } from '@/utils/mailEditor'
 import zhCN from '@/i18n/messages/zh-CN'
-import MailTableContextMenu from './MailTableContextMenu.vue'
+import MailEditorContextMenu from './MailEditorContextMenu.vue'
+import { showMessage } from '@/utils/message'
+
+vi.mock('@/utils/message', () => ({ showMessage: vi.fn() }))
 
 const cleanup: (() => void)[] = []
 const setup = () => {
@@ -21,8 +24,9 @@ const setup = () => {
       handleDOMEvents: { mousedown: (_view, event) => event.button === 2 }
     }
   })
+  vi.spyOn(editor.view, 'posAtCoords').mockReturnValue(null)
   editor.commands.setTextSelection(editor.state.doc.content.size - 1)
-  const wrapper = mount(MailTableContextMenu, {
+  const wrapper = mount(MailEditorContextMenu, {
     props: { editor },
     attachTo: document.body,
     global: {
@@ -48,7 +52,9 @@ const tick = async () => {
 const menu = () => document.querySelector<HTMLElement>('[role="menu"]')
 const item = (label: string) =>
   Array.from(document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')).find(
-    (button) => button.textContent?.trim() === label
+    (button) =>
+      button.textContent?.trim() === label ||
+      button.querySelector('span')?.textContent?.trim() === label
   )!
 const rightClick = async (cell: Element, x = 100, y = 100) => {
   const down = new MouseEvent('mousedown', { button: 2, bubbles: true, cancelable: true })
@@ -73,6 +79,13 @@ const cellPositions = (editor: Editor) => {
 }
 
 describe('mail table context menu', () => {
+  it('shows a keyboard shortcut when clipboard access is unavailable', async () => {
+    const { editor } = setup()
+    await rightClick(editor.view.dom.lastElementChild!)
+    item('粘贴').click()
+    await tick()
+    expect(showMessage).toHaveBeenCalledWith(expect.stringContaining('Ctrl+V'), 'info')
+  })
   it.each([
     ['上方插入行', 3, 2],
     ['下方插入行', 3, 2],
@@ -122,6 +135,23 @@ describe('mail table context menu', () => {
     expect(editor.getHTML()).not.toContain('colspan="2"')
   })
 
+  it('opens AI from ordinary text and preserves its selected range', async () => {
+    const { editor, wrapper } = setup()
+    const end = editor.state.doc.content.size - 1
+    editor.commands.setTextSelection({ from: end - 7, to: end })
+    vi.mocked(editor.view.posAtCoords).mockReturnValue({ pos: end - 3, inside: -1 })
+    const selection = editor.state.selection.toJSON()
+    const html = editor.getHTML()
+    await rightClick(editor.view.dom.lastElementChild!)
+    expect(editor.state.selection.toJSON()).toEqual(selection)
+    expect(menu()?.getAttribute('aria-label')).toBe('正文')
+    item('AI 辅助').click()
+    await tick()
+    expect(wrapper.emitted('ai')).toEqual([[]])
+    expect(menu()).toBeNull()
+    expect(editor.getHTML()).toBe(html)
+  })
+
   it('moves the selection when right-clicking an unselected cell and disables merging', async () => {
     const { editor } = setup()
     const positions = cellPositions(editor)
@@ -133,12 +163,13 @@ describe('mail table context menu', () => {
     expect(item('删除表格').disabled).toBe(false)
   })
 
-  it('leaves the native context menu outside tables and while editing is disabled', async () => {
+  it('opens the ordinary editor menu and leaves native editing available when disabled', async () => {
     const { editor, wrapper } = setup()
     expect((await rightClick(editor.view.dom.lastElementChild!)).context.defaultPrevented).toBe(
-      false
+      true
     )
-    expect(menu()).toBeNull()
+    expect(menu()?.getAttribute('aria-label')).toBe('正文')
+    expect(item('AI 辅助').disabled).toBe(false)
     await rightClick(editor.view.dom.querySelector('td')!)
     await wrapper.setProps({ disabled: true })
     expect(menu()).toBeNull()
@@ -153,7 +184,7 @@ describe('mail table context menu', () => {
     expect(menu()).toBeNull()
   })
 
-  it('supports the context menu key, keyboard navigation and Escape without exiting fullscreen', async () => {
+  it('supports the context menu key, keyboard navigation and Escape without leaking the key event', async () => {
     const { editor } = setup()
     editor.commands.setTextSelection(cellPositions(editor)[0] + 2)
     editor.view.dom.dispatchEvent(
@@ -165,7 +196,7 @@ describe('mail table context menu', () => {
     item('上方插入行').dispatchEvent(
       new KeyboardEvent('keydown', { key: 'End', bubbles: true, cancelable: true })
     )
-    expect(document.activeElement).toBe(item('删除表格'))
+    expect(document.activeElement).toBe(item('AI 辅助'))
     const bubbleListener = vi.fn()
     document.addEventListener('keydown', bubbleListener)
     try {

@@ -81,56 +81,56 @@ const loadDraft = async (wrapper: ReturnType<typeof mount>) => {
 }
 
 describe('compact composer', () => {
-  it('opens a table context menu, keeps fullscreen on Escape and closes it when switching to HTML', async () => {
+  it('opens context menus in text and tables and closes them when switching to HTML', async () => {
     const wrapper = await setup()
     await loadDraft(wrapper)
-    await wrapper.get('button[aria-label="全屏写信"]').trigger('click')
-    await wrapper.get('.ProseMirror th').trigger('contextmenu', { clientX: 200, clientY: 200 })
+    await wrapper.get('.ProseMirror p').trigger('contextmenu')
     await flushPromises()
-    expect(document.querySelector('[role="menu"]')).not.toBeNull()
+    expect(document.querySelector('[role="menu"]')?.getAttribute('aria-label')).toBe('正文')
     document.activeElement!.dispatchEvent(
       new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
     )
     await flushPromises()
     expect(document.querySelector('[role="menu"]')).toBeNull()
-    expect(wrapper.get('section').classes()).toContain('fixed')
     await wrapper.get('.ProseMirror th').trigger('contextmenu', { clientX: 200, clientY: 200 })
+    expect(document.querySelector('[role="menu"]')?.getAttribute('aria-label')).toBe('表格')
     await wrapper.get('button[aria-label="HTML 源码"]').trigger('click')
     expect(document.querySelector('[role="menu"]')).toBeNull()
   })
-  it('keeps AI and fullscreen available in the desktop inbox composer', async () => {
+  it('moves AI to the ordinary context menu and removes the fullscreen entry from the inbox composer', async () => {
     const wrapper = await setup()
     await wrapper.setProps({ pageMode: false })
-    await wrapper.get('button[aria-label="AI 辅助"]').trigger('click')
-    expect(wrapper.find('aside').exists()).toBe(true)
-    await wrapper.get('button[aria-label="全屏写信"]').trigger('click')
-    expect(wrapper.find('section').classes()).toContain('fixed')
-    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    await loadDraft(wrapper)
+    expect(wrapper.find('header button[aria-label="AI 辅助"]').exists()).toBe(false)
+    expect(wrapper.find('button[aria-label="全屏写信"]').exists()).toBe(false)
+    await wrapper.get('.ProseMirror p').trigger('contextmenu')
     await flushPromises()
-    expect(wrapper.find('section').classes()).not.toContain('fixed')
+    const ai = Array.from(document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')).find(
+      (button) => button.textContent?.trim() === 'AI 辅助'
+    )!
+    ai.click()
+    await flushPromises()
+    expect(wrapper.find('aside').exists()).toBe(true)
+    expect(document.querySelector('[role="menu"]')).toBeNull()
+    expect(wrapper.findAll('.ProseMirror tr')).toHaveLength(2)
+    await wrapper.get('aside button[aria-label="收起 AI"]').trigger('click')
+    expect(wrapper.find('aside').exists()).toBe(false)
   })
-  it('uses icon entries and keeps the draft through fullscreen and HTML mode', async () => {
+  it('keeps the draft through HTML mode without taking over the document scroll state', async () => {
     const wrapper = await setup()
     expect(wrapper.text()).not.toContain('收件人、附件和正文都在这里一次处理完。')
     expect(wrapper.text()).not.toContain('未添加附件')
-    const ai = wrapper.get('button[aria-label="AI 辅助"]')
-    expect(ai.text()).toBe('')
-    await ai.trigger('click')
-    expect(wrapper.find('aside').exists()).toBe(true)
     await loadDraft(wrapper)
-    const fullscreen = wrapper.get('button[aria-label="全屏写信"]')
-    expect(fullscreen.text()).toBe('')
-    await fullscreen.trigger('click')
-    expect(document.body.style.overflow).toBe('hidden')
-    await wrapper.get('button[aria-label="退出全屏"]').trigger('click')
-    expect(document.body.style.overflow).toBe('')
     await wrapper.get('button[aria-label="HTML 源码"]').trigger('click')
-    expect((wrapper.get('textarea').element as HTMLTextAreaElement).value).toContain('<table')
+    expect(
+      (wrapper.get('textarea[aria-label="HTML 源码"]').element as HTMLTextAreaElement).value
+    ).toContain('<table')
     await wrapper.get('button[aria-label="富文本编辑"]').trigger('click')
     expect(wrapper.findAll('.ProseMirror tr')).toHaveLength(2)
     expect((wrapper.get('input[id$="subject"]').element as HTMLInputElement).value).toBe(
       'Table test'
     )
+    expect(wrapper.get('section').classes()).not.toContain('fixed')
   })
 
   it('sends styled HTML plus readable table text to the mocked desktop command and sent records', async () => {

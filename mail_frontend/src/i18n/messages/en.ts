@@ -1353,6 +1353,9 @@ const en = {
   },
   sendEmail: {
     editor: {
+      "cut": "Cut",
+      "paste": "Paste",
+      "clipboardShortcutHint": "Use {shortcut} to complete this action.",
       "formatting": "Formatting",
       "fontFamily": "Font",
       "defaultFont": "Default font",

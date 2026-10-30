@@ -1309,6 +1309,9 @@ const zhTW = {
   },
   sendEmail: {
     editor: {
+      "cut": "剪下",
+      "paste": "貼上",
+      "clipboardShortcutHint": "請使用 {shortcut} 完成此操作。",
       "formatting": "內文格式",
       "fontFamily": "字型",
       "defaultFont": "預設字型",

@@ -1313,6 +1313,9 @@ export default {
   },
   "sendEmail": {
     editor: {
+      "cut": "切り取り",
+      "paste": "貼り付け",
+      "clipboardShortcutHint": "この操作には {shortcut} を使用してください。",
       "formatting": "文字書式",
       "fontFamily": "フォント",
       "defaultFont": "既定のフォント",
