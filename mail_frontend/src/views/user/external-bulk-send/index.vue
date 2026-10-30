@@ -1,17 +1,9 @@
 <template>
-  <div class="flex h-full min-h-0 flex-col gap-3">
-    <div
-      v-if="!isDesktop"
-      class="flex items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"
-    >
-      <svg class="h-5 w-5 flex-shrink-0 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 4h.01M10.29 3.86l-7.5 13A1 1 0 003.65 18h16.7a1 1 0 00.86-1.5l-7.5-13a1 1 0 00-1.72 0z" />
-      </svg>
-      <span>请在桌面端使用，网页端仅用于查看页面和入口。</span>
-    </div>
-
-    <div class="flex min-h-0 flex-col gap-3 xl:flex-row">
-      <div class="h-80 min-h-0 w-full flex-shrink-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm xl:h-auto xl:w-[292px]">
+  <div class="flex h-full min-h-0 flex-col">
+    <div class="flex min-h-0 flex-1 flex-col gap-2 md:flex-row">
+      <div
+        class="h-36 min-h-0 w-full shrink-0 overflow-hidden rounded-lg border border-gray-200 bg-white p-2 md:h-auto md:w-52 lg:w-60"
+      >
         <ExternalMailboxList
           ref="externalMailboxListRef"
           :is-send-email-view="true"
@@ -21,8 +13,14 @@
         />
       </div>
 
-      <div class="min-h-0 min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <SendEmailPanel ref="sendEmailPanelRef" :selected-mailbox-ids="selectedMailboxIds" :page-mode="true" />
+      <div
+        class="min-h-0 min-w-0 flex-1 overflow-hidden rounded-lg border border-gray-200 bg-white"
+      >
+        <SendEmailPanel
+          ref="sendEmailPanelRef"
+          :selected-mailbox-ids="selectedMailboxIds"
+          :page-mode="true"
+        />
       </div>
     </div>
   </div>
@@ -33,7 +31,6 @@ import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import ExternalMailboxList from '@/components/Mail/ExternalMailbox/MailboxList.vue'
 import SendEmailPanel from '@/components/Mail/SendEmailPanel.vue'
 import smtpAccountsAPI from '@/api/smtpAccounts'
-import { isTauri } from '@/services/api'
 
 const smtpAccounts = ref<any[]>([])
 const selectedMailboxIds = ref<number[]>([])
@@ -41,7 +38,6 @@ const sendEmailPanelRef = ref<any>(null)
 const externalMailboxListRef = ref<any>(null)
 
 const DRAFT_STORAGE_KEY = 'external-bulk-send-draft'
-const isDesktop = isTauri()
 
 const handleExternalSmtpStatusUpdated = async () => {
   await loadSmtpAccounts()
@@ -78,7 +74,9 @@ const restoreDraft = async () => {
   try {
     const draft = JSON.parse(raw)
     if (draft?.external_mailbox_id) {
-      selectedMailboxIds.value = [Number(draft.external_mailbox_id)].filter((id) => Number.isFinite(id) && id > 0)
+      selectedMailboxIds.value = [Number(draft.external_mailbox_id)].filter(
+        (id) => Number.isFinite(id) && id > 0
+      )
     }
 
     await nextTick()
