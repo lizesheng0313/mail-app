@@ -52,7 +52,7 @@
     <Dialog :open="Boolean(previewBatch)" :initial-focus="previewCloseButton" class="relative z-[200]" @close="previewBatch = null">
       <div class="fixed inset-0 bg-gray-900/40" aria-hidden="true" />
       <div class="fixed inset-0 flex items-center justify-center p-3 sm:p-6">
-        <DialogPanel v-if="previewBatch" class="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-5xl flex-col overflow-hidden rounded-xl bg-white shadow-xl sm:max-h-[calc(100dvh-3rem)]">
+        <DialogPanel v-if="previewBatch" class="flex h-[42rem] max-h-[calc(100dvh-1.5rem)] w-full max-w-4xl flex-col overflow-hidden rounded-xl bg-white shadow-xl sm:max-h-[calc(100dvh-3rem)]">
           <DialogTitle class="sr-only">{{ t('shareMailbox.viewBatchLinks') }}</DialogTitle>
           <header class="shrink-0 border-b border-gray-200 px-4 py-3 sm:px-6">
             <div class="flex items-start gap-4">
@@ -70,7 +70,7 @@
             </div>
             <p v-if="previewBatch.miniapp_path" class="mt-2 text-xs text-gray-500">{{ t('shareMailbox.miniappPathHint') }}</p>
           </header>
-          <div class="min-h-0 overflow-y-auto">
+          <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain">
             <div class="share-preview-columns sticky top-0 z-10 hidden border-b border-gray-100 bg-gray-50 px-6 py-2 text-xs font-medium text-gray-500 lg:grid" aria-hidden="true">
               <span>#</span><span>{{ t(previewBatch.miniapp_path ? 'shareMailbox.miniappPath' : 'shareMailbox.linkAddress') }}</span><span>{{ t('shareMailbox.noteColumn') }}</span><span class="text-center">{{ t('shareMailbox.openCountColumn') }}</span><span>{{ t('shareMailbox.statusAndValidity') }}</span><span class="text-right">{{ t('shareMailbox.actionColumn') }}</span>
             </div>
