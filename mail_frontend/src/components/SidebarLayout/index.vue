@@ -219,7 +219,7 @@
 
       <!-- 主要内容区域 -->
       <main class="min-h-0 flex-1 bg-gray-50 overflow-hidden">
-        <div class="workspace-content h-full min-h-0 overflow-y-auto px-2 pb-2 pt-2 sm:px-3 sm:pb-3 sm:pt-3">
+        <div class="workspace-content h-full min-h-0 overflow-y-auto px-2 pb-2 pt-1 sm:px-3 sm:pb-3">
           <slot></slot>
         </div>
       </main>
