@@ -55,7 +55,6 @@
     >
       <template #header>
         <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
-          <h2 class="shrink-0 text-base font-semibold text-black">{{ t('domainsPage.listTitle') }}</h2>
           <div class="order-last flex min-w-0 basis-full items-center gap-2 sm:order-none sm:basis-auto">
             <div class="min-w-0 flex-1 sm:w-56 sm:flex-none">
               <BaseInput
