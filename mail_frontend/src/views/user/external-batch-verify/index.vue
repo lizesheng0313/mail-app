@@ -1,238 +1,409 @@
 <template>
-  <div class="flex h-full min-h-0 flex-col gap-4 pb-4">
-    <div
-      v-if="!isDesktop"
-      class="flex items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"
+  <div class="flex h-full min-h-0 flex-col">
+    <section
+      class="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-gray-200 bg-white"
     >
-      <svg class="h-5 w-5 flex-shrink-0 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 4h.01M10.29 3.86l-7.5 13A1 1 0 003.65 18h16.7a1 1 0 00.86-1.5l-7.5-13a1 1 0 00-1.72 0z" />
-      </svg>
-      <span>请在桌面端使用，网页端仅用于查看页面和入口。</span>
-    </div>
-
-    <section class="flex-shrink-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div class="flex flex-wrap items-center justify-between gap-3">
+      <header
+        class="flex shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-gray-200 bg-gray-50/70 px-3 py-2"
+      >
         <div class="flex flex-wrap items-center gap-4">
-          <label class="inline-flex cursor-pointer items-center gap-3 text-sm text-slate-700">
-            <input v-model="verifySmtp" type="checkbox" class="mailbox-checkbox h-4 w-4 flex-shrink-0 cursor-pointer" />
+          <label
+            class="inline-flex cursor-pointer items-center gap-2 whitespace-nowrap text-xs text-gray-600"
+          >
+            <input
+              v-model="verifySmtp"
+              :disabled="verifyBusy"
+              type="checkbox"
+              class="mailbox-checkbox h-4 w-4 shrink-0 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+            />
             同时验证 SMTP
           </label>
-          <div class="flex items-center gap-3">
-            <span class="text-sm font-medium text-slate-700">代理</span>
-            <div class="w-[220px]">
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-gray-500">代理</span>
+            <div class="w-40">
               <CustomSelect
                 v-model="selectedProxyId"
                 :options="proxySelectOptions"
+                :disabled="verifyBusy"
+                size="sm"
+                class="verify-select"
                 placeholder="不使用代理"
               />
             </div>
           </div>
         </div>
-
-        <div class="flex flex-wrap items-center gap-3">
+        <div class="ml-auto flex flex-wrap items-center gap-1.5">
           <button
             type="button"
-            class="inline-flex items-center rounded-xl border border-red-200 bg-white px-4 py-2.5 text-sm font-medium text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-50 disabled:text-slate-300"
+            class="inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded px-2 text-xs text-gray-600 hover:bg-gray-100 disabled:cursor-not-allowed disabled:text-gray-300 disabled:hover:bg-transparent"
             :disabled="failedRows.length === 0 || verifyBusy"
             @click="retryFailedItems"
           >
-            重试失败项{{ failedRows.length > 0 ? `(${failedRows.length})` : '' }}
+            <svg
+              class="h-4 w-4"
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M20 7v5h-5M4 17v-5h5M5 9a7 7 0 0 1 12-5l3 3M4 17l3 3a7 7 0 0 0 12-5" /></svg
+            >重试失败{{ failedRows.length ? ` (${failedRows.length})` : '' }}
           </button>
           <button
             type="button"
-            class="inline-flex items-center rounded-xl border border-primary-200 bg-white px-4 py-2.5 text-sm font-medium text-primary-700 transition hover:bg-primary-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-50 disabled:text-slate-300"
+            class="inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded px-2 text-xs text-gray-600 hover:bg-gray-100 disabled:cursor-not-allowed disabled:text-gray-300 disabled:hover:bg-transparent"
             :disabled="promotableRows.length === 0 || promoting"
             @click="importSuccessAccounts"
           >
-            {{ promoting ? '导入中...' : `导入成功账号${successRows.length > 0 ? `(${promotableRows.length})` : ''}` }}
+            <svg
+              class="h-4 w-4"
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M14 4h6v16h-6M4 12h12m-4-4 4 4-4 4" /></svg
+            >{{
+              promoting
+                ? '导入中...'
+                : `导入成功账号${successRows.length ? ` (${promotableRows.length})` : ''}`
+            }}
           </button>
           <button
             type="button"
-            class="inline-flex items-center rounded-xl border border-primary-200 bg-white px-4 py-2.5 text-sm font-medium text-primary-700 transition hover:bg-primary-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-50 disabled:text-slate-300"
+            class="inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded px-2 text-xs text-gray-600 hover:bg-gray-100 disabled:cursor-not-allowed disabled:text-gray-300 disabled:hover:bg-transparent"
             :disabled="filteredExportRows.length === 0"
             @click="exportExcel()"
           >
-            导出结果
+            <svg
+              class="h-4 w-4"
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M12 3v12m-5-5 5 5 5-5M4 15v5h16v-5" /></svg
+            >导出结果
           </button>
-          <button
-            type="button"
-            class="inline-flex items-center rounded-xl bg-primary-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:bg-primary-600 disabled:opacity-50"
-            :disabled="verifyBusy"
-            @click="startVerify"
-          >
-            <svg v-if="verifyBusy" class="mr-2 h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-opacity="0.35" stroke-width="2.5" />
-              <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" />
-            </svg>
-            {{ verifyBusy ? '验号中...' : '开始验号' }}
-          </button>
+          <span class="mx-1 hidden h-4 w-px bg-gray-200 sm:inline-block" aria-hidden="true" />
+          <HoverTooltip :text="isDesktop ? '' : '请在桌面端使用批量验号。'" placement="left">
+            <button
+              type="button"
+              class="inline-flex h-8 items-center justify-center gap-1.5 whitespace-nowrap rounded bg-primary-600 px-3 text-xs font-medium text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400"
+              :disabled="verifyBusy || validItems.length === 0"
+              @click="startVerify"
+            >
+              <svg
+                v-if="verifyBusy"
+                class="h-4 w-4 animate-spin"
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M20 7v5h-5M4 17v-5h5M5 9a7 7 0 0 1 12-5l3 3M4 17l3 3a7 7 0 0 0 12-5" />
+              </svg>
+              <svg
+                v-else
+                class="h-4 w-4"
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="m9 5 11 7-11 7V5Z" />
+              </svg>
+              {{ verifyBusy ? '验号中...' : '开始验号' }}
+            </button>
+          </HoverTooltip>
         </div>
-      </div>
-    </section>
+      </header>
 
-    <div
-      class="grid min-h-0 flex-1 gap-4"
-      :class="showSidePanel
-        ? (isDesktop ? 'grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]' : 'grid-cols-1 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]')
-        : 'grid-cols-1'"
-    >
-      <section class="flex min-h-0 flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div class="flex items-start justify-between gap-4">
-          <div class="min-w-0">
-            <h2 class="text-base font-semibold text-slate-900">账号导入</h2>
-          <p class="mt-1 text-sm text-slate-500">支持一行一个账号，兼容现有批量添加格式</p>
-        </div>
-          <button
-            type="button"
-            class="flex-shrink-0 whitespace-nowrap text-sm font-medium text-slate-500 transition hover:text-slate-700"
-            @click="clearAll"
-          >
-            清空
-          </button>
-        </div>
-
-        <textarea
-          v-model="rawText"
-          class="mt-4 min-h-0 flex-1 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-900 outline-none transition focus:border-primary-300 focus:bg-white focus:ring-2 focus:ring-primary-100"
-          placeholder="demo1@gmail.com,app_password_1,auto&#10;demo2@outlook.com----password_2----imap&#10;demo3@qq.com,password_3,pop3"
-        />
-      </section>
-
-      <section
-        v-if="showSidePanel"
-        class="flex min-h-0 flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+      <div
+        class="grid min-h-0 flex-1 grid-cols-1 grid-rows-[260px_minmax(260px,1fr)] divide-y divide-gray-200 overflow-y-auto lg:grid-cols-[minmax(280px,0.42fr)_minmax(0,0.58fr)] lg:grid-rows-1 lg:divide-x lg:divide-y-0 lg:overflow-hidden"
       >
-        <div class="flex-shrink-0">
-          <template v-if="showLivePanel">
-            <div class="flex items-center justify-between gap-3">
-              <div>
-                <h2 class="text-base font-semibold text-slate-900">验号结果</h2>
-              </div>
-              <span class="inline-flex items-center rounded-full bg-primary-50 px-3 py-1 text-xs font-medium text-primary-700">
-                {{ liveSummaryText }}
-              </span>
+        <section aria-label="账号导入" class="flex min-h-0 min-w-0 flex-col">
+          <div
+            class="flex h-11 shrink-0 items-center justify-between gap-2 border-b border-gray-100 px-3"
+          >
+            <div class="flex min-w-0 items-center gap-2">
+              <svg
+                class="h-4 w-4 shrink-0 text-gray-400"
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M7 3h8l4 4v14H5V3h2m8 0v5h4M8 12h8m-8 4h8" />
+              </svg>
+              <h2 class="text-sm font-medium text-gray-800">账号导入</h2>
             </div>
-            <div class="mt-4 grid grid-cols-3 gap-2">
-              <div class="rounded-xl bg-slate-50 px-3 py-2">
-                <p class="text-xs text-slate-500">总数</p>
-                <p class="mt-1 text-sm font-semibold text-slate-900">{{ liveProgress.total }}</p>
-              </div>
-              <div class="rounded-xl bg-primary-50 px-3 py-2">
-                <p class="text-xs text-primary-700">通过</p>
-                <p class="mt-1 text-sm font-semibold text-primary-700">{{ liveProgress.success }}</p>
-              </div>
-              <div class="rounded-xl bg-red-50 px-3 py-2">
-                <p class="text-xs text-red-700">失败</p>
-                <p class="mt-1 text-sm font-semibold text-red-700">{{ liveProgress.failed }}</p>
-              </div>
+            <button
+              type="button"
+              class="rounded px-1 py-1 text-xs text-gray-400 hover:bg-gray-100 hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-40"
+              :disabled="verifyBusy || promoting || (!rawText && !liveResults.length)"
+              @click="clearAll"
+            >
+              清空
+            </button>
+          </div>
+          <textarea
+            v-model="rawText"
+            aria-label="待验证账号"
+            :disabled="verifyBusy"
+            spellcheck="false"
+            autocapitalize="off"
+            autocomplete="off"
+            class="min-h-0 w-full flex-1 resize-none border-0 bg-white px-3 py-3 font-mono text-xs leading-6 text-gray-700 outline-none placeholder:text-gray-400 focus:ring-0 disabled:bg-gray-50 disabled:text-gray-500"
+            placeholder="demo1@gmail.com,app_password_1,auto&#10;demo2@outlook.com----password_2----imap&#10;demo3@qq.com,password_3,pop3"
+          />
+          <div
+            class="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-t border-gray-100 bg-gray-50/50 px-3 py-2 text-xs text-gray-400"
+          >
+            <span>{{ parsedItems.length }} 个账号</span>
+            <span v-if="validItems.length" class="text-primary-600"
+              >可验 {{ validItems.length }}</span
+            >
+            <span v-if="invalidItems.length" class="text-red-500"
+              >异常 {{ invalidItems.length }}</span
+            >
+            <span
+              class="ml-auto"
+              title="支持逗号、空格或 ---- 分隔邮箱、密码和协议，也支持 OAuth Token 格式"
+              >每行一个账号</span
+            >
+          </div>
+        </section>
+
+        <section aria-label="验号结果" class="flex min-h-0 min-w-0 flex-col">
+          <div
+            class="flex h-11 shrink-0 items-center justify-between gap-2 border-b border-gray-100 px-3"
+          >
+            <div class="flex items-center gap-2">
+              <svg
+                class="h-4 w-4 text-gray-400"
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M9 4H5v17h14V4h-3M9 3h7v4H9V3Zm-1 11 3 3 5-6" />
+              </svg>
+              <h2 class="text-sm font-medium text-gray-800">
+                {{ !showLivePanel && invalidItems.length ? '异常账号' : '验号结果' }}
+              </h2>
+              <span
+                v-if="!showLivePanel && invalidItems.length"
+                class="rounded bg-red-50 px-1.5 py-0.5 text-[11px] text-red-600"
+                >{{ invalidItems.length }}</span
+              >
             </div>
-            <div class="mt-4 flex flex-wrap items-center gap-2">
-              <div class="w-[120px]">
-                <CustomSelect
-                  v-model="resultFilter"
-                  :options="resultFilterOptions"
-                  placeholder="全部结果"
-                />
+            <span class="inline-flex shrink-0 items-center gap-1.5 text-xs text-gray-400">
+              <span
+                v-if="verifyBusy"
+                class="h-1.5 w-1.5 animate-pulse rounded-full bg-primary-500"
+                aria-hidden="true"
+              />
+              {{ verifyBusy ? '验证中' : showLivePanel ? '本轮已完成' : '等待开始' }}
+            </span>
+          </div>
+          <div v-if="showLivePanel" class="shrink-0 border-b border-gray-100">
+            <div class="flex flex-wrap items-center gap-2 px-3 py-2">
+              <div
+                class="flex items-center gap-0.5 rounded-md bg-gray-100 p-0.5"
+                role="group"
+                aria-label="结果筛选"
+              >
+                <button
+                  v-for="tab in resultTabs"
+                  :key="tab.value"
+                  type="button"
+                  :aria-pressed="resultFilter === tab.value"
+                  class="inline-flex h-7 items-center gap-1.5 rounded px-2 text-xs transition-colors"
+                  :class="
+                    resultFilter === tab.value
+                      ? 'bg-white text-gray-800 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-800'
+                  "
+                  @click="resultFilter = tab.value"
+                >
+                  {{ tab.label
+                  }}<span
+                    class="tabular-nums"
+                    :class="
+                      tab.value === 'success'
+                        ? 'text-primary-600'
+                        : tab.value === 'failed'
+                          ? 'text-red-500'
+                          : 'text-gray-400'
+                    "
+                    >{{ tab.count }}</span
+                  >
+                </button>
               </div>
               <div
-                v-if="availableFailureReasons.length > 0 && resultFilter !== 'success'"
-                class="w-[180px]"
+                v-if="availableFailureReasons.length && resultFilter !== 'success'"
+                class="ml-auto w-40"
               >
                 <CustomSelect
                   v-model="failureReasonFilter"
                   :options="failureReasonOptions"
+                  size="sm"
+                  class="verify-select"
                   placeholder="全部原因"
                 />
               </div>
             </div>
-            <div class="mt-4 h-2 overflow-hidden rounded-full bg-slate-100">
+            <div class="flex items-center gap-3 px-3 pb-2">
               <div
-                class="h-full rounded-full bg-primary-600 transition-all duration-300"
-                :style="{ width: `${progressPercent}%` }"
-              ></div>
-            </div>
-          </template>
-          <template v-else>
-            <h2 class="text-base font-semibold text-slate-900">异常账号</h2>
-            <p class="mt-1 text-sm text-slate-500">这些账号当前不能进入验号</p>
-          </template>
-        </div>
-
-        <div class="mt-4 min-h-0 flex-1 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-2">
-          <div
-            v-if="sidePanelItems.length === 0"
-            class="flex h-full items-center justify-center text-sm text-slate-400"
-          >
-            {{ showLivePanel ? '等待验号结果' : '暂无异常账号' }}
-          </div>
-          <div v-else ref="sidePanelScrollRef" class="h-full overflow-y-auto pr-1" @scroll="syncSidePanelViewport">
-            <div
-              class="relative w-full"
-              :style="{ height: `${sidePanelTotalHeight}px` }"
-            >
-              <div
-                v-for="virtualRow in sidePanelVirtualItems"
-                :key="virtualRow.key"
-                class="absolute left-0 top-0 w-full"
-                :style="{ transform: `translateY(${virtualRow.start}px)` }"
+                role="progressbar"
+                aria-label="验号进度"
+                :aria-valuenow="progressPercent"
+                aria-valuemin="0"
+                aria-valuemax="100"
+                class="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-gray-100"
               >
                 <div
-                  class="group flex items-center gap-2 rounded-xl px-2 py-1.5 transition"
-                  :class="resolvePanelRowClass(virtualRow.item)"
+                  class="h-full rounded-full bg-primary-500 transition-all duration-300"
+                  :style="{ width: `${progressPercent}%` }"
+                />
+              </div>
+              <span class="shrink-0 text-[11px] tabular-nums text-gray-400">{{
+                progressText
+              }}</span>
+            </div>
+          </div>
+
+          <div class="min-h-0 flex-1 overflow-hidden">
+            <div
+              v-if="!sidePanelItems.length"
+              class="flex h-full min-h-48 flex-col items-center justify-center gap-2 px-5 text-center"
+            >
+              <div class="mb-1 flex h-12 w-12 items-center justify-center rounded-xl bg-gray-50">
+                <svg
+                  class="h-6 w-6 text-gray-300"
+                  aria-hidden="true"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
                 >
-                  <span
-                    class="flex w-4 flex-shrink-0 items-center justify-center text-sm font-semibold"
-                    :class="resolvePanelIconClass(virtualRow.item)"
+                  <path d="M9 4H5v17h14V4h-3M9 3h7v4H9V3Zm-1 11 3 3 5-6" />
+                </svg>
+              </div>
+              <p class="text-sm text-gray-500">
+                {{
+                  showLivePanel
+                    ? '没有符合筛选条件的结果'
+                    : validItems.length
+                      ? `已识别 ${validItems.length} 个可验账号`
+                      : '验号结果将在这里显示'
+                }}
+              </p>
+              <p class="text-xs text-gray-400">
+                {{
+                  showLivePanel
+                    ? '切换结果类型或失败原因，查看其他结果。'
+                    : validItems.length
+                      ? '点击右上角「开始验号」即可验证。'
+                      : '在左侧粘贴账号，开始验证后查看进度与结果。'
+                }}
+              </p>
+            </div>
+            <div
+              v-else
+              ref="sidePanelScrollRef"
+              class="h-full overflow-y-auto"
+              @scroll="syncSidePanelViewport"
+            >
+              <div class="relative w-full" :style="{ height: `${sidePanelTotalHeight}px` }">
+                <div
+                  v-for="virtualRow in sidePanelVirtualItems"
+                  :key="virtualRow.key"
+                  class="absolute left-0 top-0 w-full"
+                  :style="{ transform: `translateY(${virtualRow.start}px)` }"
+                >
+                  <div
+                    class="flex h-[42px] items-center gap-2 border-b border-gray-100 px-3"
+                    :class="resolvePanelRowClass(virtualRow.item)"
                   >
-                    {{ resolvePanelIconText(virtualRow.item) }}
-                  </span>
-                  <div class="min-w-0 flex-1">
-                    <p class="truncate font-mono text-sm text-slate-900">
+                    <span
+                      class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-semibold"
+                      :class="resolvePanelIconClass(virtualRow.item)"
+                      >{{ resolvePanelIconText(virtualRow.item) }}</span
+                    >
+                    <p
+                      class="min-w-0 flex-1 truncate font-mono text-xs text-gray-700"
+                      :title="virtualRow.item.email || ''"
+                    >
                       {{ virtualRow.item.email || '未识别邮箱' }}
                     </p>
-                  </div>
-                  <div
-                    v-if="showLivePanel && virtualRow.item.status === 'success'"
-                    class="flex flex-shrink-0 items-center gap-1.5"
-                  >
-                    <span
-                      class="inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-medium"
-                      :class="resolveProtocolBadgeClass(virtualRow.item)"
+                    <div
+                      v-if="showLivePanel && virtualRow.item.status === 'success'"
+                      class="flex shrink-0 items-center gap-1"
                     >
-                      {{ resolveProtocolBadge(virtualRow.item) }}
-                    </span>
-                    <span
-                      v-if="resolveSmtpBadge(virtualRow.item)"
-                      class="inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-medium"
-                      :class="resolveSmtpBadgeClass(virtualRow.item)"
-                    >
-                      {{ resolveSmtpBadge(virtualRow.item) }}
-                    </span>
-                  </div>
-                  <div
-                    v-if="!(showLivePanel && virtualRow.item.status === 'success')"
-                    class="relative max-w-[160px] flex-shrink-0 text-right"
-                  >
+                      <span
+                        class="inline-flex rounded border px-1.5 py-0.5 text-[10px] font-medium"
+                        :class="resolveProtocolBadgeClass(virtualRow.item)"
+                        >{{ resolveProtocolBadge(virtualRow.item) }}</span
+                      >
+                      <span
+                        v-if="resolveSmtpBadge(virtualRow.item)"
+                        class="inline-flex rounded border px-1.5 py-0.5 text-[10px] font-medium"
+                        :class="resolveSmtpBadgeClass(virtualRow.item)"
+                        >{{ resolveSmtpBadge(virtualRow.item) }}</span
+                      >
+                    </div>
                     <p
-                      class="truncate text-xs"
-                      :class="showLivePanel && virtualRow.item.status === 'error' ? 'text-red-600' : 'text-slate-500'"
+                      v-else
+                      class="max-w-[45%] shrink-0 truncate text-right text-[11px]"
+                      :class="
+                        showLivePanel && virtualRow.item.status === 'error'
+                          ? 'text-red-500'
+                          : 'text-gray-400'
+                      "
+                      :title="resolvePanelTooltip(virtualRow.item)"
                     >
                       {{ resolvePanelShortMessage(virtualRow.item) }}
                     </p>
-                    <div
-                      v-if="resolvePanelTooltip(virtualRow.item)"
-                      class="invisible absolute right-0 top-full z-10 mt-1 max-w-[220px] rounded-lg bg-slate-800 px-2 py-1 text-left text-xs text-white shadow-lg group-hover:visible"
-                    >
-                      {{ resolvePanelTooltip(virtualRow.item) }}
-                    </div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-      </section>
-    </div>
+          <div
+            v-if="sidePanelItems.length"
+            class="flex shrink-0 items-center justify-between border-t border-gray-100 px-3 py-2 text-xs text-gray-400"
+          >
+            <span>当前显示 {{ sidePanelItems.length }} 条</span
+            ><span v-if="!showLivePanel && invalidItems.length > 200">仅显示前 200 条异常账号</span>
+          </div>
+        </section>
+      </div>
+    </section>
   </div>
 </template>
 
@@ -254,6 +425,7 @@ import {
 } from '@/utils/externalMailboxRelay'
 import { showMessage } from '@/utils/message'
 import CustomSelect from '@/components/CustomSelect/index.vue'
+import HoverTooltip from '@/components/HoverTooltip/index.vue'
 
 const SUPPORTED_PROTOCOLS = ['auto', 'imap', 'pop3']
 const OAUTH_VERIFY_DISPLAY_CONCURRENCY = 6
@@ -457,7 +629,6 @@ const failedRows = computed(() => exportRows.value.filter((item: any) => item.ve
 const promotableRows = computed(() => successRows.value.filter((item: any) => item.import_status !== 'imported'))
 const verifyBusy = computed(() => verifying.value || importingForVerify.value)
 const showLivePanel = computed(() => verifying.value || liveResults.value.length > 0)
-const showSidePanel = computed(() => showLivePanel.value || invalidItems.value.length > 0)
 const filteredLiveResults = computed(() => {
   let rows = [...liveResults.value]
   if (resultFilter.value === 'success') {
@@ -477,11 +648,19 @@ const availableFailureReasons = computed(() => {
     .filter(Boolean)
   return Array.from(new Set(reasons))
 })
-const resultFilterOptions = [
-  { label: '全部结果', value: 'all' },
-  { label: '只看成功', value: 'success' },
-  { label: '只看失败', value: 'failed' }
-]
+const resultTabs = computed(() => [
+  { label: '全部', value: 'all' as const, count: liveResults.value.length },
+  {
+    label: '通过',
+    value: 'success' as const,
+    count: liveProgress.value.success
+  },
+  {
+    label: '失败',
+    value: 'failed' as const,
+    count: liveProgress.value.failed
+  }
+])
 const failureReasonOptions = computed(() => [
   { label: '全部原因', value: '' },
   ...availableFailureReasons.value.map((reason) => ({
@@ -544,7 +723,6 @@ const progressText = computed(() => {
   if (!liveProgress.value.total) return '等待开始验号'
   return `${liveProgress.value.completed}/${liveProgress.value.total} · 已完成`
 })
-const liveSummaryText = computed(() => `通过 ${liveProgress.value.success} · 失败 ${liveProgress.value.failed}`)
 
 const formatProtocol = (protocol: string) => {
   if (protocol === 'auto') return '自动识别'
@@ -568,24 +746,17 @@ const clearAll = () => {
   }
 }
 
-const resolvePanelRowClass = (item: any) => {
-  if (showLivePanel.value) {
-    if (item.status === 'success') return 'bg-primary-50'
-    if (item.status === 'error') return 'bg-red-50'
-    if (item.status === 'running') return 'bg-primary-50'
-    return 'bg-white'
-  }
-  return 'bg-red-50'
-}
-
+const resolvePanelRowClass = (item: any) =>
+  showLivePanel.value && item.status === 'running'
+    ? 'bg-primary-50/50'
+    : 'bg-white hover:bg-gray-50'
 const resolvePanelIconClass = (item: any) => {
   if (showLivePanel.value) {
-    if (item.status === 'success') return 'text-primary-600'
-    if (item.status === 'error') return 'text-red-600'
-    if (item.status === 'running') return 'text-primary-600'
-    return 'text-slate-400'
+    if (item.status === 'success' || item.status === 'running')
+      return 'bg-primary-50 text-primary-600'
+    if (item.status !== 'error') return 'bg-gray-100 text-gray-400'
   }
-  return 'text-red-600'
+  return 'bg-red-50 text-red-500'
 }
 
 const resolvePanelIconText = (item: any) => {
@@ -1095,11 +1266,11 @@ const runDirectVerification = async (items: any[], selectedRuntimeProxy: any = n
     status: String(item?.auth_type || 'password') === 'oauth2' ? 'error' : 'pending',
     message: String(item?.auth_type || 'password') === 'oauth2' ? 'OAuth 账号暂不支持直接验号' : '等待验号'
   }))
-  const liveItemMap = new Map(liveRows.map((item: any) => [item.id, item]))
 
   resultFilter.value = 'all'
   failureReasonFilter.value = ''
   liveResults.value = liveRows
+  const liveItemMap = new Map(liveResults.value.map((item: any) => [item.id, item]))
   exportRows.value = []
   currentBatchNo.value = ''
   liveProgress.value = {
@@ -1335,6 +1506,10 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.verify-select :deep(button[aria-expanded]) {
+  @apply h-8 rounded border-gray-200 pl-2 pr-7 text-xs;
+}
+
 .mailbox-checkbox {
   appearance: none;
   -webkit-appearance: none;
