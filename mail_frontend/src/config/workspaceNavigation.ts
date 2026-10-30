@@ -34,9 +34,9 @@ export const getWorkspaceHome = () => {
 
 export const externalMailboxTabs = (t: (key: string) => string) => [
   { path: EXTERNAL_MAILBOX_HOME, label: t('mail.inbox') },
-  { path: '/user/external-batch-verify', label: t('userLayout.batchVerify') },
   { path: '/user/external-bulk-send', label: t('userLayout.bulkSend') },
   { path: '/user/external-outbox', label: t('userLayout.outbox') },
+  { path: '/user/external-batch-verify', label: t('userLayout.batchVerify') },
   { path: '/user/external-proxy-management', label: t('userLayout.proxyManagement') }
 ]
 
