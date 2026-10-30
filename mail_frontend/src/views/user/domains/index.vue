@@ -371,42 +371,21 @@
             </button>
           </div>
         </div>
-        <div
-          v-if="domainModalDetail.domain.status !== 'verified' || dnsDiagnosis"
-          class="flex flex-wrap items-center gap-3 rounded-lg border border-blue-100 bg-blue-50 px-4 py-3"
-        >
-          <span
-            v-if="diagnosingDomainId"
-            class="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-blue-200 border-t-blue-600"
-            aria-hidden="true"
-          />
-          <div class="min-w-0 flex-1" role="status">
-            <p class="text-sm font-medium text-gray-800">{{ dnsAnalysisNotice.title }}</p>
-            <p class="mt-1 text-xs leading-5 text-gray-600">{{ dnsAnalysisNotice.hint }}</p>
-          </div>
-          <button
-            type="button"
-            :disabled="Boolean(refreshingDomainId)"
-            class="shrink-0 rounded-md border border-blue-200 bg-white px-3 py-2 text-xs font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-50"
-            @click="openDnsDiagnosis()"
-          >
-            {{ dnsAnalysisNotice.action }}
-          </button>
-        </div>
         <div>
           <h3 class="text-sm font-semibold text-black mb-3">DNS 配置</h3>
           <p class="mb-3 text-xs text-gray-500">
             {{ domainModalDetail.dns_zone ? t('dnsDiagnosis.zone', { zone: domainModalDetail.dns_zone }) : t('dnsDiagnosis.zoneUnknown') }}
           </p>
           <div class="overflow-x-auto">
-            <table class="w-full min-w-[640px] table-fixed divide-y divide-gray-200 text-sm">
+            <table class="w-full min-w-[800px] table-fixed divide-y divide-gray-200 text-sm">
               <thead>
                 <tr class="text-left text-xs uppercase tracking-wide text-gray-500">
-                  <th class="w-[23%] pb-3 pr-4 font-medium">主机记录</th>
-                  <th class="w-[11%] pb-3 pr-4 font-medium">记录类型</th>
-                  <th class="w-[29%] pb-3 pr-4 font-medium">值</th>
-                  <th class="w-[10%] pb-3 pr-4 font-medium">优先级</th>
-                  <th class="w-[27%] pb-3 font-medium">状态</th>
+                  <th class="w-[19%] pb-3 pr-4 font-medium">主机记录</th>
+                  <th class="w-[9%] pb-3 pr-4 font-medium">记录类型</th>
+                  <th class="w-[24%] pb-3 pr-4 font-medium">值</th>
+                  <th class="w-[8%] pb-3 pr-4 font-medium">优先级</th>
+                  <th class="w-[14%] pb-3 pr-4 font-medium">状态</th>
+                  <th class="w-[26%] pb-3 font-medium">{{ t('dnsDiagnosis.aiAdvice') }}</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-gray-100">
@@ -451,25 +430,26 @@
                   <td class="py-3 pr-4 align-top text-gray-700">
                     {{ record.priority ?? '-' }}
                   </td>
-                  <td class="py-3 align-top">
+                  <td class="py-3 pr-4 align-top">
                     <span
                       :class="dnsStatusClass(getDnsDisplayStatus(record))"
-                      class="px-2 py-1 text-xs font-medium rounded-full"
+                      class="inline-flex whitespace-nowrap rounded-full px-2 py-1 text-xs font-medium"
                     >
                       {{ t(`dnsDiagnosis.status.${dnsStatusKey(getDnsDisplayStatus(record))}`) }}
                     </span>
-                    <p class="mt-2 text-xs leading-5 text-gray-500">
-                      {{ t(`dnsDiagnosis.hint.${dnsStatusKey(getDnsDisplayStatus(record))}`) }}
+                  </td>
+                  <td class="py-3 align-top text-xs leading-5" aria-live="polite">
+                    <span v-if="dnsStatusKey(getDnsDisplayStatus(record)) === 'valid'" class="text-gray-400">—</span>
+                    <span v-else-if="diagnosingDomainId === domainModalDetail.domain.id" role="status" class="text-gray-500">
+                      {{ t('dnsDiagnosis.adviceLoading') }}
+                    </span>
+                    <p v-else-if="getDnsAdvice(record)" class="whitespace-pre-line break-words text-gray-700">
+                      {{ getDnsAdvice(record) }}
                     </p>
-                    <button
-                      type="button"
-                      :disabled="Boolean(refreshingDomainId)"
-                      class="mt-1 text-xs font-medium text-primary-700 hover:underline disabled:opacity-50"
-                      :aria-label="t('dnsDiagnosis.recordAdvice', { type: record.record_type, host: formatRecordHost(record) })"
-                      @click="openDnsDiagnosis(record)"
-                    >
-                      {{ t('dnsDiagnosis.viewAdvice') }} <span aria-hidden="true">↗</span>
-                    </button>
+                    <span v-else-if="dnsDiagnosisError || dnsDiagnosis" class="text-gray-500">
+                      {{ t('dnsDiagnosis.adviceUnavailable') }}
+                    </span>
+                    <span v-else class="text-gray-400">—</span>
                   </td>
                 </tr>
               </tbody>
@@ -478,21 +458,6 @@
         </div>
       </div>
     </BaseModal>
-
-    <DnsDiagnosisPanel
-      v-if="domainModalDetail"
-      :open="showDnsDiagnosis"
-      :domain-name="domainModalDetail.domain.domain_name"
-      :records="domainModalDetail.dns_instructions || []"
-      :selected-record-key="selectedDnsRecordKey"
-      :diagnosis="dnsDiagnosis"
-      :loading="diagnosingDomainId === domainModalDetail.domain.id"
-      :error="dnsDiagnosisError"
-      @close="showDnsDiagnosis = false"
-      @retry="diagnoseDns(domainModalDetail.domain.id)"
-      @verify="refreshDns(domainModalDetail.domain.id)"
-      @copy="copyDnsValue"
-    />
 
     <BaseModal
       v-model="showEditModal"
@@ -658,7 +623,6 @@ import BaseInput from '@/components/BaseInput/index.vue'
 import BaseModal from '@/components/BaseModal/index.vue'
 import ConfirmDialog from '@/components/ConfirmDialog/index.vue'
 import CatchAllSettingCard from '@/views/user/domains/components/CatchAllSettingCard.vue'
-import DnsDiagnosisPanel from '@/views/user/domains/components/DnsDiagnosisPanel.vue'
 import { dnsRecordKey, dnsStatusClass, dnsStatusKey } from '@/views/user/domains/components/dnsStatus'
 import { hostedDomainAPI } from '@/api/hostedDomain'
 import {
@@ -717,32 +681,15 @@ const refreshingDomainId = ref<number | null>(null)
 const diagnosingDomainId = ref<number | null>(null)
 const dnsDiagnosis = ref<any>(null)
 const dnsDiagnosisError = ref(false)
-const showDnsDiagnosis = ref(false)
-const selectedDnsRecordKey = ref('')
+const failedDnsDomainId = ref<number | null>(null)
 let diagnosisVersion = 0
-
-const dnsAnalysisNotice = computed(() => {
-  const keys = diagnosingDomainId.value
-    ? ['loading', 'backgroundHint', 'viewProgress']
-    : dnsDiagnosisError.value
-      ? ['failed', 'failedHint', 'analyze']
-      : dnsDiagnosis.value
-        ? ['ready', 'chooseRecord', 'viewAnalysis']
-        : ['noticeTitle', 'noticeHint', 'analyze']
-  return {
-    title: t(`dnsDiagnosis.${keys[0]}`),
-    hint: t(`dnsDiagnosis.${keys[1]}`),
-    action: t(`dnsDiagnosis.${keys[2]}`)
-  }
-})
 
 const resetDnsDiagnosis = () => {
   diagnosisVersion += 1
   diagnosingDomainId.value = null
   dnsDiagnosis.value = null
   dnsDiagnosisError.value = false
-  showDnsDiagnosis.value = false
-  selectedDnsRecordKey.value = ''
+  failedDnsDomainId.value = null
 }
 const transferringDomains = ref(false)
 const authorizingAdminQuickBind = ref(false)
@@ -953,8 +900,11 @@ const handleCreateDomain = async () => {
   }
 }
 
-const getDnsDisplayStatus = (record: any) =>
-  dnsDiagnosis.value?.records?.find((row: any) => dnsRecordKey(row) === dnsRecordKey(record))?.status || record.status
+const getDnsDiagnosisRecord = (record: any) =>
+  dnsDiagnosis.value?.records?.find((row: any) => dnsRecordKey(row) === dnsRecordKey(record))
+const getDnsDisplayStatus = (record: any) => getDnsDiagnosisRecord(record)?.status || record.status
+const getDnsAdvice = (record: any) =>
+  dnsDiagnosis.value?.source === 'ai' ? getDnsDiagnosisRecord(record)?.explanation || '' : ''
 
 const applyDomainDetailToModal = (detail: any, _created = false) => {
   if (domainModalDetail.value?.domain?.id !== detail?.domain?.id) resetDnsDiagnosis()
@@ -985,6 +935,8 @@ const formatRecordHost = (record: any) => {
 
 const diagnoseDns = async (domainId: number | string) => {
   const numericId = Number(domainId)
+  if (failedDnsDomainId.value !== numericId || getModalDomainId() !== numericId || !showDomainModal.value) return
+  if (String(domainModalDetail.value?.domain?.status || '').toLowerCase() === 'verified') return
   if (diagnosingDomainId.value === numericId) return
   const version = ++diagnosisVersion
   diagnosingDomainId.value = numericId
@@ -1002,12 +954,6 @@ const diagnoseDns = async (domainId: number | string) => {
   }
 }
 
-const openDnsDiagnosis = (record?: any) => {
-  selectedDnsRecordKey.value = record ? dnsRecordKey(record) : ''
-  showDnsDiagnosis.value = true
-  if (!dnsDiagnosis.value && !diagnosingDomainId.value) void diagnoseDns(getModalDomainId())
-}
-
 const refreshDns = async (domainId: number | string) => {
   const numericId = Number(domainId || 0)
   if (!numericId || refreshingDomainId.value) return
@@ -1019,7 +965,10 @@ const refreshDns = async (domainId: number | string) => {
     if (response.code === 0 && response.data) {
       if (version === diagnosisVersion && getModalDomainId() === numericId && showDomainModal.value) {
         applyDomainDetailToModal(response.data)
-        if (response.data.domain?.status !== 'verified') openDnsDiagnosis()
+        if (String(response.data.domain?.status || '').toLowerCase() !== 'verified') {
+          failedDnsDomainId.value = numericId
+          void diagnoseDns(numericId)
+        }
       }
       await loadDomains()
     }

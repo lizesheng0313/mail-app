@@ -24,7 +24,6 @@ vi.mock('vue-i18n', async (importOriginal) => ({
 }))
 
 import Page from './index.vue'
-import DnsDiagnosisPanel from './components/DnsDiagnosisPanel.vue'
 
 const domain = { id: 374, domain_name: 'lizhongzzzz.eu.cc', status: 'pending' }
 const detail = {
@@ -134,10 +133,19 @@ const deferred = () => {
   return { promise, resolve }
 }
 
-const recordButton = (wrapper: ReturnType<typeof mountPage>, type: string, host: string) =>
-  wrapper.get(`button[aria-label="dnsDiagnosis.recordAdvice:${type}:${host}"]`)
+const dnsRows = (wrapper: ReturnType<typeof mountPage>) =>
+  wrapper.get('[role="dialog"] table').findAll('tbody tr')
+const statusText = (wrapper: ReturnType<typeof mountPage>, index: number) =>
+  dnsRows(wrapper)[index].findAll('td')[4].text()
+const adviceText = (wrapper: ReturnType<typeof mountPage>, index: number) =>
+  dnsRows(wrapper)[index].findAll('td')[5].text()
+const verifiedDetail = {
+  ...detail,
+  domain: { ...domain, status: 'verified' },
+  dns_instructions: detail.dns_instructions.map((record) => ({ ...record, status: 'valid' }))
+}
 
-describe('DNS verification diagnosis', () => {
+describe('DNS verification advice', () => {
   beforeEach(() => {
     vi.resetAllMocks()
     Object.defineProperty(navigator, 'clipboard', {
@@ -155,159 +163,179 @@ describe('DNS verification diagnosis', () => {
     mocks.getPreference.mockResolvedValue({ code: 0, data: { enabled: true } })
   })
 
-  it('opens failed verification in a drawer with individually expandable, copyable records', async () => {
+  it('shows statuses and an empty AI column without starting analysis when details open', async () => {
     const wrapper = mountPage()
     await flushPromises()
-    await openAndVerify(wrapper)
-    expect(mocks.diagnoseDns).toHaveBeenCalledWith(374)
-    const panel = wrapper.getComponent(DnsDiagnosisPanel)
-    expect(panel.props('open')).toBe(true)
-    expect(panel.text()).toContain('域名前缀重复了')
-    expect(panel.get('button[aria-expanded="true"]').text()).toContain('TXT')
-    expect(panel.findAll('dd').map((item) => item.text())).toContain('_fm_verify')
-    await panel.get('button[aria-label="dnsDiagnosis.copyHost"]').trigger('click')
-    expect(navigator.clipboard.writeText).toHaveBeenCalledWith('_fm_verify')
-    await panel.get('button[aria-expanded="false"]').trigger('click')
-    expect(panel.text()).toContain('把主机记录改成 @')
-    expect(panel.findAll('dd').map((item) => item.text())).toEqual(['@', 'mx.zjkdongao.cn', '10'])
-    await panel.get('button[aria-label="dnsDiagnosis.copyValue"]').trigger('click')
-    expect(navigator.clipboard.writeText).toHaveBeenCalledWith('mx.zjkdongao.cn')
+    await openDetails(wrapper)
+    expect(mocks.refreshDns).not.toHaveBeenCalled()
+    expect(mocks.diagnoseDns).not.toHaveBeenCalled()
+    expect(wrapper.get('[role="dialog"] table').findAll('th').map((cell) => cell.text()))
+      .toEqual(['主机记录', '记录类型', '值', '优先级', '状态', 'dnsDiagnosis.aiAdvice'])
+    expect(statusText(wrapper, 0)).toBe('dnsDiagnosis.status.missing')
+    expect(adviceText(wrapper, 0)).toBe('—')
+    expect(wrapper.text()).not.toContain('dnsDiagnosis.viewAdvice')
+    expect(wrapper.text()).not.toContain('dnsDiagnosis.noticeHint')
+    expect(wrapper.text()).not.toContain('dnsDiagnosis.hint.missing')
+    expect(wrapper.findAll('[role="dialog"]')).toHaveLength(1)
     wrapper.unmount()
   })
 
-  it('does not call AI when verification succeeds', async () => {
-    mocks.refreshDns.mockResolvedValue({
-      code: 0,
-      data: { ...detail, domain: { ...domain, status: 'verified' } }
-    })
+  it('waits for failed verification before requesting per-record AI suggestions', async () => {
+    const verification = deferred()
+    mocks.refreshDns.mockReturnValueOnce(verification.promise)
+    const wrapper = mountPage()
+    await flushPromises()
+    await openAndVerify(wrapper)
+    expect(mocks.refreshDns).toHaveBeenCalledWith(374)
+    expect(mocks.diagnoseDns).not.toHaveBeenCalled()
+    verification.resolve({ code: 0, data: detail })
+    await flushPromises()
+    expect(mocks.diagnoseDns).toHaveBeenCalledExactlyOnceWith(374)
+    expect(mocks.refreshDns.mock.invocationCallOrder[0]).toBeLessThan(mocks.diagnoseDns.mock.invocationCallOrder[0])
+    expect(statusText(wrapper, 0)).toBe('dnsDiagnosis.status.wrongHost')
+    expect(adviceText(wrapper, 0)).toBe('把主机记录改成 _fm_verify')
+    expect(adviceText(wrapper, 1)).toBe('把主机记录改成 @')
+    expect(wrapper.findAll('[role="dialog"]')).toHaveLength(1)
+    expect(wrapper.text()).not.toContain('dnsDiagnosis.viewProgress')
+    wrapper.unmount()
+  })
+
+  it('does not request AI suggestions when verification succeeds', async () => {
+    mocks.refreshDns.mockResolvedValue({ code: 0, data: verifiedDetail })
     const wrapper = mountPage()
     await flushPromises()
     await openAndVerify(wrapper)
     expect(mocks.diagnoseDns).not.toHaveBeenCalled()
-    expect(wrapper.getComponent(DnsDiagnosisPanel).props('open')).toBe(false)
+    expect(statusText(wrapper, 0)).toBe('dnsDiagnosis.status.valid')
+    expect(adviceText(wrapper, 0)).toBe('—')
+    expect(adviceText(wrapper, 1)).toBe('—')
     wrapper.unmount()
   })
 
-  it('shows retry on analysis failure without losing the DNS configuration', async () => {
-    mocks.diagnoseDns.mockRejectedValueOnce(new Error('offline'))
+  it('does not request AI suggestions after a failed verification request', async () => {
+    mocks.refreshDns.mockResolvedValue({ code: 1, message: 'unavailable' })
     const wrapper = mountPage()
     await flushPromises()
     await openAndVerify(wrapper)
-    const panel = wrapper.getComponent(DnsDiagnosisPanel)
-    expect(panel.get('[role="alert"]').text()).toContain('dnsDiagnosis.failed')
-    expect(wrapper.text()).toContain('mx.zjkdongao.cn')
-    await panel
-      .findAll('button')
-      .find((button) => button.text() === 'common.retry')!
-      .trigger('click')
-    await flushPromises()
-    expect(panel.text()).toContain('域名前缀重复了')
+    expect(mocks.diagnoseDns).not.toHaveBeenCalled()
+    expect(adviceText(wrapper, 0)).toBe('—')
     wrapper.unmount()
   })
 
-  it('announces AI work before results arrive and keeps it running after the drawer closes', async () => {
+  it('keeps loading feedback inside the suggestion cells while retaining copyable DNS values', async () => {
     const pending = deferred()
     mocks.diagnoseDns.mockReturnValueOnce(pending.promise)
     const wrapper = mountPage()
     await flushPromises()
     await openAndVerify(wrapper)
-    const panel = wrapper.getComponent(DnsDiagnosisPanel)
-    expect(panel.props('open')).toBe(true)
-    expect(panel.get('[role="status"]').text()).toContain('dnsDiagnosis.loading')
-    expect(panel.findAll('dd')).toHaveLength(0)
-    await panel.get('button[aria-label="common.close"]').trigger('click')
-    expect(panel.props('open')).toBe(false)
-    expect(wrapper.text()).toContain('dnsDiagnosis.viewProgress')
+    expect(adviceText(wrapper, 0)).toBe('dnsDiagnosis.adviceLoading')
+    expect(adviceText(wrapper, 1)).toBe('dnsDiagnosis.adviceLoading')
+    expect(wrapper.text()).not.toContain('dnsDiagnosis.backgroundHint')
+    const cells = dnsRows(wrapper)[0].findAll('td')
+    await cells[0].get('button').trigger('click')
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith('_fm_verify')
+    await cells[2].get('button').trigger('click')
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith('fmv-test')
     pending.resolve({ code: 0, data: diagnostic })
     await flushPromises()
-    expect(panel.props('open')).toBe(false)
-    expect(wrapper.text()).toContain('dnsDiagnosis.ready')
-    await recordButton(wrapper, 'MX', '@').trigger('click')
-    expect(panel.props('open')).toBe(true)
-    expect(panel.get('button[aria-expanded="true"]').text()).toContain('MX')
-    expect(mocks.diagnoseDns).toHaveBeenCalledTimes(1)
+    expect(adviceText(wrapper, 0)).toBe('把主机记录改成 _fm_verify')
     wrapper.unmount()
   })
 
-  it('opens the selected record after a direct analysis and does not duplicate a pending request', async () => {
-    const pending = deferred()
-    mocks.diagnoseDns.mockReturnValueOnce(pending.promise)
-    const wrapper = mountPage()
-    await flushPromises()
-    await openDetails(wrapper)
-    expect(wrapper.text()).toContain('dnsDiagnosis.noticeHint')
-    await recordButton(wrapper, 'MX', '@').trigger('click')
-    const panel = wrapper.getComponent(DnsDiagnosisPanel)
-    await panel.get('button[aria-label="common.close"]').trigger('click')
-    await recordButton(wrapper, 'MX', '@').trigger('click')
-    expect(mocks.diagnoseDns).toHaveBeenCalledTimes(1)
-    pending.resolve({ code: 0, data: diagnostic })
-    await flushPromises()
-    expect(panel.get('button[aria-expanded="true"]').text()).toContain('MX')
-    wrapper.unmount()
-  })
-
-  it('keeps missing records distinct from lookup failures and puts verbose evidence behind details', async () => {
+  it('matches suggestions by record identity and distinguishes missing records from query errors', async () => {
     mocks.diagnoseDns.mockResolvedValue({
       code: 0,
       data: {
         ...diagnostic,
         records: [
-          { ...diagnostic.records[0], status: 'missing', misplaced_records: [] },
-          {
-            ...diagnostic.records[1],
-            status: 'query_failed',
-            explanation: 'DNS 查询超时，请稍后再试'
-          }
+          { ...diagnostic.records[1], status: 'query_failed', explanation: 'DNS 查询超时，请稍后再试' },
+          { ...diagnostic.records[0], status: 'missing', explanation: '请在 _fm_verify 添加要求的 TXT 值' }
         ]
       }
     })
     const wrapper = mountPage()
     await flushPromises()
-    await openDetails(wrapper)
-    expect(wrapper.text()).toContain('dnsDiagnosis.hint.missing')
+    await openAndVerify(wrapper)
+    expect(statusText(wrapper, 0)).toBe('dnsDiagnosis.status.missing')
+    expect(statusText(wrapper, 1)).toBe('dnsDiagnosis.status.queryFailed')
+    expect(adviceText(wrapper, 0)).toBe('请在 _fm_verify 添加要求的 TXT 值')
+    expect(adviceText(wrapper, 1)).toBe('DNS 查询超时，请稍后再试')
     expect(wrapper.text()).not.toContain('查询源：权威 NS')
-    await recordButton(wrapper, 'TXT', '_fm_verify').trigger('click')
-    await flushPromises()
-    const panel = wrapper.getComponent(DnsDiagnosisPanel)
-    expect(panel.text()).toContain('dnsDiagnosis.hint.missing')
-    expect(panel.get('details').attributes('open')).toBeUndefined()
-    expect(panel.get('details').text()).toContain('查询源：权威 NS')
-    await panel.get('button[aria-expanded="false"]').trigger('click')
-    expect(panel.text()).toContain('dnsDiagnosis.status.queryFailed')
-    expect(panel.text()).toContain('DNS 查询超时，请稍后再试')
-    expect(panel.text()).not.toContain('dnsDiagnosis.hint.missing')
+    expect(wrapper.text()).not.toContain('dnsDiagnosis.hint.missing')
     wrapper.unmount()
   })
 
-  it('labels the rules fallback honestly instead of claiming AI completed', async () => {
+  it('does not show advice for records that are already valid', async () => {
+    mocks.diagnoseDns.mockResolvedValue({
+      code: 0,
+      data: { ...diagnostic, records: [{ ...diagnostic.records[0], status: 'valid' }, diagnostic.records[1]] }
+    })
+    const wrapper = mountPage()
+    await flushPromises()
+    await openAndVerify(wrapper)
+    expect(statusText(wrapper, 0)).toBe('dnsDiagnosis.status.valid')
+    expect(adviceText(wrapper, 0)).toBe('—')
+    expect(adviceText(wrapper, 1)).toBe('把主机记录改成 @')
+    wrapper.unmount()
+  })
+
+  it('shows an inline failure and retries only after another failed DNS verification', async () => {
+    mocks.diagnoseDns.mockRejectedValueOnce(new Error('offline'))
+    const wrapper = mountPage()
+    await flushPromises()
+    await openAndVerify(wrapper)
+    expect(adviceText(wrapper, 0)).toBe('dnsDiagnosis.adviceUnavailable')
+    expect(wrapper.text()).toContain('mx.zjkdongao.cn')
+    await wrapper.findAll('button').find((button) => button.text() === '立即验证DNS')!.trigger('click')
+    await flushPromises()
+    expect(mocks.refreshDns).toHaveBeenCalledTimes(2)
+    expect(mocks.diagnoseDns).toHaveBeenCalledTimes(2)
+    expect(adviceText(wrapper, 0)).toBe('把主机记录改成 _fm_verify')
+    wrapper.unmount()
+  })
+
+  it('does not present rule-based fallback messages as AI suggestions', async () => {
     mocks.diagnoseDns.mockResolvedValue({ code: 0, data: { ...diagnostic, source: 'rules' } })
     const wrapper = mountPage()
     await flushPromises()
     await openAndVerify(wrapper)
-    const panel = wrapper.getComponent(DnsDiagnosisPanel)
-    expect(panel.text()).toContain('dnsDiagnosis.basicGuide')
-    expect(panel.text()).not.toContain('dnsDiagnosis.complete')
+    expect(adviceText(wrapper, 0)).toBe('dnsDiagnosis.adviceUnavailable')
+    expect(wrapper.text()).not.toContain('把主机记录改成 _fm_verify')
     wrapper.unmount()
   })
 
-  it('verifies from the drawer and clears earlier analysis on success', async () => {
+  it('clears previous suggestions as soon as verification starts again', async () => {
     const wrapper = mountPage()
     await flushPromises()
     await openAndVerify(wrapper)
-    mocks.refreshDns.mockResolvedValue({
-      code: 0,
-      data: { ...detail, domain: { ...domain, status: 'verified' } }
-    })
-    const panel = wrapper.getComponent(DnsDiagnosisPanel)
-    await panel
-      .findAll('button')
-      .find((button) => button.text() === 'dnsDiagnosis.verifyAgain')!
-      .trigger('click')
+    expect(adviceText(wrapper, 0)).toBe('把主机记录改成 _fm_verify')
+    const pending = deferred()
+    mocks.refreshDns.mockReturnValueOnce(pending.promise)
+    await wrapper.findAll('button').find((button) => button.text() === '立即验证DNS')!.trigger('click')
     await flushPromises()
-    expect(panel.props('open')).toBe(false)
-    expect(panel.props('diagnosis')).toBe(null)
+    expect(adviceText(wrapper, 0)).toBe('—')
+    pending.resolve({ code: 0, data: verifiedDetail })
+    await flushPromises()
     expect(mocks.diagnoseDns).toHaveBeenCalledTimes(1)
+    expect(statusText(wrapper, 0)).toBe('dnsDiagnosis.status.valid')
+    expect(adviceText(wrapper, 0)).toBe('—')
+    wrapper.unmount()
+  })
+
+  it('does not restore an old AI response after a new verification succeeds', async () => {
+    const oldAdvice = deferred()
+    mocks.diagnoseDns.mockReturnValueOnce(oldAdvice.promise)
+    const wrapper = mountPage()
+    await flushPromises()
+    await openAndVerify(wrapper)
+    mocks.refreshDns.mockResolvedValue({ code: 0, data: verifiedDetail })
+    await wrapper.findAll('button').find((button) => button.text() === '立即验证DNS')!.trigger('click')
+    await flushPromises()
+    oldAdvice.resolve({ code: 0, data: diagnostic })
+    await flushPromises()
+    expect(statusText(wrapper, 0)).toBe('dnsDiagnosis.status.valid')
+    expect(adviceText(wrapper, 0)).toBe('—')
+    expect(wrapper.text()).not.toContain('把主机记录改成 _fm_verify')
     wrapper.unmount()
   })
 
@@ -338,10 +366,9 @@ describe('DNS verification diagnosis', () => {
     await openDetails(wrapper)
     pending.resolve({ code: 0, data: diagnostic })
     await flushPromises()
-    const panel = wrapper.getComponent(DnsDiagnosisPanel)
-    expect(panel.props('domainName')).toBe('other.example.com')
-    expect(panel.props('diagnosis')).toBe(null)
-    expect(panel.props('open')).toBe(false)
+    expect(adviceText(wrapper, 0)).toBe('—')
+    expect(mocks.diagnoseDns).toHaveBeenCalledTimes(1)
+    expect(wrapper.text()).not.toContain('把主机记录改成 _fm_verify')
     wrapper.unmount()
   })
 })

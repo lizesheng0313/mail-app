@@ -1,6 +1,9 @@
 // Keep the same message keys and interpolation parameters as en.ts.
 export default {
   dnsDiagnosis: {
+    aiAdvice: "AI の提案",
+    adviceLoading: "提案を生成しています…",
+    adviceUnavailable: "AI の提案を取得できません。DNS を再検証してください。",
     "title": "DNS 分析",
     "basicGuide": "基本設定のガイド",
     "loading": "AI 分析中",

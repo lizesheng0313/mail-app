@@ -1,6 +1,9 @@
 // Keep the same message keys and interpolation parameters as en.ts.
 export default {
   dnsDiagnosis: {
+    aiAdvice: "Sugerencias de IA",
+    adviceLoading: "Generando sugerencias…",
+    adviceUnavailable: "Las sugerencias de IA no están disponibles. Verifica el DNS de nuevo.",
     "title": "Análisis DNS",
     "basicGuide": "Guía de configuración básica",
     "loading": "Análisis con IA en curso",

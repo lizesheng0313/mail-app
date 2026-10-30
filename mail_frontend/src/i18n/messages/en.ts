@@ -1,5 +1,8 @@
 const en = {
   dnsDiagnosis: {
+    aiAdvice: "AI suggestions",
+    adviceLoading: "Generating suggestions…",
+    adviceUnavailable: "AI suggestions are unavailable. Verify DNS again to retry.",
     "title": "DNS analysis",
     "basicGuide": "Basic configuration guidance",
     "loading": "AI analysis in progress",

@@ -1,6 +1,9 @@
 // Keep the same message keys and interpolation parameters as en.ts.
 export default {
   dnsDiagnosis: {
+    aiAdvice: "AI 제안",
+    adviceLoading: "제안 생성 중…",
+    adviceUnavailable: "AI 제안을 사용할 수 없습니다. DNS를 다시 검증해 주세요.",
     "title": "DNS 분석",
     "basicGuide": "기본 설정 안내",
     "loading": "AI 분석 중",

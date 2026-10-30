@@ -1,5 +1,8 @@
 const zhTW = {
   dnsDiagnosis: {
+    aiAdvice: "AI 建議",
+    adviceLoading: "正在產生建議…",
+    adviceUnavailable: "AI 建議暫時無法使用，請重新驗證後再試。",
     "title": "DNS 智慧分析",
     "basicGuide": "基本設定建議",
     "loading": "正在進行 AI 分析",
@@ -34,7 +37,7 @@ const zhTW = {
     "viewAdvice": "查看建議",
     "status": {
       "valid": "已生效",
-      "missing": "尚未檢測到",
+      "missing": "未檢測到",
       "mismatch": "不相符",
       "queryFailed": "查詢失敗",
       "wrongHost": "位置錯誤",

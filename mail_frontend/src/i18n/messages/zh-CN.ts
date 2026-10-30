@@ -1,5 +1,8 @@
 const zhCN = {
   dnsDiagnosis: {
+    aiAdvice: "AI 建议",
+    adviceLoading: "正在生成建议…",
+    adviceUnavailable: "AI 建议暂不可用，请重新验证后重试。",
     "title": "DNS 智能分析",
     "basicGuide": "基础配置建议",
     "loading": "正在进行 AI 分析",
@@ -34,7 +37,7 @@ const zhCN = {
     "viewAdvice": "查看建议",
     "status": {
       "valid": "已生效",
-      "missing": "尚未检测到",
+      "missing": "未检测到",
       "mismatch": "不匹配",
       "queryFailed": "查询失败",
       "wrongHost": "位置错误",
