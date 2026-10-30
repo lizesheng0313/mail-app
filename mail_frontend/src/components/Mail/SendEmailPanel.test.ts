@@ -80,6 +80,23 @@ const loadDraft = async (wrapper: ReturnType<typeof mount>) => {
 }
 
 describe('compact composer', () => {
+  it('opens a table context menu, keeps fullscreen on Escape and closes it when switching to HTML', async () => {
+    const wrapper = await setup()
+    await loadDraft(wrapper)
+    await wrapper.get('button[aria-label="全屏写信"]').trigger('click')
+    await wrapper.get('.ProseMirror th').trigger('contextmenu', { clientX: 200, clientY: 200 })
+    await flushPromises()
+    expect(document.querySelector('[role="menu"]')).not.toBeNull()
+    document.activeElement!.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
+    )
+    await flushPromises()
+    expect(document.querySelector('[role="menu"]')).toBeNull()
+    expect(wrapper.get('section').classes()).toContain('fixed')
+    await wrapper.get('.ProseMirror th').trigger('contextmenu', { clientX: 200, clientY: 200 })
+    await wrapper.get('button[aria-label="HTML 源码"]').trigger('click')
+    expect(document.querySelector('[role="menu"]')).toBeNull()
+  })
   it('keeps AI and fullscreen available in the desktop inbox composer', async () => {
     const wrapper = await setup()
     await wrapper.setProps({ pageMode: false })

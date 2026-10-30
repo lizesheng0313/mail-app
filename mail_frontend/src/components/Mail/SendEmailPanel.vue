@@ -224,6 +224,7 @@
                 :editor="bodyEditor"
                 :class="['mail-body-editor', editorContentClass]"
               />
+              <MailTableContextMenu v-if="bodyEditor" :editor="bodyEditor" :disabled="sending" />
             </div>
             <textarea
               v-else
@@ -413,6 +414,7 @@ import { EditorContent, useEditor } from '@tiptap/vue-3'
 import { createMailEditorExtensions, mailHtmlToText, prepareMailHtml } from '@/utils/mailEditor'
 import MailEditorToolbar from './MailEditorToolbar.vue'
 import MailRecipientField from './MailRecipientField.vue'
+import MailTableContextMenu from './MailTableContextMenu.vue'
 import {
   EnvelopeIcon,
   PaperAirplaneIcon,

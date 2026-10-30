@@ -359,6 +359,7 @@ import EditorToolbarMenu from './EditorToolbarMenu.vue'
 import { uploadImageFile } from '@/utils/imageUpload'
 import { getApiBaseURL } from '@/services/api'
 import { showMessage } from '@/utils/message'
+import { mailTableCommands as tableCommands } from '@/utils/mailTableActions'
 
 const props = defineProps<{ editor: Editor; disabled?: boolean }>()
 const emit = defineEmits<{ busy: [value: boolean] }>()
@@ -403,19 +404,6 @@ const listActions = [
     run: () => props.editor.chain().focus().toggleOrderedList().run()
   }
 ]
-const tableCommands = [
-  'addRowBefore',
-  'addRowAfter',
-  'deleteRow',
-  'addColumnBefore',
-  'addColumnAfter',
-  'deleteColumn',
-  'toggleHeaderRow',
-  'toggleHeaderColumn',
-  'mergeCells',
-  'splitCell',
-  'deleteTable'
-] as const
 const tableActions = tableCommands.map((key) => ({
   key,
   run: () => props.editor.chain().focus()[key]().run()
