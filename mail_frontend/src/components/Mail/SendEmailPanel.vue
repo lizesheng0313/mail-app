@@ -20,16 +20,27 @@
       <header
         class="flex shrink-0 flex-wrap items-center gap-1.5 border-b border-gray-200 bg-gray-50/70 px-2 py-2"
       >
-        <button
-          type="button"
-          :disabled="sending || !canSend"
-          class="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded bg-primary-600 px-3 text-xs font-medium text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400"
-          @click="sendEmail"
-        >
-          <PaperAirplaneIcon class="h-4 w-4" aria-hidden="true" />{{
-            sending ? tc('sending') : t('sendEmail.send')
-          }}
-        </button>
+        <HoverTooltip :text="isDesktop ? '' : tc('desktopSendOnly')" placement="right">
+          <span
+            role="group"
+            :aria-label="isDesktop ? undefined : tc('desktopSendOnly')"
+            :tabindex="isDesktop ? undefined : 0"
+            class="inline-flex"
+            :class="{ 'cursor-not-allowed': !isDesktop }"
+          >
+            <button
+              type="button"
+              :disabled="sending || !canSend"
+              class="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded bg-primary-600 px-3 text-xs font-medium text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400"
+              :class="{ 'pointer-events-none': !isDesktop }"
+              @click="sendEmail"
+            >
+              <PaperAirplaneIcon class="h-4 w-4" aria-hidden="true" />{{
+                sending ? tc('sending') : t('sendEmail.send')
+              }}
+            </button>
+          </span>
+        </HoverTooltip>
         <button
           type="button"
           :disabled="sending"
@@ -415,6 +426,7 @@ import { createMailEditorExtensions, mailHtmlToText, prepareMailHtml } from '@/u
 import MailEditorToolbar from './MailEditorToolbar.vue'
 import MailRecipientField from './MailRecipientField.vue'
 import MailTableContextMenu from './MailTableContextMenu.vue'
+import HoverTooltip from '@/components/HoverTooltip/index.vue'
 import {
   EnvelopeIcon,
   PaperAirplaneIcon,

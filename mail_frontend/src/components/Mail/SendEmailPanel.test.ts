@@ -2,6 +2,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { createI18n } from 'vue-i18n'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import zhCN from '@/i18n/messages/zh-CN'
+import HoverTooltip from '@/components/HoverTooltip/index.vue'
 
 const mocks = vi.hoisted(() => ({
   desktop: true,
@@ -162,6 +163,11 @@ describe('compact composer', () => {
         .find((button) => button.text() === '发送')
         ?.attributes('disabled')
     ).toBeDefined()
+    await wrapper.getComponent(HoverTooltip).get('div').trigger('mouseenter')
+    await flushPromises()
+    expect(document.body.textContent).toContain('批量发送邮件仅支持桌面端')
+    await wrapper.getComponent(HoverTooltip).get('div').trigger('mouseleave')
+    expect(document.body.textContent).not.toContain('批量发送邮件仅支持桌面端')
     expect(mocks.invoke).not.toHaveBeenCalled()
   })
 })
