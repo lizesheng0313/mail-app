@@ -58,10 +58,11 @@ describe('share creation batches', () => {
     await flushPromises()
     expect(mocks.getMyShareBatches).toHaveBeenCalledWith(1, 20, false, '')
     expect(wrapper.findComponent(AdminDataTable).exists()).toBe(true)
-    expect(wrapper.get('thead').findAll('th')).toHaveLength(9)
+    expect(wrapper.get('thead').findAll('th')).toHaveLength(8)
+    expect(wrapper.get('thead').text()).not.toContain('shareMailbox.openCountColumn')
     expect(wrapper.get('tbody').findAll('tr')).toHaveLength(1)
     expect(wrapper.text()).toContain('客户交付第一批')
-    expect(wrapper.text()).toContain('shareMailbox.batchLinkCount:1')
+    expect(wrapper.get('tbody tr').findAll('td')[3].text()).toBe('1')
     await wrapper.get('button[aria-label="shareMailbox.deleteBatch"]').trigger('click')
     const dialog = wrapper.getComponent(ConfirmDialog)
     expect(dialog.props('visible')).toBe(true)
@@ -89,13 +90,17 @@ describe('share creation batches', () => {
   })
 
   it('opens all links in a batch and copies only active links in order', async () => {
-    const shares = [link, { ...link, id: 43, status: 'expired', share_url: '/share/expired' }, { ...link, id: 44, share_url: '/share/third' }]
-    mocks.getMyShareBatches.mockResolvedValue(response([{ ...batch, link_count: 3, active_count: 2, shares }]))
+    const shares = [{ ...link, open_count: 0, link_note: '仅管理者可见' }, { ...link, id: 43, open_count: 2, status: 'expired', share_url: '/share/expired' }, { ...link, id: 44, open_count: 7, share_url: '/share/third' }]
+    mocks.getMyShareBatches.mockResolvedValue(response([{ ...batch, link_count: 3, active_count: 2, open_count: 9, shares }]))
     const wrapper = mountPage()
     await flushPromises()
     await wrapper.get('button[aria-label="shareMailbox.viewBatchLinks"]').trigger('click')
     const preview = wrapper.get('[role="dialog"]')
     expect(preview.findAll('input[readonly]')).toHaveLength(3)
+    expect(preview.findAll('output').map(counter => counter.text())).toEqual(['0', '2', '7'])
+    expect(preview.get('output[aria-label="shareMailbox.openCountColumn 3"]').text()).toBe('7')
+    expect(preview.findAll('button[aria-label="shareMailbox.deleteRecord"]')).toHaveLength(3)
+    expect(preview.find('button[aria-label="shareMailbox.revoke"]').exists()).toBe(false)
     expect(preview.findAll('a').map((anchor) => anchor.attributes('href'))).toEqual([
       `${window.location.origin}/share/example-token`, `${window.location.origin}/share/third`
     ])
@@ -110,20 +115,25 @@ describe('share creation batches', () => {
     const wrapper = mountPage()
     await flushPromises()
     expect(wrapper.get('tbody').findAll('tr')).toHaveLength(2)
-    await wrapper.findAll('button[aria-label="shareMailbox.copyActiveLinks"]')[1].trigger('click')
+    expect(wrapper.get('tbody').findAll('button[aria-label="shareMailbox.copyActiveLinks"]')).toHaveLength(0)
+    await wrapper.findAll('button[aria-label="shareMailbox.viewBatchLinks"]')[1].trigger('click')
+    await wrapper.get('[role="dialog"]').findAll('button').find(button => button.text() === 'shareMailbox.copyBatchCount:1')!.trigger('click')
     expect(mocks.writeText).toHaveBeenCalledWith(wx.miniapp_path)
     wrapper.unmount()
   })
 
-  it('revokes one link and returns to the remaining links in that batch', async () => {
+  it('deletes one link and returns to the remaining links in that batch', async () => {
     const second = { ...link, id: 43, share_url: '/share/second' }
     mocks.getMyShareBatches.mockResolvedValueOnce(response([{ ...batch, link_count: 2, active_count: 2, shares: [link, second] }])).mockResolvedValueOnce(response([{ ...batch, shares: [second] }]))
     mocks.deleteShare.mockResolvedValue({ code: 0 })
     const wrapper = mountPage()
     await flushPromises()
     await wrapper.get('button[aria-label="shareMailbox.viewBatchLinks"]').trigger('click')
-    await wrapper.findAll('button[aria-label="shareMailbox.revoke"]')[0].trigger('click')
-    wrapper.getComponent(ConfirmDialog).vm.$emit('confirm')
+    await wrapper.findAll('button[aria-label="shareMailbox.deleteRecord"]')[0].trigger('click')
+    const confirmation = wrapper.getComponent(ConfirmDialog)
+    expect(confirmation.props('title')).toBe('shareMailbox.deleteRecord')
+    expect(confirmation.props('message')).toBe('shareMailbox.deleteRecordConfirm')
+    confirmation.vm.$emit('confirm')
     await flushPromises()
     expect(mocks.deleteShare).toHaveBeenCalledWith(42, false)
     expect(mocks.deleteShareBatches).not.toHaveBeenCalled()
@@ -150,16 +160,18 @@ describe('share creation batches', () => {
     wrapper.unmount()
   })
 
-  it('edits batch and individual notes independently and displays creation time', async () => {
+  it('edits notes independently and shows the last opened time only in details', async () => {
     mocks.isAuthenticated = false
     mocks.getMyShareBatches.mockResolvedValue(response([{ ...batch, created_at: '2026-10-25T12:30:00', link_count: 2, shares: [link, { ...link, id: 43 }] }]))
     mocks.updateBatchNote.mockResolvedValue({ code: 0, data: { batch_title: '第二批交付' } })
     mocks.updateLinkNote.mockResolvedValue({ code: 0, data: { link_note: '已发给小李' } })
     const wrapper = mountPage()
     await flushPromises()
+    expect(wrapper.get('tbody').text()).not.toContain('shareMailbox.lastOpened')
     await wrapper.get('button[aria-label="shareMailbox.viewBatchLinks"]').trigger('click')
     const dialog = wrapper.get('[role="dialog"]')
     expect(dialog.text()).toContain('12:30')
+    expect(dialog.text()).toContain('shareMailbox.lastOpened')
     await dialog.get('button[aria-label="shareMailbox.editNote · shareMailbox.batchNote"]').trigger('click')
     await dialog.get('textarea[aria-label="shareMailbox.batchNote"]').setValue(' 第二批交付 ')
     await dialog.get('form').trigger('submit')
@@ -203,6 +215,22 @@ describe('share creation batches', () => {
     wrapper.unmount()
   })
 
+  it('keeps an individual mailbox list when a link has a different scope', async () => {
+    const mailboxes = ['first@example.com', 'second@example.com']
+    mocks.getMyShareBatches.mockResolvedValue(response([{ ...batch, mailbox_emails: mailboxes, link_count: 2, shares: [
+      { ...link, mailbox_emails: mailboxes },
+      { ...link, id: 43, mailbox_emails: [mailboxes[1]] }
+    ] }]))
+    const wrapper = mountPage()
+    await flushPromises()
+    await wrapper.get('button[aria-label="shareMailbox.viewBatchLinks"]').trigger('click')
+    const dialog = wrapper.get('[role="dialog"]')
+    expect(dialog.findAll('button[aria-label="shareMailbox.linkMailboxes"]')).toHaveLength(1)
+    await dialog.get('button[aria-label="shareMailbox.linkMailboxes"]').trigger('click')
+    expect(dialog.get('ul').text()).toBe(mailboxes[1])
+    wrapper.unmount()
+  })
+
   it('shows mailbox counts, expands the complete collection and filters it without changing link scope', async () => {
     const mailboxes = Array.from({ length: 20 }, (_, index) => `delivery-${String(index + 1).padStart(2, '0')}@example.com`)
     const shares = [42, 43, 44].map(id => ({ ...link, id, mailbox_emails: mailboxes, mailbox_ids: Array.from({ length: 20 }, (_, index) => index + 1).join(',') }))
@@ -233,9 +261,8 @@ describe('share creation batches', () => {
     expect(dialog.get('ul').findAll('li')).toHaveLength(20)
     await batchScope.trigger('click')
     expect(dialog.findAll('ul')).toHaveLength(0)
-    await dialog.findAll('button[aria-label="shareMailbox.linkMailboxes"]')[1].trigger('click')
-    expect(dialog.get('ul').findAll('li')).toHaveLength(20)
-    expect(dialog.text()).toContain('shareMailbox.linkMailboxCount:20')
+    expect(dialog.findAll('button[aria-label="shareMailbox.linkMailboxes"]')).toHaveLength(0)
+    expect(dialog.text()).not.toContain('shareMailbox.notesPrivate')
     expect(mocks.getMyShareBatches).toHaveBeenCalledTimes(1)
     wrapper.unmount()
   })

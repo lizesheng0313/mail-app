@@ -5,10 +5,11 @@ import MailboxCreationActions from './MailboxCreationActions.vue'
 describe('MailboxCreationActions', () => {
   it('keeps both mailbox creation actions available in the header', async () => {
     const wrapper = mount(MailboxCreationActions, {
-      props: { menuLabel: '获取邮箱', primaryLabel: '随机获取', customLabel: '自定义创建' }
+      props: { primaryLabel: '随机获取', customLabel: '自定义创建' }
     })
 
-    const buttons = wrapper.findAll('.mailbox-creation-actions__wide button')
+    const buttons = wrapper.findAll('button')
+    expect(buttons).toHaveLength(2)
     await buttons[0].trigger('click')
     await buttons[1].trigger('click')
 
@@ -19,20 +20,22 @@ describe('MailboxCreationActions', () => {
 
   it('disables random creation when claiming or the guest quota is exhausted', () => {
     const wrapper = mount(MailboxCreationActions, {
-      props: { menuLabel: '获取邮箱', primaryLabel: '随机获取', customLabel: '自定义创建', primaryDisabled: true }
+      props: { primaryLabel: '随机获取', customLabel: '自定义创建', primaryDisabled: true }
     })
 
-    expect(wrapper.findAll('.mailbox-creation-actions__wide button')[0].attributes('disabled')).toBeDefined()
-    expect(wrapper.findAll('.mailbox-creation-actions__compact button')[0].attributes('disabled')).toBeDefined()
+    const buttons = wrapper.findAll('button')
+    expect(buttons[0].attributes('disabled')).toBeDefined()
+    expect(buttons[1].attributes('disabled')).toBeUndefined()
     wrapper.unmount()
   })
 
-  it('uses the compact action menu for longer translated labels', () => {
+  it('keeps longer translated labels as two separate buttons', () => {
     const wrapper = mount(MailboxCreationActions, {
-      props: { menuLabel: 'Get mailbox', primaryLabel: 'Get random mailbox', customLabel: 'Create custom' }
+      props: { primaryLabel: 'Get random mailbox', customLabel: 'Create custom' }
     })
 
-    expect(wrapper.classes()).toContain('mailbox-creation-actions--long')
+    expect(wrapper.findAll('button').map((button) => button.text())).toEqual(['Get random mailbox', 'Create custom'])
+    expect(wrapper.find('details').exists()).toBe(false)
     wrapper.unmount()
   })
 })

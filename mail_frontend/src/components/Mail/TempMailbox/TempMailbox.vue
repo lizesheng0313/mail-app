@@ -1,11 +1,11 @@
 <template>
   <div v-if="mailboxStore.loading" class="flex h-full flex-col">
-    <div class="guest-mailbox-loading-header mb-3 flex items-center justify-between border-b border-gray-200 pb-3">
-      <div>
+    <div class="guest-mailbox-loading-header mb-3 border-b border-gray-200 pb-3">
+      <div class="flex flex-wrap items-center justify-between gap-2">
         <h2 class="text-base font-semibold text-black">{{ t('home.temporaryMailbox') }}</h2>
-        <p class="mt-1 text-xs text-gray-500">{{ guestMailboxQuotaText }}</p>
+        <slot name="header-actions"></slot>
       </div>
-      <slot name="header-actions"></slot>
+      <p class="mt-1 text-xs text-gray-500">{{ guestMailboxQuotaText }}</p>
     </div>
     <div class="flex items-center justify-center py-8">
       <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>

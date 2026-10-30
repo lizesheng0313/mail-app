@@ -175,24 +175,17 @@
           @select="handleSelectEmail"
         >
           <template #title-extra>
+            <EmailRefreshButton
+              :loading="loadingEmails"
+              :disabled="shareState === 'expired'"
+              @refresh="loadEmails"
+            />
             <button
               v-if="selectedMailbox"
               @click="handleSelectMailbox(null)"
               class="px-2 py-1 text-xs text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors whitespace-nowrap"
             >
               {{ t('sharePage.viewAll') }}
-            </button>
-          </template>
-
-          <template #actions>
-            <button
-              type="button"
-              class="rounded p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-50"
-              :disabled="loadingEmails || shareState === 'expired'"
-              :title="t('sharePage.refreshEmails')"
-              @click="loadEmails"
-            >
-              <BaseIcon name="refresh" size="sm" :class="{ 'animate-spin': loadingEmails }" />
             </button>
           </template>
 
@@ -248,6 +241,7 @@ import ThreeColumnLayout from '@/components/Mail/Layout/ThreeColumnLayout.vue'
 import MailboxList from '@/components/Mail/MailboxList/MailboxList.vue'
 import MailboxCard from '@/components/Mail/MailboxList/MailboxCard.vue'
 import EmailList from '@/components/Mail/EmailList/EmailList.vue'
+import EmailRefreshButton from '@/components/Mail/EmailList/EmailRefreshButton.vue'
 import EmailItem from '@/components/Mail/EmailItem.vue'
 import EmailDetail from '@/components/Mail/EmailDetail/EmailDetail.vue'
 import Pagination from '@/components/Pagination/index.vue'

@@ -2,12 +2,11 @@
   <div class="flex h-full min-h-0 flex-col">
     <!-- 标题栏 -->
     <div class="mail-list-header shrink-0 border-b border-gray-200 pb-3 mb-3">
-      <div class="flex min-h-8 justify-between items-center">
+      <div class="flex min-h-8 flex-wrap items-center justify-between gap-x-2 gap-y-1">
         <div class="min-w-0">
           <h2 class="truncate text-base font-semibold text-black">{{ resolvedTitle }}</h2>
-          <p v-if="subtitle" class="mt-1 text-xs text-gray-500">{{ subtitle }}</p>
         </div>
-        <div class="flex min-h-8 min-w-8 shrink-0 items-center justify-end gap-2">
+        <div class="flex min-h-8 min-w-0 max-w-full flex-wrap items-center justify-end gap-2">
           <slot name="header-actions"></slot>
 
           <button
@@ -19,6 +18,7 @@
           </button>
         </div>
       </div>
+      <p v-if="subtitle" class="mt-1 text-xs text-gray-500">{{ subtitle }}</p>
     </div>
 
     <div v-if="searchable" class="shrink-0 pb-2">

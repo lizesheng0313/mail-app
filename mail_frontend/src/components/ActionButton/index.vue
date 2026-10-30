@@ -11,14 +11,16 @@
       <span v-if="text" class="ml-1">{{ text }}</span>
     </button>
     
-    <!-- Tooltip - 使用 fixed 定位确保不被父容器遮挡 -->
-    <div 
-      v-if="showTooltip && tooltip"
-      class="fixed z-[9999] px-2 py-1 text-xs text-white bg-gray-800 rounded shadow-lg whitespace-nowrap pointer-events-none"
-      :style="tooltipStyle"
-    >
-      {{ tooltip }}
-    </div>
+    <Teleport to="body">
+      <div
+        v-if="showTooltip && tooltip"
+        role="tooltip"
+        class="fixed z-[9999] px-2 py-1 text-xs text-white bg-gray-800 rounded shadow-lg whitespace-nowrap pointer-events-none"
+        :style="tooltipStyle"
+      >
+        {{ tooltip }}
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -71,7 +73,7 @@ const handleClick = (event) => {
 }
 
 const buttonClass = computed(() => {
-  const base = 'inline-flex items-center font-medium transition-colors focus:outline-none rounded'
+  const base = 'inline-flex items-center font-medium transition-colors focus:outline-none focus-visible:ring-0 focus-visible:bg-gray-100 rounded'
   
   const variants = {
     default: 'text-black hover:text-black',

@@ -79,7 +79,6 @@
             <div>
               <label for="share-batch-title" class="block text-sm font-semibold text-gray-700">{{ t('shareMailbox.batchTitle') }}</label>
               <input id="share-batch-title" v-model="batchTitle" type="text" maxlength="100" :placeholder="t('shareMailbox.batchTitlePlaceholder')" class="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
-              <p class="mt-1 text-xs text-gray-500">{{ t('shareMailbox.batchTitleHint') }}</p>
             </div>
 
             <!-- 有效期选择 -->
@@ -184,6 +183,25 @@
                     <span>{{ t('shareMailbox.latestOnly') }}</span>
                   </label>
                   <ShareHelpTip :text="t('shareMailbox.latestOnlyHelp')" />
+                </div>
+              </div>
+            </div>
+
+            <div v-if="effectiveShareCount > 1 || linkNoteDrafts[0]" class="space-y-2">
+              <h4 class="text-sm font-semibold text-gray-700">{{ t('shareMailbox.noteColumn') }}</h4>
+              <div class="max-h-48 space-y-2 overflow-y-auto pr-1">
+                <div v-for="index in effectiveShareCount" :key="index" class="flex items-center gap-2">
+                  <label :for="`share-link-note-${index}`" class="w-6 shrink-0 text-center text-xs text-gray-500">{{ index }}</label>
+                  <input
+                    :id="`share-link-note-${index}`"
+                    v-model="linkNoteDrafts[index - 1]"
+                    :aria-label="t('shareMailbox.linkNote', { index })"
+                    :placeholder="t('shareMailbox.addNote')"
+                    :disabled="creating"
+                    type="text"
+                    maxlength="500"
+                    class="min-w-0 flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                  />
                 </div>
               </div>
             </div>
@@ -343,12 +361,15 @@
               class="flex min-w-0 items-center gap-2"
             >
               <span class="w-7 shrink-0 text-center text-xs text-gray-500">{{ index + 1 }}</span>
-              <input
-                type="text"
-                :value="url"
-                readonly
-                class="min-w-0 flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs text-gray-700 outline-none focus:ring-2 focus:ring-primary-500"
-              />
+              <div class="min-w-0 flex-1">
+                <p v-if="createdLinkNotes[index]" :title="createdLinkNotes[index]" class="mb-1 line-clamp-2 break-words text-sm text-gray-700">{{ createdLinkNotes[index] }}</p>
+                <input
+                  type="text"
+                  :value="url"
+                  readonly
+                  class="w-full min-w-0 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs text-gray-700 outline-none focus:ring-2 focus:ring-primary-500"
+                />
+              </div>
               <button
                 @click="copyText(url)"
                 :title="t('common.copy')"
@@ -431,8 +452,11 @@ const shareCount = ref(savedPreferences.shareCount)
 const latestOnly = ref(savedPreferences.latestOnly)
 const creating = ref(false)
 const batchTitle = ref('')
+const linkNoteDrafts = ref([])
+const createdLinkNotes = ref([])
 const shareUrls = ref([])
 const guestMode = computed(() => !userStore.isAuthenticated && Boolean(props.selectedMailboxes[0]?.claim_token))
+const effectiveShareCount = computed(() => guestMode.value ? 1 : Math.max(1, Math.min(100, Math.trunc(Number(shareCount.value) || 1))))
 
 // 完整分享链接
 const fullShareUrl = computed(() => {
@@ -464,7 +488,8 @@ const handleCreateShare = async () => {
       mailbox_ids: props.mailboxIds,
       mailbox_type: props.mailboxType,
       batch_title: batchTitle.value.trim(),
-      share_count: guestMode.value ? 1 : Math.max(1, Math.min(100, Number(shareCount.value) || 1)),
+      share_count: effectiveShareCount.value,
+      link_notes: Array.from({ length: effectiveShareCount.value }, (_, index) => (linkNoteDrafts.value[index] || '').trim()),
       expire_mode: guestMode.value ? 'days' : selectedExpireMode.value,
       expire_days: guestMode.value ? 1 : selectedExpireMode.value === 'days' ? selectedExpireDays.value : 0,
       expire_minutes: !guestMode.value && selectedExpireMode.value === 'minutes' ? Number(expireMinutes.value) : null,
@@ -474,6 +499,7 @@ const handleCreateShare = async () => {
 
     if (res.code === 0) {
       const shares = res.data.shares || [res.data]
+      createdLinkNotes.value = shares.map((item) => item.link_note || '')
       shareUrls.value = shares.map(
         (item) => `${isTauri() ? 'https://zjkdongao.cn' : window.location.origin}${item.share_url}`
       )
@@ -528,6 +554,8 @@ watch(
         restoreSavedPreferences()
         shareUrls.value = []
         batchTitle.value = ''
+        linkNoteDrafts.value = []
+        createdLinkNotes.value = []
         creating.value = false
       }, 300)
     }

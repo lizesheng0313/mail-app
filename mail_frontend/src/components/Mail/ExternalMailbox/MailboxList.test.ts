@@ -26,6 +26,25 @@ const open = () => mount(ExternalMailboxList, {
 afterEach(() => { vi.restoreAllMocks(); mocks.getAccounts.mockReset(); mocks.unsubscribe.mockReset() })
 
 describe('external mailbox configuration delivery', () => {
+  it('keeps history collection in the header menu and removes the duplicate per-mailbox collection action', async () => {
+    mocks.getAccounts.mockResolvedValue(response(1, 'inbox@example.test'))
+    const wrapper = open()
+    try {
+      await (wrapper.vm as any).loadAccounts()
+      await flushPromises()
+      const more = wrapper.findAll('button').filter(button => button.attributes('title') === 'externalMailbox.moreActions')
+      await more.find(button => button.text() === 'externalMailbox.moreActions')!.trigger('click')
+      const history = wrapper.findAll('button').find(button => button.text() === 'home.fetchAll')!
+      await history.trigger('click')
+      expect(wrapper.emitted('fetch-all')).toHaveLength(1)
+      await more.find(button => button.text() !== 'externalMailbox.moreActions')!.trigger('click')
+      expect(wrapper.text()).toContain('externalMailbox.copyMailbox')
+      expect(wrapper.text()).toContain('externalMailbox.shareMailbox')
+      expect(wrapper.text()).toContain('externalMailbox.deleteAccount')
+      expect(wrapper.text()).not.toContain('externalMailbox.fetchMail')
+    } finally { wrapper.unmount() }
+  })
+
   it('shares concurrent reads of the same page and emits metadata from that response', async () => {
     let finish!: (value: unknown) => void
     mocks.getAccounts.mockReturnValueOnce(new Promise(resolve => { finish = resolve }))

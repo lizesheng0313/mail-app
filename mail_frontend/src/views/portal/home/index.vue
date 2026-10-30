@@ -21,7 +21,6 @@
           >
             <template #header-actions>
               <MailboxCreationActions
-                :menu-label="t('home.getMailbox')"
                 :primary-label="systemMailboxActionText"
                 :custom-label="t('home.customGenerate')"
                 :primary-disabled="mailboxStore.claimingMailbox || guestMailboxLimitReached"
@@ -37,11 +36,10 @@
           class="flex h-full flex-col"
         >
           <div class="guest-mailbox-header mb-3 border-b border-gray-200 pb-3">
-            <div class="flex min-h-8 items-center justify-between gap-2">
+            <div class="flex min-h-8 flex-wrap items-center justify-between gap-2">
               <h2 class="min-w-0 truncate text-base font-semibold text-black">{{ guestPreviewFeatureLabel }}</h2>
               <MailboxCreationActions
                 v-if="mailboxType === 'hosted'"
-                :menu-label="t('home.getMailbox')"
                 :primary-label="mailboxStore.claimingMailbox ? t('home.claiming') : t('home.freeClaimMailbox')"
                 :custom-label="t('home.customGenerate')"
                 :primary-disabled="mailboxStore.claimingMailbox"
@@ -80,7 +78,6 @@
           >
             <template #header-actions>
               <MailboxCreationActions
-                :menu-label="t('home.getMailbox')"
                 :primary-label="systemMailboxActionText"
                 :custom-label="t('home.customGenerate')"
                 :primary-disabled="mailboxStore.claimingMailbox"
@@ -113,7 +110,6 @@
           >
             <template #header-actions>
               <MailboxCreationActions
-                :menu-label="t('home.getMailbox')"
                 :primary-label="mailboxStore.claimingMailbox ? t('home.claiming') : t('home.freeClaimMailbox')"
                 :custom-label="t('home.customGenerate')"
                 :primary-disabled="mailboxStore.claimingMailbox"
@@ -174,25 +170,10 @@
           @search="handleSearchEmails"
         >
           <template #title-extra>
-            <div
-              class="relative inline-flex shrink-0"
-              @mouseenter="showRefreshTooltipPopover"
-              @mouseleave="hideRefreshTooltip"
-            >
-              <button
-                ref="refreshButtonRef"
-                @click="handleImmediateRefreshSystemEmails"
-                :disabled="refreshingSystemEmails"
-                :aria-label="refreshingSystemEmails ? t('home.refreshing') : t('home.refreshNow')"
-                class="inline-flex items-center rounded p-1 text-gray-500 transition-colors hover:text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <BaseIcon
-                  name="refresh"
-                  size="sm"
-                  :class="{ 'animate-spin': refreshingSystemEmails }"
-                />
-              </button>
-            </div>
+            <EmailRefreshButton
+              :loading="refreshingSystemEmails"
+              @refresh="handleImmediateRefreshSystemEmails"
+            />
             <button
               v-if="selectedMailboxId"
               @click="backToAllEmails"
@@ -270,6 +251,11 @@
           @search="handleSearchHostedEmails"
         >
           <template #title-extra>
+            <EmailRefreshButton
+              :loading="refreshingHostedEmails"
+              :disabled="!userStore.isAuthenticated"
+              @refresh="handleImmediateRefreshHostedEmails"
+            />
             <button
               v-if="selectedHostedMailboxId"
               @click="backToAllHostedEmails"
@@ -327,6 +313,7 @@
           ref="externalEmailListRef"
           :title="selectedExternalMailboxId ? t('mail.inbox') : t('mail.allEmails')"
           :emails="externalEmails"
+          :empty-text="selectedExternalMailboxId ? t('externalMailbox.emptySelectedMailbox') : t('externalMailbox.selectMailboxToFetch')"
           :selectedId="selectedExternalEmailId"
           :showPagination="true"
           :searchable="true"
@@ -343,6 +330,25 @@
               class="px-2 py-1 text-xs text-primary-600 hover:text-primary-700 hover:bg-primary-50 rounded transition-colors"
             >
               {{ t('home.viewAll') }}
+            </button>
+          </template>
+
+          <template #actions>
+            <button
+              v-if="selectedExternalMailboxId"
+              type="button"
+              :disabled="fetchingExternalEmails || fetchingSelectedExternalMailboxId !== null"
+              :aria-busy="fetchingSelectedExternalMailboxId === selectedExternalMailboxId"
+              class="inline-flex items-center gap-1 whitespace-nowrap rounded px-2 py-1 text-xs text-primary-600 transition-colors hover:bg-primary-50 hover:text-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
+              @click="fetchExternalMailboxEmails"
+            >
+              <BaseIcon
+                v-if="fetchingSelectedExternalMailboxId === selectedExternalMailboxId"
+                name="refresh"
+                size="xs"
+                class="animate-spin"
+              />
+              {{ fetchingSelectedExternalMailboxId === selectedExternalMailboxId ? t('externalMailbox.fetching') : t('externalMailbox.fetchCurrentMailbox') }}
             </button>
           </template>
 
@@ -434,14 +440,6 @@
   </ThreeColumnLayout>
 
   <!-- 邮件内容弹窗 -->
-  <div
-    v-if="showRefreshTooltip && !refreshingSystemEmails"
-    class="pointer-events-none fixed z-[9999] whitespace-nowrap rounded bg-gray-800 px-2 py-1 text-xs text-white shadow-sm"
-    :style="refreshTooltipStyle"
-  >
-    {{ t('home.refreshNow') }}
-  </div>
-
   <EmailContentModal
     v-if="showEmailModal"
     :visible="showEmailModal"
@@ -550,6 +548,7 @@ import TempMailbox from '@/components/Mail/TempMailbox/TempMailbox.vue'
 import SystemMailboxList from '@/components/Mail/SystemMailbox/MailboxList.vue'
 import ExternalMailboxList from '@/components/Mail/ExternalMailbox/MailboxList.vue'
 import EmailList from '@/components/Mail/EmailList/EmailList.vue'
+import EmailRefreshButton from '@/components/Mail/EmailList/EmailRefreshButton.vue'
 import EmailItem from '@/components/Mail/EmailItem.vue'
 import BatchAddAccountModal from '@/components/Mail/BatchAddAccountModal.vue'
 import batchLoginAPI from '@/api/batchLogin'
@@ -660,9 +659,7 @@ watch(currentView, (view) => {
 const selectedMailboxId = ref<number | null>(null)
 const showOnlyUnread = ref(false)
 const refreshingSystemEmails = ref(false)
-const refreshButtonRef = ref<HTMLElement | null>(null)
-const showRefreshTooltip = ref(false)
-const refreshTooltipStyle = ref<Record<string, string>>({})
+const refreshingHostedEmails = ref(false)
 const showEmailModal = ref(false)
 const modalEmail = ref<any>(null)
 const showBatchAddModal = ref(false)
@@ -771,6 +768,7 @@ const selectedOutboxMailboxId = ref<number | null>(null)
 const selectedOutboxRecord = ref<any>(null)
 const externalEmails = ref<any[]>([])
 const fetchingExternalEmails = ref(false)
+const fetchingSelectedExternalMailboxId = ref<number | null>(null)
 const externalHistoryFetchProgress = ref<any>(null)
 const showOnlyUnreadExternal = ref(false)
 const externalEmailPage = ref(1)
@@ -1085,11 +1083,11 @@ const usesRelayForeground = () => {
 
 const clearRelayForeground = () => desktopExternalMailSync.setRelayForeground(0)
 const syncRelayForeground = () => desktopExternalMailSync.setRelayForeground(
-  usesRelayForeground() && !fetchingExternalEmails.value
+  usesRelayForeground() && !fetchingExternalEmails.value && fetchingSelectedExternalMailboxId.value === null
     ? Number(selectedExternalMailboxId.value) : 0
 )
 const renewRelayForeground = () => desktopExternalMailSync.setRelayForeground(
-  usesRelayForeground() && !fetchingExternalEmails.value
+  usesRelayForeground() && !fetchingExternalEmails.value && fetchingSelectedExternalMailboxId.value === null
     ? Number(selectedExternalMailboxId.value) : 0, true
 )
 
@@ -2551,26 +2549,20 @@ watch(
 )
 
 const handleImmediateRefreshSystemEmails = async () => {
-  hideRefreshTooltip()
   await refreshSystemEmails({ minSpinMs: MANUAL_REFRESH_MIN_SPIN_MS })
 }
 
-const showRefreshTooltipPopover = () => {
-  if (refreshingSystemEmails.value || !refreshButtonRef.value) {
-    return
+const handleImmediateRefreshHostedEmails = async () => {
+  if (refreshingHostedEmails.value || !userStore.isAuthenticated) return
+  refreshingHostedEmails.value = true
+  const refreshStartedAt = Date.now()
+  try {
+    await refreshHostedEmails()
+  } finally {
+    const remaining = MANUAL_REFRESH_MIN_SPIN_MS - (Date.now() - refreshStartedAt)
+    if (remaining > 0) await new Promise(resolve => setTimeout(resolve, remaining))
+    refreshingHostedEmails.value = false
   }
-
-  const rect = refreshButtonRef.value.getBoundingClientRect()
-  refreshTooltipStyle.value = {
-    left: `${rect.left + rect.width / 2}px`,
-    top: `${rect.top - 8}px`,
-    transform: 'translate(-50%, -100%)'
-  }
-  showRefreshTooltip.value = true
-}
-
-const hideRefreshTooltip = () => {
-  showRefreshTooltip.value = false
 }
 
 const removeExternalEmailsByIds = (ids: number[] = []) => {
@@ -2713,7 +2705,7 @@ watch(
   { flush: 'sync' }
 )
 
-watch([mailboxType, currentView, selectedExternalMailboxId, fetchingExternalEmails], () => {
+watch([mailboxType, currentView, selectedExternalMailboxId, fetchingExternalEmails, fetchingSelectedExternalMailboxId], () => {
   if (usesRelayForeground()) {
     syncRelayForeground()
   } else {
@@ -3051,10 +3043,10 @@ const handleExternalEmailPageChange = async (page: number) => {
 
 // 手动收取外部邮箱邮件
 const fetchExternalMailboxEmails = async () => {
-  if (!selectedExternalMailboxId.value) return
+  if (!selectedExternalMailboxId.value || fetchingExternalEmails.value || fetchingSelectedExternalMailboxId.value !== null) return
 
   clearRelayForeground()
-  fetchingExternalEmails.value = true
+  fetchingSelectedExternalMailboxId.value = selectedExternalMailboxId.value
   try {
     if (!isTauri()) {
       setExternalMailboxFetchingIds([selectedExternalMailboxId.value])
@@ -3176,7 +3168,7 @@ const fetchExternalMailboxEmails = async () => {
       externalMailboxListRef.value.loadAccounts()
     }
   } finally {
-    fetchingExternalEmails.value = false
+    fetchingSelectedExternalMailboxId.value = null
     clearExternalMailboxFetchingIds()
     renewRelayForeground()
   }
@@ -3464,7 +3456,7 @@ const resumeExternalHistoryFetchStatus = async () => {
 }
 
 const fetchAllExternalEmailsOnline = async () => {
-  if (fetchingExternalEmails.value) return
+  if (fetchingExternalEmails.value || fetchingSelectedExternalMailboxId.value !== null) return
   fetchingExternalEmails.value = true
   setExternalMailboxFetchingIds(
     externalMailboxListRef.value?.getOnlineFetchSupportedIds?.() || []

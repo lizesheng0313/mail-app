@@ -59,6 +59,42 @@ describe('share page loading', () => {
     vi.restoreAllMocks()
     vi.useRealTimers()
   })
+  it.each(['system', 'hosted', 'external'])('refreshes a shared %s inbox at the current mailbox and page', async (mailboxType) => {
+    api.getShareInfo.mockResolvedValue({ ...info, data: { ...info.data, mailbox_type: mailboxType } })
+    const wrapper = mount(SharePage, { shallow: true, global: { stubs: {
+      ThreeColumnLayout: { template: '<main><slot name="middle" /></main>' },
+      EmailList: { template: '<section><slot name="title-extra" /></section>' },
+      EmailRefreshButton: false
+    } } })
+    mounted.push(wrapper)
+    await flushPromises()
+    const page = (wrapper.vm as any).$.setupState
+    page.selectedMailbox = { id: 1 }
+    page.currentPage = 3
+    page.selectedEmail = { id: 99 }
+    const selected = page.selectedEmail
+    api.getShareEmails.mockClear()
+    let finish!: (value: unknown) => void
+    api.getShareEmails.mockReturnValueOnce(new Promise(resolve => { finish = resolve }))
+    const button = wrapper.get('button[aria-label="home.refreshNow"]')
+    await button.trigger('click')
+    expect(api.getShareEmails).toHaveBeenCalledWith('public-share', { mailbox_id: 1, page: 3, page_size: 20 })
+    expect(button.attributes('disabled')).toBeDefined()
+    await button.trigger('click')
+    expect(api.getShareEmails).toHaveBeenCalledTimes(1)
+    finish(emailList)
+    await flushPromises()
+    expect(button.attributes('disabled')).toBeUndefined()
+    expect(page.currentPage).toBe(3)
+    expect(page.selectedEmail).toBe(selected)
+
+    page.shareState = 'expired'
+    await flushPromises()
+    expect(button.attributes('disabled')).toBeDefined()
+    await button.trigger('click')
+    expect(api.getShareEmails).toHaveBeenCalledTimes(1)
+  })
+
   it('shows mailboxes while the slower email request is still pending', async () => {
     api.getShareInfo.mockResolvedValue({
       code: 0,
