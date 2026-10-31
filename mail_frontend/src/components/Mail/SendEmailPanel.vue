@@ -208,7 +208,7 @@
                 v-if="bodyEditor"
                 :editor="bodyEditor"
                 :disabled="sending"
-                @ai="openAiPanel"
+                @ai="(action, language) => aiResult?.start(action, language)"
               />
             </div>
             <textarea
@@ -223,182 +223,28 @@
               ]"
               @input="handleHtmlSourceInput"
             />
+            <MailEditorAiResult
+              v-if="bodyMode === 'rich' && bodyEditor"
+              ref="aiResult"
+              :editor="bodyEditor"
+              :disabled="sending"
+              @busy="aiBusy = $event"
+            />
           </div>
         </div>
-        <aside v-if="showAiPanel" :class="aiPanelClass">
-          <div class="border-b border-slate-100 bg-white p-4">
-            <div class="mb-3 flex items-center gap-3">
-              <div
-                class="flex h-9 w-9 items-center justify-center rounded-2xl bg-primary-50 text-primary-700"
-              >
-                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M12 3l1.6 4.8L18 9.5l-4.4 1.7L12 16l-1.6-4.8L6 9.5l4.4-1.7L12 3zM19 14l.8 2.4L22 17l-2.2.6L19 20l-.8-2.4L16 17l2.2-.6L19 14z"
-                  />
-                </svg>
-              </div>
-              <div class="min-w-0 flex-1">
-                <p class="text-base font-semibold text-slate-900">{{ tc('aiTitle') }}</p>
-              </div>
-              <button
-                type="button"
-                :aria-label="tc('aiHide')"
-                :title="tc('aiHide')"
-                class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-                @click="closeAiPanel"
-              >
-                <XMarkIcon class="h-4 w-4" aria-hidden="true" />
-              </button>
-            </div>
-            <div class="rounded-full bg-slate-100 p-1">
-              <div class="grid grid-cols-2 gap-1">
-                <button
-                  type="button"
-                  @click="aiMode = 'compose'"
-                  class="rounded-full px-3 py-2 text-sm font-semibold transition-colors"
-                  :class="
-                    aiMode === 'compose'
-                      ? 'bg-white text-primary-700 shadow-sm'
-                      : 'text-slate-500 hover:text-slate-700'
-                  "
-                >
-                  {{ tc('aiCompose') }}
-                </button>
-                <button
-                  type="button"
-                  @click="aiMode = 'polish'"
-                  class="rounded-full px-3 py-2 text-sm font-semibold transition-colors"
-                  :class="
-                    aiMode === 'polish'
-                      ? 'bg-white text-primary-700 shadow-sm'
-                      : 'text-slate-500 hover:text-slate-700'
-                  "
-                >
-                  {{ tc('aiPolish') }}
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div :class="aiPanelBodyClass">
-            <div :class="aiPromptCardClass">
-              <textarea
-                ref="aiPromptInput"
-                v-model="aiPrompt"
-                :placeholder="
-                  aiMode === 'compose' ? tc('aiComposePlaceholder') : tc('aiPolishPlaceholder')
-                "
-                :class="aiPromptTextareaClass"
-              ></textarea>
-
-              <div v-if="visibleAiQuickOptions.length > 0" class="mt-3 grid grid-cols-2 gap-2">
-                <button
-                  v-for="option in visibleAiQuickOptions"
-                  :key="option.label"
-                  type="button"
-                  @click="applyAiQuickOption(option)"
-                  class="min-w-0 rounded-full bg-slate-100 px-2 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-primary-50 hover:text-primary-700"
-                >
-                  {{ option.label }}
-                </button>
-              </div>
-
-              <div
-                class="mt-4 flex items-center justify-between gap-3 border-t border-slate-100 pt-3"
-              >
-                <button
-                  type="button"
-                  @click="aiPrompt = ''"
-                  class="text-xs font-medium text-slate-400 transition-colors hover:text-primary-700"
-                >
-                  {{ tc('clear') }}
-                </button>
-                <button
-                  @click="runAiAction"
-                  :disabled="
-                    aiBusy ||
-                    (aiMode === 'compose' && !aiPrompt.trim()) ||
-                    (aiMode === 'polish' && !bodyContentText.trim())
-                  "
-                  :class="[
-                    'inline-flex items-center justify-center rounded-full px-4 py-2 text-sm font-semibold transition-colors',
-                    !aiBusy &&
-                    !(
-                      (aiMode === 'compose' && !aiPrompt.trim()) ||
-                      (aiMode === 'polish' && !bodyContentText.trim())
-                    )
-                      ? 'bg-primary-600 text-white hover:bg-primary-700'
-                      : 'cursor-not-allowed bg-slate-200 text-slate-400'
-                  ]"
-                >
-                  {{
-                    aiBusy
-                      ? tc('aiGenerating')
-                      : aiMode === 'compose'
-                        ? tc('aiGenerate')
-                        : tc('aiRewrite')
-                  }}
-                </button>
-              </div>
-            </div>
-
-            <div class="mt-3 rounded-lg border border-slate-200 bg-white p-3">
-              <div class="flex items-center justify-between">
-                <span class="text-xs font-medium text-slate-500">{{ tc('aiTone') }}</span>
-                <div class="flex rounded-full bg-slate-100 p-1">
-                  <button
-                    v-for="tone in aiToneOptions"
-                    :key="tone.value"
-                    type="button"
-                    @click="aiTone = tone.value"
-                    class="rounded-full px-2.5 py-1 text-xs font-medium transition-colors"
-                    :class="
-                      aiTone === tone.value
-                        ? 'bg-white text-primary-700 shadow-sm'
-                        : 'text-slate-500 hover:text-slate-700'
-                    "
-                  >
-                    {{ tone.label }}
-                  </button>
-                </div>
-              </div>
-              <div class="mt-3 flex items-center justify-between">
-                <span class="text-xs font-medium text-slate-500">{{ tc('aiLength') }}</span>
-                <div class="flex rounded-full bg-slate-100 p-1">
-                  <button
-                    v-for="length in aiLengthOptions"
-                    :key="length.value"
-                    type="button"
-                    @click="aiLength = length.value"
-                    class="rounded-full px-2.5 py-1 text-xs font-medium transition-colors"
-                    :class="
-                      aiLength === length.value
-                        ? 'bg-white text-primary-700 shadow-sm'
-                        : 'text-slate-500 hover:text-slate-700'
-                    "
-                  >
-                    {{ length.label }}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </aside>
       </div>
     </section>
   </div>
 </template>
 <script setup lang="ts">
-import { computed, getCurrentInstance, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, getCurrentInstance, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { EditorContent, useEditor } from '@tiptap/vue-3'
 import { createMailEditorExtensions, mailHtmlToText, prepareMailHtml } from '@/utils/mailEditor'
 import MailEditorToolbar from './MailEditorToolbar.vue'
 import MailRecipientField from './MailRecipientField.vue'
 import MailEditorContextMenu from './MailEditorContextMenu.vue'
+import MailEditorAiResult from './MailEditorAiResult.vue'
 import HoverTooltip from '@/components/HoverTooltip/index.vue'
 import {
   EnvelopeIcon,
@@ -414,11 +260,9 @@ import mailboxProxyApi from '@/api/mailboxProxy'
 import smtpAccountsAPI from '@/api/smtpAccounts'
 import { showMessage } from '@/utils/message'
 import { isTauri } from '@/services/api'
-import api from '@/services/api'
 import { buildDesktopSendableSmtpAccountMap, normalizeSmtpEmail } from '@/utils/smtpCapability'
-import { getLocaleOption } from '@/i18n/locales'
 
-const { t, locale } = useI18n()
+const { t } = useI18n()
 const composeId = `mail-compose-${getCurrentInstance()?.uid}`
 const tc = (key: string, params: Record<string, unknown> = {}) =>
   t(`sendEmail.compose.${key}`, params)
@@ -508,7 +352,6 @@ const smtpAccounts = ref<SmtpAccount[]>([])
 const externalAccounts = ref<ExternalAccount[]>([])
 const sending = ref(false)
 const showCcBcc = ref(false)
-const polishing = ref(false)
 const uploadingInlineImage = ref(false)
 const importCount = ref(0)
 const fileInput = ref<HTMLInputElement | null>(null)
@@ -521,72 +364,14 @@ const ccRecipients = ref<string[]>([])
 const bccRecipients = ref<string[]>([])
 const ccInput = ref('')
 const bccInput = ref('')
-const aiMode = ref<'compose' | 'polish'>('compose')
-const aiPrompt = ref('')
-const aiTone = ref<'formal' | 'friendly' | 'sales'>('formal')
-const aiLength = ref<'short' | 'medium' | 'long'>('medium')
-const aiGenerating = ref(false)
 const pageMode = computed(() => Boolean(props.pageMode))
-const showAiPanel = ref(false)
-const aiBusy = computed(() => aiGenerating.value || polishing.value)
-const aiToneOptions = computed(() => [
-  { value: 'formal' as const, label: tc('toneFormal') },
-  { value: 'friendly' as const, label: tc('toneFriendly') },
-  { value: 'sales' as const, label: tc('toneSales') }
-])
-const aiLengthOptions = computed(() => [
-  { value: 'short' as const, label: tc('lengthShort') },
-  { value: 'medium' as const, label: tc('lengthMedium') },
-  { value: 'long' as const, label: tc('lengthLong') }
-])
-const aiComposeQuickOptions = computed(() => [
-  { label: tc('quickQuoteFollowup'), prompt: tc('quickQuoteFollowupPrompt') },
-  { label: tc('quickOutbound'), prompt: tc('quickOutboundPrompt') },
-  { label: tc('quickReminder'), prompt: tc('quickReminderPrompt') },
-  { label: tc('quickMeeting'), prompt: tc('quickMeetingPrompt') }
-])
-const aiPolishQuickOptions = computed(() => [
-  { label: tc('quickFormal'), prompt: tc('quickFormalPrompt') },
-  { label: tc('quickShorter'), prompt: tc('quickShorterPrompt') },
-  { label: tc('quickTranslate'), prompt: tc('quickTranslatePrompt') },
-  { label: tc('quickCta'), prompt: tc('quickCtaPrompt') }
-])
-const visibleAiQuickOptions = computed(() => {
-  const options =
-    aiMode.value === 'compose' ? aiComposeQuickOptions.value : aiPolishQuickOptions.value
-  return options
-})
-const selectedToneLabel = computed(
-  () => aiToneOptions.value.find((item) => item.value === aiTone.value)?.label || ''
-)
-const selectedLengthLabel = computed(
-  () => aiLengthOptions.value.find((item) => item.value === aiLength.value)?.label || ''
-)
+const aiBusy = ref(false)
+const aiResult = ref<InstanceType<typeof MailEditorAiResult> | null>(null)
 const bodyPanelClass = computed(() => 'flex min-h-40 flex-1 flex-col')
 const editorViewportClass = computed(() => 'min-h-0 flex-1 overflow-auto bg-white')
 const editorContentClass = computed(() => 'h-full min-h-0')
 const htmlTextareaClass = computed(() => 'h-full min-h-0 flex-1 resize-none')
 
-const aiPanelClass = computed(
-  () =>
-    'absolute inset-y-0 right-0 z-20 flex w-72 max-w-[90%] flex-col overflow-hidden border-l border-gray-200 bg-white shadow-lg xl:static xl:shrink-0 xl:shadow-none'
-)
-
-const aiPanelBodyClass = 'min-h-0 flex-1 overflow-y-auto p-3'
-const aiPromptCardClass = 'rounded-lg border border-slate-200 bg-white p-3'
-const aiPromptTextareaClass =
-  'min-h-[150px] w-full resize-y border-none bg-transparent px-1 py-1 text-sm leading-6 text-slate-700 outline-none placeholder:text-slate-400 focus:ring-0'
-const aiPromptInput = ref<HTMLTextAreaElement | null>(null)
-const openAiPanel = async () => {
-  if (sending.value) return
-  showAiPanel.value = true
-  await nextTick()
-  aiPromptInput.value?.focus()
-}
-const closeAiPanel = () => {
-  showAiPanel.value = false
-  bodyEditor.value?.view.focus()
-}
 const composeGridClass = computed(() => 'relative flex min-h-0 flex-1 overflow-hidden')
 
 const selectedAccountIds = computed(() => props.selectedMailboxIds || [])
@@ -746,13 +531,6 @@ const splitEmails = (text: string) => {
     .filter((e) => e.includes('@'))
 }
 
-const applyAiQuickOption = (option: { label: string; prompt: string }) => {
-  aiPrompt.value = option.prompt
-  if (aiPolishQuickOptions.value.some((item) => item.label === option.label)) {
-    aiMode.value = 'polish'
-  }
-}
-
 const loadData = async () => {
   loading.value = true
   try {
@@ -815,7 +593,6 @@ const loadReplyDraft = (payload: ReplyDraftPayload) => {
       : ''
   attachments.value = []
   historicalAttachmentHints.value = []
-  aiPrompt.value = ''
   clearBodyContent()
 }
 
@@ -1126,7 +903,6 @@ const sendEmail = async () => {
       importCount.value = 0
       attachments.value = []
       historicalAttachmentHints.value = []
-      aiPrompt.value = ''
       clearBodyContent()
     } else {
       const firstFailure = failedDetails[0]
@@ -1170,74 +946,6 @@ const sendEmail = async () => {
   } finally {
     sending.value = false
   }
-}
-
-const polishContent = async () => {
-  if (!bodyContentText.value.trim() || polishing.value) return
-
-  polishing.value = true
-  try {
-    const response: any = await api.post('/ai/polish-email', {
-      content: bodyContentText.value,
-      subject: form.value.subject || null
-    })
-
-    if (response.code === 0 && response.data?.content) {
-      setBodyFromText(String(response.data.content || ''))
-      if (response.data.subject) {
-        form.value.subject = response.data.subject
-      }
-      showMessage(tc('aiPolishSuccess'), 'success')
-    } else {
-      showMessage(response.message || tc('aiPolishFailed'), 'error')
-    }
-  } catch (error) {
-    showMessage(tc('aiPolishRetryFailed'), 'error')
-  } finally {
-    polishing.value = false
-  }
-}
-
-const composeEmailWithAI = async () => {
-  if (!aiPrompt.value.trim() || aiGenerating.value) return
-
-  aiGenerating.value = true
-  try {
-    const prompt = [
-      aiPrompt.value.trim(),
-      tc('promptTone', { label: selectedToneLabel.value }),
-      tc('promptLength', { label: selectedLengthLabel.value })
-    ].join('\n')
-
-    const response: any = await api.post('/ai/compose-email', {
-      prompt,
-      tone: selectedToneLabel.value,
-      language: getLocaleOption(locale.value).aiLanguage,
-      subject: form.value.subject || null,
-      content: bodyContentText.value || null
-    })
-
-    if (response.code === 0 && response.data?.content) {
-      form.value.subject = String(response.data.subject || form.value.subject || '')
-      setBodyFromText(String(response.data.content || bodyContentText.value || ''))
-      showMessage(tc('aiComposeSuccess'), 'success')
-    } else {
-      showMessage(response.message || tc('aiComposeFailed'), 'error')
-    }
-  } catch (error) {
-    showMessage(tc('aiComposeRetryFailed'), 'error')
-  } finally {
-    aiGenerating.value = false
-  }
-}
-
-const runAiAction = async () => {
-  if (sending.value) return
-  if (aiMode.value === 'polish') {
-    await polishContent()
-    return
-  }
-  await composeEmailWithAI()
 }
 
 defineExpose({

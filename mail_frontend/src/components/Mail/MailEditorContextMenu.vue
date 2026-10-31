@@ -10,7 +10,28 @@
       class="fixed z-[260] w-48 max-w-[calc(100vw-1rem)] overflow-y-auto overscroll-contain rounded-lg border border-gray-200 bg-white p-1 shadow-lg focus:outline-none"
       @contextmenu.prevent
     >
-      <template v-if="!inTable">
+      <template v-if="showLanguages">
+        <button
+          role="menuitem"
+          type="button"
+          class="flex w-full items-center gap-2 rounded border-b border-gray-100 px-3 py-2 text-left text-xs text-gray-500 hover:bg-gray-100 focus:bg-primary-50 focus:outline-none"
+          @click="showLanguages = false"
+        >
+          <span aria-hidden="true">‹</span>{{ t('sendEmail.aiEdit.translate') }}
+        </button>
+        <button
+          v-for="option in localeOptions"
+          :key="option.value"
+          role="menuitem"
+          type="button"
+          class="block w-full rounded px-3 py-1.5 text-left text-xs text-gray-600 hover:bg-gray-100 focus:bg-primary-50 focus:outline-none"
+          @mousedown.prevent
+          @click="openAi('translate', option.value)"
+        >
+          {{ option.label }}
+        </button>
+      </template>
+      <template v-if="!showLanguages && !inTable">
         <button
           v-for="action in clipboardActions"
           :key="action"
@@ -25,7 +46,7 @@
           <span class="text-gray-400" aria-hidden="true">{{ shortcut(action) }}</span>
         </button>
       </template>
-      <template v-if="inTable">
+      <template v-if="!showLanguages && inTable">
         <button
           v-for="(action, index) in actions"
           :key="action.key"
@@ -44,16 +65,44 @@
         </button>
       </template>
       <button
+        v-if="!showLanguages"
         role="menuitem"
         type="button"
-        :disabled="disabled"
+        :disabled="disabled || !hasAiContent"
         class="mt-1 flex w-full items-center gap-2 rounded border-t border-gray-100 px-3 py-2 text-left text-xs text-gray-600 hover:bg-gray-100 focus:bg-primary-50 focus:outline-none disabled:opacity-35"
         @mousedown.prevent
-        @click="openAi"
+        @click="openAi('polish')"
       >
         <SparklesIcon class="h-4 w-4 text-primary-600" aria-hidden="true" />{{
-          t('sendEmail.compose.aiShow')
+          t('sendEmail.aiEdit.polish')
         }}
+      </button>
+      <button
+        v-if="!showLanguages"
+        role="menuitem"
+        type="button"
+        :disabled="disabled || !hasAiContent"
+        aria-haspopup="menu"
+        class="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-xs text-gray-600 hover:bg-gray-100 focus:bg-primary-50 focus:outline-none disabled:opacity-35"
+        @mousedown.prevent
+        @click="openLanguages"
+      >
+        <svg
+          class="h-4 w-4 text-primary-600"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M3 5h12M9 3v2m4 0c-1 6-4 9-9 12m2-9c1 3 3 5 6 7m2 6 4-10 4 10m-6.5-4h5"
+          />
+        </svg>
+        <span>{{ t('sendEmail.aiEdit.translate') }}</span
+        ><span class="ml-auto" aria-hidden="true">›</span>
       </button>
     </div>
   </Teleport>
@@ -67,12 +116,15 @@ import { SparklesIcon } from '@heroicons/vue/24/outline'
 import { mailTableCommands, type MailTableCommand } from '@/utils/mailTableActions'
 import { editMailClipboard, type MailClipboardAction } from '@/utils/mailEditorClipboard'
 import { showMessage } from '@/utils/message'
+import { getMailAiTarget, type MailAiAction } from '@/utils/mailEditorAi'
+import { localeOptions, type SupportedLocale } from '@/i18n/locales'
 
 const props = defineProps<{ editor: Editor; disabled?: boolean }>()
-const emit = defineEmits<{ ai: [] }>()
+const emit = defineEmits<{ ai: [action: MailAiAction, language?: SupportedLocale] }>()
 const { t } = useI18n()
 const open = ref(false)
 const inTable = ref(false)
+const showLanguages = ref(false)
 const menu = ref<HTMLElement | null>(null)
 const revision = ref(0)
 const position = ref<Record<string, string>>({})
@@ -83,6 +135,10 @@ const actions = computed(() => {
 const hasSelection = computed(() => {
   revision.value
   return !props.editor.state.selection.empty
+})
+const hasAiContent = computed(() => {
+  revision.value
+  return Boolean(getMailAiTarget(props.editor))
 })
 const clipboardActions = ['cut', 'copy', 'paste'] as const
 const shortcut = (action: MailClipboardAction) =>
@@ -109,6 +165,7 @@ const selectCell = (cell: HTMLElement) => {
 }
 const show = async (cell: HTMLElement | null, x: number, y: number) => {
   inTable.value = Boolean(cell)
+  showLanguages.value = false
   if (cell) selectCell(cell)
   open.value = true
   const editor = props.editor
@@ -168,10 +225,22 @@ const run = (key: MailTableCommand) => {
   close()
   props.editor.chain().focus()[key]().run()
 }
-const openAi = () => {
-  if (!canOpen()) return
+const openAi = (action: MailAiAction, language?: SupportedLocale) => {
+  if (!canOpen() || !hasAiContent.value) return
   close(true)
-  emit('ai')
+  emit('ai', action, language)
+}
+const openLanguages = async () => {
+  if (!canOpen() || !hasAiContent.value) return
+  showLanguages.value = true
+  await nextTick()
+  if (!menu.value || !open.value) return
+  const rect = menu.value.getBoundingClientRect()
+  position.value = {
+    ...position.value,
+    top: `${Math.max(8, Math.min(rect.top, window.innerHeight - rect.height - 8))}px`
+  }
+  menu.value.querySelector<HTMLButtonElement>('button')?.focus()
 }
 const runClipboard = async (action: MailClipboardAction) => {
   if (!canOpen() || (action !== 'paste' && !hasSelection.value)) return
@@ -191,6 +260,15 @@ const onScroll = (event: Event) => {
 }
 const onKeydown = (event: KeyboardEvent) => {
   if (!open.value) return
+  if (showLanguages.value && (event.key === 'ArrowLeft' || event.key === 'Escape')) {
+    event.preventDefault()
+    event.stopPropagation()
+    showLanguages.value = false
+    void nextTick(() =>
+      menu.value?.querySelector<HTMLButtonElement>('button[aria-haspopup]')?.focus()
+    )
+    return
+  }
   if (event.key === 'Escape') {
     event.preventDefault()
     event.stopPropagation()

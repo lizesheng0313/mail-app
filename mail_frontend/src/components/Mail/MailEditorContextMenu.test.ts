@@ -145,11 +145,35 @@ describe('mail table context menu', () => {
     await rightClick(editor.view.dom.lastElementChild!)
     expect(editor.state.selection.toJSON()).toEqual(selection)
     expect(menu()?.getAttribute('aria-label')).toBe('正文')
-    item('AI 辅助').click()
+    item('智能润色').click()
     await tick()
-    expect(wrapper.emitted('ai')).toEqual([[]])
+    expect(wrapper.emitted('ai')).toEqual([['polish', undefined]])
     expect(menu()).toBeNull()
     expect(editor.getHTML()).toBe(html)
+  })
+
+  it('selects a translation language from the right-click menu without a generic AI entry', async () => {
+    const { editor, wrapper } = setup()
+    await rightClick(editor.view.dom.lastElementChild!)
+    expect(menu()?.textContent).not.toContain('AI 辅助')
+    item('智能翻译').click()
+    await tick()
+    item('English').click()
+    await tick()
+    expect(wrapper.emitted('ai')).toEqual([['translate', 'en']])
+    expect(menu()).toBeNull()
+  })
+
+  it('disables AI for an empty draft and a multi-cell selection', async () => {
+    const { editor } = setup()
+    const positions = cellPositions(editor)
+    editor.commands.setCellSelection({ anchorCell: positions[0], headCell: positions[1] })
+    await rightClick(editor.view.dom.querySelector('td')!)
+    expect(item('智能润色').disabled).toBe(true)
+    editor.commands.setContent('<p></p>')
+    await rightClick(editor.view.dom.lastElementChild!)
+    expect(item('智能润色').disabled).toBe(true)
+    expect(item('智能翻译').disabled).toBe(true)
   })
 
   it('moves the selection when right-clicking an unselected cell and disables merging', async () => {
@@ -169,7 +193,7 @@ describe('mail table context menu', () => {
       true
     )
     expect(menu()?.getAttribute('aria-label')).toBe('正文')
-    expect(item('AI 辅助').disabled).toBe(false)
+    expect(item('智能润色').disabled).toBe(false)
     await rightClick(editor.view.dom.querySelector('td')!)
     await wrapper.setProps({ disabled: true })
     expect(menu()).toBeNull()
@@ -196,7 +220,7 @@ describe('mail table context menu', () => {
     item('上方插入行').dispatchEvent(
       new KeyboardEvent('keydown', { key: 'End', bubbles: true, cancelable: true })
     )
-    expect(document.activeElement).toBe(item('AI 辅助'))
+    expect(document.activeElement).toBe(item('智能翻译'))
     const bubbleListener = vi.fn()
     document.addEventListener('keydown', bubbleListener)
     try {

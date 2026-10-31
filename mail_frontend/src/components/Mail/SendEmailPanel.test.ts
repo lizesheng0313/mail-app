@@ -11,12 +11,13 @@ const mocks = vi.hoisted(() => ({
   invoke: vi.fn(),
   save: vi.fn(),
   proxy: vi.fn(),
-  message: vi.fn()
+  message: vi.fn(),
+  post: vi.fn()
 }))
 vi.mock('@/services/api', () => ({
   isTauri: () => mocks.desktop,
   getApiBaseURL: () => '/api',
-  default: { post: vi.fn() }
+  default: { post: mocks.post }
 }))
 vi.mock('@/api/batchLogin', () => ({ batchLoginAPI: { getAccounts: mocks.getExternal } }))
 vi.mock('@/api/smtpAccounts', () => ({
@@ -65,6 +66,7 @@ beforeEach(() => {
   mocks.proxy.mockResolvedValue({ code: 0, data: {} })
   mocks.invoke.mockResolvedValue({ response_code: 250 })
   mocks.save.mockResolvedValue({ code: 0 })
+  mocks.post.mockResolvedValue({ code: 0, data: { content: '润色后的内容' } })
 })
 afterEach(() => wrappers.splice(0).forEach((wrapper) => wrapper.unmount()))
 const loadDraft = async (wrapper: ReturnType<typeof mount>) => {
@@ -97,7 +99,7 @@ describe('compact composer', () => {
     await wrapper.get('button[aria-label="HTML 源码"]').trigger('click')
     expect(document.querySelector('[role="menu"]')).toBeNull()
   })
-  it('moves AI to the ordinary context menu and removes the fullscreen entry from the inbox composer', async () => {
+  it('offers polish and translation in the context menu without an assistant sidebar', async () => {
     const wrapper = await setup()
     await wrapper.setProps({ pageMode: false })
     await loadDraft(wrapper)
@@ -106,14 +108,21 @@ describe('compact composer', () => {
     await wrapper.get('.ProseMirror p').trigger('contextmenu')
     await flushPromises()
     const ai = Array.from(document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')).find(
-      (button) => button.textContent?.trim() === 'AI 辅助'
+      (button) => button.textContent?.trim() === '智能润色'
     )!
     ai.click()
     await flushPromises()
-    expect(wrapper.find('aside').exists()).toBe(true)
+    expect(wrapper.find('aside').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('AI 辅助')
+    expect(wrapper.text()).toContain('使用内容')
+    expect(mocks.post).toHaveBeenCalledWith(
+      '/ai/polish-email',
+      expect.objectContaining({ content: 'Report\nName\nCount\nA\n2' }),
+      expect.anything()
+    )
     expect(document.querySelector('[role="menu"]')).toBeNull()
     expect(wrapper.findAll('.ProseMirror tr')).toHaveLength(2)
-    await wrapper.get('aside button[aria-label="收起 AI"]').trigger('click')
+    await wrapper.get('section[aria-label="智能润色"] button[aria-label="关闭"]').trigger('click')
     expect(wrapper.find('aside').exists()).toBe(false)
   })
   it('keeps the draft through HTML mode without taking over the document scroll state', async () => {
