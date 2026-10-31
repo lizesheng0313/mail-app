@@ -1476,6 +1476,7 @@ export default {
     }
   },
   "shareMailbox": {
+    sourceColumn: '作成元',
     "title": "メールボックスの共有",
     "selectedMailboxes": "{count} メールボックスが選択されました",
     "selectedMailboxesHelp": "リストされたメールボックスのみが共有されます。リンクを知っているユーザーは、このリンクで許可されているメールを表示できますが、アカウント内の他のメールボックスは表示できません。",
@@ -1543,7 +1544,7 @@ export default {
     "copyActiveLinksHint": "アクティブなリンクまたはミニ プログラム パスのみを 1 行に 1 つずつコピーします。",
     "copyBatchCount": "すべてコピー ({count})",
     "legacyShare": "単一シェア #{id}",
-    "untitledBatch": "メモなしのバッチ",
+    "untitledBatch": '共有の詳細',
     "deleteBatch": "削除",
     "deleteBatchesConfirm": "{links} リンクを含む {count} バッチを削除しますか?アクティブなリンクはすぐに動作を停止します。",
     "batchNote": "バッチノート",
@@ -1582,7 +1583,6 @@ export default {
     "openCountColumn": "開く",
     "openCountValue": "{count} が開きます",
     "notOpened": "未開封",
-    "lastOpened": "最後 {date}",
     "createdAtColumn": "作成されました",
     "actionColumn": "アクション",
     "viewLink": "リンクを表示",

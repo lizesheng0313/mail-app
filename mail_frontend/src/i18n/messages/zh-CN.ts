@@ -1473,6 +1473,7 @@ const zhCN = {
     }
   },
   shareMailbox: {
+    sourceColumn: '创建来源',
     title: '分享邮箱',
     selectedMailboxes: '已选择 {count} 个邮箱',
     selectedMailboxesHelp: '这里只分享列出的邮箱。拿到链接的人能查看这些邮箱在本链接允许范围内的邮件，看不到你账号里的其他邮箱。',
@@ -1540,7 +1541,7 @@ const zhCN = {
     copyActiveLinksHint: '仅复制有效链接或小程序路径，每条占一行。',
     copyBatchCount: '批量复制（{count}）',
     legacyShare: '单条分享 #{id}',
-    untitledBatch: '未备注批次',
+    untitledBatch: '分享详情',
     deleteBatch: '删除',
     deleteBatchesConfirm: '删除这 {count} 批，共 {links} 条链接？有效链接将立即失效。',
     batchNote: '批次备注',
@@ -1579,7 +1580,6 @@ const zhCN = {
     openCountColumn: '打开次数',
     openCountValue: '{count} 次',
     notOpened: '未打开',
-    lastOpened: '最近 {date}',
     createdAtColumn: '创建时间',
     actionColumn: '操作',
     viewLink: '查看链接',

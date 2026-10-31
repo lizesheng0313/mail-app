@@ -1476,6 +1476,7 @@ export default {
     }
   },
   "shareMailbox": {
+    sourceColumn: 'Créé via',
     "title": "Partager des boîtes aux lettres",
     "selectedMailboxes": "Boîtes aux lettres {count} sélectionnées",
     "selectedMailboxesHelp": "Seules les boîtes aux lettres répertoriées sont partagées. Les personnes disposant du lien peuvent consulter les e-mails autorisés par ce lien, mais pas les autres boîtes aux lettres de votre compte.",
@@ -1543,7 +1544,7 @@ export default {
     "copyActiveLinksHint": "Copiez uniquement les liens actifs ou les chemins du mini-programme, un par ligne.",
     "copyBatchCount": "Copier tout ({count})",
     "legacyShare": "Action unique #{id}",
-    "untitledBatch": "Lot sans note",
+    "untitledBatch": 'Détails du partage',
     "deleteBatch": "Supprimer",
     "deleteBatchesConfirm": "Supprimer les lots {count} avec des liens {links} ? Les liens actifs cesseront de fonctionner immédiatement.",
     "batchNote": "Note de lot",
@@ -1582,7 +1583,6 @@ export default {
     "openCountColumn": "Ouvre",
     "openCountValue": "{count} s'ouvre",
     "notOpened": "Non ouvert",
-    "lastOpened": "Dernier {date}",
     "createdAtColumn": "Créé",
     "actionColumn": "Actions",
     "viewLink": "Voir le lien",

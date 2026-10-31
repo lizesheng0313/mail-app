@@ -1472,6 +1472,7 @@ const zhTW = {
     }
   },
   shareMailbox: {
+    sourceColumn: '建立來源',
     title: '分享郵箱',
     selectedMailboxes: '已選擇 {count} 個郵箱',
     selectedMailboxesHelp: '這裡只分享列出的郵箱。拿到連結的人能查看這些郵箱在本連結允許範圍內的郵件，看不到你帳號裡的其他郵箱。',
@@ -1539,7 +1540,7 @@ const zhTW = {
     copyActiveLinksHint: '僅複製有效連結或小程式路徑，每條佔一行。',
     copyBatchCount: '批次複製（{count}）',
     legacyShare: '單筆分享 #{id}',
-    untitledBatch: '未備註批次',
+    untitledBatch: '分享詳情',
     deleteBatch: '刪除',
     deleteBatchesConfirm: '刪除這 {count} 批，共 {links} 條連結？有效連結將立即失效。',
     batchNote: '批次備註',
@@ -1578,7 +1579,6 @@ const zhTW = {
     openCountColumn: '開啟次數',
     openCountValue: '{count} 次',
     notOpened: '未開啟',
-    lastOpened: '最近 {date}',
     createdAtColumn: '建立時間',
     actionColumn: '操作',
     viewLink: '查看連結',

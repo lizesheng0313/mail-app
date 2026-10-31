@@ -1476,6 +1476,7 @@ export default {
     }
   },
   "shareMailbox": {
+    sourceColumn: '생성 출처',
     "title": "사서함 공유",
     "selectedMailboxes": "{count} 사서함이 선택되었습니다.",
     "selectedMailboxesHelp": "나열된 사서함만 공유됩니다. 링크가 있는 사람은 이 링크에서 허용하는 이메일을 볼 수 있지만 계정의 다른 편지함은 볼 수 없습니다.",
@@ -1543,7 +1544,7 @@ export default {
     "copyActiveLinksHint": "활성 링크 또는 미니 프로그램 경로만 한 줄에 하나씩 복사합니다.",
     "copyBatchCount": "모두 복사({count})",
     "legacyShare": "단일 공유 #{id}",
-    "untitledBatch": "메모 없이 일괄 처리",
+    "untitledBatch": '공유 상세',
     "deleteBatch": "삭제",
     "deleteBatchesConfirm": "{links} 링크가 있는 {count} 배치를 삭제하시겠습니까? 활성 링크는 즉시 작동이 중지됩니다.",
     "batchNote": "배치 노트",
@@ -1582,7 +1583,6 @@ export default {
     "openCountColumn": "열림",
     "openCountValue": "{count} 열림",
     "notOpened": "열리지 않음",
-    "lastOpened": "마지막 {date}",
     "createdAtColumn": "생성됨",
     "actionColumn": "작업",
     "viewLink": "링크 보기",

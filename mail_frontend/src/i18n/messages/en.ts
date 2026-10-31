@@ -1522,6 +1522,7 @@ const en = {
     }
   },
   shareMailbox: {
+    sourceColumn: 'Created via',
     title: 'Share Mailboxes',
     selectedMailboxes: '{count} mailboxes selected',
     selectedMailboxesHelp: 'Only the listed mailboxes are shared. People with the link can view the emails allowed by this link, but not other mailboxes in your account.',
@@ -1589,7 +1590,7 @@ const en = {
     copyActiveLinksHint: 'Copy active links or Mini Program paths only, one per line.',
     copyBatchCount: 'Copy all ({count})',
     legacyShare: 'Single share #{id}',
-    untitledBatch: 'Batch without a note',
+    untitledBatch: 'Share details',
     deleteBatch: 'Delete',
     deleteBatchesConfirm: 'Delete {count} batches with {links} links? Active links will stop working immediately.',
     batchNote: 'Batch note',
@@ -1628,7 +1629,6 @@ const en = {
     openCountColumn: 'Opens',
     openCountValue: '{count} opens',
     notOpened: 'Not opened',
-    lastOpened: 'Last {date}',
     createdAtColumn: 'Created',
     actionColumn: 'Actions',
     viewLink: 'View link',

@@ -1476,6 +1476,7 @@ export default {
     }
   },
   "shareMailbox": {
+    sourceColumn: 'Erstellt über',
     "title": "Postfächer teilen",
     "selectedMailboxes": "{count} Postfächer ausgewählt",
     "selectedMailboxesHelp": "Nur die aufgelisteten Postfächer werden freigegeben. Personen mit dem Link können die über diesen Link zugelassenen E-Mails anzeigen, andere Postfächer in Ihrem Konto jedoch nicht.",
@@ -1543,7 +1544,7 @@ export default {
     "copyActiveLinksHint": "Kopieren Sie nur aktive Links oder Miniprogrammpfade, einen pro Zeile.",
     "copyBatchCount": "Alles kopieren ({count})",
     "legacyShare": "Einzelaktie #{id}",
-    "untitledBatch": "Charge ohne Notiz",
+    "untitledBatch": 'Freigabedetails',
     "deleteBatch": "Löschen",
     "deleteBatchesConfirm": "{count}-Stapel mit {links}-Links löschen? Aktive Links funktionieren sofort nicht mehr.",
     "batchNote": "Chargennotiz",
@@ -1582,7 +1583,6 @@ export default {
     "openCountColumn": "Öffnet",
     "openCountValue": "{count} wird geöffnet",
     "notOpened": "Nicht geöffnet",
-    "lastOpened": "Letzter {date}",
     "createdAtColumn": "Erstellt",
     "actionColumn": "Aktionen",
     "viewLink": "Link ansehen",

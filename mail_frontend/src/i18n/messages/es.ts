@@ -1476,6 +1476,7 @@ export default {
     }
   },
   "shareMailbox": {
+    sourceColumn: 'Creado desde',
     "title": "Compartir buzones",
     "selectedMailboxes": "Buzones {count} seleccionados",
     "selectedMailboxesHelp": "Sólo se comparten los buzones de correo enumerados. Las personas con el enlace pueden ver los correos electrónicos permitidos por este enlace, pero no otros buzones de correo de su cuenta.",
@@ -1543,7 +1544,7 @@ export default {
     "copyActiveLinksHint": "Copie únicamente los enlaces activos o las rutas del Mini Programa, uno por línea.",
     "copyBatchCount": "Copiar todo ({count})",
     "legacyShare": "Acción única #{id}",
-    "untitledBatch": "Lote sin nota",
+    "untitledBatch": 'Detalles del enlace',
     "deleteBatch": "Eliminar",
     "deleteBatchesConfirm": "¿Eliminar lotes {count} con enlaces {links}? Los enlaces activos dejarán de funcionar inmediatamente.",
     "batchNote": "nota de lote",
@@ -1582,7 +1583,6 @@ export default {
     "openCountColumn": "Abre",
     "openCountValue": "Se abre {count}",
     "notOpened": "No abierto",
-    "lastOpened": "Último {date}",
     "createdAtColumn": "Creado",
     "actionColumn": "Acciones",
     "viewLink": "Ver enlace",

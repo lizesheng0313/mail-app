@@ -1476,6 +1476,7 @@ export default {
     }
   },
   "shareMailbox": {
+    sourceColumn: 'Criado via',
     "title": "Compartilhar caixas de correio",
     "selectedMailboxes": "Caixas de correio {count} selecionadas",
     "selectedMailboxesHelp": "Somente as caixas de correio listadas são compartilhadas. As pessoas com o link podem visualizar os e-mails permitidos por este link, mas não outras caixas de correio da sua conta.",
@@ -1543,7 +1544,7 @@ export default {
     "copyActiveLinksHint": "Copie apenas links ativos ou caminhos de miniprogramas, um por linha.",
     "copyBatchCount": "Copiar tudo ({count})",
     "legacyShare": "Compartilhamento único #{id}",
-    "untitledBatch": "Lote sem nota",
+    "untitledBatch": 'Detalhes do compartilhamento',
     "deleteBatch": "Excluir",
     "deleteBatchesConfirm": "Excluir lotes {count} com links {links}? Os links ativos deixarão de funcionar imediatamente.",
     "batchNote": "Nota de lote",
@@ -1582,7 +1583,6 @@ export default {
     "openCountColumn": "Abre",
     "openCountValue": "{count} abre",
     "notOpened": "Não aberto",
-    "lastOpened": "Último {date}",
     "createdAtColumn": "Criado",
     "actionColumn": "Ações",
     "viewLink": "Ver link",

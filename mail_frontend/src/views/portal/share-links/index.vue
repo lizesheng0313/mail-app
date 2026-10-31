@@ -42,7 +42,7 @@
             <p v-if="batch.active_count && batch.active_count < batch.link_count" class="mt-1 text-xs text-gray-500">{{ t('shareMailbox.activeLinkCount', { count: batch.active_count }) }}</p>
           </td>
           <td class="sticky right-0 z-[1] whitespace-nowrap bg-white px-4 py-3 text-sm group-hover:bg-gray-50"><div class="flex items-center gap-1">
-            <ActionButton icon="eye" variant="view" :tooltip="t('shareMailbox.viewBatchLinks')" @click="previewBatch = batch" />
+            <ActionButton icon="eye" variant="view" :tooltip="t('shareMailbox.viewBatchLinks')" @click="openPreview(batch)" />
             <ActionButton icon="delete" variant="delete" :tooltip="t('shareMailbox.deleteBatch')" :disabled="deletingShares || loadingShares" @click="confirmBatchDeletion([batch])" />
           </div></td>
         </tr>
@@ -59,32 +59,26 @@
               <ShareNoteEditor class="min-w-0 flex-1" :model-value="previewBatch.batch_title" :placeholder="batchTitle(previewBatch)" :label="t('shareMailbox.batchNote')" variant="heading" :max-length="100" :save-note="(value) => saveBatchNote(previewBatch, value)" />
               <button ref="previewCloseButton" type="button" :aria-label="t('common.close')" class="-mr-1 -mt-1 shrink-0 rounded-md p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-500" @click="previewBatch = null"><BaseIcon name="x" size="h-5 w-5" /></button>
             </div>
-            <div class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-gray-500">
-              <span class="shrink-0">{{ t(previewBatch.miniapp_path ? 'shareMailbox.miniappShare' : 'shareMailbox.webShare') }}</span>
-              <span class="shrink-0">{{ t('shareMailbox.batchLinkCount', { count: previewBatch.link_count }) }}</span>
-              <ShareMailboxScope :mailboxes="previewMailboxAddresses" :label="t('shareMailbox.batchMailboxes')" compact />
-              <div class="flex w-full flex-wrap gap-x-4 gap-y-1 text-gray-400 sm:ml-auto sm:w-auto">
-                <span>{{ t('shareMailbox.createdAtColumn') }} {{ formatShareDate(previewBatch.created_at) }}</span>
-                <span v-if="previewBatch.last_opened_at">{{ t('shareMailbox.lastOpened', { date: formatShareDate(previewBatch.last_opened_at) }) }}</span>
-              </div>
-            </div>
-            <p v-if="previewBatch.miniapp_path" class="mt-2 text-xs text-gray-500">{{ t('shareMailbox.miniappPathHint') }}</p>
+            <p class="mt-2 text-xs text-gray-400">{{ t('shareMailbox.createdAtColumn') }} {{ formatShareDate(previewBatch.created_at) }}</p>
           </header>
-          <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          <div ref="previewScroll" class="min-h-0 flex-1 overflow-y-auto overscroll-contain">
             <div class="share-preview-columns sticky top-0 z-10 hidden border-b border-gray-100 bg-gray-50 px-6 py-2 text-xs font-medium text-gray-500 lg:grid" aria-hidden="true">
-              <span>#</span><span>{{ t(previewBatch.miniapp_path ? 'shareMailbox.miniappPath' : 'shareMailbox.linkAddress') }}</span><span>{{ t('shareMailbox.noteColumn') }}</span><span class="text-center">{{ t('shareMailbox.openCountColumn') }}</span><span>{{ t('shareMailbox.statusAndValidity') }}</span><span class="text-right">{{ t('shareMailbox.actionColumn') }}</span>
+              <span>#</span><span>{{ t(previewBatch.miniapp_path ? 'shareMailbox.miniappPath' : 'shareMailbox.linkAddress') }}</span><span>{{ t('shareMailbox.noteColumn') }}</span><span>{{ t('shareMailbox.sourceColumn') }}</span><span class="text-center">{{ t('shareMailbox.openCountColumn') }}</span><span>{{ t('shareMailbox.statusAndValidity') }}</span><span class="text-right">{{ t('shareMailbox.actionColumn') }}</span>
             </div>
             <div class="divide-y divide-gray-100">
-              <div v-for="(share, index) in previewBatch.shares" :key="share.id" class="share-preview-columns share-preview-row px-4 py-2.5 transition-colors hover:bg-gray-50/70 sm:px-6">
-                <span class="share-row-number pt-0.5 text-xs tabular-nums text-gray-400">{{ String(index + 1).padStart(2, '0') }}</span>
+              <div v-for="(share, index) in previewShares" :key="share.id" class="share-preview-columns share-preview-row px-4 py-2.5 transition-colors hover:bg-gray-50/70 sm:px-6">
+                <span class="share-row-number pt-0.5 text-xs tabular-nums text-gray-400">{{ String(previewOffset + index + 1).padStart(2, '0') }}</span>
                 <div class="share-row-link min-w-0">
-                  <input :aria-label="t(share.miniapp_path ? 'shareMailbox.miniappPath' : 'shareMailbox.linkAddress') + ' ' + (index + 1)" :title="shareLink(share)" :value="shareLink(share)" readonly class="block w-full min-w-0 truncate rounded-sm border-0 bg-transparent p-0 font-mono text-xs leading-5 text-gray-700 focus:outline-none focus:ring-1 focus:ring-primary-300" @focus="$event.target.select()" />
-                  <ShareMailboxScope v-if="hasDistinctMailboxScope(share)" class="mt-1" :mailboxes="mailboxAddresses(share)" :label="t('shareMailbox.linkMailboxes', { index: index + 1 })" compact />
+                  <input :aria-label="t(share.miniapp_path ? 'shareMailbox.miniappPath' : 'shareMailbox.linkAddress') + ' ' + (previewOffset + index + 1)" :title="shareLink(share)" :value="shareLink(share)" readonly class="block w-full min-w-0 truncate rounded-sm border-0 bg-transparent p-0 font-mono text-xs leading-5 text-gray-700 focus:outline-none focus:ring-1 focus:ring-primary-300" @focus="$event.target.select()" />
+                  <ShareMailboxScope v-if="hasDistinctMailboxScope(share)" class="mt-1" :mailboxes="mailboxAddresses(share)" :label="t('shareMailbox.linkMailboxes', { index: previewOffset + index + 1 })" compact />
                 </div>
-                <ShareNoteEditor class="share-row-note min-w-0" :model-value="share.link_note" :label="t('shareMailbox.linkNote', { index: index + 1 })" :save-note="(value) => saveLinkNote(share, value)" />
+                <ShareNoteEditor class="share-row-note min-w-0" :model-value="share.link_note" :label="t('shareMailbox.linkNote', { index: previewOffset + index + 1 })" :save-note="(value) => saveLinkNote(share, value)" />
+                <div class="share-row-source whitespace-nowrap text-xs text-gray-600">
+                  <span class="mr-1.5 text-gray-400 lg:hidden">{{ t('shareMailbox.sourceColumn') }}</span>{{ t(share.miniapp_path ? 'shareMailbox.miniappShare' : 'shareMailbox.webShare') }}
+                </div>
                 <div class="share-row-count text-xs lg:text-center">
                   <span class="mr-1.5 text-gray-400 lg:hidden">{{ t('shareMailbox.openCountColumn') }}</span>
-                  <output class="font-medium tabular-nums text-gray-700" :aria-label="`${t('shareMailbox.openCountColumn')} ${index + 1}`">{{ share.open_count || 0 }}</output>
+                  <output class="font-medium tabular-nums text-gray-700" :aria-label="`${t('shareMailbox.openCountColumn')} ${previewOffset + index + 1}`">{{ share.open_count || 0 }}</output>
                 </div>
                 <div class="share-row-status flex min-w-0 items-center gap-2">
                   <span class="inline-flex shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium" :class="isShareExpired(share) ? 'bg-red-50 text-red-700' : 'bg-green-100 text-green-700'"><span class="h-1.5 w-1.5 rounded-full bg-current" />{{ isShareExpired(share) ? t('shareMailbox.expired') : t('shareMailbox.active') }}</span>
@@ -99,6 +93,7 @@
             </div>
           </div>
           <footer class="flex shrink-0 flex-wrap items-center justify-end gap-3 border-t border-gray-200 bg-gray-50/60 px-4 py-2.5 sm:px-6">
+            <AdminPagination class="share-detail-pagination w-full min-w-0 sm:flex-1" :current-page="previewPage" :total-pages="previewTotalPages" :total="previewBatch.shares.length" :page-size="previewPageSize" :show-page-size-selector="false" :show-page-numbers="false" @page-change="changePreviewPage" />
             <button type="button" :title="t('shareMailbox.copyActiveLinksHint')" class="inline-flex items-center gap-2 rounded-md bg-primary-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50" :disabled="!copyableLinks(previewBatch).length" @click="copyBatchLinks(previewBatch)"><BaseIcon name="copy" size="h-4 w-4" />{{ t('shareMailbox.copyBatchCount', { count: copyableLinks(previewBatch).length }) }}</button>
           </footer>
         </DialogPanel>
@@ -110,12 +105,13 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { Dialog, DialogPanel, DialogTitle } from '@headlessui/vue'
 import { ArrowTopRightOnSquareIcon } from '@heroicons/vue/24/outline'
 import { useI18n } from 'vue-i18n'
 import { mailboxShareAPI } from '@/api/mailboxShare'
 import AdminDataTable from '@/components/AdminDataTable/index.vue'
+import AdminPagination from '@/components/AdminPagination/index.vue'
 import ActionButton from '@/components/ActionButton/index.vue'
 import BaseInput from '@/components/BaseInput/index.vue'
 import BaseIcon from '@/components/BaseIcon/index.vue'
@@ -142,6 +138,20 @@ const selectedBatches = computed(() => managedBatches.value.filter((batch) => se
 const allPageSelected = computed(() => managedBatches.value.length > 0 && selectedBatchKeys.value.length === managedBatches.value.length)
 const previewBatch = ref(null)
 const previewCloseButton = ref(null)
+const previewPageSize = 10
+const previewPage = ref(1)
+const previewScroll = ref(null)
+const previewTotalPages = computed(() => Math.max(1, Math.ceil((previewBatch.value?.shares.length || 0) / previewPageSize)))
+const previewOffset = computed(() => (previewPage.value - 1) * previewPageSize)
+const previewShares = computed(() => previewBatch.value?.shares.slice(previewOffset.value, previewOffset.value + previewPageSize) || [])
+const changePreviewPage = (page) => {
+  previewPage.value = Math.max(1, Math.min(page, previewTotalPages.value))
+  if (previewScroll.value) previewScroll.value.scrollTop = 0
+}
+const openPreview = (batch) => { previewPage.value = 1; previewBatch.value = batch }
+watch(() => previewBatch.value?.shares.length, () => {
+  if (previewBatch.value) changePreviewPage(previewPage.value)
+})
 const pendingDeletion = ref(null)
 const resumePreviewKey = ref('')
 const deletingShares = ref(false)
@@ -155,7 +165,7 @@ const mailboxSummary = (scope) => {
   const addresses = mailboxAddresses(scope)
   return addresses.length > 1 ? `${t('shareMailbox.scopeMailboxCount', { count: addresses.length })} · ${addresses[0]}` : addresses[0] || '-'
 }
-const batchTitle = (batch) => batch.batch_title || (batch.batch_key.startsWith('legacy-') ? t('shareMailbox.legacyShare', { id: batch.id }) : t('shareMailbox.untitledBatch'))
+const batchTitle = (batch) => batch.batch_title?.trim() || t('shareMailbox.untitledBatch')
 const shareLink = (share) => share.miniapp_path || (share.share_url ? `${isTauri() ? 'https://zjkdongao.cn' : window.location.origin}${share.share_url}` : '')
 const isShareExpired = (share) => share.status !== 'active' || Boolean(share.expire_at && new Date(share.expire_at).getTime() <= Date.now())
 const copyableLinks = (batch) => batch.shares.filter((share) => !isShareExpired(share)).map(shareLink).filter(Boolean)
@@ -250,7 +260,7 @@ onMounted(() => loadShares())
 .share-preview-row {
   display: grid;
   grid-template-columns: 1.25rem minmax(0, 1fr) auto;
-  grid-template-areas: 'number link actions' '. count count' '. status status' '. note note';
+  grid-template-areas: 'number link actions' '. source count' '. status status' '. note note';
   column-gap: 0.5rem;
   row-gap: 0.625rem;
   align-items: start;
@@ -259,15 +269,17 @@ onMounted(() => loadShares())
 .share-row-link { grid-area: link; }
 .share-row-note { grid-area: note; }
 .share-row-count { grid-area: count; }
+.share-row-source { grid-area: source; }
+.share-detail-pagination { border: 0; padding: 0; }
 .share-row-status { grid-area: status; }
 .share-row-actions { grid-area: actions; }
 @media (min-width: 1024px) {
   .share-preview-columns {
-    grid-template-columns: 1.25rem minmax(0, 1.3fr) minmax(0, 0.85fr) 4rem minmax(0, 1.15fr) 5.5rem;
-    column-gap: 1rem;
+    grid-template-columns: 1.25rem minmax(0, 1.4fr) minmax(0, 0.8fr) 3.5rem 3.5rem minmax(0, 1.2fr) 5.5rem;
+    column-gap: 0.75rem;
   }
   .share-preview-row {
-    grid-template-areas: 'number link note count status actions';
+    grid-template-areas: 'number link note source count status actions';
     align-items: center;
   }
 }
