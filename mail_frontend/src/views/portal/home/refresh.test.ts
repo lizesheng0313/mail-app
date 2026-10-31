@@ -49,7 +49,8 @@ describe('manual inbox refresh', () => {
       plugins: [pinia, router, i18n],
       stubs: {
         ThreeColumnLayout: { template: '<div><slot name="middle" /></div>' },
-        EmailList: { template: '<section><slot name="title-extra" /><slot name="actions" /></section>' }
+        EmailList: { template: '<section><div data-region="title"><slot name="title-extra" /></div><div data-region="actions"><slot name="actions" /></div></section>' },
+        EmailRefreshButton: false
       }
     } })
     try {
@@ -57,16 +58,21 @@ describe('manual inbox refresh', () => {
       const page = (wrapper.vm as any).$.setupState
       page.mailboxType = 'external'
       await flushPromises()
-      expect(wrapper.find('button[aria-busy]').exists()).toBe(false)
+      const button = wrapper.get('[data-region="title"] button[aria-label="立即刷新"]')
+      expect(wrapper.find('[data-region="actions"] button').exists()).toBe(false)
+      expect(button.text()).toBe('')
+      await button.trigger('click')
+      expect(showMessage).toHaveBeenCalledWith('请选择邮箱', 'warning')
+      expect(collect).not.toHaveBeenCalled()
+      expect(history).not.toHaveBeenCalled()
       page.selectedExternalMailboxId = 7
       await flushPromises()
-      const button = wrapper.get('button[aria-busy]')
-      expect(button.text()).toBe('收取此邮箱最新')
       await button.trigger('click')
       await button.trigger('click')
       await page.fetchAllExternalEmailsOnline()
       expect(collect).toHaveBeenCalledExactlyOnceWith(7)
       expect(button.attributes('disabled')).toBeDefined()
+      expect(button.attributes('aria-busy')).toBe('true')
       expect(page.fetchingExternalEmails).toBe(false)
       expect(history).not.toHaveBeenCalled()
       finish({ code: 0, message: '收取成功' })
@@ -76,6 +82,7 @@ describe('manual inbox refresh', () => {
       expect(query).toHaveBeenCalledExactlyOnceWith(1, 20, 7)
       expect(page.externalEmails).toEqual([{ id: 100, mailbox_id: 7 }])
       expect(button.attributes('disabled')).toBeUndefined()
+      expect(button.attributes('aria-busy')).toBe('false')
 
       page.selectedExternalMailboxId = 8
       collect.mockResolvedValueOnce({ code: 1, message: '需要重新授权' } as any)

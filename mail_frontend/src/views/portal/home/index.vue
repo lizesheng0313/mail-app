@@ -324,31 +324,17 @@
           @search="handleSearchExternalEmails"
         >
           <template #title-extra>
+            <EmailRefreshButton
+              :loading="fetchingSelectedExternalMailboxId !== null"
+              :disabled="fetchingExternalEmails"
+              @refresh="fetchExternalMailboxEmails"
+            />
             <button
               v-if="selectedExternalMailboxId"
               @click="backToAllExternalEmails"
-              class="px-2 py-1 text-xs text-primary-600 hover:text-primary-700 hover:bg-primary-50 rounded transition-colors"
+              class="ml-1.5 px-2 py-1 text-xs text-primary-600 hover:text-primary-700 hover:bg-primary-50 rounded transition-colors whitespace-nowrap"
             >
               {{ t('home.viewAll') }}
-            </button>
-          </template>
-
-          <template #actions>
-            <button
-              v-if="selectedExternalMailboxId"
-              type="button"
-              :disabled="fetchingExternalEmails || fetchingSelectedExternalMailboxId !== null"
-              :aria-busy="fetchingSelectedExternalMailboxId === selectedExternalMailboxId"
-              class="inline-flex items-center gap-1 whitespace-nowrap rounded px-2 py-1 text-xs text-primary-600 transition-colors hover:bg-primary-50 hover:text-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
-              @click="fetchExternalMailboxEmails"
-            >
-              <BaseIcon
-                v-if="fetchingSelectedExternalMailboxId === selectedExternalMailboxId"
-                name="refresh"
-                size="xs"
-                class="animate-spin"
-              />
-              {{ fetchingSelectedExternalMailboxId === selectedExternalMailboxId ? t('externalMailbox.fetching') : t('externalMailbox.fetchCurrentMailbox') }}
             </button>
           </template>
 
@@ -557,7 +543,6 @@ import smtpAccountsAPI from '@/api/smtpAccounts'
 import { mailboxAPI } from '@/api/mailbox'
 import EmailDetail from '@/components/Mail/EmailDetail/EmailDetail.vue'
 import Pagination from '@/components/Pagination/index.vue'
-import BaseIcon from '@/components/BaseIcon/index.vue'
 import ConfirmDialog from '@/components/ConfirmDialog/index.vue'
 import { dispatchAccountState } from '@/services/accountRealtime'
 import { createRealtimeRefresh } from '@/services/realtimeRefresh'
@@ -3043,7 +3028,11 @@ const handleExternalEmailPageChange = async (page: number) => {
 
 // 手动收取外部邮箱邮件
 const fetchExternalMailboxEmails = async () => {
-  if (!selectedExternalMailboxId.value || fetchingExternalEmails.value || fetchingSelectedExternalMailboxId.value !== null) return
+  if (fetchingExternalEmails.value || fetchingSelectedExternalMailboxId.value !== null) return
+  if (!selectedExternalMailboxId.value) {
+    showMessage(t('externalMailbox.selectMailboxFirst'), 'warning')
+    return
+  }
 
   clearRelayForeground()
   fetchingSelectedExternalMailboxId.value = selectedExternalMailboxId.value
