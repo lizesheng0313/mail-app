@@ -15,7 +15,6 @@ import { useUserStore } from '@/stores/user'
 import { usePageTracking } from '@/composables/usePageTracking'
 import { useAuthSessionSync } from '@/composables/useAuthSessionSync'
 import { useDesktopOAuthKeepAlive } from '@/composables/useDesktopOAuthKeepAlive'
-import GuestLiveChat from '@/components/FloatingLiveChat/GuestLiveChat.vue'
 import SystemMaintenance from '@/components/SystemMaintenance/index.vue'
 import AppUpdater from '@/components/AppUpdater/index.vue'
 import { registerMaintenanceCallback, isTauri } from '@/services/api'
@@ -25,6 +24,7 @@ import { desktopExternalMailSync } from '@/services/desktopExternalMailSync'
 import { setRealtimeIdentity, stopRealtime } from '@/services/realtimeClient'
 import { dispatchMailboxChange } from '@/services/mailboxChanges'
 
+const GuestLiveChat = defineAsyncComponent(() => import('@/components/FloatingLiveChat/GuestLiveChat.vue'))
 const FloatingLiveChat = defineAsyncComponent(() => import('@/components/FloatingLiveChat/index.vue'))
 
 const router = useRouter()
