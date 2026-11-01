@@ -14,7 +14,7 @@
             <div class="flex flex-wrap items-center gap-2">
               <h3 class="text-lg font-semibold text-slate-900">{{ record.subject || '（无主题）' }}</h3>
               <span class="rounded-full px-2.5 py-0.5 text-xs" :class="resolveStatusClass(record.status)">
-                {{ record.status_label || resolveStatusLabel(record.status) }}
+                {{ sentStatusLabel(record) }}
               </span>
             </div>
             <div class="mt-3 grid gap-1 text-sm text-slate-500">
@@ -42,6 +42,10 @@
         >
           <p class="text-sm font-medium text-rose-800">退信原因</p>
           <p class="mt-1 text-sm leading-6 text-rose-700">{{ record.bounce_reason }}</p>
+        </div>
+
+        <div v-if="record.smtp_response_code || record.smtp_response_message" class="text-sm text-slate-500">
+          发件服务器响应：{{ record.smtp_response_code }} {{ record.smtp_response_message }}
         </div>
 
         <div v-if="record.attachments?.length" class="space-y-2">
@@ -94,6 +98,7 @@
 import { computed, defineAsyncComponent } from 'vue'
 import { formatTimestamp } from '@/utils/timeUtils'
 import type { SentEmailRecord } from './OutboxListPanel.vue'
+import { sentStatusClass, sentStatusLabel } from '@/utils/smtpDelivery'
 
 const EmailHtmlRenderer = defineAsyncComponent(() => import('@/components/Mail/EmailHtmlRenderer.vue'))
 
@@ -115,15 +120,7 @@ const htmlContent = computed(() => {
 })
 
 const resolveStatusClass = (status?: string) => {
-  if (status === 'failed') return 'bg-rose-50 text-rose-700'
-  if (status === 'bounced') return 'bg-rose-50 text-rose-700'
-  return 'bg-emerald-50 text-emerald-700'
-}
-
-const resolveStatusLabel = (status?: string) => {
-  if (status === 'failed') return '发送失败'
-  if (status === 'bounced') return '已退信'
-  return '已发送'
+  return sentStatusClass(status)
 }
 
 const formatFileSize = (size?: number) => {

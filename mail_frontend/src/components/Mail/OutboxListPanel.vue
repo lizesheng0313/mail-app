@@ -66,13 +66,17 @@
               {{ record.subject || '（无主题）' }}
             </p>
             <p class="mt-1 truncate text-sm text-slate-500">发给：{{ record.to_email }}</p>
+            <p v-if="record.status === 'failed' || record.status === 'bounced'"
+              class="mt-1 truncate text-xs text-rose-600" :title="record.error_message || record.bounce_reason">
+              {{ record.error_message || record.bounce_reason || '发送失败' }}
+            </p>
             <div class="mt-2 flex items-center gap-2 text-xs text-slate-400">
               <span>{{ formatTimestamp(record.created_at, 'datetime') }}</span>
               <span v-if="record.from_email" class="truncate">· {{ record.from_email }}</span>
             </div>
           </div>
           <span class="shrink-0 rounded-full px-2.5 py-0.5 text-xs" :class="resolveStatusClass(record.status)">
-            {{ record.status_label || resolveStatusLabel(record.status) }}
+            {{ sentStatusLabel(record) }}
           </span>
         </div>
       </button>
@@ -85,6 +89,8 @@ import { subscribeAccountState } from '@/services/accountRealtime'
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import smtpAccountsAPI from '@/api/smtpAccounts'
 import { formatTimestamp } from '@/utils/timeUtils'
+import { sentStatusClass, sentStatusLabel } from '@/utils/smtpDelivery'
+import { subscribeRealtime } from '@/services/realtimeClient'
 
 export interface SentAttachmentMeta {
   name: string
@@ -128,17 +134,10 @@ const records = ref<SentEmailRecord[]>([])
 const total = ref(0)
 const currentSelectedId = ref<number | string | null>(null)
 let unsubscribeState: (() => void) | undefined
+let unsubscribeMail: (() => void) | undefined
 
 const resolveStatusClass = (status?: string) => {
-  if (status === 'failed') return 'bg-rose-50 text-rose-700'
-  if (status === 'bounced') return 'bg-rose-50 text-rose-700'
-  return 'bg-emerald-50 text-emerald-700'
-}
-
-const resolveStatusLabel = (status?: string) => {
-  if (status === 'failed') return '发送失败'
-  if (status === 'bounced') return '已退信'
-  return '已发送'
+  return sentStatusClass(status)
 }
 
 const emitCurrentSelection = () => {
@@ -185,6 +184,7 @@ defineExpose({
 onMounted(() => {
   loadSentEmails()
   unsubscribeState = subscribeAccountState(['outbox'], loadSentEmails)
+  unsubscribeMail = subscribeRealtime(['mail_changed'], loadSentEmails, payload => payload?.mailbox_type === 'external')
 })
 
 watch(
@@ -197,5 +197,6 @@ watch(
 
 onBeforeUnmount(() => {
   unsubscribeState?.()
+  unsubscribeMail?.()
 })
 </script>

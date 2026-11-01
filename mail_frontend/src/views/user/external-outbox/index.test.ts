@@ -22,4 +22,19 @@ describe('outbox page layout', () => {
     expect(table.props('fillEmptyHeight')).toBe(true)
     wrapper.unmount()
   })
+
+  it('shows failures and reasons in the sent records table', async () => {
+    getSentEmails.mockResolvedValue({code:0,data:{records:[{
+      id:17,subject:'Failed mail',from_email:'sender@example.com',to_email:'receiver@example.com',
+      status:'failed',error_message:'535 Authentication failed',created_at:1000
+    }],pagination:{total:1}}})
+    const wrapper=shallowMount(OutboxPage,{global:{stubs:{
+      AdminDataTable:{template:'<table><tbody><slot name="tbody" /></tbody></table>'}
+    }}})
+    await flushPromises()
+    expect(wrapper.text()).toContain('发送失败')
+    expect(wrapper.text()).toContain('535 Authentication failed')
+    expect(wrapper.find('.bg-rose-50').exists()).toBe(true)
+    wrapper.unmount()
+  })
 })

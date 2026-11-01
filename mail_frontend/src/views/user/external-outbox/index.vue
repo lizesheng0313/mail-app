@@ -103,8 +103,12 @@
                 class="inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium"
                 :class="resolveStatusClass(record.status)"
               >
-                {{ record.status_label || resolveStatusLabel(record.status) }}
+                {{ sentStatusLabel(record) }}
               </span>
+              <p v-if="record.status === 'failed' || record.status === 'bounced'"
+                class="mt-1 max-w-[220px] truncate text-xs text-rose-600" :title="record.error_message || record.bounce_reason">
+                {{ record.error_message || record.bounce_reason || '发送失败' }}
+              </p>
             </td>
 
             <td class="px-6 py-4 text-sm text-black">
@@ -154,6 +158,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { subscribeAccountState } from '@/services/accountRealtime'
+import { subscribeRealtime } from '@/services/realtimeClient'
 import { useRouter } from 'vue-router'
 import ActionButton from '@/components/ActionButton/index.vue'
 import AdminDataTable from '@/components/AdminDataTable/index.vue'
@@ -162,6 +167,7 @@ import BaseModal from '@/components/BaseModal/index.vue'
 import OutboxDetailPanel from '@/components/Mail/OutboxDetailPanel.vue'
 import { smtpAccountsAPI } from '@/api/smtpAccounts'
 import { formatTimestamp } from '@/utils/timeUtils'
+import { sentStatusLabel } from '@/utils/smtpDelivery'
 import type { SentEmailRecord } from '@/components/Mail/OutboxListPanel.vue'
 
 const router = useRouter()
@@ -255,16 +261,12 @@ const resolveStatusClass = (status?: string) => {
   return 'bg-primary-50 text-primary-700'
 }
 
-const resolveStatusLabel = (status?: string) => {
-  if (status === 'failed') return '发送失败'
-  if (status === 'bounced') return '已退信'
-  return '已发送'
-}
-
 let unsubscribeState: (() => void) | undefined
+let unsubscribeMail: (() => void) | undefined
 onMounted(() => {
   unsubscribeState = subscribeAccountState(['outbox'], loadRecords)
+  unsubscribeMail = subscribeRealtime(['mail_changed'], loadRecords, payload => payload?.mailbox_type === 'external')
   void loadRecords()
 })
-onBeforeUnmount(() => unsubscribeState?.())
+onBeforeUnmount(() => { unsubscribeState?.(); unsubscribeMail?.() })
 </script>

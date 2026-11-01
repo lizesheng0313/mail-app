@@ -139,6 +139,7 @@ import { isTauri } from '@/services/api'
 import BaseModal from '@/components/BaseModal/index.vue'
 import mailboxProxyApi from '@/api/mailboxProxy'
 import smtpAccountsAPI from '@/api/smtpAccounts'
+import { assertSmtpSubmission } from '@/utils/smtpDelivery'
 import { showMessage } from '@/utils/message'
 import { buildDesktopSendableSmtpAccountMap } from '@/utils/smtpCapability'
 
@@ -308,6 +309,7 @@ const handleSend = async () => {
   }
 
   sending.value = true
+  let attemptedSender = null
 
   try {
     const selectedMailbox = props.mailboxes.find((mailbox) => mailbox.id === form.value.mailboxId)
@@ -330,7 +332,8 @@ const handleSend = async () => {
 
     const runtimeProxy = await previewRuntimeProxy(selectedMailbox.email)
 
-    await tauriInvoke('send_smtp_email', {
+    attemptedSender = { mailbox: selectedMailbox, smtp: smtpAccount }
+    const sendResult = await tauriInvoke('send_smtp_email', {
       fromEmail: selectedMailbox.email,
       password: smtpAccount.password || selectedMailbox.password || '',
       smtpHost: smtpAccount.smtp_host || '',
@@ -343,17 +346,20 @@ const handleSend = async () => {
       attachments: [],
       proxy: runtimeProxy
     })
+    assertSmtpSubmission(sendResult)
 
     try {
       const saveResponse = await smtpAccountsAPI.saveSentEmails({
-        records: [{
+        records: recipients.map(to => ({
           smtp_account_id: smtpAccount.id,
           external_mailbox_id: selectedMailbox.id,
           from_email: selectedMailbox.email,
-          to_email: form.value.to,
+          to_email: to,
           subject: form.value.subject,
-          content: form.value.content
-        }]
+          content: form.value.content,
+          smtp_response_code: sendResult?.response_code ?? null,
+          smtp_response_message: sendResult?.response_message ?? ''
+        }))
       })
       if (saveResponse.code !== 0) {
         showMessage(t('sendEmail.syncRecordFailed'), 'warning')
@@ -369,6 +375,20 @@ const handleSend = async () => {
   } catch (error) {
     console.error('发送失败:', error)
     const message = error?.message || error?.toString?.() || t('sendEmail.sendFailed')
+    if (attemptedSender) {
+      try {
+        const response = await smtpAccountsAPI.saveSentEmails({ records: recipients.map(to => ({
+          smtp_account_id: attemptedSender.smtp.id,
+          external_mailbox_id: attemptedSender.mailbox.id,
+          from_email: attemptedSender.mailbox.email,
+          to_email: to, subject: form.value.subject, content: form.value.content,
+          status: 'failed', error_message: String(message)
+        })) })
+        if (response.code !== 0) showMessage(t('sendEmail.syncRecordFailed'), 'warning')
+      } catch {
+        showMessage(t('sendEmail.syncRecordFailed'), 'warning')
+      }
+    }
     showMessage(message.startsWith(t('sendEmail.sendFailed')) ? message : `${t('sendEmail.sendFailed')}: ${message}`, 'error')
   } finally {
     sending.value = false

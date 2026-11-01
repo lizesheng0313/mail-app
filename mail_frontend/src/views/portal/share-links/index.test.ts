@@ -227,8 +227,41 @@ describe('share creation batches', () => {
     const dialog = wrapper.get('[role="dialog"]')
     expect(dialog.findAll('button[aria-label="shareMailbox.linkMailboxes"]')).toHaveLength(1)
     await dialog.get('button[aria-label="shareMailbox.linkMailboxes"]').trigger('click')
-    expect(dialog.get('ul').text()).toBe(mailboxes[1])
+    expect(dialog.get('ul[aria-label="shareMailbox.linkMailboxes"]').text()).toBe(mailboxes[1])
     wrapper.unmount()
+  })
+
+  it.each([10, 50])('shows all %i batch mailboxes immediately when every link has the same scope', async (count) => {
+    const mailboxes = Array.from({ length: count }, (_, index) => `mailbox${index + 1}@example.com`)
+    mocks.getMyShareBatches.mockResolvedValue(response([{ ...batch,
+      mailbox_emails: mailboxes, mailbox_ids: mailboxes.map((_, index) => index + 1).join(','),
+      link_count: 2, shares: [{ ...link, mailbox_emails: mailboxes }, { ...link, id: 43, mailbox_emails: mailboxes }]
+    }]))
+    const wrapper = mountPage()
+    try {
+      await flushPromises()
+      await wrapper.get('button[aria-label="shareMailbox.viewBatchLinks"]').trigger('click')
+      const dialog = wrapper.get('[role="dialog"]')
+      const scope = dialog.get('[role="group"][aria-label="shareMailbox.batchMailboxes"]')
+      expect(scope.get('button').attributes('aria-expanded')).toBe('true')
+      expect(scope.findAll('li').map(item => item.text())).toEqual(mailboxes)
+      expect(dialog.find('button[aria-label="shareMailbox.linkMailboxes"]').exists()).toBe(false)
+      await scope.get('input[type="search"]').setValue(mailboxes[count - 1])
+      expect(scope.findAll('li').map(item => item.text())).toEqual([mailboxes[count - 1]])
+      expect(mocks.getMyShareBatches).toHaveBeenCalledTimes(1)
+    } finally { wrapper.unmount() }
+  })
+
+  it('preserves every mailbox identifier when addresses are unavailable', async () => {
+    const ids = Array.from({ length: 50 }, (_, index) => 2682 + index)
+    mocks.getMyShareBatches.mockResolvedValue(response([{ ...batch, mailbox_emails: [], mailbox_ids: ids.join(',') }]))
+    const wrapper = mountPage()
+    try {
+      await flushPromises()
+      await wrapper.get('button[aria-label="shareMailbox.viewBatchLinks"]').trigger('click')
+      const scope = wrapper.get('[role="dialog"] [role="group"][aria-label="shareMailbox.batchMailboxes"]')
+      expect(scope.findAll('li').map(item => item.text())).toEqual(ids.map(id => `#${id}`))
+    } finally { wrapper.unmount() }
   })
 
   it('uses share details as the unnamed title and shows each link creation source in the table', async () => {

@@ -12,7 +12,8 @@ const mocks = vi.hoisted(() => ({
   save: vi.fn(),
   proxy: vi.fn(),
   message: vi.fn(),
-  post: vi.fn()
+  post: vi.fn(),
+  report: vi.fn()
 }))
 vi.mock('@/services/api', () => ({
   isTauri: () => mocks.desktop,
@@ -21,7 +22,7 @@ vi.mock('@/services/api', () => ({
 }))
 vi.mock('@/api/batchLogin', () => ({ batchLoginAPI: { getAccounts: mocks.getExternal } }))
 vi.mock('@/api/smtpAccounts', () => ({
-  default: { getAccounts: mocks.getSmtp, saveSentEmails: mocks.save }
+  default: { getAccounts: mocks.getSmtp, saveSentEmails: mocks.save, reportSendFailure: mocks.report }
 }))
 vi.mock('@/api/mailboxProxy', () => ({ default: { previewRuntimeProxy: mocks.proxy } }))
 vi.mock('@tauri-apps/api/core', () => ({ invoke: mocks.invoke }))
@@ -34,6 +35,7 @@ const setup = async () => {
     props: { pageMode: true, selectedMailboxIds: [7] },
     attachTo: document.body,
     global: {
+      stubs: { Teleport: true },
       plugins: [createI18n({ legacy: false, locale: 'zh-CN', messages: { 'zh-CN': zhCN } })]
     }
   })
@@ -66,6 +68,7 @@ beforeEach(() => {
   mocks.proxy.mockResolvedValue({ code: 0, data: {} })
   mocks.invoke.mockResolvedValue({ response_code: 250 })
   mocks.save.mockResolvedValue({ code: 0 })
+  mocks.report.mockResolvedValue({code:0})
   mocks.post.mockResolvedValue({ code: 0, data: { content: '润色后的内容' } })
 })
 afterEach(() => wrappers.splice(0).forEach((wrapper) => wrapper.unmount()))
@@ -178,5 +181,30 @@ describe('compact composer', () => {
     await wrapper.getComponent(HoverTooltip).get('div').trigger('mouseleave')
     expect(document.body.textContent).not.toContain('批量发送邮件仅支持桌面端')
     expect(mocks.invoke).not.toHaveBeenCalled()
+  })
+
+  it('persists a rejected desktop result as a failed record and retains the draft', async () => {
+    const wrapper = await setup()
+    await loadDraft(wrapper)
+    mocks.invoke.mockResolvedValueOnce({ success: false, response_code: 550, response_message: '550 User unknown' })
+    await wrapper.findAll('button').find(button => button.text() === '发送')!.trigger('click')
+    await flushPromises()
+    expect(mocks.save.mock.calls[0][0].records[0]).toMatchObject({ status: 'failed', error_message: '550 User unknown' })
+    expect(wrapper.get('.ProseMirror').text()).toContain('Report')
+  })
+
+  it('records every remaining recipient after the sending account is blocked', async () => {
+    const wrapper=await setup()
+    ;(wrapper.vm as any).loadDraftFromSent({id:2,from_email:'sender@example.test',
+      to_email:'first@example.test,second@example.test',subject:'Batch',content_text:'Body',created_at:1000})
+    await flushPromises()
+    mocks.invoke.mockRejectedValueOnce(new Error('SMTP 返回 543 suspected spams'))
+    await wrapper.findAll('button').find(button=>button.text()==='发送')!.trigger('click')
+    await vi.waitFor(() => expect(mocks.save).toHaveBeenCalled())
+    expect(mocks.invoke).toHaveBeenCalledTimes(1)
+    const records=mocks.save.mock.calls[0][0].records
+    expect(records).toHaveLength(2)
+    expect(records.map((r:any)=>r.to_email)).toEqual(['first@example.test','second@example.test'])
+    expect(records.every((r:any)=>r.status==='failed' && r.error_message)).toBe(true)
   })
 })

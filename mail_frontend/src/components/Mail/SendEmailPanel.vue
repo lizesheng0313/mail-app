@@ -198,7 +198,7 @@
               :disabled="sending"
               @busy="uploadingInlineImage = $event"
             />
-            <div v-if="bodyMode === 'rich'" :class="editorViewportClass">
+            <div v-if="bodyMode === 'rich'" ref="bodyViewport" :class="editorViewportClass">
               <EditorContent
                 v-if="bodyEditor"
                 :editor="bodyEditor"
@@ -227,6 +227,7 @@
               v-if="bodyMode === 'rich' && bodyEditor"
               ref="aiResult"
               :editor="bodyEditor"
+              :viewport="bodyViewport"
               :disabled="sending"
               @busy="aiBusy = $event"
             />
@@ -258,6 +259,7 @@ import {
 import { batchLoginAPI } from '@/api/batchLogin'
 import mailboxProxyApi from '@/api/mailboxProxy'
 import smtpAccountsAPI from '@/api/smtpAccounts'
+import { assertSmtpSubmission } from '@/utils/smtpDelivery'
 import { showMessage } from '@/utils/message'
 import { isTauri } from '@/services/api'
 import { buildDesktopSendableSmtpAccountMap, normalizeSmtpEmail } from '@/utils/smtpCapability'
@@ -367,6 +369,7 @@ const bccInput = ref('')
 const pageMode = computed(() => Boolean(props.pageMode))
 const aiBusy = ref(false)
 const aiResult = ref<InstanceType<typeof MailEditorAiResult> | null>(null)
+const bodyViewport = ref<HTMLElement | null>(null)
 const bodyPanelClass = computed(() => 'flex min-h-40 flex-1 flex-col')
 const editorViewportClass = computed(() => 'min-h-0 flex-1 overflow-auto bg-white')
 const editorContentClass = computed(() => 'h-full min-h-0')
@@ -780,10 +783,23 @@ const sendEmail = async () => {
     for (let i = 0; i < recipientList.length; i++) {
       const availableAccounts = accounts.filter((account) => !disabledSenderIds.has(account.id))
       if (availableAccounts.length === 0) {
+        const account = accounts[senderCursor % accounts.length]
+        senderCursor += 1
         failCount++
         failedDetails.push({
           recipient: recipientList[i],
           message: tc('noAvailableSender')
+        })
+        sentRecords.push({
+          smtp_account_id: account.smtp_id,
+          external_mailbox_id: account.id,
+          from_email: account.email,
+          to_email: recipientList[i],
+          subject: form.value.subject,
+          content: contentText,
+          content_html: contentHtml,
+          status: 'failed',
+          error_message: tc('noAvailableSender')
         })
         continue
       }
@@ -812,6 +828,7 @@ const sendEmail = async () => {
           proxy: runtimeProxy
         })
 
+        assertSmtpSubmission(sendResult)
         successCount++
         sentRecords.push({
           smtp_account_id: account.smtp_id,

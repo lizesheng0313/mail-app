@@ -23,6 +23,7 @@ const setup = (content = '<p>Before <strong>original</strong> after</p><p>Signat
     props: { editor },
     attachTo: document.body,
     global: {
+      stubs: { Teleport: true },
       plugins: [createI18n({ legacy: false, locale: 'zh-CN', messages: { 'zh-CN': zhCN } })]
     }
   })
@@ -47,6 +48,50 @@ afterEach(() => {
 })
 
 describe('right-click AI preview', () => {
+  it.each(['polish', 'translate'])(
+    'floats %s by the current caret, keeps its horizontal rails fixed and follows scrolling',
+    async (action) => {
+      mocks.post.mockResolvedValue({ code: 0, data: { content: 'Preview' } })
+      const { editor, wrapper, start } = setup()
+      const viewport = document.createElement('div')
+      document.body.append(viewport)
+      cleanup.push(() => viewport.remove())
+      vi.spyOn(viewport, 'getBoundingClientRect').mockReturnValue({
+        left: 100,
+        top: 100,
+        bottom: 700,
+        width: 700
+      } as DOMRect)
+      let caret = { left: 600, right: 600, top: 180, bottom: 202 }
+      const coords = vi.spyOn(editor.view, 'coordsAtPos').mockImplementation(() => caret)
+      await wrapper.setProps({ viewport })
+      await start(action)
+      await flushPromises()
+      const panel = () => wrapper.get('section')
+      const left = (panel().element as HTMLElement).style.left
+      const width = (panel().element as HTMLElement).style.width
+      expect(left).toBe('112px')
+      expect((panel().element as HTMLElement).style.top).toBe('210px')
+      expect(panel().classes()).toContain('fixed')
+      caret = { left: 180, right: 180, top: 640, bottom: 662 }
+      editor.commands.setTextSelection(1)
+      await new Promise((resolve) => requestAnimationFrame(resolve))
+      await flushPromises()
+      expect(wrapper.find('section').exists()).toBe(true)
+      expect(editor.state.selection.head).toBe(1)
+      expect(coords).toHaveLastReturnedWith(caret)
+      expect(panel().attributes('data-placement')).toBe('above')
+      expect((panel().element as HTMLElement).style.left).toBe(left)
+      expect((panel().element as HTMLElement).style.width).toBe(width)
+      caret = { ...caret, top: 260, bottom: 282 }
+      viewport.dispatchEvent(new Event('scroll'))
+      await new Promise((resolve) => requestAnimationFrame(resolve))
+      await flushPromises()
+      expect((panel().element as HTMLElement).style.top).toBe('290px')
+      expect((panel().element as HTMLElement).style.left).toBe(left)
+    }
+  )
+
   it('previews only the selection, then replaces its original range after the cursor moves; undo restores formatting', async () => {
     mocks.post.mockResolvedValue({ code: 0, data: { content: 'improved', subject: 'ignored' } })
     const { editor, wrapper, start } = setup()

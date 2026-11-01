@@ -1,5 +1,5 @@
 <template>
-  <div class="min-w-0 text-xs" :class="expanded ? 'w-full' : ''">
+  <div role="group" :aria-label="label" class="min-w-0 text-xs" :class="expanded ? 'w-full' : ''">
     <p v-if="mailboxes.length === 1 && !compact" class="break-all text-gray-500">{{ mailboxes[0] }}</p>
     <p v-else-if="!mailboxes.length" class="text-gray-400">-</p>
     <template v-else>
@@ -29,10 +29,11 @@ import BaseIcon from '@/components/BaseIcon/index.vue'
 const props = defineProps({
   mailboxes: { type: Array, default: () => [] },
   label: { type: String, required: true },
-  compact: { type: Boolean, default: false }
+  compact: { type: Boolean, default: false },
+  initiallyExpanded: { type: Boolean, default: false }
 })
 const { t } = useI18n()
-const expanded = ref(false)
+const expanded = ref(props.initiallyExpanded)
 const search = ref('')
 const detailsId = `share-mailboxes-${Math.random().toString(36).slice(2)}`
 const filteredMailboxes = computed(() => {
@@ -43,5 +44,5 @@ const toggleExpanded = () => {
   expanded.value = !expanded.value
   if (!expanded.value) search.value = ''
 }
-watch(() => props.mailboxes.join('\u0000'), () => { expanded.value = false; search.value = '' })
+watch(() => props.mailboxes.join('\u0000'), () => { expanded.value = props.initiallyExpanded; search.value = '' })
 </script>
