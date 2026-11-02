@@ -93,7 +93,7 @@ describe('share creation batches', () => {
     wrapper.unmount()
   })
 
-  it('opens all links in a batch and copies only active links in order', async () => {
+  it('shows and copies every link in batch order, including expired links', async () => {
     const shares = [{ ...link, open_count: 0, link_note: '仅管理者可见' }, { ...link, id: 43, open_count: 2, status: 'expired', share_url: '/share/expired' }, { ...link, id: 44, open_count: 7, share_url: '/share/third' }]
     mocks.getMyShareBatches.mockResolvedValue(response([{ ...batch, link_count: 3, active_count: 2, open_count: 9, shares }]))
     const wrapper = mountPage()
@@ -106,11 +106,38 @@ describe('share creation batches', () => {
     expect(preview.findAll('button[aria-label="shareMailbox.deleteRecord"]')).toHaveLength(3)
     expect(preview.find('button[aria-label="shareMailbox.revoke"]').exists()).toBe(false)
     expect(preview.findAll('a').map((anchor) => anchor.attributes('href'))).toEqual([
-      `${window.location.origin}/share/example-token`, `${window.location.origin}/share/third`
+      `${window.location.origin}/share/example-token`, `${window.location.origin}/share/expired`, `${window.location.origin}/share/third`
     ])
-    await preview.findAll('button').find((button) => button.text() === 'shareMailbox.copyBatchCount:2')!.trigger('click')
-    expect(mocks.writeText).toHaveBeenCalledWith(`${window.location.origin}/share/example-token\n${window.location.origin}/share/third`)
+    const perLinkCopies = preview.findAll('button[aria-label="shareMailbox.copyLink"]')
+    expect(perLinkCopies).toHaveLength(3)
+    await perLinkCopies[1].trigger('click')
+    expect(mocks.writeText).toHaveBeenLastCalledWith(`${window.location.origin}/share/expired`)
+    await preview.findAll('button').find((button) => button.text() === 'shareMailbox.copyBatchCount:3')!.trigger('click')
+    expect(mocks.writeText).toHaveBeenCalledWith(`${window.location.origin}/share/example-token\n${window.location.origin}/share/expired\n${window.location.origin}/share/third`)
     wrapper.unmount()
+  })
+
+  it.each(['web', 'miniapp'])('keeps all-expired %s batches viewable and batch-copyable', async (source) => {
+    const shares = [
+      { ...link, id: 42, status: 'expired', share_url: '/share/expired-one' },
+      { ...link, id: 43, status: 'active', expire_at: '2020-01-01T00:00:00', share_url: '/share/expired-two' }
+    ].map((share, index) => source === 'miniapp' ? { ...share, share_url: null, miniapp_path: `/pages/shared-mailbox/index?token=expired-${index + 1}` } : share)
+    mocks.getMyShareBatches.mockResolvedValue(response([{ ...batch, link_count: 2, active_count: 0, shares }]))
+    const wrapper = mountPage()
+    try {
+      await flushPromises()
+      expect(wrapper.get('tbody').text()).toContain('shareMailbox.expired')
+      await wrapper.get('button[aria-label="shareMailbox.viewBatchLinks"]').trigger('click')
+      const dialog = wrapper.get('[role="dialog"]')
+      expect(dialog.findAll('input[readonly]')).toHaveLength(2)
+      expect(dialog.findAll('.share-row-status').every(row => row.text().includes('shareMailbox.expired'))).toBe(true)
+      expect(dialog.findAll('a[aria-label="shareMailbox.openLink"]')).toHaveLength(source === 'web' ? 2 : 0)
+      expect(dialog.findAll(`button[aria-label="shareMailbox.${source === 'web' ? 'copyLink' : 'copyPath'}"]`)).toHaveLength(2)
+      const copy = dialog.findAll('button').find(button => button.text() === 'shareMailbox.copyBatchCount:2')!
+      expect(copy.attributes('disabled')).toBeUndefined()
+      await copy.trigger('click')
+      expect(mocks.writeText).toHaveBeenLastCalledWith(shares.map(share => share.miniapp_path || `${window.location.origin}${share.share_url}`).join('\n'))
+    } finally { wrapper.unmount() }
   })
 
   it('copies Mini Program paths and keeps separate batches with the same title', async () => {
@@ -219,22 +246,23 @@ describe('share creation batches', () => {
     wrapper.unmount()
   })
 
-  it('keeps an individual mailbox list when a link has a different scope', async () => {
+  it('keeps mailbox viewing in the main list without repeating it inside link details', async () => {
     const mailboxes = ['first@example.com', 'second@example.com']
     mocks.getMyShareBatches.mockResolvedValue(response([{ ...batch, mailbox_emails: mailboxes, link_count: 2, shares: [
       { ...link, mailbox_emails: mailboxes },
       { ...link, id: 43, mailbox_emails: [mailboxes[1]] }
     ] }]))
     const wrapper = mountPage()
-    await flushPromises()
-    await wrapper.get('button[aria-label="shareMailbox.viewBatchLinks"]').trigger('click')
-    const dialog = wrapper.get('[role="dialog"]')
-    expect(dialog.findAll('.share-row-actions button[aria-label="shareMailbox.linkMailboxes"]')).toHaveLength(2)
-    await dialog.findAll('.share-row-actions button[aria-label="shareMailbox.linkMailboxes"]')[1].trigger('click')
-    expect(wrapper.findAll('[role="dialog"]')).toHaveLength(1)
-    expect(wrapper.get('[role="dialog"]').find('input[readonly]').exists()).toBe(false)
-    expect(wrapper.get('[role="dialog"] ol li p:first-child').text()).toBe(mailboxes[1])
-    wrapper.unmount()
+    try {
+      await flushPromises()
+      expect(wrapper.get('tbody').findAll('button[aria-label="shareMailbox.batchMailboxes"]')).toHaveLength(1)
+      expect(wrapper.get('tbody').find('button[aria-label="shareMailbox.copyActiveLinks"]').exists()).toBe(false)
+      await wrapper.get('button[aria-label="shareMailbox.viewBatchLinks"]').trigger('click')
+      const dialog = wrapper.get('[role="dialog"]')
+      expect(dialog.find('button[aria-label="shareMailbox.linkMailboxes"]').exists()).toBe(false)
+      expect(dialog.find('button[aria-label="shareMailbox.batchMailboxes"]').exists()).toBe(false)
+      expect(dialog.findAll('button[aria-label="shareMailbox.copyLink"]')).toHaveLength(2)
+    } finally { wrapper.unmount() }
   })
 
   it.each([10, 50])('opens %i mailboxes separately from the link list', async (count) => {
@@ -246,10 +274,7 @@ describe('share creation batches', () => {
     const wrapper = mountPage()
     try {
       await flushPromises()
-      await wrapper.get('button[aria-label="shareMailbox.viewBatchLinks"]').trigger('click')
-      const dialog = wrapper.get('[role="dialog"]')
-      expect(dialog.find('ol').exists()).toBe(false)
-      await dialog.findAll('.share-row-actions button[aria-label="shareMailbox.linkMailboxes"]')[0].trigger('click')
+      await wrapper.get('tbody button[aria-label="shareMailbox.batchMailboxes"]').trigger('click')
       expect(wrapper.findAll('[role="dialog"]')).toHaveLength(1)
       const list = wrapper.get('[role="dialog"]')
       expect(list.find('input[readonly]').exists()).toBe(false)
@@ -259,7 +284,7 @@ describe('share creation batches', () => {
       await list.get('input[type="search"]').setValue('absent@example.com')
       expect(list.text()).toContain('shareMailbox.noMatchingMailboxes')
       await list.get('button[aria-label="common.close"]').trigger('click')
-      expect(wrapper.get('[role="dialog"]').findAll('input[readonly]')).toHaveLength(2)
+      expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
       expect(mocks.getMyShareBatches).toHaveBeenCalledTimes(1)
     } finally { wrapper.unmount() }
   })
@@ -337,8 +362,8 @@ describe('share creation batches', () => {
     await dialog.get('form').trigger('submit')
     await flushPromises()
     expect(mocks.updateLinkNote).toHaveBeenCalledWith(52, '第十一条备注', false)
-    await dialog.findAll('button').find(button => button.text() === 'shareMailbox.copyBatchCount:20')!.trigger('click')
-    expect(mocks.writeText).toHaveBeenCalledWith(shares.filter(share => share.status === 'active').map(share => `${window.location.origin}${share.share_url}`).join('\n'))
+    await dialog.findAll('button').find(button => button.text() === 'shareMailbox.copyBatchCount:21')!.trigger('click')
+    expect(mocks.writeText).toHaveBeenCalledWith(shares.map(share => `${window.location.origin}${share.share_url}`).join('\n'))
     pagination.vm.$emit('page-change', 3)
     await flushPromises()
     expect(dialog.findAll('input[readonly]')).toHaveLength(1)

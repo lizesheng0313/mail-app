@@ -85,9 +85,8 @@
                   <span class="min-w-0 truncate rounded-full px-2 py-0.5 text-xs font-medium" :class="isShareExpired(share) ? 'bg-red-50 text-red-700' : share.expire_at || share.expire_mode === 'minutes' ? 'bg-amber-50 text-amber-700' : 'bg-green-50 text-green-700'" :title="shareValidity(share)">{{ shareValidity(share) }}</span>
                 </div>
                 <div class="share-row-actions flex items-center justify-end gap-1">
-                  <ActionButton icon="list" variant="view" :tooltip="t('shareMailbox.linkMailboxes', { index: previewOffset + index + 1 })" @click="openMailboxPreview(share)" />
-                  <a v-if="share.share_url && !isShareExpired(share)" :href="shareLink(share)" target="_blank" rel="noopener noreferrer" :aria-label="t('shareMailbox.openLink')" :title="t('shareMailbox.openLink')" class="rounded p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-500" @click="openShareLink($event, share)"><ArrowTopRightOnSquareIcon class="h-4 w-4" aria-hidden="true" /></a>
-                  <ActionButton v-if="!isShareExpired(share)" icon="copy" variant="copy" :tooltip="share.miniapp_path ? t('shareMailbox.copyPath') : t('shareMailbox.copyLink')" @click="copyText(shareLink(share))" />
+                  <a v-if="share.share_url" :href="shareLink(share)" target="_blank" rel="noopener noreferrer" :aria-label="t('shareMailbox.openLink')" :title="t('shareMailbox.openLink')" class="rounded p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-500" @click="openShareLink($event, share)"><ArrowTopRightOnSquareIcon class="h-4 w-4" aria-hidden="true" /></a>
+                  <ActionButton icon="copy" variant="copy" :tooltip="share.miniapp_path ? t('shareMailbox.copyPath') : t('shareMailbox.copyLink')" @click="copyText(shareLink(share))" />
                   <ActionButton icon="delete" variant="delete" :tooltip="t('shareMailbox.deleteRecord')" @click="confirmLinkDeletion(share)" />
                 </div>
               </div>
@@ -168,21 +167,16 @@ const mailboxItems = (scope) => {
   }))
 }
 const mailboxPreview = ref(null)
-let mailboxReturnBatch = null
 const openMailboxPreview = (scope) => {
-  mailboxReturnBatch = previewBatch.value
   mailboxPreview.value = scope
-  previewBatch.value = null
 }
 const closeMailboxPreview = () => {
   mailboxPreview.value = null
-  previewBatch.value = mailboxReturnBatch
-  mailboxReturnBatch = null
 }
 const batchTitle = (batch) => batch.batch_title?.trim() || t('shareMailbox.untitledBatch')
 const shareLink = (share) => share.miniapp_path || (share.share_url ? `${isTauri() ? 'https://zjkdongao.cn' : window.location.origin}${share.share_url}` : '')
 const isShareExpired = (share) => share.status !== 'active' || Boolean(share.expire_at && new Date(share.expire_at).getTime() <= Date.now())
-const copyableLinks = (batch) => batch.shares.filter((share) => !isShareExpired(share)).map(shareLink).filter(Boolean)
+const copyableLinks = (batch) => batch.shares.map(shareLink).filter(Boolean)
 const formatShareDate = (value) => value ? new Date(value).toLocaleString(undefined, { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }) : '-'
 const shareValidity = (share) => share.expire_at ? formatShareDate(share.expire_at) : share.expire_mode === 'minutes' ? (share.expire_minutes ? t('shareMailbox.firstOpenMinutes', { count: share.expire_minutes }) : t('shareMailbox.waitingFirstOpen')) : t('shareMailbox.permanentValid')
 const batchValidity = (batch) => batch.expire_mode === 'minutes' && batch.expire_start_mode === 'first_opened' ? t('shareMailbox.firstOpenMinutes', { count: batch.expire_minutes }) : shareValidity(batch)
@@ -289,7 +283,7 @@ onMounted(() => loadShares())
 .share-row-actions { grid-area: actions; }
 @media (min-width: 1024px) {
   .share-preview-columns {
-    grid-template-columns: 1.25rem minmax(0, 1.4fr) minmax(0, 0.8fr) 3.5rem 3.5rem minmax(0, 1.2fr) 8rem;
+    grid-template-columns: 1.25rem minmax(0, 1.4fr) minmax(0, 0.8fr) 3.5rem 3.5rem minmax(0, 1.2fr) 6rem;
     column-gap: 0.75rem;
   }
   .share-preview-row {
