@@ -301,7 +301,7 @@
           <div
             class="rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-600"
           >
-            {{ t('home.customGenerateUnitPriceValue', { price: customGenerateUnitPriceText }) }}
+            {{ isHostedMailbox ? t('home.freeGenerate') : t('home.customGenerateUnitPriceValue', { price: customGenerateUnitPriceText }) }}
           </div>
 
           <div class="mt-4 rounded-xl bg-gray-50 px-4 py-3">
@@ -527,6 +527,9 @@ const customGenerateValidityDisplay = computed(() => {
 })
 
 const customGeneratePricingSummary = computed(() => {
+  if (isHostedMailbox.value) {
+    return { unitPriceText: '0', totalCostText: '0.00', balanceRequired: 0, isRange: false }
+  }
   const selectedDomains = selectedSystemDomains.value
   if (!selectedDomains.length) {
     return {
@@ -580,7 +583,7 @@ const customGeneratePricingSummary = computed(() => {
 const customGenerateUnitPriceText = computed(() => customGeneratePricingSummary.value.unitPriceText)
 const customGenerateTotalCostDisplay = computed(() => customGeneratePricingSummary.value.totalCostText)
 const customGenerateHasEnoughBalance = computed(
-  () => Number(customGenerateBalance.value || 0) >= Number(customGeneratePricingSummary.value.balanceRequired || 0)
+  () => isHostedMailbox.value || Number(customGenerateBalance.value || 0) >= Number(customGeneratePricingSummary.value.balanceRequired || 0)
 )
 
 const customGeneratePreviewDomain = computed(() => {
@@ -700,7 +703,6 @@ const loadSystemDomains = async () => {
 const loadCustomGenerateResources = async () => {
   domainLoading.value = true
   try {
-    const balancePromise = getBalance()
     if (isHostedMailbox.value) {
       const domainsRes: any = await hostedDomainAPI.listAllDomains()
       if (domainsRes.code === 0 && domainsRes.data) {
@@ -709,11 +711,10 @@ const loadCustomGenerateResources = async () => {
         )
         syncCustomGenerateDomainSelection()
       }
-      const balanceRes = await balancePromise
-      customGenerateWallet.value = balanceRes.code === 0 ? balanceRes.data || { balance: 0 } : { balance: 0 }
       return
     }
 
+    const balancePromise = getBalance()
     const domainsPromise = loadSystemDomains()
     await domainsPromise
     // 域名列表先展示，余额查询不再阻塞列表和全选按钮。
@@ -836,8 +837,7 @@ const performHostedCustomGenerate = async () => {
 
     const payload: Record<string, any> = {
       route_mode: 'direct',
-      is_public: false,
-      charge_custom: true
+      is_public: false
     }
 
     if (customGenerateForm.value.generation_mode === 'random') {
@@ -919,7 +919,7 @@ const performCustomGenerate = async () => {
     const successCount = Number(data?.quantity || data?.items?.length || 0)
 
     if (isHostedMailbox.value) {
-      showMessage(t('home.customGenerateSuccessHosted', { count: successCount, cost: Number(data?.cost || 0).toFixed(2) }), 'success')
+      showMessage(t('home.customGenerateSuccessHosted', { count: successCount }), 'success')
     } else {
       const cost = String(data?.cost_text || Number(data?.cost || 0).toFixed(2))
       showMessage(
@@ -998,8 +998,7 @@ const handleCustomGenerate = async () => {
     title: t('home.customGenerateConfirmTitle'),
     message: isHostedMailbox.value
       ? t('home.customGenerateConfirmMessageHosted', {
-          quantity: normalizedCustomGenerateQuantity.value,
-          cost: customGenerateTotalCostDisplay.value
+          quantity: normalizedCustomGenerateQuantity.value
         })
       : t('home.customGenerateConfirmMessage', {
           quantity: normalizedCustomGenerateQuantity.value,

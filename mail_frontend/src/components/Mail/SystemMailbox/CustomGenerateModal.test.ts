@@ -158,6 +158,7 @@ describe('hosted mailbox generation domain picker', () => {
   beforeEach(() => {
     listAllDomains.mockReset()
     createHostedMailbox.mockReset()
+    customGenerateSystemMailboxes.mockClear()
     getBalance.mockReset()
     getBalance.mockResolvedValue({ code: 0, data: { balance: 10 } })
   })
@@ -167,7 +168,7 @@ describe('hosted mailbox generation domain picker', () => {
       code: 0,
       data: { items: [{ id: 7, domain_name: 'owned.example', status: 'verified', expires_at: null }] }
     })
-    createHostedMailbox.mockResolvedValue({ code: 0, data: { id: 43, email_address: `${'a'.repeat(length)}@owned.example`, cost: 0.2 } })
+    createHostedMailbox.mockResolvedValue({ code: 0, data: { id: 43, email_address: `${'a'.repeat(length)}@owned.example`, cost: 0 } })
     const wrapper = mount(CustomGenerateModal, {
       props: { visible: false, mailboxType: 'hosted' },
       global: { stubs: { teleport: true } }
@@ -187,9 +188,9 @@ describe('hosted mailbox generation domain picker', () => {
 
     expect(createHostedMailbox).toHaveBeenCalledExactlyOnceWith(7, expect.objectContaining({
       auto_local_part: true,
-      random_length: length,
-      charge_custom: true
+      random_length: length
     }))
+    expect(createHostedMailbox.mock.calls[0][1]).not.toHaveProperty('charge_custom')
     expect(wrapper.emitted('success')?.[0]?.[0]).toEqual(expect.objectContaining({
       items: [expect.objectContaining({ email_address: `${'a'.repeat(length)}@owned.example` })]
     }))
@@ -230,7 +231,7 @@ describe('hosted mailbox generation domain picker', () => {
     expect(domainButtons).toHaveLength(30)
     expect(domainButtons.some((button) => button.text().includes('owned-30.example'))).toBe(true)
     expect(listAllDomains).toHaveBeenCalledOnce()
-    expect(getBalance).toHaveBeenCalledOnce()
+    expect(getBalance).not.toHaveBeenCalled()
     wrapper.unmount()
   })
 
@@ -255,7 +256,11 @@ describe('hosted mailbox generation domain picker', () => {
     await flushPromises()
     const dialog = wrapper.findComponent(ConfirmDialog)
     expect(dialog.props('confirmText')).toBe('home.customGenerateConfirm')
-    expect(dialog.props('message')).toContain('"cost":"0.00"')
+    if (mailboxType === 'system') {
+      expect(dialog.props('message')).toContain('"cost":"0.00"')
+    } else {
+      expect(dialog.props('message')).not.toContain('cost')
+    }
     await dialog.get('button').trigger('click')
     await flushPromises()
     if (mailboxType === 'hosted') {
@@ -269,5 +274,49 @@ describe('hosted mailbox generation domain picker', () => {
     }
     expect(wrapper.emitted('success')?.[0]?.[0]).toMatchObject({ quantity: 10, cost: 0 })
     wrapper.unmount()
+  })
+
+  it.each([
+    { rule: 'ruleRandom', quantity: 3 },
+    { rule: 'ruleCustom', quantity: 3 },
+    { rule: 'ruleSequence', quantity: 3 },
+    { rule: 'ruleSpecified', quantity: 1 }
+  ])('lets an ordinary user generate hosted mailboxes for free with $rule and no wallet access', async ({ rule, quantity }) => {
+    getBalance.mockImplementation(() => { throw new Error('wallet unavailable') })
+    listAllDomains.mockResolvedValue({ code: 0, data: { items: [
+      { id: 7, domain_name: 'owned.example', status: 'verified', expires_at: null }
+    ] } })
+    createHostedMailbox.mockResolvedValue({ code: 0, data: { id: 43, email_address: 'support@owned.example', cost: 0 } })
+    const wrapper = mount(CustomGenerateModal, {
+      props: { visible: true, mailboxType: 'hosted' },
+      global: { stubs: { teleport: true } }
+    })
+    try {
+      await flushPromises()
+      await wrapper.findAll('button').find(button => button.text() === `home.${rule}`)!.trigger('click')
+      await wrapper.get('input[type="number"][max="200"]').setValue(String(quantity))
+      const prefix = wrapper.find('input[maxlength="32"], input[maxlength="64"]')
+      if (prefix.exists()) await prefix.setValue('support')
+      expect(wrapper.text()).toContain('home.freeGenerate')
+      expect(wrapper.text()).not.toContain('home.customGenerateUnitPriceValue')
+      expect(wrapper.text()).not.toContain('home.customGenerateRechargeHint')
+      const generateButton = wrapper.findComponent(BaseModal).findAll('button')
+        .find(button => button.text() === 'home.customGenerateConfirm')!
+      await generateButton.trigger('click')
+      await flushPromises()
+      const dialog = wrapper.findComponent(ConfirmDialog)
+      expect(dialog.props('confirmText')).toBe('home.customGenerateConfirm')
+      expect(dialog.props('message')).toBe(`home.customGenerateConfirmMessageHosted {"quantity":${quantity}}`)
+      await dialog.get('button').trigger('click')
+      await flushPromises()
+      expect(getBalance).not.toHaveBeenCalled()
+      expect(createHostedMailbox).toHaveBeenCalledTimes(quantity)
+      for (const [, payload] of createHostedMailbox.mock.calls) {
+        expect(payload).not.toHaveProperty('charge_custom')
+      }
+      expect(wrapper.emitted('success')?.[0]?.[0]).toMatchObject({ quantity, cost: 0 })
+      expect(showMessage).toHaveBeenCalledWith(`home.customGenerateSuccessHosted {"count":${quantity}}`, 'success')
+      expect(customGenerateSystemMailboxes).not.toHaveBeenCalled()
+    } finally { wrapper.unmount() }
   })
 })

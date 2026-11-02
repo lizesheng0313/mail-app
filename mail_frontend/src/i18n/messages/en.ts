@@ -314,12 +314,12 @@ const en = {
     customGenerateConfirmMessage:
       'This will generate {quantity} mailboxes as {mode} and consume {cost} coins.',
     customGenerateConfirmMessageHosted:
-      'Generate {quantity} domain mailboxes for an estimated {cost} coins?',
+      'Generate {quantity} domain mailboxes for free?',
     customGenerateNoDomains: 'No system domains are available right now',
     customGenerateNoHostedDomains: 'No verified domains are available right now',
     customGenerateSpecifiedDomainSingle: 'Exact mailbox generation supports only one domain',
     customGenerateSuccess: '{count} {mode} mailboxes created, {cost} coins consumed',
-    customGenerateSuccessHosted: '{count} domain mailboxes created for {cost} coins',
+    customGenerateSuccessHosted: '{count} domain mailboxes created for free',
     customGenerateFailed: 'Custom generation failed',
     goRecharge: 'Recharge',
     addingMailbox: 'Signing in...',
