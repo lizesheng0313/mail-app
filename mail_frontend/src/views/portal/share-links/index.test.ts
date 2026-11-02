@@ -63,6 +63,10 @@ describe('share creation batches', () => {
     expect(wrapper.get('tbody').findAll('tr')).toHaveLength(1)
     expect(wrapper.text()).toContain('客户交付第一批')
     expect(wrapper.get('tbody tr').findAll('td')[3].text()).toBe('1')
+    const row = wrapper.get('tbody tr')
+    const actions = row.findAll('td').at(-1)!
+    expect(actions.findAll('button')).toHaveLength(3)
+    expect(row.findAll('button').every(button => actions.element.contains(button.element))).toBe(true)
     await wrapper.get('button[aria-label="shareMailbox.deleteBatch"]').trigger('click')
     const dialog = wrapper.getComponent(ConfirmDialog)
     expect(dialog.props('visible')).toBe(true)
@@ -225,13 +229,15 @@ describe('share creation batches', () => {
     await flushPromises()
     await wrapper.get('button[aria-label="shareMailbox.viewBatchLinks"]').trigger('click')
     const dialog = wrapper.get('[role="dialog"]')
-    expect(dialog.findAll('button[aria-label="shareMailbox.linkMailboxes"]')).toHaveLength(1)
-    await dialog.get('button[aria-label="shareMailbox.linkMailboxes"]').trigger('click')
-    expect(dialog.get('ul[aria-label="shareMailbox.linkMailboxes"]').text()).toBe(mailboxes[1])
+    expect(dialog.findAll('.share-row-actions button[aria-label="shareMailbox.linkMailboxes"]')).toHaveLength(2)
+    await dialog.findAll('.share-row-actions button[aria-label="shareMailbox.linkMailboxes"]')[1].trigger('click')
+    expect(wrapper.findAll('[role="dialog"]')).toHaveLength(1)
+    expect(wrapper.get('[role="dialog"]').find('input[readonly]').exists()).toBe(false)
+    expect(wrapper.get('[role="dialog"] ol li p:first-child').text()).toBe(mailboxes[1])
     wrapper.unmount()
   })
 
-  it.each([10, 50])('shows all %i batch mailboxes immediately when every link has the same scope', async (count) => {
+  it.each([10, 50])('opens %i mailboxes separately from the link list', async (count) => {
     const mailboxes = Array.from({ length: count }, (_, index) => `mailbox${index + 1}@example.com`)
     mocks.getMyShareBatches.mockResolvedValue(response([{ ...batch,
       mailbox_emails: mailboxes, mailbox_ids: mailboxes.map((_, index) => index + 1).join(','),
@@ -242,25 +248,49 @@ describe('share creation batches', () => {
       await flushPromises()
       await wrapper.get('button[aria-label="shareMailbox.viewBatchLinks"]').trigger('click')
       const dialog = wrapper.get('[role="dialog"]')
-      const scope = dialog.get('[role="group"][aria-label="shareMailbox.batchMailboxes"]')
-      expect(scope.get('button').attributes('aria-expanded')).toBe('true')
-      expect(scope.findAll('li').map(item => item.text())).toEqual(mailboxes)
-      expect(dialog.find('button[aria-label="shareMailbox.linkMailboxes"]').exists()).toBe(false)
-      await scope.get('input[type="search"]').setValue(mailboxes[count - 1])
-      expect(scope.findAll('li').map(item => item.text())).toEqual([mailboxes[count - 1]])
+      expect(dialog.find('ol').exists()).toBe(false)
+      await dialog.findAll('.share-row-actions button[aria-label="shareMailbox.linkMailboxes"]')[0].trigger('click')
+      expect(wrapper.findAll('[role="dialog"]')).toHaveLength(1)
+      const list = wrapper.get('[role="dialog"]')
+      expect(list.find('input[readonly]').exists()).toBe(false)
+      expect(list.findAll('li p:first-child').map(item => item.text())).toEqual(mailboxes)
+      await list.get('input[type="search"]').setValue(mailboxes[count - 1].toUpperCase())
+      expect(list.findAll('li p:first-child').map(item => item.text())).toEqual([mailboxes[count - 1]])
+      await list.get('input[type="search"]').setValue('absent@example.com')
+      expect(list.text()).toContain('shareMailbox.noMatchingMailboxes')
+      await list.get('button[aria-label="common.close"]').trigger('click')
+      expect(wrapper.get('[role="dialog"]').findAll('input[readonly]')).toHaveLength(2)
       expect(mocks.getMyShareBatches).toHaveBeenCalledTimes(1)
     } finally { wrapper.unmount() }
   })
 
-  it('preserves every mailbox identifier when addresses are unavailable', async () => {
+  it('explains unavailable original addresses instead of treating IDs as emails', async () => {
     const ids = Array.from({ length: 50 }, (_, index) => 2682 + index)
     mocks.getMyShareBatches.mockResolvedValue(response([{ ...batch, mailbox_emails: [], mailbox_ids: ids.join(',') }]))
     const wrapper = mountPage()
     try {
       await flushPromises()
-      await wrapper.get('button[aria-label="shareMailbox.viewBatchLinks"]').trigger('click')
-      const scope = wrapper.get('[role="dialog"] [role="group"][aria-label="shareMailbox.batchMailboxes"]')
-      expect(scope.findAll('li').map(item => item.text())).toEqual(ids.map(id => `#${id}`))
+      await wrapper.get('tbody button[aria-label="shareMailbox.batchMailboxes"]').trigger('click')
+      const list = wrapper.get('[role="dialog"]')
+      expect(list.findAll('li')).toHaveLength(0)
+      expect(list.get('[role="status"]').text()).toBe('shareMailbox.unavailableMailboxHint:50')
+      expect(list.text()).toContain('shareMailbox.unavailableMailboxAddress')
+      expect(list.text()).not.toContain('#2682')
+    } finally { wrapper.unmount() }
+  })
+
+  it('opens mailboxes directly from the batch row and retains saved addresses for removed mailboxes', async () => {
+    mocks.getMyShareBatches.mockResolvedValue(response([{ ...batch, mailboxes: [{ id: 1, email: 'saved@example.com', available: false }] }]))
+    const wrapper = mountPage()
+    try {
+      await flushPromises()
+      expect(wrapper.get('tbody').text()).not.toContain('saved@example.com')
+      await wrapper.get('tbody button[aria-label="shareMailbox.batchMailboxes"]').trigger('click')
+      expect(wrapper.get('[role="dialog"] h2').text()).toBe('shareMailbox.mailboxListTitle')
+      expect(wrapper.get('[role="dialog"]').text()).toContain('saved@example.com')
+      expect(wrapper.get('[role="dialog"]').text()).toContain('shareMailbox.mailboxRemoved')
+      await wrapper.get('[role="dialog"] button[aria-label="common.close"]').trigger('click')
+      expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
     } finally { wrapper.unmount() }
   })
 
