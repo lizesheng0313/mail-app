@@ -20,6 +20,7 @@ import ShareLinksPage from './index.vue'
 import AdminDataTable from '@/components/AdminDataTable/index.vue'
 import AdminPagination from '@/components/AdminPagination/index.vue'
 import ConfirmDialog from '@/components/ConfirmDialog/index.vue'
+import HoverTooltip from '@/components/HoverTooltip/index.vue'
 
 const link = {
   id: 42, mailbox_emails: ['sample@example.com'], mailbox_ids: '1', status: 'active',
@@ -151,6 +152,31 @@ describe('share creation batches', () => {
     await wrapper.get('[role="dialog"]').findAll('button').find(button => button.text() === 'shareMailbox.copyBatchCount:1')!.trigger('click')
     expect(mocks.writeText).toHaveBeenCalledWith(wx.miniapp_path)
     wrapper.unmount()
+  })
+
+  it('shows the open-link tooltip on hover and keyboard focus while preserving the link', async () => {
+    mocks.getMyShareBatches.mockResolvedValue(response([batch]))
+    const wrapper = mountPage()
+    try {
+      await flushPromises()
+      await wrapper.get('button[aria-label="shareMailbox.viewBatchLinks"]').trigger('click')
+      const anchor = wrapper.get('a[aria-label="shareMailbox.openLink"]')
+      expect(anchor.attributes('href')).toBe(`${window.location.origin}/share/example-token`)
+      expect(anchor.attributes('target')).toBe('_blank')
+      expect(anchor.attributes('title')).toBeUndefined()
+      const trigger = wrapper.getComponent(HoverTooltip).get('div')
+      expect(wrapper.find('[role="tooltip"]').exists()).toBe(false)
+      await trigger.trigger('mouseenter')
+      await flushPromises()
+      expect(wrapper.get('[role="tooltip"]').text()).toBe('shareMailbox.openLink')
+      await trigger.trigger('mouseleave')
+      expect(wrapper.find('[role="tooltip"]').exists()).toBe(false)
+      await anchor.trigger('focusin')
+      await flushPromises()
+      expect(wrapper.get('[role="tooltip"]').text()).toBe('shareMailbox.openLink')
+      await anchor.trigger('focusout')
+      expect(wrapper.find('[role="tooltip"]').exists()).toBe(false)
+    } finally { wrapper.unmount() }
   })
 
   it('deletes one link and returns to the remaining links in that batch', async () => {

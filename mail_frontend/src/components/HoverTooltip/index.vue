@@ -13,6 +13,7 @@
   <Teleport to="body">
     <div
       v-if="visible && text"
+      role="tooltip"
       class="pointer-events-none fixed z-[9999] whitespace-nowrap rounded bg-gray-800 px-2 py-1 text-xs text-white shadow-sm"
       :style="tooltipStyle"
     >

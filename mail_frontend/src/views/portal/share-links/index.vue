@@ -85,7 +85,9 @@
                   <span class="min-w-0 truncate rounded-full px-2 py-0.5 text-xs font-medium" :class="isShareExpired(share) ? 'bg-red-50 text-red-700' : share.expire_at || share.expire_mode === 'minutes' ? 'bg-amber-50 text-amber-700' : 'bg-green-50 text-green-700'" :title="shareValidity(share)">{{ shareValidity(share) }}</span>
                 </div>
                 <div class="share-row-actions flex items-center justify-end gap-1">
-                  <a v-if="share.share_url" :href="shareLink(share)" target="_blank" rel="noopener noreferrer" :aria-label="t('shareMailbox.openLink')" :title="t('shareMailbox.openLink')" class="rounded p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-500" @click="openShareLink($event, share)"><ArrowTopRightOnSquareIcon class="h-4 w-4" aria-hidden="true" /></a>
+                  <HoverTooltip v-if="share.share_url" :text="t('shareMailbox.openLink')">
+                    <a :href="shareLink(share)" target="_blank" rel="noopener noreferrer" :aria-label="t('shareMailbox.openLink')" class="rounded p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-500" @click="openShareLink($event, share)"><ArrowTopRightOnSquareIcon class="h-4 w-4" aria-hidden="true" /></a>
+                  </HoverTooltip>
                   <ActionButton icon="copy" variant="copy" :tooltip="share.miniapp_path ? t('shareMailbox.copyPath') : t('shareMailbox.copyLink')" @click="copyText(shareLink(share))" />
                   <ActionButton icon="delete" variant="delete" :tooltip="t('shareMailbox.deleteRecord')" @click="confirmLinkDeletion(share)" />
                 </div>
@@ -115,6 +117,7 @@ import { mailboxShareAPI } from '@/api/mailboxShare'
 import AdminDataTable from '@/components/AdminDataTable/index.vue'
 import AdminPagination from '@/components/AdminPagination/index.vue'
 import ActionButton from '@/components/ActionButton/index.vue'
+import HoverTooltip from '@/components/HoverTooltip/index.vue'
 import BaseInput from '@/components/BaseInput/index.vue'
 import BaseIcon from '@/components/BaseIcon/index.vue'
 import ConfirmDialog from '@/components/ConfirmDialog/index.vue'
