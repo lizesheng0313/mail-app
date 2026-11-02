@@ -11,6 +11,9 @@ pipeline {
         // 项目配置
         PROJECT_NAME = 'mail_frontend'
         VERSION = "${new Date().format('yyyyMMdd-HHmmss')}"
+        // 构建容器无法稳定直连 npm 官方仓库；Corepack 和依赖安装统一使用镜像。
+        COREPACK_NPM_REGISTRY = 'https://registry.npmmirror.com'
+        NPM_CONFIG_REGISTRY = 'https://registry.npmmirror.com'
         
         // 服务器配置（改这里的路径即可）
         SERVER_HOST = '118.178.181.189'
