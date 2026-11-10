@@ -78,7 +78,7 @@
 
             <div>
               <label for="share-batch-title" class="block text-sm font-semibold text-gray-700">{{ t('shareMailbox.batchTitle') }}</label>
-              <input id="share-batch-title" v-model="batchTitle" type="text" maxlength="100" :placeholder="t('shareMailbox.batchTitlePlaceholder')" class="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+              <input id="share-batch-title" v-model="batchTitle" type="text" maxlength="100" class="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
             </div>
 
             <!-- 有效期选择 -->
