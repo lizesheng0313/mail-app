@@ -853,4 +853,57 @@ describe('FloatingLiveChat admin conversation layout', () => {
     expect(wrapper.text()).toContain('2026-06-25 14:11')
     expect(wrapper.text()).toContain('今天 14:50')
   })
+
+  it('separates distant messages and groups only nearby messages from the same sender', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-11-11T09:00:00'))
+    const originalGet = mocks.apiGet.getMockImplementation()!
+    const customer = conversations[0].user
+    const history = [
+      { id: 1, content: '十月的问题', created_at_ms: new Date('2026-10-05T13:44:00').getTime(), user: customer },
+      { id: 2, content: '昨天的问题', created_at_ms: new Date('2026-11-10T23:54:00').getTime(), user: customer },
+      { id: 3, content: '补充说明', created_at_ms: new Date('2026-11-10T23:54:30').getTime(), user: customer },
+      { id: 4, content: '客服回复', created_at_ms: new Date('2026-11-10T23:54:45').getTime(), user: mocks.userStore.user },
+      { id: 5, content: '五分钟后的回复', created_at_ms: new Date('2026-11-10T23:59:45').getTime(), user: mocks.userStore.user },
+    ]
+    mocks.apiGet.mockImplementation((url: string, options: any) => url === '/live-chat/messages'
+      ? Promise.resolve({ code: 0, data: { items: history, unread_count: 0 } })
+      : originalGet(url, options))
+    wrapper = mount(FloatingLiveChat)
+    await flushPromises()
+    await wrapper.get('[data-testid="chat-launcher"]').trigger('click')
+    await flushPromises()
+    await wrapper.get('[data-testid="admin-conversation-item-101"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.findAll('[data-testid="chat-time-separator"]').map(item => item.text())).toEqual([
+      '2026-10-05 13:44', '昨天 23:54', '昨天 23:59',
+    ])
+    expect(wrapper.get('[data-testid="chat-message-2"]').find('[data-testid="chat-message-avatar"]').exists()).toBe(true)
+    expect(wrapper.get('[data-testid="chat-message-3"]').find('[data-testid="chat-message-avatar"]').exists()).toBe(false)
+    expect(wrapper.get('[data-testid="chat-message-3"]').find('[data-testid="chat-message-sender"]').exists()).toBe(false)
+    expect(wrapper.get('[data-testid="chat-message-4"]').find('[data-testid="chat-message-sender"]').text()).toContain('管理员')
+    expect(wrapper.get('[data-testid="chat-message-5"]').find('[data-testid="chat-message-avatar"]').exists()).toBe(true)
+    for (const item of history) expect(wrapper.get(`[data-testid="chat-message-${item.id}"]`).text()).toContain(item.content)
+  })
+
+  it('starts a new dated group across midnight even when the sender continues within a minute', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-11-11T09:00:00'))
+    const originalGet = mocks.apiGet.getMockImplementation()!
+    mocks.apiGet.mockImplementation((url: string, options: any) => url === '/live-chat/messages'
+      ? Promise.resolve({ code: 0, data: { items: [
+          { id: 1, content: '午夜前', created_at_ms: new Date('2026-11-10T23:59:50').getTime(), user: conversations[0].user },
+          { id: 2, content: '午夜后', created_at_ms: new Date('2026-11-11T00:00:10').getTime(), user: conversations[0].user },
+        ], unread_count: 0 } })
+      : originalGet(url, options))
+    wrapper = mount(FloatingLiveChat)
+    await flushPromises()
+    await wrapper.get('[data-testid="chat-launcher"]').trigger('click')
+    await flushPromises()
+    await wrapper.get('[data-testid="admin-conversation-item-101"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.findAll('[data-testid="chat-time-separator"]').map(item => item.text())).toEqual(['昨天 23:59', '今天 00:00'])
+    expect(wrapper.findAll('[data-testid="chat-message-avatar"]')).toHaveLength(2)
+  })
 })

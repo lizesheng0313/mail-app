@@ -114,4 +114,22 @@ describe('visitor support chat', () => {
     expect(realtime.disconnect).toHaveBeenCalled()
   })
 
+  it('shows separate dated groups in a visitor conversation without repeating nearby sender names', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-11-11T09:00:00'))
+    api.get.mockResolvedValue({ code: 0, data: { items: [
+      { id: 1, sender_type: 'guest', content: '之前的问题', created_at_ms: new Date('2026-10-05T13:44:00').getTime() },
+      { id: 2, sender_type: 'guest', content: '昨天的问题', created_at_ms: new Date('2026-11-10T23:54:00').getTime() },
+      { id: 3, sender_type: 'guest', content: '补充内容', created_at_ms: new Date('2026-11-10T23:54:30').getTime() },
+    ] } })
+    const wrapper = mount(GuestLiveChat)
+    try {
+      await wrapper.get('button[aria-label="打开在线客服"]').trigger('click')
+      await flushPromises()
+      expect(wrapper.findAll('[data-testid="chat-time-separator"]').map(item => item.text())).toEqual(['2026-10-05 13:44', '昨天 23:54'])
+      expect(wrapper.findAll('p').filter(item => item.text() === '我')).toHaveLength(2)
+      expect(wrapper.text()).toContain('补充内容')
+    } finally { wrapper.unmount() }
+  })
+
 })

@@ -203,7 +203,7 @@
             <div
               ref="messageContainerRef"
               data-testid="chat-message-container"
-              class="scrollbar-stable min-h-0 flex-1 space-y-4 overflow-y-auto bg-gradient-to-b from-primary-50 via-white to-gray-50 px-4 py-4"
+              class="scrollbar-stable min-h-0 flex-1 overflow-y-auto bg-gray-50 px-4 py-4"
               @scroll="handleMessageScroll"
             >
           <div
@@ -232,73 +232,89 @@
           </div>
 
           <div
-            v-for="item in messages"
+            v-for="{ message: item, showTimeSeparator, isContinuation } in messageTimeline"
             :key="item.id"
-            class="flex w-full"
-            :class="isSelf(item) ? 'justify-end' : 'justify-start'"
+            :data-testid="`chat-message-${item.id}`"
+            class="w-full"
+            :class="showTimeSeparator ? 'mt-7 first:mt-0' : isContinuation ? 'mt-1.5' : 'mt-4'"
           >
-            <div
-              class="flex w-fit max-w-[88%] items-end gap-3"
-              :class="isSelf(item) ? 'flex-row-reverse' : ''"
-            >
+            <div v-if="showTimeSeparator" class="mb-4 flex items-center gap-3 px-1">
+              <span aria-hidden="true" class="h-px flex-1 bg-gray-200"></span>
+              <time
+                data-testid="chat-time-separator"
+                :datetime="new Date(item.created_at_ms).toISOString()"
+                class="shrink-0 text-[11px] font-medium text-gray-500"
+              >{{ formatMessageTime(item.created_at_ms) }}</time>
+              <span aria-hidden="true" class="h-px flex-1 bg-gray-200"></span>
+            </div>
+            <div class="flex w-full" :class="isSelf(item) ? 'justify-end' : 'justify-start'">
               <div
-                class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold shadow-sm"
-                :class="isSelf(item) ? 'bg-primary-600 text-white' : getOtherAvatarClass(item)"
-              >
-                {{ item.user.avatar_text }}
-              </div>
-
-              <div
-                class="flex min-w-0 w-fit max-w-[calc(100%-3.25rem)] shrink-0 flex-col gap-2"
-                :class="isSelf(item) ? 'items-end' : 'items-start'"
+                class="flex min-w-0 w-fit max-w-[88%] items-start gap-2.5"
+                :class="isSelf(item) ? 'flex-row-reverse' : ''"
               >
                 <div
-                  class="mb-1 flex items-center gap-2 text-xs text-gray-400"
-                  :class="isSelf(item) ? 'justify-end' : 'justify-start'"
+                  v-if="!isContinuation"
+                  data-testid="chat-message-avatar"
+                  class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold"
+                  :class="isSelf(item) ? 'bg-primary-600 text-white' : getOtherAvatarClass(item)"
                 >
-                  <span class="font-medium text-gray-700">{{ item.user.display_name }}</span>
-                  <span
-                  v-if="item.user.is_admin"
-                  class="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700"
-                  >
-                    管理员
-                  </span>
-                  <span>{{ formatTime(item.created_at_ms) }}</span>
+                  {{ item.user.avatar_text }}
                 </div>
+                <div v-else aria-hidden="true" class="w-8 shrink-0"></div>
 
                 <div
-                  v-if="item.attachments?.length"
-                  class="flex w-full"
-                  :class="isSelf(item) ? 'justify-end' : 'justify-start'"
+                  class="flex min-w-0 flex-col gap-1.5"
+                  :class="isSelf(item) ? 'items-end' : 'items-start'"
                 >
                   <div
-                    :class="getAttachmentListClass(item.attachments?.length || 0)"
+                    v-if="!isContinuation"
+                    data-testid="chat-message-sender"
+                    class="flex max-w-full items-center gap-2 text-[11px] text-gray-500"
+                    :class="isSelf(item) ? 'justify-end' : 'justify-start'"
                   >
-                    <button
-                      v-for="attachment in item.attachments"
-                      :key="attachment.url"
-                      type="button"
-                      class="overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm"
-                      :class="getAttachmentItemClass(item.attachments?.length || 0)"
-                      @click="openImagePreview(attachment.url)"
+                    <span class="truncate font-medium">{{ item.user.display_name }}</span>
+                    <span
+                    v-if="item.user.is_admin"
+                    class="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700"
                     >
-                      <img
-                        :src="attachment.url"
-                        :alt="attachment.filename || 'chat-image'"
-                        class="h-full w-full object-cover"
-                      />
-                    </button>
+                      管理员
+                    </span>
                   </div>
-                </div>
 
-                <div
-                  v-if="item.content"
-                  class="max-w-full rounded-[22px] px-4 py-3 text-sm leading-6 shadow-sm"
-                  :class="isSelf(item)
-                    ? 'rounded-br-md bg-primary-600 text-white'
-                    : getOtherBubbleClass(item)"
-                >
-                  <p class="whitespace-pre-wrap break-words text-left">{{ item.content }}</p>
+                  <div
+                    v-if="item.attachments?.length"
+                    class="flex w-full"
+                    :class="isSelf(item) ? 'justify-end' : 'justify-start'"
+                  >
+                    <div
+                      :class="getAttachmentListClass(item.attachments?.length || 0)"
+                    >
+                      <button
+                        v-for="attachment in item.attachments"
+                        :key="attachment.url"
+                        type="button"
+                        class="overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm"
+                        :class="getAttachmentItemClass(item.attachments?.length || 0)"
+                        @click="openImagePreview(attachment.url)"
+                      >
+                        <img
+                          :src="attachment.url"
+                          :alt="attachment.filename || 'chat-image'"
+                          class="h-full w-full object-cover"
+                        />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div
+                    v-if="item.content"
+                    class="max-w-full rounded-2xl border px-3.5 py-2.5 text-sm leading-6"
+                    :class="isSelf(item)
+                      ? ['border-transparent bg-primary-600 text-white', !isContinuation && 'rounded-tr-sm']
+                      : ['border-gray-200 bg-white text-gray-800', !isContinuation && 'rounded-tl-sm']"
+                  >
+                    <p class="whitespace-pre-wrap break-words text-left [overflow-wrap:anywhere]">{{ item.content }}</p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -441,6 +457,7 @@ import api from '@/services/api'
 import { useUserStore } from '@/stores/user'
 import { uploadImageFile } from '@/utils/imageUpload'
 import { showMessage } from '@/utils/message'
+import { buildMessageTimeline, formatMessageTime } from './messageTimeline'
 
 type LiveChatUser = {
   id: number
@@ -503,6 +520,10 @@ const launcherDragging = ref(false)
 const launcherOffset = ref({ x: 0, y: 0 })
 const draft = ref('')
 const messages = ref<LiveChatMessage[]>([])
+const messageTimeline = computed(() => buildMessageTimeline(
+  messages.value,
+  item => `${item.user.is_admin ? 'admin' : 'user'}:${item.user.id}`,
+))
 const conversations = ref<LiveChatConversation[]>([])
 const guestConversations = ref<LiveChatConversation[]>([])
 const activeConversationUserId = ref(0)
@@ -730,15 +751,6 @@ const OTHER_AVATAR_STYLES = [
   'border border-cyan-200 bg-cyan-50 text-cyan-700'
 ]
 
-const OTHER_BUBBLE_STYLES = [
-  'rounded-bl-md bg-sky-50 text-slate-800 ring-1 ring-sky-100',
-  'rounded-bl-md bg-violet-50 text-slate-800 ring-1 ring-violet-100',
-  'rounded-bl-md bg-amber-50 text-slate-800 ring-1 ring-amber-100',
-  'rounded-bl-md bg-emerald-50 text-slate-800 ring-1 ring-emerald-100',
-  'rounded-bl-md bg-rose-50 text-slate-800 ring-1 ring-rose-100',
-  'rounded-bl-md bg-cyan-50 text-slate-800 ring-1 ring-cyan-100'
-]
-
 const getOtherStyleIndex = (item: LiveChatMessage) => {
   const userId = Number(item.user?.id || 0)
   return Math.abs(userId) % OTHER_AVATAR_STYLES.length
@@ -746,10 +758,6 @@ const getOtherStyleIndex = (item: LiveChatMessage) => {
 
 const getOtherAvatarClass = (item: LiveChatMessage) => {
   return OTHER_AVATAR_STYLES[getOtherStyleIndex(item)]
-}
-
-const getOtherBubbleClass = (item: LiveChatMessage) => {
-  return OTHER_BUBBLE_STYLES[getOtherStyleIndex(item)]
 }
 
 const searchUsers = async () => {
@@ -1415,43 +1423,6 @@ const submitMessage = () => {
   })
   draft.value = ''
   pendingAttachments.value = []
-}
-
-const formatTime = (timestamp: number) => {
-  if (!timestamp) return ''
-  const date = new Date(timestamp)
-  const now = new Date()
-
-  const sameYear = date.getFullYear() === now.getFullYear()
-  const sameMonth = date.getMonth() === now.getMonth()
-  const sameDay = date.getDate() === now.getDate()
-
-  if (sameYear && sameMonth && sameDay) {
-    return `今天 ${date.toLocaleTimeString('zh-CN', {
-      hour: '2-digit',
-      minute: '2-digit'
-    })}`
-  }
-
-  const yesterday = new Date(now)
-  yesterday.setDate(now.getDate() - 1)
-  const isYesterday =
-    date.getFullYear() === yesterday.getFullYear() &&
-    date.getMonth() === yesterday.getMonth() &&
-    date.getDate() === yesterday.getDate()
-
-  const timePart = date.toLocaleTimeString('zh-CN', {
-    hour: '2-digit',
-    minute: '2-digit'
-  })
-
-  if (isYesterday) {
-    return `昨天 ${timePart}`
-  }
-
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${date.getFullYear()}-${month}-${day} ${timePart}`
 }
 
 watch(

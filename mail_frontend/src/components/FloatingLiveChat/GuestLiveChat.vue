@@ -7,15 +7,26 @@
         </div>
         <button type="button" class="rounded-lg p-2 hover:bg-white/10" aria-label="关闭在线客服" @click="visible = false">✕</button>
       </div>
-      <div ref="messageContainer" class="min-h-0 flex-1 space-y-3 overflow-y-auto bg-gray-50 px-4 py-4">
+      <div ref="messageContainer" class="min-h-0 flex-1 overflow-y-auto bg-gray-50 px-4 py-4">
         <p v-if="loading" class="text-center text-sm text-gray-400">正在加载会话...</p>
         <p v-else-if="!messages.length" class="rounded-2xl bg-white px-4 py-5 text-center text-sm leading-6 text-gray-500">
           有问题直接发给我们。回复会保存在当前浏览器，刷新后也能查看。
         </p>
-        <div v-for="message in messages" :key="message.id" class="flex" :class="message.sender_type === 'guest' ? 'justify-end' : 'justify-start'">
-          <div class="max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-6 shadow-sm" :class="message.sender_type === 'guest' ? 'rounded-br-sm bg-primary-600 text-white' : 'rounded-bl-sm bg-white text-gray-800'">
-            <p class="mb-0.5 text-[11px] opacity-70">{{ message.sender_type === 'guest' ? '我' : '客服' }}</p>
-            <p class="whitespace-pre-wrap break-words">{{ message.content }}</p>
+        <div
+          v-for="{ message, showTimeSeparator, isContinuation } in messageTimeline"
+          :key="message.id"
+          :class="showTimeSeparator ? 'mt-7 first:mt-0' : isContinuation ? 'mt-1.5' : 'mt-4'"
+        >
+          <div v-if="showTimeSeparator" class="mb-4 flex items-center gap-3 px-1">
+            <span aria-hidden="true" class="h-px flex-1 bg-gray-200"></span>
+            <time data-testid="chat-time-separator" :datetime="new Date(message.created_at_ms).toISOString()" class="shrink-0 text-[11px] font-medium text-gray-500">{{ formatMessageTime(message.created_at_ms) }}</time>
+            <span aria-hidden="true" class="h-px flex-1 bg-gray-200"></span>
+          </div>
+          <div class="flex" :class="message.sender_type === 'guest' ? 'justify-end' : 'justify-start'">
+            <div class="max-w-[85%] rounded-2xl border px-3.5 py-2.5 text-sm leading-6" :class="message.sender_type === 'guest' ? ['border-transparent bg-primary-600 text-white', !isContinuation && 'rounded-tr-sm'] : ['border-gray-200 bg-white text-gray-800', !isContinuation && 'rounded-tl-sm']">
+              <p v-if="!isContinuation" class="mb-0.5 text-[11px] opacity-70">{{ message.sender_type === 'guest' ? '我' : '客服' }}</p>
+              <p class="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{{ message.content }}</p>
+            </div>
           </div>
         </div>
       </div>
@@ -32,14 +43,16 @@
 </template>
 
 <script setup lang="ts">
-import { nextTick, onMounted, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import api, { extractApiErrorMessage } from '@/services/api'
 import { registerRealtimeScope, subscribeRealtime } from '@/services/realtimeClient'
 import { getGuestVisitorId } from '@/utils/guestIdentity'
+import { buildMessageTimeline, formatMessageTime } from './messageTimeline'
 
 type GuestMessage = { id: number; sender_type: 'guest' | 'admin'; content: string; created_at_ms: number }
 const visible = ref(false)
 const messages = ref<GuestMessage[]>([])
+const messageTimeline = computed(() => buildMessageTimeline(messages.value, message => message.sender_type))
 const draft = ref('')
 const loading = ref(false)
 const sending = ref(false)
