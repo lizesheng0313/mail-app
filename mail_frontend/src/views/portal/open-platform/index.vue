@@ -34,14 +34,6 @@
                   >
                     {{ t('openPlatform.howToCall') }}
                   </a>
-                  <a
-                    v-if="docsData?.deprecated_endpoints?.length"
-                    href="#doc-deprecation"
-                    class="block rounded-xl px-3 py-2 text-sm text-amber-700 transition-colors hover:bg-amber-50"
-                    @click="mobileCatalogOpen = false"
-                  >
-                    {{ t('openPlatform.deprecationTitle') }}
-                  </a>
                 </div>
               </div>
 
@@ -130,26 +122,6 @@
               >
                 {{ getAuthModeLabel(mode) }}
               </span>
-            </div>
-
-            <div
-              v-if="docsData?.deprecated_endpoints?.length"
-              id="doc-deprecation"
-              class="mt-6 scroll-mt-28 rounded-xl border border-amber-200 bg-amber-50 p-4 sm:p-5"
-            >
-              <h3 class="text-sm font-semibold text-amber-900">{{ t('openPlatform.deprecationTitle') }}</h3>
-              <p class="mt-2 text-sm leading-6 text-amber-900">{{ docsData.deprecation_notice }}</p>
-              <div class="mt-4 space-y-2">
-                <div
-                  v-for="endpoint in docsData.deprecated_endpoints"
-                  :key="`${endpoint.method}-${endpoint.path}`"
-                  class="grid min-w-0 gap-1 rounded-lg bg-white/80 px-3 py-2 text-xs text-gray-700 sm:grid-cols-[minmax(0,1fr),minmax(0,1fr)] sm:gap-4"
-                >
-                  <code class="min-w-0 break-all">{{ endpoint.method }} {{ endpoint.path }}</code>
-                  <code class="min-w-0 break-all text-primary-700">→ {{ endpoint.replacement_method }} {{ endpoint.replacement_path }}</code>
-                </div>
-              </div>
-              <p class="mt-3 text-xs leading-5 text-amber-800">{{ t('openPlatform.deprecatedDomainParam') }}</p>
             </div>
 
             <div class="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
@@ -454,8 +426,6 @@ const endpointLabelMap: Record<string, string> = {
   'GET /open/v1/mailboxes': 'openPlatform.endpoints.listMailboxes',
   'GET /open/v1/mailboxes/resolve': 'openPlatform.endpoints.resolveMailbox',
   'DELETE /open/v1/mailboxes/{mailbox_id}': 'openPlatform.endpoints.deleteMailbox',
-  'GET /open/v1/external-mailboxes': 'openPlatform.endpoints.listExternalMailboxes',
-  'DELETE /open/v1/external-mailboxes/{mailbox_id}': 'openPlatform.endpoints.deleteExternalMailbox',
   'GET /open/v1/smtp-accounts': 'openPlatform.endpoints.listSmtpAccounts',
   'GET /open/v1/emails': 'openPlatform.endpoints.listEmails',
   'GET /open/v1/emails/{email_id}': 'openPlatform.endpoints.emailDetail',
@@ -473,11 +443,9 @@ const endpointGroups = computed<EndpointGroup[]>(() => {
 
 const isVisibleDocEndpoint = (groupName: string, item: EndpointItem) => {
   const path = String(item.path || '')
-  const method = String(item.method || '').toUpperCase()
   if (groupName === 'desktop-local' || item.execution_mode === 'desktop_local') return true
   if (path.startsWith('desktop://')) return true
   if (!path.startsWith('/open/v1')) return false
-  if (method === 'POST' && path === '/open/v1/external-mailboxes') return false
   return true
 }
 
@@ -619,7 +587,6 @@ const getEndpointAnchorGroup = (endpoint: EndpointItem, fallback: string) => {
   const path = String(endpoint.path || '')
   if (path.includes('/local-api/') || path.startsWith('http://127.0.0.1:19199')) return 'desktop-local'
   if (path.startsWith('/open/v1/smtp-accounts')) return 'smtp-accounts'
-  if (path.startsWith('/open/v1/external-mailboxes')) return 'external-mailboxes'
   if (path.startsWith('/open/v1/email-reach')) return 'email-reach'
   if (path.startsWith('/open/v1/emails')) return 'emails'
   if (path.startsWith('/open/v1/verification-codes')) return 'verification-codes'
