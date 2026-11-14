@@ -48,6 +48,7 @@
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{{ formatDate(item.created_at) }}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm">
               <div class="flex items-center space-x-3">
+                <button class="text-primary-600 text-sm" @click.stop="notificationMiniapp = item">新邮件提醒</button>
                 <ActionButton
                   icon="edit"
                   tooltip="编辑"
@@ -152,6 +153,16 @@
       </div>
     </BaseModal>
 
+    <BaseModal
+      :model-value="Boolean(notificationMiniapp)"
+      title="新邮件提醒"
+      :show-footer="false"
+      @update:model-value="value => { if (!value) notificationMiniapp = null }"
+      @close="notificationMiniapp = null"
+    >
+      <NewMailNotificationConfig v-if="notificationMiniapp" :key="notificationMiniapp.id" :miniapp-id="notificationMiniapp.id" />
+    </BaseModal>
+
     <!-- 删除确认对话框 -->
     <ConfirmDialog
       :visible="showDeleteDialog"
@@ -165,7 +176,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { defineAsyncComponent, ref, onMounted } from 'vue'
 import { showMessage } from '@/utils/message'
 import api from '@/services/api'
 import AdminDataTable from '@/components/AdminDataTable/index.vue'
@@ -174,6 +185,7 @@ import BaseModal from '@/components/BaseModal/index.vue'
 import BaseInput from '@/components/BaseInput/index.vue'
 import BaseTextarea from '@/components/BaseTextarea/index.vue'
 import ConfirmDialog from '@/components/ConfirmDialog/index.vue'
+const NewMailNotificationConfig = defineAsyncComponent(() => import('./NewMailNotificationConfig.vue'))
 
 interface Miniapp {
   id: number
@@ -186,6 +198,7 @@ interface Miniapp {
 }
 
 const miniapps = ref<Miniapp[]>([])
+const notificationMiniapp = ref<Miniapp | null>(null)
 const loading = ref(false)
 const showModal = ref(false)
 const isEdit = ref(false)
